@@ -43,10 +43,11 @@ button.ghost{border-color:transparent;color:var(--text3);background:none;font-si
 button.ghost:hover{color:var(--text);background:var(--bg2)}
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl th{text-align:left;padding:7px 8px;color:var(--text2);font-weight:400;border-bottom:1px solid var(--border);white-space:nowrap}
-.tbl td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl td{padding:4px 6px;border-bottom:1px solid var(--border);vertical-align:middle;overflow:hidden}
+.tbl td input[type=text],.tbl td select{width:100%;min-width:0}
 .tbl tbody tr:last-child td{border-bottom:none}
 .tbl tbody tr:hover td{background:var(--bg2)}
-.bar-bg{background:var(--bg3);border-radius:3px;height:6px;overflow:hidden;width:70px;display:inline-block;vertical-align:middle}
+.bar-bg{background:var(--bg3);border-radius:3px;height:6px;overflow:hidden;width:56px;display:inline-block;vertical-align:middle}
 .bar{height:100%;border-radius:3px}
 .pv{font-weight:500;min-width:44px;display:inline-block}
 .btabs{display:flex;gap:0;margin-bottom:1.25rem;border-bottom:1px solid var(--border)}
@@ -79,7 +80,8 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
 .info{font-size:13px;color:var(--text2);margin-bottom:1rem;line-height:1.6}
 .srch{width:180px;margin-bottom:1rem}
 .empty{font-size:13px;color:var(--text3);padding:.75rem 8px}
-.lin{width:155px}.tin{width:90px}
+.lin{width:100%}.tin{width:100%}
+.hrr-sel{height:30px;font-size:12px;width:100%;overflow:hidden;text-overflow:ellipsis}
 .note{font-size:11px;color:var(--text3)}
 .pill{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:999px;margin-left:4px;vertical-align:middle}
 .pill-wbt{background:var(--c-wbt-bg);color:var(--c-wbt)}
@@ -108,15 +110,15 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
     <button class="btog" id="tog-hrr" onclick="toggleBench('hrr')"><span class="dot" style="background:var(--c-hrr)"></span>Henley qual. %</button>
   </div>
 
-  <div style="overflow-x:auto">
-    <table class="tbl"><thead id="tbl-head"></thead><tbody id="results-body"></tbody></table>
+  <div style="overflow-x:hidden">
+    <table class="tbl" style="table-layout:fixed;width:100%"><thead id="tbl-head"></thead><tbody id="results-body"></tbody></table>
   </div>
   <div class="empty" id="empty-msg">No rows yet</div>
 
   <div class="tool-row" style="margin-top:12px">
     <button onclick="addRow()">+ Add row</button>
     <span class="sep">|</span>
-    <select id="sort-by" style="height:32px;font-size:13px">
+    <select id="sort-by" style="height:32px;font-size:13px;min-width:160px">
       <option value="wbt">Sort by WBT %</option>
       <option value="met">Sort by Met %</option>
       <option value="hrr">Sort by Henley qual. %</option>
@@ -323,12 +325,26 @@ function toggleBench(b){
 }
 
 function renderHeader(){
-  let h='<tr><th style="width:32px"></th><th>Label</th><th>Time</th><th>Boat class</th>';
+  // Count active benchmark pairs to distribute remaining space
+  const bCount=[bench.wbt,bench.met,bench.hrr].filter(Boolean).length;
+  // Fixed columns: del=3%, label=14%, time=8%, boat=14% = 39%
+  // Remaining 61% shared across benchmark pairs
+  // Each WBT/Met pair = pct% + bar%; Henley = event + pct% + bar%
+  let cg='<colgroup>';
+  cg+='<col style="width:3%">';   // delete btn
+  cg+='<col style="width:14%">'; // label
+  cg+='<col style="width:8%">';  // time
+  cg+='<col style="width:14%">'; // boat class
+  if(bench.wbt){cg+='<col style="width:7%"><col style="width:8%">';}
+  if(bench.met){cg+='<col style="width:7%"><col style="width:8%">';}
+  if(bench.hrr){cg+='<col style="width:16%"><col style="width:7%"><col style="width:8%">';}
+  cg+='</colgroup>';
+  let h='<tr><th></th><th>Label</th><th>Time</th><th>Boat class</th>';
   if(bench.wbt)h+=`<th colspan="2" style="color:var(--c-wbt)">vs WBT</th>`;
   if(bench.met)h+=`<th colspan="2" style="color:var(--c-met)">vs Met avg</th>`;
   if(bench.hrr)h+=`<th>Henley event</th><th colspan="2" style="color:var(--c-hrr)">vs Henley qual.</th>`;
   h+='</tr>';
-  document.getElementById('tbl-head').innerHTML=h;
+  document.getElementById('tbl-head').innerHTML=cg+h;
 }
 renderHeader();
 
@@ -379,7 +395,7 @@ function rowHTML(r){
     <td><select id="boat-${r.id}" onchange="upd(${r.id},'boat',this.value)">${boatOpts(r.boat)}</select></td>`;
   if(bench.wbt)tr+=`<td id="wv-${r.id}">—</td><td id="wb-${r.id}"></td>`;
   if(bench.met)tr+=`<td id="mv-${r.id}">—</td><td id="mb-${r.id}"></td>`;
-  if(bench.hrr)tr+=`<td><select id="hrr-${r.id}" onchange="upd(${r.id},'hrrKey',this.value)" style="height:30px;font-size:12px;max-width:210px">${hrrOpts(r.hrrKey)}</select></td><td id="hv-${r.id}">—</td><td id="hb-${r.id}"></td>`;
+  if(bench.hrr)tr+=`<td><select id="hrr-${r.id}" class="hrr-sel" onchange="upd(${r.id},'hrrKey',this.value)">${hrrOpts(r.hrrKey)}</select></td><td id="hv-${r.id}">—</td><td id="hb-${r.id}"></td>`;
   return tr+'</tr>';
 }
 function renderRow(id){
