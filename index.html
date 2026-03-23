@@ -93,6 +93,9 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
 .pill-met{background:var(--c-met-bg);color:var(--c-met)}
 .pill-hrr{background:var(--c-hrr-bg);color:var(--c-hrr)}
 .sep{color:var(--text3);margin:0 2px}
+.footer{margin-top:2.5rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--text3)}
+.footer a{color:var(--text3);text-decoration:none}
+.footer a:hover{color:var(--text2)}
 @media(max-width:600px){
   .bar-bg{display:none}
   .pv{font-size:12px;min-width:38px}
@@ -127,7 +130,7 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
   </div>
 
   <p style="font-size:14px;color:var(--text2);margin-bottom:4px">Enter times below over 2000m to get comparative GMT scores against each benchmark.</p>
-  <p style="font-size:12px;color:var(--text3);margin-bottom:14px">Note: race conditions can vary significantly — this tool is intended to compare and benchmark different crews against each other based on times recorded during the same session.</p>
+  <p style="font-size:12px;color:var(--text3);margin-bottom:14px">Note: race conditions can vary significantly. This tool is intended to compare and benchmark different crews against each other based on times recorded during the same session.</p>
 
   <div class="tbl-wrap">
     <table class="tbl"><thead id="tbl-head"></thead><tbody id="results-body"></tbody></table>
@@ -197,9 +200,14 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
     <h2>Henley distance adjustment</h2>
     <p>The Henley course is 1 mile and 550 yards — approximately 2112m, which is 5.6% longer than the standard 2000m international distance. To convert a Henley time to its 2000m equivalent, the time is multiplied by 2000 ÷ 2112 = 0.9470. This assumes a crew can sustain the same average speed over both 2000m and 2112m, which is a reasonable approximation for comparison purposes.</p>
   </div>
+  <div class="card">
+    <h2>Suggestions &amp; feedback</h2>
+    <p>This tool is actively being developed — more rowing tools are coming soon. If you have suggestions for features, spot any data errors, or just want to say hello, get in touch.</p>
+    <p style="margin-top:.5rem"><a href="/cdn-cgi/l/email-protection#7b1d1e1e1f191a18103b09140c12151c0f14141708551814550e10" style="color:var(--c-wbt);text-decoration:none;font-weight:500"><span class="__cf_email__" data-cfemail="6c0a0909080e0d0f072c1e031b05020b180303001f420f03421907">[email&#160;protected]</span></a></p>
+  </div>
 </div>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 const WBT={
   "M8+": {label:"Men's eight",t:"5:18.68"},
   "M4-": {label:"Men's coxless four",t:"5:37.86"},
@@ -519,5 +527,9 @@ function gob(name){
   document.getElementById('bpanel-'+name).classList.add('active');
 }
 </script>
+
+<div class="footer">
+  <a href="mailto:feedback@rowingtools.co.uk">Contact Us — Suggestions &amp; Feedback</a>
+</div>
 </body>
 </html>
