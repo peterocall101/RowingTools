@@ -111,10 +111,10 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
 </head>
 <body>
 <h1>Rowing Tools</h1>
-<p class="sub">GMT% Calculator — winning benchmarks (WBT, Met Regatta) &amp; Henley qualification benchmark</p>
+<p class="sub">GMT% Calculator - winning benchmarks (WBT, Met Regatta) &amp; Henley qualification benchmark</p>
 
 <div class="tabs">
-  <button class="tab active" onclick="go('calc')">Results table</button>
+  <button class="tab active" onclick="go('calc')">Results Table</button>
   <button class="tab" onclick="go('benchmarks')">Benchmarks</button>
   <button class="tab" onclick="go('about')">What is GMT?</button>
 </div>
@@ -170,7 +170,7 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
     <div id="met-wrap"></div>
   </div>
   <div id="bpanel-hrr" class="bpanel">
-    <p class="info">Unlike the WBT and Met benchmarks which represent <strong>winning</strong> times, these are the fastest <strong>non-qualifying</strong> times at Henley Royal Regatta — i.e. the slowest time that failed to make it into the draw. A score at or above 100% suggests a crew would likely have qualified. Times averaged across available years (2021–2025) and adjusted from Henley course (2112m) to 2000m equivalent (× 2000/2112). Select the event your crew would actually enter — eligibility rules differ significantly between events.</p>
+    <p class="info">Unlike the WBT and Met benchmarks which represent <strong>winning</strong> times, these are the fastest <strong>non-qualifying</strong> times at Henley Royal Regatta - i.e. the slowest time that failed to make it into the draw. A score at or above 100% suggests a crew would likely have qualified. Times averaged across available years (2021-2025) and adjusted from Henley course (2112m) to 2000m equivalent (x 2000/2112). Select the event your crew would actually enter - eligibility rules differ significantly between events.</p>
     <input type="text" class="srch" placeholder="Search…" oninput="renderHRR(this.value)">
     <div id="hrr-wrap"></div>
   </div>
@@ -180,9 +180,9 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
 <div id="panel-about" class="panel">
   <div class="card">
     <h2>What is GMT%?</h2>
-    <p>GMT stands for <strong>Gold Medal Time</strong> — a percentage score expressing how fast a crew's time is relative to a known benchmark. The higher the percentage, the closer the crew is to that standard.</p>
+    <p>GMT stands for <strong>Gold Medal Time</strong> - a percentage score expressing how fast a crew's time is relative to a known benchmark. The higher the percentage, the closer the crew is to that standard.</p>
     <p>The formula is: <strong>GMT% = benchmark time ÷ your time × 100</strong>. Because rowing is a timed sport where faster is better, your time will generally be slower than the benchmark, so scores are typically below 100%.</p>
-    <p>For example, a men's eight rowing 5:45 against a WBT of 5:18.68 scores 92.7% — meaning they rowed at 92.7% of the world's best pace.</p>
+    <p>For example, a men's eight rowing 5:45 against a WBT of 5:18.68 scores 92.7% - meaning they rowed at 92.7% of the world's best pace.</p>
     <div class="score-grid">
       <div class="score-box" style="background:#E1F5EE"><span class="sp" style="color:#0F6E56">≥ 87%</span><span class="sl">Elite / international standard</span></div>
       <div class="score-box" style="background:#E6F1FB"><span class="sp" style="color:#185FA5">80–87%</span><span class="sl">High club / top domestic</span></div>
@@ -192,18 +192,13 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
   </div>
   <div class="card">
     <h2>Which benchmark should I use?</h2>
-    <p><span class="pill pill-wbt">WBT</span> <strong>World Best Time — winning benchmark.</strong> The fastest ever recorded time for each boat class over 2000m, officially recognised by World Rowing. The gold standard. Competitive domestic club crews typically score 72–85%.</p>
-    <p><span class="pill pill-met">Met avg</span> <strong>Metropolitan Regatta average — winning benchmark.</strong> The average championship A-final winning time at the Metropolitan Regatta at Dorney Lake, across 2021–2025. A score above 100% means you'd have won on average. Useful for gauging competitiveness within the UK club scene.</p>
-    <p><span class="pill pill-hrr">Henley qual.</span> <strong>Henley qualification benchmark — not a winning benchmark.</strong> This is the fastest time that <em>failed</em> to qualify at Henley Royal Regatta qualifying races, averaged across available years and adjusted to 2000m. A score at or above 100% means you'd likely have made it into the draw — not that you'd win. Because eligibility rules differ significantly between events, make sure to select the specific Henley event your crew would enter.</p>
+    <p><span class="pill pill-wbt">WBT</span> <strong>World Best Time - winning benchmark.</strong> The fastest ever recorded time for each boat class over 2000m, officially recognised by World Rowing. The gold standard. Competitive domestic club crews typically score 72-85%.</p>
+    <p><span class="pill pill-met">Met avg</span> <strong>Metropolitan Regatta average - winning benchmark.</strong> The average championship A-final winning time at the Metropolitan Regatta at Dorney Lake, across 2021-2025. A score above 100% means you'd have won on average. Useful for gauging competitiveness within the UK club scene.</p>
+    <p><span class="pill pill-hrr">Henley qual.</span> <strong>Henley qualification benchmark - not a winning benchmark.</strong> This is the fastest time that <em>failed</em> to qualify at Henley Royal Regatta qualifying races, averaged across available years and adjusted to 2000m. A score at or above 100% means you'd likely have made it into the draw - not that you'd win. Because eligibility rules differ significantly between events, make sure to select the specific Henley event your crew would enter.</p>
   </div>
   <div class="card">
     <h2>Henley distance adjustment</h2>
-    <p>The Henley course is 1 mile and 550 yards — approximately 2112m, which is 5.6% longer than the standard 2000m international distance. To convert a Henley time to its 2000m equivalent, the time is multiplied by 2000 ÷ 2112 = 0.9470. This assumes a crew can sustain the same average speed over both 2000m and 2112m, which is a reasonable approximation for comparison purposes.</p>
-  </div>
-  <div class="card">
-    <h2>Suggestions &amp; feedback</h2>
-    <p>This tool is actively being developed — more rowing tools are coming soon. If you have suggestions for features, spot any data errors, or just want to say hello, get in touch.</p>
-    <p style="margin-top:.5rem"><a href="/cdn-cgi/l/email-protection#7b1d1e1e1f191a18103b09140c12151c0f14141708551814550e10" style="color:var(--c-wbt);text-decoration:none;font-weight:500"><span class="__cf_email__" data-cfemail="6c0a0909080e0d0f072c1e031b05020b180303001f420f03421907">[email&#160;protected]</span></a></p>
+    <p>The Henley course is 1 mile and 550 yards - approximately 2112m, which is 5.6% longer than the standard 2000m international distance. To convert a Henley time to its 2000m equivalent, the time is multiplied by 2000 / 2112 = 0.9470. This assumes a crew can sustain the same average speed over both 2000m and 2112m, which is a reasonable approximation for comparison purposes.</p>
   </div>
 </div>
 
@@ -529,7 +524,7 @@ function gob(name){
 </script>
 
 <div class="footer">
-  <a href="mailto:feedback@rowingtools.co.uk">Contact Us — Suggestions &amp; Feedback</a>
+  <a href="mailto:feedback@rowingtools.co.uk">Contact Us - Suggestions &amp; Feedback</a>
 </div>
 </body>
 </html>
