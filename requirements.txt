@@ -1,0 +1,13 @@
+# Stage 1 - GMT calculator (no external dependencies)
+# Standard library only
+
+# Stage 2 - scraper
+anthropic>=0.20
+requests>=2.31
+beautifulsoup4>=4.12
+selenium>=4.15
+pandas>=2.0
+
+# Also required for Selenium:
+# ChromeDriver matching your Chrome version
+# https://googlechromelabs.github.io/chrome-for-testing/

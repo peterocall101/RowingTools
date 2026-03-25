@@ -203,124 +203,43 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
 </div>
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
-const WBT={
-  "M8+": {label:"Men's eight",t:"5:18.68"},
-  "M4-": {label:"Men's coxless four",t:"5:37.86"},
-  "M4x": {label:"Men's quad scull",t:"5:32.26"},
-  "M4+": {label:"Men's coxed four",t:"5:58.96"},
-  "M2-": {label:"Men's coxless pair",t:"6:08.50"},
-  "M2x": {label:"Men's double scull",t:"5:59.72"},
-  "M2+": {label:"Men's coxed pair",t:"6:31.00"},
-  "M1x": {label:"Men's single scull",t:"6:30.74"},
-  "LM4-":{label:"Lwt men's four",t:"5:45.60"},
-  "LM2x":{label:"Lwt men's double",t:"6:05.97"},
-  "LM1x":{label:"Lwt men's single",t:"6:39.56"},
-  "W8+": {label:"Women's eight",t:"5:54.16"},
-  "W4-": {label:"Women's coxless four",t:"6:14.36"},
-  "W4x": {label:"Women's quad scull",t:"6:06.84"},
-  "W4+": {label:"Women's coxed four",t:"6:25.34"},
-  "W2-": {label:"Women's coxless pair",t:"6:49.08"},
-  "W2x": {label:"Women's double scull",t:"6:37.31"},
-  "W1x": {label:"Women's single scull",t:"7:07.71"},
-  "LW2x":{label:"Lwt women's double",t:"6:47.69"},
-  "LW1x":{label:"Lwt women's single",t:"7:24.46"},
-};
+// ── BENCHMARK DATA ────────────────────────────────────────────────────────────
+// Fetched from data/benchmarks_v1.json at load time.
+// Single source of truth - edit the JSON file, never this script.
 
-const MET_RAW={
-  "M8+":  {label:"Open Championship 8+",years:{2021:{sun:384.7},2022:{sat:353.0,sun:344.7},2023:{sat:341.14,sun:354.36},2025:{sat:333.30,sun:340.75}}},
-  "M4-":  {label:"Open Championship 4–",years:{2022:{sat:382.3,sun:381.8},2023:{sat:378.4,sun:382.9},2025:{sat:368.71,sun:367.45}}},
-  "M4x":  {label:"Open Championship 4x–",years:{2022:{sat:393.6,sun:364.9},2023:{sat:370.6,sun:371.4},2025:{sat:356.61,sun:365.42}}},
-  "M4+":  {label:"Open Championship 4+",years:{2022:{sat:401.4},2023:{sat:395.8,sun:396.3},2025:{sat:384.79,sun:386.92}}},
-  "M2-":  {label:"Open Championship 2–",years:{2022:{sat:419.5,sun:409.9},2023:{sat:426.9,sun:430.2},2025:{sat:421.82,sun:393.45}}},
-  "M2x":  {label:"Open Championship 2x",years:{2022:{sat:409.3,sun:392.0},2023:{sat:407.5,sun:404.1},2025:{sat:397.67,sun:400.69}}},
-  "M1x":  {label:"Open Championship 1x",years:{2022:{sat:437.3,sun:424.2},2023:{sat:441.1,sun:439.2},2025:{sat:432.47,sun:420.12}}},
-  "LM1x": {label:"Lwt men's 1x",years:{2022:{sat:473.8,sun:444.6},2023:{sat:475.9,sun:479.2},2025:{sat:443.55,sun:430.27}}},
-  "W8+":  {label:"Women's Championship 8+",years:{2021:{sat:382.2},2022:{sat:403.9,sun:389.2},2023:{sat:386.4},2025:{sat:381.09,sun:379.16}}},
-  "W4-":  {label:"Women's Championship 4–",years:{2022:{sat:442.2,sun:414.3},2023:{sat:427.7,sun:429.6},2025:{sat:402.70,sun:419.61}}},
-  "W4x":  {label:"Women's Championship 4x–",years:{2022:{sat:427.7,sun:406.6},2023:{sat:401.2,sun:419.7},2025:{sat:396.13,sun:415.36}}},
-  "W4+":  {label:"Women's Championship 4+",years:{2022:{sat:474.0,sun:447.8},2023:{sat:452.5,sun:458.2},2025:{sat:458.04,sun:437.54}}},
-  "W2-":  {label:"Women's Championship 2–",years:{2022:{sat:478.8,sun:461.5},2023:{sat:452.5,sun:489.4},2025:{sat:454.73,sun:472.51}}},
-  "W2x":  {label:"Women's Championship 2x",years:{2022:{sat:452.0,sun:434.2},2023:{sat:445.1,sun:454.8},2025:{sat:443.47,sun:432.61}}},
-  "W1x":  {label:"Women's Championship 1x",years:{2022:{sat:492.2,sun:464.8},2023:{sat:477.6,sun:500.6},2025:{sat:474.60,sun:462.92}}},
-  "LW1x": {label:"Lwt women's 1x",years:{2022:{sat:507.7,sun:469.4},2023:{sat:502.6},2025:{sat:482.48,sun:480.13}}},
-};
-const MET_AVG={};
-for(const[k,d]of Object.entries(MET_RAW)){
-  const v=[];for(const yr of Object.values(d.years)){if(yr.sat)v.push(yr.sat);if(yr.sun)v.push(yr.sun);}
-  if(v.length)MET_AVG[k]={label:d.label,avg:v.reduce((a,b)=>a+b,0)/v.length,n:v.length};
-}
-
-// ── HENLEY DATA ──────────────────────────────────────────────────────────────
-// Fastest non-qualifier times in seconds at Henley distance (2112m)
-// Sources: hrr.co.uk historical qualifying results (2021–2025 where accessible)
-// 2021 data from allmark.one archive; 2022/2023 from allmark.one/hrr.co.uk
-// 2024/2025 from hrr.co.uk directly scraped
-// Diamond/Princess Royal omitted — those events rarely produce non-qualifiers
-const HF=2000/2112;
-const HRR_RAW={
-  // ── EIGHTS ───────────────────────────────────────────────────────────────
-  "M8+_ladies": {label:"Ladies' Challenge Plate (M 8+ academic/club)", boatClass:"M8+",
-    years:{2024:360.5, 2025:392.3}},
-  "M8+_thames": {label:"Thames Challenge Cup (M 8+ club)",             boatClass:"M8+",
-    years:{2021:403.9, 2022:403.9, 2023:400.7, 2024:399.1, 2025:392.3}},
-  "M8+_temple": {label:"Temple Challenge Cup (M 8+ university)",       boatClass:"M8+",
-    years:{2021:388.6, 2022:388.6, 2023:388.6, 2024:383.3, 2025:394.3}},
-  "M8+_island": {label:"Island Challenge Cup (M 8+ university B)",     boatClass:"M8+",
-    years:{2022:430.3, 2023:439.9, 2024:432.5, 2025:439.9}},
-  "M8+_PE":     {label:"Princess Elizabeth (J18 M 8+)",                boatClass:"M8+",
-    years:{2021:403.9, 2022:403.9, 2023:403.9, 2024:396.7, 2025:419.5}},
-  "W8+_warg":   {label:"Wargrave Challenge Cup (W 8+ club)",           boatClass:"W8+",
-    years:{2021:450.4, 2022:452.3, 2023:450.4, 2024:437.0, 2025:460.7}},
-  "W8+_pp":     {label:"Prince Philip Challenge Trophy (JW 8+)",       boatClass:"W8+",
-    years:{2021:469.4, 2022:463.9, 2023:455.9, 2024:451.6, 2025:483.3}},
-  "W8+_rem":    {label:"Remenham Challenge Cup (W 8+ elite)",          boatClass:"W8+",
-    years:{2021:442.4, 2022:442.4, 2023:443.7, 2024:433.4}},
-  "W8+_island": {label:"Island Challenge Cup (W 8+ university)",       boatClass:"W8+",
-    years:{2021:430.3, 2022:430.3, 2023:439.9, 2024:439.7, 2025:439.9}},
-  // ── FOURS ────────────────────────────────────────────────────────────────
-  "M4-_vis":    {label:"Visitors' Challenge Cup (M 4–)",               boatClass:"M4-",
-    years:{2021:397.8, 2022:397.8, 2023:398.4, 2024:404.2, 2025:425.1}},
-  "M4-_wyf":    {label:"Wyfold Challenge Cup (M 4– club)",             boatClass:"M4-",
-    years:{2021:429.0, 2022:438.2, 2023:430.2, 2024:427.6, 2025:438.2}},
-  "M4+_brit":   {label:"Britannia Challenge Cup (M 4+ club)",          boatClass:"M4+",
-    years:{2021:420.3, 2022:403.0, 2023:406.9, 2024:417.5, 2025:425.7}},
-  "M4+_PA":     {label:"Prince Albert Challenge Cup (M 4+ university)",boatClass:"M4+",
-    years:{2022:435.2, 2023:440.3, 2024:435.2, 2025:439.9}},
-  "W4-_town":   {label:"Town Challenge Cup (W 4–)",                    boatClass:"W4-",
-    years:{2021:452.3, 2022:452.3, 2023:454.2, 2024:447.9, 2025:446.4}},
-  "W4-_pg":     {label:"Princess Grace Challenge Cup (W 4x)",         boatClass:"W4x",
-    years:{2021:450.3, 2022:430.3, 2023:444.7, 2024:442.3}},
-  // ── QUADS ────────────────────────────────────────────────────────────────
-  "M4x_pow":    {label:"Prince of Wales Challenge Cup (M 4x)",         boatClass:"M4x",
-    years:{2021:388.6, 2022:385.4, 2023:391.4, 2024:385.4, 2025:400.5}},
-  "M4x_faw":    {label:"Fawley Challenge Cup (J18 M 4x)",              boatClass:"M4x",
-    years:{2021:397.4, 2022:400.0, 2023:397.4, 2024:397.4, 2025:400.0}},
-  "W4x_dj":     {label:"Diamond Jubilee Challenge Cup (JW 4x)",        boatClass:"W4x",
-    years:{2021:455.9, 2022:450.4, 2023:452.3, 2024:447.0, 2025:483.3}},
-  // ── SCULLS ───────────────────────────────────────────────────────────────
-  // Stonor Trophy (W 2x) — 2024 data only, 2025 not in scraped results
-  "W2x_ston":   {label:"Stonor Challenge Trophy (W 2x)",               boatClass:"W2x",
-    years:{2024:454.8}},
-  // Double Sculls Challenge Cup (M 2x)
-  "M2x_ds":     {label:"Double Sculls Challenge Cup (M 2x)",           boatClass:"M2x",
-    years:{2021:443.9, 2022:443.9, 2023:444.9, 2024:442.5}},
-  // ── PAIRS ────────────────────────────────────────────────────────────────
-  "M2-_sg":     {label:"Silver Goblets & Nickalls' Cup (M 2–)",        boatClass:"M2-",
-    years:{2022:426.0, 2023:426.0, 2024:429.0}},
-  "W2-_hamb":   {label:"Hambleden Pairs Challenge Cup (W 2–)",         boatClass:"W2-",
-    years:{2021:503.4, 2022:511.4, 2023:500.1, 2024:500.1}},
-};
-
-const HRR={};
-for(const[k,d]of Object.entries(HRR_RAW)){
-  const vals=Object.values(d.years);
-  const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
-  HRR[k]={label:d.label,boatClass:d.boatClass,avgH:avg,t2k:avg*HF,n:vals.length,years:d.years};
-}
-
-const HRR_OPTS=[["","— no Henley benchmark —"],...Object.entries(HRR).map(([k,d])=>[k,d.label])];
 const BOAT_ORDER=["M8+","M4-","M4x","M4+","M2-","M2x","M2+","M1x","LM4-","LM2x","LM1x","W8+","W4-","W4x","W4+","W2-","W2x","W1x","LW2x","LW1x"];
 const ALL_YEARS_HRR=[2021,2022,2023,2024,2025];
+const HF=2000/2112;
+
+// These are populated after the fetch resolves
+let WBT={}, MET_RAW={}, MET_AVG={}, HRR={}, HRR_OPTS=[], BENCHMARK_VERSION='';
+
+function buildBenchmarks(data){
+  BENCHMARK_VERSION=data._meta?.version||'v1';
+  WBT={};
+  for(const[k,v]of Object.entries(data.wbt)) WBT[k]={label:v.label,t:v.time};
+  MET_RAW={};
+  for(const[k,v]of Object.entries(data.met_raw)){
+    const years={};
+    for(const[yr,vals]of Object.entries(v.years)) years[parseInt(yr)]=vals;
+    MET_RAW[k]={label:v.label,years};
+  }
+  MET_AVG={};
+  for(const[k,d]of Object.entries(MET_RAW)){
+    const v=[];
+    for(const yr of Object.values(d.years)){if(yr.sat)v.push(yr.sat);if(yr.sun)v.push(yr.sun);}
+    if(v.length)MET_AVG[k]={label:d.label,avg:v.reduce((a,b)=>a+b,0)/v.length,n:v.length};
+  }
+  HRR={};
+  for(const[k,d]of Object.entries(data.hrr_raw)){
+    const years={};
+    for(const[yr,t]of Object.entries(d.years)) years[parseInt(yr)]=t;
+    const vals=Object.values(years);
+    const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+    HRR[k]={label:d.label,boatClass:d.boat,avgH:avg,t2k:avg*HF,n:vals.length,years};
+  }
+  HRR_OPTS=[["","- no Henley benchmark -"],...Object.entries(HRR).map(([k,d])=>[k,d.label])];
+}
 
 function parseT(s){
   if(!s)return null;s=s.trim().replace(',','.');
@@ -339,7 +258,7 @@ function applyToggleStyle(b){
   if(bench[b]){btn.style.borderColor=bCfg[b].c;btn.style.background=bCfg[b].bg;btn.style.color=bCfg[b].c;}
   else{btn.style.borderColor='';btn.style.background='';btn.style.color='';}
 }
-Object.keys(bench).forEach(applyToggleStyle);
+Object.keys(bench).forEach(applyToggleStyle); // styling only, safe before fetch
 
 function toggleBench(b){
   bench[b]=!bench[b];applyToggleStyle(b);
@@ -354,7 +273,7 @@ function renderHeader(){
   h+='</tr>';
   document.getElementById('tbl-head').innerHTML=h;
 }
-renderHeader();
+// renderHeader and addRow called by startApp() after fetch resolves
 
 let rowId=0;
 const rows=[];
@@ -426,7 +345,7 @@ function refreshScores(id){
   if(bench.met){const m=MET_AVG[r.boat];sc('mv-'+id,'mb-'+id,s&&m?(m.avg/s)*100:null);}
   if(bench.hrr){const h=HRR[r.hrrKey];sc('hv-'+id,'hb-'+id,s&&h?(h.t2k/s)*100:null);}
 }
-addRow();
+// addRow() called by startApp() after fetch resolves
 
 // ── CSV DOWNLOAD ──────────────────────────────────────────────────────────────
 function downloadCSV(){
@@ -470,7 +389,7 @@ function renderWBT(q=''){
     <th class="hd-dim">Code</th><th class="hd-dim">Event</th><th class="hd-wbt">WBT (2000m)</th>
   </tr></thead><tbody>${rs}</tbody></table>`;
 }
-renderWBT();
+// called by startApp()
 
 function renderMET(q=''){
   q=q.toLowerCase();
@@ -488,7 +407,7 @@ function renderMET(q=''){
     <th class="hd-dim">2021</th><th class="hd-dim">2022</th><th class="hd-dim">2023</th><th class="hd-dim">2025</th>
   </tr></thead><tbody>${rs}</tbody></table></div>`;
 }
-renderMET();
+// called by startApp()
 
 function renderHRR(q=''){
   q=q.toLowerCase();
@@ -507,9 +426,26 @@ function renderHRR(q=''){
     <th class="hd-dim">2021</th><th class="hd-dim">2022</th><th class="hd-dim">2023</th><th class="hd-dim">2024</th><th class="hd-dim">2025</th>
   </tr></thead><tbody>${rs}</tbody></table></div>`;
 }
-renderHRR();
+// called by startApp()
 
-const TABS=['calc','benchmarks','about'];
+// ── FETCH BENCHMARKS AND START ────────────────────────────────────────────────
+function startApp(){
+  renderHeader();
+  addRow();
+  renderWBT();
+  renderMET();
+  renderHRR();
+}
+
+fetch('data/benchmarks_v1.json')
+  .then(r=>{if(!r.ok)throw new Error(r.status);return r.json();})
+  .then(data=>{buildBenchmarks(data);startApp();})
+  .catch(err=>{
+    document.getElementById('empty-msg').textContent='Could not load benchmark data. Check data/benchmarks_v1.json exists in the repo.';
+    console.error('Benchmark fetch failed:',err);
+  });
+
+
 function go(name){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',TABS[i]===name));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
