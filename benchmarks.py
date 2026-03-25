@@ -10,7 +10,7 @@ To use a different version: load_benchmarks('benchmarks_v2.json')
 import json
 import os
 
-_DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
+_DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
 
 
 def load_benchmarks(filename='benchmarks_v1.json'):
