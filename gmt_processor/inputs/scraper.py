@@ -295,7 +295,7 @@ def extract_with_claude(raw_text: str, api_key: str) -> list[dict]:
 def process_and_rank(extracted: list[dict]) -> list[dict]:
     """Apply GMT calculations to extracted results and rank by WBT%."""
     # Import from the local benchmarks module
-    sys.path.insert(0, os.path.dirname(__file__))
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
     from gmt_processor import process_results, rank_results
 
     # Convert Claude's output format to gmt_processor's expected format
