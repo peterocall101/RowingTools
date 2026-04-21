@@ -6,7 +6,7 @@
 
 ## Repo structure
 
-```
+```text
 RowingTools/
 │
 ├── index.html                          # Public website (GitHub Pages)
@@ -111,10 +111,11 @@ python inputs/scraper.py --url "https://docs.google.com/spreadsheets/d/1AUep12yy
 ```
 
 **Local setup for Stage 2:**
+
 ```bash
 pip install anthropic requests beautifulsoup4 selenium pandas
 # For rowresults only: install ChromeDriver matching your Chrome version
-# https://googlechromelabs.github.io/chrome-for-testing/
+# See: googlechromelabs.github.io/chrome-for-testing/
 ```
 
 ---
@@ -150,7 +151,8 @@ pip install anthropic requests beautifulsoup4 selenium pandas
 - [x] HWR as fourth benchmark (W8+, W4-, W2-, W4x, W2x, W1x, 2022-2025 avg, 1500m→2000m)
 
 ### Next
-- [ ] Set up Namecheap email forwarding (feedback@rowingtools.co.uk -> personal Gmail)
+
+- [x] Set up Namecheap email forwarding (feedback@rowingtools.co.uk -> personal Gmail)
 - [ ] Install scraper.py dependencies locally and test against Wallingford URL
 - [ ] Test scraper.py against rowresults (needs ChromeDriver)
 - [ ] Run Met 2025 through processor on regatta day, publish top GMT post
