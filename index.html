@@ -22,12 +22,13 @@
   --c-wbt:#185FA5;--c-wbt-bg:#E6F1FB;
   --c-met:#6D2E46;--c-met-bg:#F5EBF0;
   --c-hrr:#0F6E56;--c-hrr-bg:#E1F5EE;
+  --c-hwr:#B45309;--c-hwr-bg:#FEF3C7;
 }
 @media(prefers-color-scheme:dark){:root{
   --bg:#1e1e1c;--bg2:#2a2a28;--bg3:#333331;
   --text:#f0f0ee;--text2:#aaa;--text3:#777;
   --border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.2);
-  --c-wbt-bg:#0c2840;--c-met-bg:#2a1a20;--c-hrr-bg:#0a1f19;
+  --c-wbt-bg:#0c2840;--c-met-bg:#2a1a20;--c-hrr-bg:#0a1f19;--c-hwr-bg:#291904;
 }}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);padding:1.5rem;max-width:1100px;margin:0 auto;line-height:1.6}
 h1{font-size:22px;font-weight:500;margin-bottom:2px}
@@ -64,6 +65,7 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
 .rtbl th.hd-wbt{color:var(--c-wbt);font-weight:500}
 .rtbl th.hd-met{color:var(--c-met);font-weight:500}
 .rtbl th.hd-hrr{color:var(--c-hrr);font-weight:500}
+.rtbl th.hd-hwr{color:var(--c-hwr);font-weight:500}
 .rtbl th.hd-dim{color:var(--text2);font-weight:400}
 .rtbl td{padding:7px 8px;border-bottom:1px solid var(--border)}
 .rtbl tr:last-child td{border-bottom:none}
@@ -92,6 +94,7 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
 .pill-wbt{background:var(--c-wbt-bg);color:var(--c-wbt)}
 .pill-met{background:var(--c-met-bg);color:var(--c-met)}
 .pill-hrr{background:var(--c-hrr-bg);color:var(--c-hrr)}
+.pill-hwr{background:var(--c-hwr-bg);color:var(--c-hwr)}
 .sep{color:var(--text3);margin:0 2px}
 .footer{margin-top:2.5rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--text3)}
 .footer a{color:var(--text3);text-decoration:none}
@@ -111,7 +114,7 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
 </head>
 <body>
 <h1>Rowing Tools</h1>
-<p class="sub">GMT% Calculator - winning benchmarks (WBT, Met Regatta) &amp; Henley qualification benchmark</p>
+<p class="sub">GMT% Calculator - winning benchmarks (WBT, Met Regatta, HWR) &amp; Henley qualification benchmark</p>
 
 <div class="tabs">
   <button class="tab active" onclick="go('calc')">Results Table</button>
@@ -127,6 +130,7 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
     <button class="btog" id="tog-wbt" onclick="toggleBench('wbt')"><span class="dot" style="background:var(--c-wbt)"></span>WBT % <span style="font-size:11px;opacity:.7">(winning)</span></button>
     <button class="btog" id="tog-met" onclick="toggleBench('met')"><span class="dot" style="background:var(--c-met)"></span>Met % <span style="font-size:11px;opacity:.7">(winning)</span></button>
     <button class="btog" id="tog-hrr" onclick="toggleBench('hrr')"><span class="dot" style="background:var(--c-hrr)"></span>Henley qual. %</button>
+    <button class="btog" id="tog-hwr" onclick="toggleBench('hwr')"><span class="dot" style="background:var(--c-hwr)"></span>HWR % <span style="font-size:11px;opacity:.7">(winning, W only)</span></button>
   </div>
 
   <p style="font-size:14px;color:var(--text2);margin-bottom:4px">Enter times below over 2000m to get comparative GMT scores against each benchmark.</p>
@@ -144,6 +148,7 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
       <option value="wbt">Sort by WBT %</option>
       <option value="met">Sort by Met %</option>
       <option value="hrr">Sort by Henley qual. %</option>
+      <option value="hwr">Sort by HWR %</option>
       <option value="time">Sort by time</option>
     </select>
     <button onclick="sortRows()">↕ Reorder</button>
@@ -158,6 +163,7 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
     <button class="btab active" onclick="gob('wbt')">World best times</button>
     <button class="btab" onclick="gob('met')">Met Regatta averages</button>
     <button class="btab" onclick="gob('hrr')">Henley qualification benchmarks</button>
+    <button class="btab" onclick="gob('hwr')">Henley Women's Regatta</button>
   </div>
   <div id="bpanel-wbt" class="bpanel active">
     <p class="info">Official World Best Times over 2000m as recognised by World Rowing.</p>
@@ -173,6 +179,10 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
     <p class="info">Unlike the WBT and Met benchmarks which represent <strong>winning</strong> times, these are the fastest <strong>non-qualifying</strong> times at Henley Royal Regatta - i.e. the slowest time that failed to make it into the draw. A score at or above 100% suggests a crew would likely have qualified. Times averaged across available years (2021-2025) and adjusted from Henley course (2112m) to 2000m equivalent (x 2000/2112). Select the event your crew would actually enter - eligibility rules differ significantly between events.</p>
     <input type="text" class="srch" placeholder="Search…" oninput="renderHRR(this.value)">
     <div id="hrr-wrap"></div>
+  </div>
+  <div id="bpanel-hwr" class="bpanel">
+    <p class="info">Championship event <strong>winning</strong> times at Henley Women's Regatta, averaged across 2022-2025. The HWR course is 1500m, so times are adjusted to 2000m equivalent (x 2000/1500). Women's events only. HWR times can vary significantly year to year due to river stream conditions. 2021 is excluded as the course was shortened that year due to pandemic-related construction.</p>
+    <div id="hwr-wrap"></div>
   </div>
 </div>
 
@@ -195,6 +205,7 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
     <p><span class="pill pill-wbt">WBT</span> <strong>World Best Time - winning benchmark.</strong> The fastest ever recorded time for each boat class over 2000m, officially recognised by World Rowing. The gold standard. Competitive domestic club crews typically score 72-85%.</p>
     <p><span class="pill pill-met">Met avg</span> <strong>Metropolitan Regatta average - winning benchmark.</strong> The average championship A-final winning time at the Metropolitan Regatta at Dorney Lake, across 2021-2025. A score above 100% means you'd have won on average. Useful for gauging competitiveness within the UK club scene.</p>
     <p><span class="pill pill-hrr">Henley qual.</span> <strong>Henley qualification benchmark - not a winning benchmark.</strong> This is the fastest time that <em>failed</em> to qualify at Henley Royal Regatta qualifying races, averaged across available years and adjusted to 2000m. A score at or above 100% means you'd likely have made it into the draw - not that you'd win. Because eligibility rules differ significantly between events, make sure to select the specific Henley event your crew would enter.</p>
+    <p><span class="pill pill-hwr">HWR</span> <strong>Henley Women's Regatta - winning benchmark, women's events only.</strong> Championship event winning times at HWR averaged across 2023-2025, adjusted from 1500m to 2000m equivalent. A useful domestic benchmark for women's crews. Not available for men's or lightweight boat classes.</p>
   </div>
   <div class="card">
     <h2>Henley distance adjustment</h2>
@@ -204,15 +215,17 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ── BENCHMARK DATA ────────────────────────────────────────────────────────────
-// Fetched from data/benchmarks_v1.json at load time.
+// Fetched from data/benchmarks_v2.json at load time.
 // Single source of truth - edit the JSON file, never this script.
 
 const BOAT_ORDER=["M8+","M4-","M4x","M4+","M2-","M2x","M2+","M1x","LM4-","LM2x","LM1x","W8+","W4-","W4x","W4+","W2-","W2x","W1x","LW2x","LW1x"];
 const ALL_YEARS_HRR=[2021,2022,2023,2024,2025];
+const ALL_YEARS_HWR=[2022,2023,2024,2025];
 const HF=2000/2112;
+const HF_HWR=2000/1500;
 
 // These are populated after the fetch resolves
-let WBT={}, MET_RAW={}, MET_AVG={}, HRR={}, HRR_OPTS=[], BENCHMARK_VERSION='';
+let WBT={}, MET_RAW={}, MET_AVG={}, HRR={}, HRR_OPTS=[], HWR={}, BENCHMARK_VERSION='';
 
 function buildBenchmarks(data){
   BENCHMARK_VERSION=data._meta?.version||'v1';
@@ -239,6 +252,14 @@ function buildBenchmarks(data){
     HRR[k]={label:d.label,boatClass:d.boat,avgH:avg,t2k:avg*HF,n:vals.length,years};
   }
   HRR_OPTS=[["","- no Henley benchmark -"],...Object.entries(HRR).map(([k,d])=>[k,d.label])];
+  HWR={};
+  for(const[k,d]of Object.entries(data.hwr_raw||{})){
+    const years={};
+    for(const[yr,t]of Object.entries(d.years)) years[parseInt(yr)]=t;
+    const vals=Object.values(years);
+    const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+    HWR[k]={label:d.label,boatClass:d.boat,avgH:avg,t2k:avg*HF_HWR,n:vals.length,years};
+  }
 }
 
 function parseT(s){
@@ -251,8 +272,8 @@ function pctColor(p){return p>=87?'#0F6E56':p>=80?'#185FA5':p>=72?'#BA7517':'#99
 function boatOpts(sel){return BOAT_ORDER.map(k=>`<option value="${k}"${k===sel?' selected':''}>${k} — ${WBT[k]?.label||''}</option>`).join('');}
 function hrrOpts(sel){return HRR_OPTS.map(([k,l])=>`<option value="${k}"${k===sel?' selected':''}>${l}</option>`).join('');}
 
-const bench={wbt:true,met:true,hrr:true};
-const bCfg={wbt:{c:'var(--c-wbt)',bg:'var(--c-wbt-bg)'},met:{c:'var(--c-met)',bg:'var(--c-met-bg)'},hrr:{c:'var(--c-hrr)',bg:'var(--c-hrr-bg)'}};
+const bench={wbt:true,met:true,hrr:true,hwr:true};
+const bCfg={wbt:{c:'var(--c-wbt)',bg:'var(--c-wbt-bg)'},met:{c:'var(--c-met)',bg:'var(--c-met-bg)'},hrr:{c:'var(--c-hrr)',bg:'var(--c-hrr-bg)'},hwr:{c:'var(--c-hwr)',bg:'var(--c-hwr-bg)'}};
 function applyToggleStyle(b){
   const btn=document.getElementById('tog-'+b);
   if(bench[b]){btn.style.borderColor=bCfg[b].c;btn.style.background=bCfg[b].bg;btn.style.color=bCfg[b].c;}
@@ -270,6 +291,7 @@ function renderHeader(){
   if(bench.wbt)h+=`<th colspan="2" style="min-width:110px;color:var(--c-wbt)">vs WBT</th>`;
   if(bench.met)h+=`<th colspan="2" style="min-width:110px;color:var(--c-met)">vs Met avg</th>`;
   if(bench.hrr)h+=`<th style="min-width:170px">Henley event</th><th colspan="2" style="min-width:110px;color:var(--c-hrr)">vs Henley qual.</th>`;
+  if(bench.hwr)h+=`<th colspan="2" style="min-width:110px;color:var(--c-hwr)">vs HWR avg</th>`;
   h+='</tr>';
   document.getElementById('tbl-head').innerHTML=h;
 }
@@ -283,6 +305,7 @@ function getScore(r,metric){
   if(metric==='wbt'){const w=WBT[r.boat];return w?(parseT(w.t)/s)*100:null;}
   if(metric==='met'){const m=MET_AVG[r.boat];return m?(m.avg/s)*100:null;}
   if(metric==='hrr'){const h=HRR[r.hrrKey];return h?(h.t2k/s)*100:null;}
+  if(metric==='hwr'){const h=HWR[r.boat];return h?(h.t2k/s)*100:null;}
   if(metric==='time')return s;
   return null;
 }
@@ -323,6 +346,7 @@ function rowHTML(r){
   if(bench.wbt)tr+=`<td id="wv-${r.id}">—</td><td id="wb-${r.id}"></td>`;
   if(bench.met)tr+=`<td id="mv-${r.id}">—</td><td id="mb-${r.id}"></td>`;
   if(bench.hrr)tr+=`<td><select id="hrr-${r.id}" class="hrr-sel" onchange="upd(${r.id},'hrrKey',this.value)">${hrrOpts(r.hrrKey)}</select></td><td id="hv-${r.id}">—</td><td id="hb-${r.id}"></td>`;
+  if(bench.hwr)tr+=`<td id="hwv-${r.id}">—</td><td id="hwb-${r.id}"></td>`;
   return tr+'</tr>';
 }
 function renderRow(id){
@@ -344,6 +368,7 @@ function refreshScores(id){
   if(bench.wbt){const w=WBT[r.boat];sc('wv-'+id,'wb-'+id,s&&w?(parseT(w.t)/s)*100:null);}
   if(bench.met){const m=MET_AVG[r.boat];sc('mv-'+id,'mb-'+id,s&&m?(m.avg/s)*100:null);}
   if(bench.hrr){const h=HRR[r.hrrKey];sc('hv-'+id,'hb-'+id,s&&h?(h.t2k/s)*100:null);}
+  if(bench.hwr){const h=HWR[r.boat];sc('hwv-'+id,'hwb-'+id,s&&h?(h.t2k/s)*100:null);}
 }
 // addRow() called by startApp() after fetch resolves
 
@@ -353,6 +378,7 @@ function downloadCSV(){
   if(bench.wbt)hdr.push('WBT %');
   if(bench.met)hdr.push('Met avg %');
   if(bench.hrr)hdr.push('Henley event','Henley qual. %');
+  if(bench.hwr)hdr.push('HWR %');
   const lines=[hdr.join(',')];
   for(const r of rows){
     const s=parseT(r.time);
@@ -371,6 +397,7 @@ function downloadCSV(){
     if(bench.wbt)row.push(wbtP);
     if(bench.met)row.push(metP);
     if(bench.hrr)row.push(`"${hrrLbl}"`,hrrP);
+    if(bench.hwr){const hw=HWR[r.boat];row.push(s&&hw?((hw.t2k/s)*100).toFixed(1):'');}
     lines.push(row.join(','));
   }
   const blob=new Blob([lines.join('\n')],{type:'text/csv'});
@@ -428,6 +455,23 @@ function renderHRR(q=''){
 }
 // called by startApp()
 
+function renderHWR(){
+  const rs=Object.entries(HWR)
+    .map(([k,d])=>{
+      const yc=ALL_YEARS_HWR.map(yr=>{
+        const t=d.years[yr];
+        return`<td style="font-size:12px">${t?fmtT(t):'—'}</td>`;
+      }).join('');
+      return`<tr><td><strong>${k}</strong></td><td>${d.label}</td>
+        <td><strong>${fmtT(d.t2k)}</strong><br><span style="font-size:11px;color:var(--text3)">${d.n}-yr avg × 2000/1500</span></td>
+        ${yc}</tr>`;
+    }).join('');
+  document.getElementById('hwr-wrap').innerHTML=`<div style="overflow-x:auto"><table class="rtbl"><thead><tr>
+    <th class="hd-dim">Class</th><th class="hd-dim">Event</th><th class="hd-hwr">Avg (2000m equiv.)</th>
+    <th class="hd-dim">2022 (1500m)</th><th class="hd-dim">2023 (1500m)</th><th class="hd-dim">2024 (1500m)</th><th class="hd-dim">2025 (1500m)</th>
+  </tr></thead><tbody>${rs}</tbody></table></div>`;
+}
+
 // ── FETCH BENCHMARKS AND START ────────────────────────────────────────────────
 function startApp(){
   renderHeader();
@@ -435,13 +479,14 @@ function startApp(){
   renderWBT();
   renderMET();
   renderHRR();
+  renderHWR();
 }
 
-fetch('data/benchmarks_v1.json')
+fetch('data/benchmarks_v2.json')
   .then(r=>{if(!r.ok)throw new Error(r.status);return r.json();})
   .then(data=>{buildBenchmarks(data);startApp();})
   .catch(err=>{
-    document.getElementById('empty-msg').textContent='Could not load benchmark data. Check data/benchmarks_v1.json exists in the repo.';
+    document.getElementById('empty-msg').textContent='Could not load benchmark data. Check data/benchmarks_v2.json exists in the repo.';
     console.error('Benchmark fetch failed:',err);
   });
 
@@ -451,7 +496,8 @@ function go(name){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('panel-'+name).classList.add('active');
 }
-const BTABS=['wbt','met','hrr'];
+const TABS=['calc','benchmarks','about'];
+const BTABS=['wbt','met','hrr','hwr'];
 function gob(name){
   document.querySelectorAll('.btab').forEach((t,i)=>t.classList.toggle('active',BTABS[i]===name));
   document.querySelectorAll('.bpanel').forEach(p=>p.classList.remove('active'));
