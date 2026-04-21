@@ -129,8 +129,8 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
     <span style="font-size:13px;color:var(--text2);margin-right:2px">Show:</span>
     <button class="btog" id="tog-wbt" onclick="toggleBench('wbt')"><span class="dot" style="background:var(--c-wbt)"></span>WBT % <span style="font-size:11px;opacity:.7">(winning)</span></button>
     <button class="btog" id="tog-met" onclick="toggleBench('met')"><span class="dot" style="background:var(--c-met)"></span>Met % <span style="font-size:11px;opacity:.7">(winning)</span></button>
-    <button class="btog" id="tog-hwr" onclick="toggleBench('hwr')"><span class="dot" style="background:var(--c-hwr)"></span>HWR % <span style="font-size:11px;opacity:.7">(winning, W only)</span></button>
     <button class="btog" id="tog-hrr" onclick="toggleBench('hrr')"><span class="dot" style="background:var(--c-hrr)"></span>HRR qual. %</button>
+    <button class="btog" id="tog-hwr" onclick="toggleBench('hwr')"><span class="dot" style="background:var(--c-hwr)"></span>HWR % <span style="font-size:11px;opacity:.7">(winning, W only)</span></button>
   </div>
 
   <p style="font-size:14px;color:var(--text2);margin-bottom:4px">Enter times below over 2000m to get comparative GMT scores against each benchmark.</p>
@@ -147,8 +147,8 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
     <select id="sort-by" style="height:32px;font-size:13px;min-width:160px">
       <option value="wbt">Sort by WBT %</option>
       <option value="met">Sort by Met avg winning %</option>
-      <option value="hwr">Sort by HWR avg winning %</option>
       <option value="hrr">Sort by HRR qual. %</option>
+      <option value="hwr">Sort by HWR avg winning %</option>
       <option value="time">Sort by time</option>
     </select>
     <button onclick="sortRows()">↕ Reorder</button>
@@ -181,7 +181,7 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
     <div id="hrr-wrap"></div>
   </div>
   <div id="bpanel-hwr" class="bpanel">
-    <p class="info">Championship event <strong>winning</strong> times at Henley Women's Regatta, averaged across 2022-2025. The HWR course is 1500m, so times are adjusted to 2000m equivalent (x 2000/1500). Women's events only. HWR times can vary significantly year to year due to river stream conditions. 2021 is excluded as the course was shortened that year due to pandemic-related construction.</p>
+    <p class="info"><strong>Winning</strong> times at Henley Women's Regatta across all event categories (Championship, Aspirational, Development, Junior, J16, Para), averaged across 2022-2025. The HWR course is 1500m, so times are adjusted to 2000m equivalent (x 2000/1500). Women's events only. Select the event your crew would actually enter. Times can vary significantly year to year due to river stream conditions. 2021 excluded: course was shortened due to pandemic construction.</p>
     <div id="hwr-wrap"></div>
   </div>
 </div>
@@ -205,7 +205,7 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
     <p><span class="pill pill-wbt">WBT</span> <strong>World Best Time - winning benchmark.</strong> The fastest ever recorded time for each boat class over 2000m, officially recognised by World Rowing. The gold standard. Competitive domestic club crews typically score 72-85%.</p>
     <p><span class="pill pill-met">Met avg</span> <strong>Metropolitan Regatta average - winning benchmark.</strong> The average championship A-final winning time at the Metropolitan Regatta at Dorney Lake, across 2021-2025. A score above 100% means you'd have won on average. Useful for gauging competitiveness within the UK club scene.</p>
     <p><span class="pill pill-hrr">HRR qual.</span> <strong>Henley Royal Regatta qualification benchmark - not a winning benchmark.</strong> This is the fastest time that <em>failed</em> to qualify at Henley Royal Regatta qualifying races, averaged across available years and adjusted to 2000m. A score at or above 100% means you'd likely have made it into the draw - not that you'd win. Because eligibility rules differ significantly between events, make sure to select the specific Henley event your crew would enter.</p>
-    <p><span class="pill pill-hwr">HWR</span> <strong>Henley Women's Regatta - winning benchmark, women's events only.</strong> Championship event winning times at HWR averaged across 2023-2025, adjusted from 1500m to 2000m equivalent. A useful domestic benchmark for women's crews. Not available for men's or lightweight boat classes.</p>
+    <p><span class="pill pill-hwr">HWR</span> <strong>Henley Women's Regatta - winning benchmark, women's events only.</strong> Winning times across all HWR event categories (Championship, Aspirational, Development, Junior, J16, Para) averaged across 2022-2025, adjusted from 1500m to 2000m equivalent. Select the event your crew would enter — like HRR, different events have different eligibility. Not available for men's or open boat classes.</p>
   </div>
   <div class="card">
     <h2>Henley distance adjustment</h2>
@@ -225,7 +225,7 @@ const HF=2000/2112;
 const HF_HWR=2000/1500;
 
 // These are populated after the fetch resolves
-let WBT={}, MET_RAW={}, MET_AVG={}, HRR={}, HRR_OPTS=[], HWR={}, BENCHMARK_VERSION='';
+let WBT={}, MET_RAW={}, MET_AVG={}, HRR={}, HRR_OPTS=[], HWR={}, HWR_OPTS=[], BENCHMARK_VERSION='';
 
 function buildBenchmarks(data){
   BENCHMARK_VERSION=data._meta?.version||'v1';
@@ -260,6 +260,7 @@ function buildBenchmarks(data){
     const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
     HWR[k]={label:d.label,boatClass:d.boat,avgH:avg,t2k:avg*HF_HWR,n:vals.length,years};
   }
+  HWR_OPTS=[["","- no HWR benchmark -"],...Object.entries(HWR).map(([k,d])=>[k,d.label])];
 }
 
 function parseT(s){
@@ -271,6 +272,7 @@ function fmtT(s){const m=Math.floor(s/60),r=s-m*60;return m+':'+r.toFixed(2).pad
 function pctColor(p){return p>=87?'#0F6E56':p>=80?'#185FA5':p>=72?'#BA7517':'#993C1D';}
 function boatOpts(sel){return BOAT_ORDER.map(k=>`<option value="${k}"${k===sel?' selected':''}>${k} — ${WBT[k]?.label||''}</option>`).join('');}
 function hrrOpts(sel){return HRR_OPTS.map(([k,l])=>`<option value="${k}"${k===sel?' selected':''}>${l}</option>`).join('');}
+function hwrOpts(sel){return HWR_OPTS.map(([k,l])=>`<option value="${k}"${k===sel?' selected':''}>${l}</option>`).join('');}
 
 const bench={wbt:true,met:true,hrr:true,hwr:true};
 const bCfg={wbt:{c:'var(--c-wbt)',bg:'var(--c-wbt-bg)'},met:{c:'var(--c-met)',bg:'var(--c-met-bg)'},hrr:{c:'var(--c-hrr)',bg:'var(--c-hrr-bg)'},hwr:{c:'var(--c-hwr)',bg:'var(--c-hwr-bg)'}};
@@ -290,8 +292,8 @@ function renderHeader(){
   let h='<tr><th style="width:32px"></th><th style="min-width:130px">Label</th><th style="min-width:72px">Time</th><th style="min-width:150px">Boat class</th>';
   if(bench.wbt)h+=`<th colspan="2" style="min-width:110px;color:var(--c-wbt)">vs WBT</th>`;
   if(bench.met)h+=`<th colspan="2" style="min-width:110px;color:var(--c-met)">vs Met avg winning</th>`;
-  if(bench.hwr)h+=`<th colspan="2" style="min-width:110px;color:var(--c-hwr)">vs HWR avg winning</th>`;
-  if(bench.hrr)h+=`<th style="min-width:170px">Henley event</th><th colspan="2" style="min-width:110px;color:var(--c-hrr)">vs HRR qual.</th>`;
+  if(bench.hrr)h+=`<th style="min-width:170px">HRR event</th><th colspan="2" style="min-width:110px;color:var(--c-hrr)">vs HRR qual.</th>`;
+  if(bench.hwr)h+=`<th style="min-width:170px">HWR event</th><th colspan="2" style="min-width:110px;color:var(--c-hwr)">vs HWR avg winning</th>`;
   h+='</tr>';
   document.getElementById('tbl-head').innerHTML=h;
 }
@@ -305,7 +307,7 @@ function getScore(r,metric){
   if(metric==='wbt'){const w=WBT[r.boat];return w?(parseT(w.t)/s)*100:null;}
   if(metric==='met'){const m=MET_AVG[r.boat];return m?(m.avg/s)*100:null;}
   if(metric==='hrr'){const h=HRR[r.hrrKey];return h?(h.t2k/s)*100:null;}
-  if(metric==='hwr'){const h=HWR[r.boat];return h?(h.t2k/s)*100:null;}
+  if(metric==='hwr'){const h=HWR[r.hwrKey];return h?(h.t2k/s)*100:null;}
   if(metric==='time')return s;
   return null;
 }
@@ -324,7 +326,7 @@ function sortRows(){
 
 function addRow(){
   const id=rowId++;
-  rows.push({id,label:'',time:'',boat:'M8+',hrrKey:''});
+  rows.push({id,label:'',time:'',boat:'M8+',hrrKey:'',hwrKey:''});
   rebuildBody();
   setTimeout(()=>document.getElementById('label-'+id)?.focus(),30);
 }
@@ -345,8 +347,8 @@ function rowHTML(r){
     <td><select id="boat-${r.id}" onchange="upd(${r.id},'boat',this.value)">${boatOpts(r.boat)}</select></td>`;
   if(bench.wbt)tr+=`<td id="wv-${r.id}">—</td><td id="wb-${r.id}"></td>`;
   if(bench.met)tr+=`<td id="mv-${r.id}">—</td><td id="mb-${r.id}"></td>`;
-  if(bench.hwr)tr+=`<td id="hwv-${r.id}">—</td><td id="hwb-${r.id}"></td>`;
   if(bench.hrr)tr+=`<td><select id="hrr-${r.id}" class="hrr-sel" onchange="upd(${r.id},'hrrKey',this.value)">${hrrOpts(r.hrrKey)}</select></td><td id="hv-${r.id}">—</td><td id="hb-${r.id}"></td>`;
+  if(bench.hwr)tr+=`<td><select id="hwr-${r.id}" class="hrr-sel" onchange="upd(${r.id},'hwrKey',this.value)">${hwrOpts(r.hwrKey)}</select></td><td id="hwv-${r.id}">—</td><td id="hwb-${r.id}"></td>`;
   return tr+'</tr>';
 }
 function renderRow(id){
@@ -368,7 +370,7 @@ function refreshScores(id){
   if(bench.wbt){const w=WBT[r.boat];sc('wv-'+id,'wb-'+id,s&&w?(parseT(w.t)/s)*100:null);}
   if(bench.met){const m=MET_AVG[r.boat];sc('mv-'+id,'mb-'+id,s&&m?(m.avg/s)*100:null);}
   if(bench.hrr){const h=HRR[r.hrrKey];sc('hv-'+id,'hb-'+id,s&&h?(h.t2k/s)*100:null);}
-  if(bench.hwr){const h=HWR[r.boat];sc('hwv-'+id,'hwb-'+id,s&&h?(h.t2k/s)*100:null);}
+  if(bench.hwr){const h=HWR[r.hwrKey];sc('hwv-'+id,'hwb-'+id,s&&h?(h.t2k/s)*100:null);}
 }
 // addRow() called by startApp() after fetch resolves
 
@@ -377,8 +379,8 @@ function downloadCSV(){
   const hdr=['Label','Time','Boat class'];
   if(bench.wbt)hdr.push('WBT %');
   if(bench.met)hdr.push('Met avg winning %');
-  if(bench.hwr)hdr.push('HWR avg winning %');
   if(bench.hrr)hdr.push('HRR event','HRR qual. %');
+  if(bench.hwr)hdr.push('HWR event','HWR avg winning %');
   const lines=[hdr.join(',')];
   for(const r of rows){
     const s=parseT(r.time);
@@ -396,8 +398,8 @@ function downloadCSV(){
     ];
     if(bench.wbt)row.push(wbtP);
     if(bench.met)row.push(metP);
-    if(bench.hwr){const hw=HWR[r.boat];row.push(s&&hw?((hw.t2k/s)*100).toFixed(1):'');}
     if(bench.hrr)row.push(`"${hrrLbl}"`,hrrP);
+    if(bench.hwr){const hw=HWR[r.hwrKey];row.push(`"${hw?hw.label:''}"`,s&&hw?((hw.t2k/s)*100).toFixed(1):'');}
     lines.push(row.join(','));
   }
   const blob=new Blob([lines.join('\n')],{type:'text/csv'});
@@ -462,12 +464,12 @@ function renderHWR(){
         const t=d.years[yr];
         return`<td style="font-size:12px">${t?fmtT(t):'—'}</td>`;
       }).join('');
-      return`<tr><td><strong>${k}</strong></td><td>${d.label}</td>
-        <td><strong>${fmtT(d.t2k)}</strong><br><span style="font-size:11px;color:var(--text3)">${d.n}-yr avg × 2000/1500</span></td>
+      return`<tr><td><strong>${k}</strong></td><td>${d.boatClass}</td><td>${d.label}</td>
+        <td><strong>${fmtT(d.t2k)}</strong><br><span style="font-size:11px;color:var(--text3)">${d.n}-yr avg</span></td>
         ${yc}</tr>`;
     }).join('');
   document.getElementById('hwr-wrap').innerHTML=`<div style="overflow-x:auto"><table class="rtbl"><thead><tr>
-    <th class="hd-dim">Class</th><th class="hd-dim">Event</th><th class="hd-hwr">Avg (2000m equiv.)</th>
+    <th class="hd-dim">Event</th><th class="hd-dim">Class</th><th class="hd-dim">Description</th><th class="hd-hwr">Avg (2000m equiv.)</th>
     <th class="hd-dim">2022 (1500m)</th><th class="hd-dim">2023 (1500m)</th><th class="hd-dim">2024 (1500m)</th><th class="hd-dim">2025 (1500m)</th>
   </tr></thead><tbody>${rs}</tbody></table></div>`;
 }
