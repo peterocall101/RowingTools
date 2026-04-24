@@ -110,6 +110,22 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
   .bench-row{gap:6px}
   .btog{font-size:12px;padding:4px 9px}
 }
+.chart-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .15s ease}
+.chart-overlay.open{opacity:1;pointer-events:auto}
+.chart-card{background:var(--bg);border-radius:16px;padding:1.5rem;width:min(560px,94vw);box-shadow:0 12px 48px rgba(0,0,0,.3);transform:translateY(10px) scale(.97);transition:transform .15s ease}
+.chart-overlay.open .chart-card{transform:translateY(0) scale(1)}
+.chart-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;gap:8px}
+.chart-ttl{font-size:14px;font-weight:500}
+.chart-sub{font-size:12px;color:var(--text2);margin-top:3px}
+.chart-x{background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);padding:0;line-height:1;flex-shrink:0}
+.chart-x:hover{color:var(--text)}
+.chart-next{margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border)}
+.prog-list{display:flex;flex-direction:column;gap:5px}
+.prog-row{display:flex;align-items:center;gap:8px;font-size:12px}
+.prog-label{flex:1;font-weight:500}
+.prog-delta{font-weight:600;font-size:13px;min-width:54px;text-align:right;font-variant-numeric:tabular-nums}
+.prog-note{color:var(--text3);font-size:11px;min-width:90px}
+.prog-pos{color:#0F6E56}.prog-neg{color:#993C1D}
 </style>
 </head>
 <body>
@@ -341,7 +357,7 @@ function rebuildBody(){
 }
 function rowHTML(r){
   let tr=`<tr id="row-${r.id}">
-    <td><button class="ghost" onclick="removeRow(${r.id})">×</button></td>
+    <td style="white-space:nowrap"><button class="ghost" onclick="removeRow(${r.id})">×</button><button onclick="openChart(${r.id})" style="font-size:12px;padding:3px 8px;height:auto;color:var(--c-wbt);border-color:var(--c-wbt)">Progression Chart</button></td>
     <td><input type="text" class="lin" id="label-${r.id}" placeholder="e.g. Men's 8+" value="${r.label}" oninput="upd(${r.id},'label',this.value)"></td>
     <td><input type="text" class="tin" id="time-${r.id}" placeholder="6:45.2" value="${r.time}" oninput="upd(${r.id},'time',this.value)"></td>
     <td><select id="boat-${r.id}" onchange="upd(${r.id},'boat',this.value)">${boatOpts(r.boat)}</select></td>`;
@@ -373,6 +389,81 @@ function refreshScores(id){
   if(bench.hwr){const h=HWR[r.hwrKey];sc('hwv-'+id,'hwb-'+id,s&&h?(h.t2k/s)*100:null);}
 }
 // addRow() called by startApp() after fetch resolves
+
+// ── BENCHMARK CHART ───────────────────────────────────────────────────────────
+function openChart(id){
+  const r=rows.find(r=>r.id===id);if(!r)return;
+  const s=parseT(r.time);if(!s)return;
+  const wbt=WBT[r.boat];if(!wbt)return;
+  const wbtT=parseT(wbt.t);if(!wbtT)return;
+  const userPct=(wbtT/s)*100;
+  const userC=pctColor(userPct);
+  const cs=getComputedStyle(document.documentElement);
+  const BG=cs.getPropertyValue('--bg').trim()||'#fff';
+  const BG3=cs.getPropertyValue('--bg3').trim()||'#ebebea';
+  const TEXT2=cs.getPropertyValue('--text2').trim()||'#666';
+  const TEXT3=cs.getPropertyValue('--text3').trim()||'#999';
+  const C={wbt:cs.getPropertyValue('--c-wbt').trim()||'#185FA5',met:cs.getPropertyValue('--c-met').trim()||'#6D2E46',hrr:cs.getPropertyValue('--c-hrr').trim()||'#0F6E56',hwr:cs.getPropertyValue('--c-hwr').trim()||'#B45309'};
+  const bmarks=[{key:'wbt',label:'WBT',pct:100,color:C.wbt,dash:false,bmTime:wbtT}];
+  const met=MET_AVG[r.boat];
+  if(met)bmarks.push({key:'met',label:'Met avg winning',pct:(wbtT/met.avg)*100,color:C.met,dash:true,bmTime:met.avg});
+  const hrr=HRR[r.hrrKey];
+  if(hrr)bmarks.push({key:'hrr',label:'HRR qual.',pct:(wbtT/hrr.t2k)*100,color:C.hrr,dash:true,bmTime:hrr.t2k});
+  const hwr=HWR[r.hwrKey];
+  if(hwr)bmarks.push({key:'hwr',label:'HWR winning',pct:(wbtT/hwr.t2k)*100,color:C.hwr,dash:true,bmTime:hwr.t2k});
+  const allPcts=[userPct,...bmarks.map(b=>b.pct)];
+  const scaleMin=Math.max(55,Math.floor((Math.min(...allPcts)-3)/5)*5);
+  const scaleMax=103;
+  const W=480,H=100,pL=28,pR=28,cW=W-pL-pR;
+  const TRACK_Y=42,TRACK_H=10;
+  const toX=p=>pL+((p-scaleMin)/(scaleMax-scaleMin))*cW;
+  const ta=x=>x<pL+30?'start':x>W-pR-30?'end':'middle';
+  const clx=x=>Math.max(pL,Math.min(W-pR,x));
+  const sorted=[...bmarks].sort((a,b)=>a.pct-b.pct);
+  let prevX=-999;
+  for(const bm of sorted){bm.x=toX(bm.pct);bm.stagger=(bm.x-prevX)<45;prevX=bm.x;}
+  const userX=toX(userPct);
+  let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">`;
+  svg+=`<rect x="${pL}" y="${TRACK_Y}" width="${cW}" height="${TRACK_H}" rx="5" fill="${BG3}"/>`;
+  const fw=Math.max(0,Math.min(userX-pL,cW));
+  svg+=`<rect x="${pL}" y="${TRACK_Y}" width="${fw}" height="${TRACK_H}" rx="5" fill="${userC}" opacity=".22"/>`;
+  for(const bm of sorted){
+    const{x,stagger,pct,color,label,dash}=bm;
+    const ly=stagger?28:12;
+    const da=dash?'stroke-dasharray="3,2"':'';
+    svg+=`<line x1="${x}" x2="${x}" y1="${ly+2}" y2="${TRACK_Y}" stroke="${color}" stroke-width="1.2" ${da} opacity=".8"/>`;
+    svg+=`<text x="${clx(x)}" y="${ly}" text-anchor="${ta(x)}" style="fill:${color};font-size:9.5px;font-weight:500;font-family:inherit">${label} ${pct.toFixed(1)}%</text>`;
+    svg+=`<circle cx="${x}" cy="${TRACK_Y+TRACK_H/2}" r="3.5" fill="${color}"/>`;
+  }
+  svg+=`<circle cx="${userX}" cy="${TRACK_Y+TRACK_H/2}" r="8" fill="${userC}" stroke="${BG}" stroke-width="2.5"/>`;
+  svg+=`<line x1="${userX}" x2="${userX}" y1="${TRACK_Y+TRACK_H}" y2="${TRACK_Y+TRACK_H+16}" stroke="${userC}" stroke-width="1.5"/>`;
+  const nl=(r.label||r.boat).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+  const ux=clx(userX);
+  svg+=`<text x="${ux}" y="${TRACK_Y+TRACK_H+30}" text-anchor="${ta(userX)}" style="fill:${userC};font-size:13px;font-weight:600;font-family:inherit">${userPct.toFixed(1)}% of WBT</text>`;
+  svg+=`<text x="${ux}" y="${TRACK_Y+TRACK_H+44}" text-anchor="${ta(userX)}" style="fill:${TEXT2};font-size:10px;font-family:inherit">${nl}</text>`;
+  svg+=`</svg>`;
+  // Progression list: slowest benchmark (easiest) first, fastest (hardest) last
+  const prog=[...bmarks].sort((a,b)=>b.bmTime-a.bmTime);
+  let progHtml='<div class="prog-list">';
+  for(const bm of prog){
+    const delta=bm.bmTime-s;
+    const sign=delta>=0?'+':'';
+    const cls=delta>=0?'prog-pos':'prog-neg';
+    const note=delta>=0?'already faster':'to reach';
+    progHtml+=`<div class="prog-row"><span class="prog-label" style="color:${bm.color}">${bm.label}</span><span class="prog-delta ${cls}">${sign}${delta.toFixed(1)}s</span><span class="prog-note">${note}</span></div>`;
+  }
+  progHtml+='</div>';
+  document.getElementById('chart-ttl').textContent=r.label||r.boat||'Entry';
+  document.getElementById('chart-sub').textContent=[r.time,WBT[r.boat]?.label].filter(Boolean).join(' · ');
+  document.getElementById('chart-svg-wrap').innerHTML=`<p style="font-size:11px;color:${TEXT3};margin-bottom:6px">All positions shown as % of World Best Time</p>`+svg;
+  document.getElementById('chart-next').innerHTML=progHtml;
+  document.getElementById('chart-overlay').classList.add('open');
+}
+function closeChart(e){
+  if(!e||e.target===document.getElementById('chart-overlay'))
+    document.getElementById('chart-overlay').classList.remove('open');
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeChart();});
 
 // ── CSV DOWNLOAD ──────────────────────────────────────────────────────────────
 function downloadCSV(){
@@ -506,6 +597,17 @@ function gob(name){
   document.getElementById('bpanel-'+name).classList.add('active');
 }
 </script>
+
+<div id="chart-overlay" class="chart-overlay" onclick="closeChart(event)">
+  <div class="chart-card">
+    <div class="chart-hdr">
+      <div><div class="chart-ttl" id="chart-ttl"></div><div class="chart-sub" id="chart-sub"></div></div>
+      <button class="chart-x" onclick="closeChart()">×</button>
+    </div>
+    <div id="chart-svg-wrap"></div>
+    <div class="chart-next" id="chart-next"></div>
+  </div>
+</div>
 
 <div class="footer">
   <a href="mailto:feedback@rowingtools.co.uk">Contact Us - Suggestions &amp; Feedback</a>
