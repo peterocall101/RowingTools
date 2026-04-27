@@ -219,6 +219,7 @@ function showTab(name, btn){{
   document.getElementById('view-compare').style.display  = name==='compare' ?'':'none';
   document.getElementById('view-clublb').style.display   = name==='clublb'  ?'':'none';
   if(name==='heatmap') renderHeatmap(ROWS, document.getElementById('club-filter-hm').value);
+  if(name==='top100')  renderTop100();
   if(name==='clublb')  renderClubLB();
 }}
 
