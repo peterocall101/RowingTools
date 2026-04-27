@@ -595,7 +595,7 @@
   },
   "hwr_raw": {
     "C 8+": {
-      "label": "C 8+ \u00e2\u20ac\u201c Championship 8+",
+      "label": "C 8+ - Championship 8+",
       "boat": "W8+",
       "years": {
         "2022": 268,
@@ -605,7 +605,7 @@
       }
     },
     "C 4-": {
-      "label": "C 4- \u00e2\u20ac\u201c Championship 4-",
+      "label": "C 4- - Championship 4-",
       "boat": "W4-",
       "years": {
         "2022": 294,
@@ -615,7 +615,7 @@
       }
     },
     "C 2-": {
-      "label": "C 2- \u00e2\u20ac\u201c Championship 2-",
+      "label": "C 2- - Championship 2-",
       "boat": "W2-",
       "years": {
         "2022": 317,
@@ -625,7 +625,7 @@
       }
     },
     "C 4x": {
-      "label": "C 4x \u00e2\u20ac\u201c Championship 4x",
+      "label": "C 4x - Championship 4x",
       "boat": "W4x",
       "years": {
         "2022": 291,
@@ -635,7 +635,7 @@
       }
     },
     "C 2x": {
-      "label": "C 2x \u00e2\u20ac\u201c Championship 2x",
+      "label": "C 2x - Championship 2x",
       "boat": "W2x",
       "years": {
         "2022": 309,
@@ -645,7 +645,7 @@
       }
     },
     "C 1x": {
-      "label": "C 1x \u00e2\u20ac\u201c Championship 1x",
+      "label": "C 1x - Championship 1x",
       "boat": "W1x",
       "years": {
         "2022": 338,
@@ -655,7 +655,7 @@
       }
     },
     "CLwt 2-": {
-      "label": "CLwt 2- \u00e2\u20ac\u201c Championship Lwt 2-",
+      "label": "CLwt 2- - Championship Lwt 2-",
       "boat": "LW2-",
       "years": {
         "2022": 330,
@@ -665,7 +665,7 @@
       }
     },
     "CLwt 2x": {
-      "label": "CLwt 2x \u00e2\u20ac\u201c Championship Lwt 2x",
+      "label": "CLwt 2x - Championship Lwt 2x",
       "boat": "LW2x",
       "years": {
         "2022": 314,
@@ -675,7 +675,7 @@
       }
     },
     "CLwt 1x": {
-      "label": "CLwt 1x \u00e2\u20ac\u201c Championship Lwt 1x",
+      "label": "CLwt 1x - Championship Lwt 1x",
       "boat": "LW1x",
       "years": {
         "2022": 336,
@@ -685,7 +685,7 @@
       }
     },
     "AA 8+": {
-      "label": "AA 8+ \u00e2\u20ac\u201c Aspirational Academic 8+",
+      "label": "AA 8+ - Aspirational Academic 8+",
       "boat": "W8+",
       "years": {
         "2022": 276,
@@ -695,7 +695,7 @@
       }
     },
     "AC 8+": {
-      "label": "AC 8+ \u00e2\u20ac\u201c Aspirational Club 8+",
+      "label": "AC 8+ - Aspirational Club 8+",
       "boat": "W8+",
       "years": {
         "2022": 286,
@@ -705,7 +705,7 @@
       }
     },
     "AA 4-": {
-      "label": "AA 4- \u00e2\u20ac\u201c Aspirational Academic 4-",
+      "label": "AA 4- - Aspirational Academic 4-",
       "boat": "W4-",
       "years": {
         "2022": 302,
@@ -715,7 +715,7 @@
       }
     },
     "AC 4-": {
-      "label": "AC 4- \u00e2\u20ac\u201c Aspirational Club 4-",
+      "label": "AC 4- - Aspirational Club 4-",
       "boat": "W4-",
       "years": {
         "2022": 302,
@@ -725,7 +725,7 @@
       }
     },
     "A 4x": {
-      "label": "A 4x \u00e2\u20ac\u201c Aspirational 4x",
+      "label": "A 4x - Aspirational 4x",
       "boat": "W4x",
       "years": {
         "2022": 295,
@@ -735,7 +735,7 @@
       }
     },
     "A 2x": {
-      "label": "A 2x \u00e2\u20ac\u201c Aspirational 2x",
+      "label": "A 2x - Aspirational 2x",
       "boat": "W2x",
       "years": {
         "2022": 319,
@@ -745,7 +745,7 @@
       }
     },
     "A 1x": {
-      "label": "A 1x \u00e2\u20ac\u201c Aspirational 1x",
+      "label": "A 1x - Aspirational 1x",
       "boat": "W1x",
       "years": {
         "2022": 353,
@@ -755,7 +755,7 @@
       }
     },
     "ALwt 1x": {
-      "label": "ALwt 1x \u00e2\u20ac\u201c Aspirational Lwt 1x",
+      "label": "ALwt 1x - Aspirational Lwt 1x",
       "boat": "LW1x",
       "years": {
         "2022": 350,
@@ -765,7 +765,7 @@
       }
     },
     "D 4+": {
-      "label": "D 4+ \u00e2\u20ac\u201c Development 4+",
+      "label": "D 4+ - Development 4+",
       "boat": "W4+",
       "years": {
         "2022": 326,
@@ -775,7 +775,7 @@
       }
     },
     "J 8+": {
-      "label": "J 8+ \u00e2\u20ac\u201c Junior 8+",
+      "label": "J 8+ - Junior 8+",
       "boat": "W8+",
       "years": {
         "2022": 286,
@@ -785,7 +785,7 @@
       }
     },
     "J 4+": {
-      "label": "J 4+ \u00e2\u20ac\u201c Junior 4+",
+      "label": "J 4+ - Junior 4+",
       "boat": "W4+",
       "years": {
         "2022": 320,
@@ -795,7 +795,7 @@
       }
     },
     "J 4x": {
-      "label": "J 4x \u00e2\u20ac\u201c Junior 4x",
+      "label": "J 4x - Junior 4x",
       "boat": "W4x",
       "years": {
         "2022": 294,
@@ -805,7 +805,7 @@
       }
     },
     "J 2x": {
-      "label": "J 2x \u00e2\u20ac\u201c Junior 2x",
+      "label": "J 2x - Junior 2x",
       "boat": "W2x",
       "years": {
         "2022": 321,
@@ -815,7 +815,7 @@
       }
     },
     "J 1x": {
-      "label": "J 1x \u00e2\u20ac\u201c Junior 1x",
+      "label": "J 1x - Junior 1x",
       "boat": "W1x",
       "years": {
         "2022": 342,
@@ -825,7 +825,7 @@
       }
     },
     "J16 4+": {
-      "label": "J16 4+ \u00e2\u20ac\u201c Junior 16 4+",
+      "label": "J16 4+ - Junior 16 4+",
       "boat": "W4+",
       "years": {
         "2022": 325,
@@ -835,7 +835,7 @@
       }
     },
     "J16 4x": {
-      "label": "J16 4x \u00e2\u20ac\u201c Junior 16 4x",
+      "label": "J16 4x - Junior 16 4x",
       "boat": "W4x",
       "years": {
         "2022": 315,
@@ -845,7 +845,7 @@
       }
     },
     "PR3 1x": {
-      "label": "PR3 1x \u00e2\u20ac\u201c Para 1x",
+      "label": "PR3 1x - Para 1x",
       "boat": "W1x",
       "years": {
         "2024": 412,
