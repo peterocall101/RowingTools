@@ -159,12 +159,12 @@ td.rnd{{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space
 <h1>{title}</h1>
 <p class="sub">GMT% vs WBT. Time trials excluded.</p>
 <div class="tabs">
-  <button class="tab active" onclick="showTab('top100',this)">Top 250 Results</button>
+  <button class="tab active" onclick="showTab('heatmap',this)">Heatmap</button>
+  <button class="tab" onclick="showTab('top100',this)">Top 250 Results</button>
   <button class="tab" onclick="showTab('clublb',this)">Club Leaderboard</button>
   <button class="tab" onclick="showTab('compare',this)">Club Compare</button>
-  <button class="tab" onclick="showTab('heatmap',this)">Heatmap</button>
 </div>
-<div id="view-heatmap" style="display:none">
+<div id="view-heatmap">
   <div class="legend">
     <div class="li"><div class="ls" style="background:#1a4d3e"></div>≥87% elite</div>
     <div class="li"><div class="ls" style="background:#1a3a5c"></div>80–87% high club</div>
@@ -185,7 +185,7 @@ td.rnd{{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space
   <div id="cmp-chart"></div>
 </div>
 <datalist id="cmp-clubs-list"></datalist>
-<div id="view-top100" style="display:none">
+<div id="view-top100" style="display:none;">
   <input type="text" id="lb-club-filter" placeholder="Filter by club…" oninput="renderTop100()">
   <table id="lb-table">
     <thead><tr>
@@ -427,7 +427,7 @@ function renderClubLB(){{
 
 renderClubInputs();
 
-renderTop100();
+renderHeatmap(ROWS, '');
 </script>
 </body>
 </html>"""
