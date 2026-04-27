@@ -65,7 +65,7 @@ td.rnd{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space:
 </div>
 <datalist id="cmp-clubs-list"></datalist>
 <div id="view-top100" style="display:none">
-  <input type="text" id="lb-club-filter" placeholder="Filter by club…" oninput="renderTop100()">
+  <input type="text" id="lb-club-filter" list="cmp-clubs-list" placeholder="Filter by club…" oninput="renderTop100()">
   <table id="lb-table">
     <thead><tr>
       <th class="num">#</th><th>Crew</th><th>Club</th><th>Event</th><th>Round</th>
@@ -76,6 +76,7 @@ td.rnd{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space:
 </div>
 <div id="view-clublb" style="display:none">
   <label style="font-size:12px;color:#666;display:inline-block;margin-bottom:10px">Min entries: <input type="number" id="min-entries" value="1" min="1" style="width:52px;margin-left:4px" oninput="renderClubLB()"></label>
+  <label style="font-size:12px;color:#666;display:inline-block;margin-bottom:10px;margin-left:16px"><input type="checkbox" id="incl-composites" onchange="renderClubLB()" style="margin-right:4px">Include composites</label>
   <table id="clublb-table">
     <thead><tr>
       <th class="num">#</th><th>Club</th>
@@ -171,7 +172,7 @@ function renderTop100(){
   document.getElementById('lb-body').innerHTML=h||'<tr><td colspan="7" style="color:#555;text-align:center;padding:20px">No results.</td></tr>';
 }
 
-const ALL_CLUBS=[...new Set(ROWS.flatMap(r=>r.lanes.map(l=>l.club).filter(c=>c&&!c.includes('/')).map(normClub)))].sort((a,b)=>a.localeCompare(b));
+const ALL_CLUBS=[...new Set(ROWS.flatMap(r=>r.lanes.map(l=>l.club).filter(c=>c).map(normClub)))].sort((a,b)=>a.localeCompare(b));
 document.getElementById('cmp-clubs-list').innerHTML=ALL_CLUBS.map(c=>'<option value="'+c.replace(/"/g,'&quot;')+'">').join('');
 
 let cmpClubs=['',''];
@@ -215,7 +216,7 @@ function renderCompare(){
   for(const r of ROWS) for(const l of r.lanes)
     if(l.pct!==null) all.push({crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct});
   const clubs=active.map(c=>{
-    return{...c,entries:all.filter(e=>!e.club.includes('/')&&normClub(e.club).toLowerCase()===c.q.toLowerCase())};
+    return{...c,entries:all.filter(e=>normClub(e.club).toLowerCase()===c.q.toLowerCase())};
   });
   function mkStat(c){
     if(!c.entries.length) return '<div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:12px 16px;min-width:160px"><div style="color:'+c.col+';font-weight:700;font-size:13px">'+c.q+'</div><div style="color:#555;font-size:11px;margin-top:6px">No results found</div></div>';
@@ -279,8 +280,9 @@ function renderCompare(){
 
 function renderClubLB(){
   const map={};
+  const inclComposites=document.getElementById('incl-composites').checked;
   for(const r of ROWS) for(const l of r.lanes){
-    if(l.pct===null||l.club.includes('/')) continue;
+    if(l.pct===null||(!inclComposites&&l.club.includes('/'))) continue;
     const cn=normClub(l.club);
     if(!cn) continue;
     if(!map[cn]) map[cn]={pcts:[],events:new Set()};
