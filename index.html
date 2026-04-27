@@ -126,12 +126,28 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
 .prog-delta{font-weight:600;font-size:13px;min-width:54px;text-align:right;font-variant-numeric:tabular-nums}
 .prog-note{color:var(--text3);font-size:11px;min-width:90px}
 .prog-pos{color:#0F6E56}.prog-neg{color:#993C1D}
+.lb-grid{display:flex;flex-direction:column;gap:10px;max-width:600px}
+.lb-card{display:flex;justify-content:space-between;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem 1.25rem;text-decoration:none;color:var(--text);transition:background .1s}
+.lb-card:hover{background:var(--bg3)}
+.lb-card-name{font-size:14px;font-weight:500;margin-bottom:3px}
+.lb-card-meta{font-size:12px;color:var(--text3)}
+.lb-arrow{font-size:18px;color:var(--text3);flex-shrink:0;margin-left:12px}
+.sec{display:none}.sec.active{display:block}
+.sec-tabs{display:flex;border-bottom:2px solid var(--border);margin-bottom:1.5rem;flex-wrap:wrap;gap:4px}
+.sec-tab{padding:9px 18px;font-size:14px;font-weight:500;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit;white-space:nowrap}
+.sec-tab.active{color:var(--text);border-bottom-color:var(--text)}
 </style>
 </head>
 <body>
 <h1>Rowing Tools</h1>
-<p class="sub">GMT% Calculator - winning benchmarks (WBT, Met Regatta, HWR) &amp; Henley qualification benchmark</p>
+<p class="sub" id="sub-calc">GMT% Calculator - winning benchmarks (WBT, Met Regatta, HWR) &amp; Henley qualification benchmark</p>
+<p class="sub" id="sub-leaderboards" style="display:none">Regatta Leaderboards - GMT% analysis, club rankings and club comparison across UK regattas</p>
 
+<div class="sec-tabs">
+  <button class="sec-tab active" onclick="goSection('calc')">GMT% Calculator</button>
+  <button class="sec-tab" onclick="goSection('leaderboards')">Regatta Leaderboards</button>
+</div>
+<div id="sec-calc" class="sec active">
 <div class="tabs">
   <button class="tab active" onclick="go('calc')">Results Table</button>
   <button class="tab" onclick="go('benchmarks')">Benchmarks</button>
@@ -228,6 +244,20 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
     <p>The Henley course is 1 mile and 550 yards - approximately 2112m, which is 5.6% longer than the standard 2000m international distance. To convert a Henley time to its 2000m equivalent, the time is multiplied by 2000 / 2112 = 0.9470. This assumes a crew can sustain the same average speed over both 2000m and 2112m, which is a reasonable approximation for comparison purposes.</p>
   </div>
 </div>
+</div><!-- /sec-calc -->
+
+<div id="sec-leaderboards" class="sec">
+  <p class="info">Full regatta analysis: GMT% heatmap across every event, top performers leaderboard, and club comparison. Opens in a new tab.</p>
+  <div class="lb-grid">
+    <a href="heatmap-metsat25.html" target="_blank" class="lb-card">
+      <div>
+        <div class="lb-card-name">Met Regatta 2025 - Saturday</div>
+        <div class="lb-card-meta">Dorney Lake · 65 finals · Heatmap, Top 250, Club Compare</div>
+      </div>
+      <span class="lb-arrow">→</span>
+    </a>
+  </div>
+</div><!-- /sec-leaderboards -->
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ── BENCHMARK DATA ────────────────────────────────────────────────────────────
@@ -612,6 +642,14 @@ function go(name){
   document.getElementById('panel-'+name).classList.add('active');
 }
 const TABS=['calc','benchmarks','about'];
+const SECTIONS=['calc','leaderboards'];
+function goSection(name){
+  document.querySelectorAll('.sec-tab').forEach((b,i)=>b.classList.toggle('active',SECTIONS[i]===name));
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+  document.getElementById('sub-calc').style.display=name==='calc'?'':'none';
+  document.getElementById('sub-leaderboards').style.display=name==='leaderboards'?'':'none';
+}
 const BTABS=['wbt','met','hrr','hwr'];
 function gob(name){
   document.querySelectorAll('.btab').forEach((t,i)=>t.classList.toggle('active',BTABS[i]===name));
