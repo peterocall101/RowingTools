@@ -112,7 +112,7 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
 }
 .chart-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .15s ease}
 .chart-overlay.open{opacity:1;pointer-events:auto}
-.chart-card{background:var(--bg);border-radius:16px;padding:1.5rem;width:min(560px,94vw);box-shadow:0 12px 48px rgba(0,0,0,.3);transform:translateY(10px) scale(.97);transition:transform .15s ease}
+.chart-card{background:var(--bg);border-radius:16px;padding:1.5rem;width:min(580px,94vw);box-shadow:0 12px 48px rgba(0,0,0,.3);transform:translateY(10px) scale(.97);transition:transform .15s ease}
 .chart-overlay.open .chart-card{transform:translateY(0) scale(1)}
 .chart-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;gap:8px}
 .chart-ttl{font-size:14px;font-weight:500}
@@ -241,7 +241,20 @@ const HF=2000/2112;
 const HF_HWR=2000/1500;
 
 // These are populated after the fetch resolves
-let WBT={}, MET_RAW={}, MET_AVG={}, HRR={}, HRR_OPTS=[], HWR={}, HWR_OPTS=[], BENCHMARK_VERSION='';
+let WBT={}, MET_RAW={}, MET_AVG={}, MET_A_AVG={}, MET_B_AVG={}, MET_C_AVG={},
+    HRR={}, HRR_OPTS=[], HWR={}, HWR_OPTS=[], BENCHMARK_VERSION='';
+
+function _avgMetSection(raw){
+  const out={};
+  for(const[k,v]of Object.entries(raw||{})){
+    const years={};
+    for(const[yr,vals]of Object.entries(v.years)) years[parseInt(yr)]=vals;
+    const vals=[];
+    for(const yr of Object.values(years)){if(yr.sat)vals.push(yr.sat);if(yr.sun)vals.push(yr.sun);}
+    if(vals.length)out[k]={label:v.label,avg:vals.reduce((a,b)=>a+b,0)/vals.length,n:vals.length};
+  }
+  return out;
+}
 
 function buildBenchmarks(data){
   BENCHMARK_VERSION=data._meta?.version||'v1';
@@ -253,12 +266,10 @@ function buildBenchmarks(data){
     for(const[yr,vals]of Object.entries(v.years)) years[parseInt(yr)]=vals;
     MET_RAW[k]={label:v.label,years};
   }
-  MET_AVG={};
-  for(const[k,d]of Object.entries(MET_RAW)){
-    const v=[];
-    for(const yr of Object.values(d.years)){if(yr.sat)v.push(yr.sat);if(yr.sun)v.push(yr.sun);}
-    if(v.length)MET_AVG[k]={label:d.label,avg:v.reduce((a,b)=>a+b,0)/v.length,n:v.length};
-  }
+  MET_AVG=_avgMetSection(data.met_raw);
+  MET_A_AVG=_avgMetSection(data.met_a_slowest||{});
+  MET_B_AVG=_avgMetSection(data.met_b_slowest||{});
+  MET_C_AVG=_avgMetSection(data.met_c_slowest||{});
   HRR={};
   for(const[k,d]of Object.entries(data.hrr_raw)){
     const years={};
@@ -406,7 +417,13 @@ function openChart(id){
   const C={wbt:cs.getPropertyValue('--c-wbt').trim()||'#185FA5',met:cs.getPropertyValue('--c-met').trim()||'#6D2E46',hrr:cs.getPropertyValue('--c-hrr').trim()||'#0F6E56',hwr:cs.getPropertyValue('--c-hwr').trim()||'#B45309'};
   const bmarks=[{key:'wbt',label:'WBT',pct:100,color:C.wbt,dash:false,bmTime:wbtT}];
   const met=MET_AVG[r.boat];
-  if(met)bmarks.push({key:'met',label:'Met avg winning',pct:(wbtT/met.avg)*100,color:C.met,dash:true,bmTime:met.avg});
+  if(bench.met&&met)bmarks.push({key:'met',label:'Met A win avg',pct:(wbtT/met.avg)*100,color:C.met,dash:true,bmTime:met.avg});
+  const metA=MET_A_AVG[r.boat];
+  if(bench.met&&metA)bmarks.push({key:'metA',label:'Met A final',pct:(wbtT/metA.avg)*100,color:'#9B4465',dash:true,bmTime:metA.avg,listOnly:true});
+  const metB=MET_B_AVG[r.boat];
+  if(bench.met&&metB)bmarks.push({key:'metB',label:'Met B final',pct:(wbtT/metB.avg)*100,color:'#B56A85',dash:true,bmTime:metB.avg,listOnly:true});
+  const metC=MET_C_AVG[r.boat];
+  if(bench.met&&metC)bmarks.push({key:'metC',label:'Met C final',pct:(wbtT/metC.avg)*100,color:'#CE91A8',dash:true,bmTime:metC.avg,listOnly:true});
   const hrr=HRR[r.hrrKey];
   if(hrr)bmarks.push({key:'hrr',label:'HRR qual.',pct:(wbtT/hrr.t2k)*100,color:C.hrr,dash:true,bmTime:hrr.t2k});
   const hwr=HWR[r.hwrKey];
@@ -419,9 +436,14 @@ function openChart(id){
   const toX=p=>pL+((p-scaleMin)/(scaleMax-scaleMin))*cW;
   const ta=x=>x<pL+30?'start':x>W-pR-30?'end':'middle';
   const clx=x=>Math.max(pL,Math.min(W-pR,x));
-  const sorted=[...bmarks].sort((a,b)=>a.pct-b.pct);
-  let prevX=-999;
-  for(const bm of sorted){bm.x=toX(bm.pct);bm.stagger=(bm.x-prevX)<45;prevX=bm.x;}
+  const sorted=[...bmarks].filter(b=>!b.listOnly).sort((a,b)=>a.pct-b.pct);
+  let prevX=-999,prevStagger=0;
+  for(const bm of sorted){
+    bm.x=toX(bm.pct);
+    const gap=bm.x-prevX;
+    bm.stagger=gap<44?Math.min(prevStagger+1,2):0;
+    prevX=bm.x;prevStagger=bm.stagger;
+  }
   const userX=toX(userPct);
   let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">`;
   svg+=`<rect x="${pL}" y="${TRACK_Y}" width="${cW}" height="${TRACK_H}" rx="5" fill="${BG3}"/>`;
@@ -429,7 +451,7 @@ function openChart(id){
   svg+=`<rect x="${pL}" y="${TRACK_Y}" width="${fw}" height="${TRACK_H}" rx="5" fill="${userC}" opacity=".22"/>`;
   for(const bm of sorted){
     const{x,stagger,pct,color,label,dash}=bm;
-    const ly=stagger?28:12;
+    const ly=stagger===2?28:stagger===1?18:8;
     const da=dash?'stroke-dasharray="3,2"':'';
     svg+=`<line x1="${x}" x2="${x}" y1="${ly+2}" y2="${TRACK_Y}" stroke="${color}" stroke-width="1.2" ${da} opacity=".8"/>`;
     svg+=`<text x="${clx(x)}" y="${ly}" text-anchor="${ta(x)}" style="fill:${color};font-size:9.5px;font-weight:500;font-family:inherit">${label} ${pct.toFixed(1)}%</text>`;
@@ -575,11 +597,11 @@ function startApp(){
   renderHWR();
 }
 
-fetch('data/benchmarks_v2.json?v=3')
+fetch('data/benchmarks_v3.json?v=1')
   .then(r=>{if(!r.ok)throw new Error(r.status);return r.json();})
   .then(data=>{buildBenchmarks(data);startApp();})
   .catch(err=>{
-    document.getElementById('empty-msg').textContent='Could not load benchmark data. Check data/benchmarks_v2.json exists in the repo.';
+    document.getElementById('empty-msg').textContent='Could not load benchmark data. Check data/benchmarks_v3.json exists in the repo.';
     console.error('Benchmark fetch failed:',err);
   });
 

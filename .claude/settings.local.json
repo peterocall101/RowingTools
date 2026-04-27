@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 met_finals_scraper.py --url https://rowresults.co.uk/results/metsat25 --url https://rowresults.co.uk/results/metsun25 --url https://rowresults.co.uk/results/metsat23 --url https://rowresults.co.uk/results/metsun23 --url https://rowresults.co.uk/results/metsat --url https://rowresults.co.uk/results/metsun --url https://rowresults.co.uk/results/met21sat --url https://rowresults.co.uk/results/met21sun --output met_finals_data.json)"
+    ]
+  }
+}
