@@ -247,16 +247,16 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
 </div><!-- /sec-calc -->
 
 <div id="sec-leaderboards" class="sec">
-  <p class="info">Full regatta analysis: GMT% heatmap across every event, top performers leaderboard, and club comparison. Opens in a new tab.</p>
+  <p class="info">Full regatta analysis: GMT% heatmap across every event, top performers leaderboard, and club comparison.</p>
   <div class="lb-grid">
-    <a href="heatmap-metsat25.html" target="_blank" class="lb-card">
+    <a href="heatmap-metsat25.html" class="lb-card">
       <div>
         <div class="lb-card-name">Met Regatta 2025 - Saturday</div>
         <div class="lb-card-meta">Dorney Lake · 65 finals · Heatmap, Top 250, Club Compare</div>
       </div>
       <span class="lb-arrow">→</span>
     </a>
-    <a href="heatmap-metsun25.html" target="_blank" class="lb-card">
+    <a href="heatmap-metsun25.html" class="lb-card">
       <div>
         <div class="lb-card-name">Met Regatta 2025 - Sunday</div>
         <div class="lb-card-meta">Dorney Lake · 54 finals · Heatmap, Top 250, Club Compare</div>
@@ -656,7 +656,9 @@ function goSection(name){
   document.getElementById('sec-'+name).classList.add('active');
   document.getElementById('sub-calc').style.display=name==='calc'?'':'none';
   document.getElementById('sub-leaderboards').style.display=name==='leaderboards'?'':'none';
+  history.replaceState(null,'',name==='calc'?window.location.pathname:'#'+name);
 }
+if(SECTIONS.includes(location.hash.slice(1)))goSection(location.hash.slice(1));
 const BTABS=['wbt','met','hrr','hwr'];
 function gob(name){
   document.querySelectorAll('.btab').forEach((t,i)=>t.classList.toggle('active',BTABS[i]===name));
