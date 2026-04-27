@@ -126,10 +126,13 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
 .prog-delta{font-weight:600;font-size:13px;min-width:54px;text-align:right;font-variant-numeric:tabular-nums}
 .prog-note{color:var(--text3);font-size:11px;min-width:90px}
 .prog-pos{color:#0F6E56}.prog-neg{color:#993C1D}
+.lb-year-section{margin-bottom:24px}
+.lb-year{font-size:13px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
 .lb-grid{display:flex;flex-direction:column;gap:10px;max-width:600px}
 .lb-card{display:flex;justify-content:space-between;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem 1.25rem;text-decoration:none;color:var(--text);transition:background .1s}
 .lb-card:hover{background:var(--bg3)}
-.lb-card-name{font-size:14px;font-weight:500;margin-bottom:3px}
+.lb-card-name{font-size:14px;font-weight:500;margin-bottom:2px}
+.lb-card-date{font-size:12px;color:var(--text2);margin-bottom:3px}
 .lb-card-meta{font-size:12px;color:var(--text3)}
 .lb-arrow{font-size:18px;color:var(--text3);flex-shrink:0;margin-left:12px}
 .sec{display:none}.sec.active{display:block}
@@ -248,21 +251,31 @@ button.ghost:hover{color:var(--text);background:var(--bg2)}
 
 <div id="sec-leaderboards" class="sec">
   <p class="info">Full regatta analysis: GMT% heatmap across every event, top performers leaderboard, and club comparison.</p>
-  <div class="lb-grid">
-    <a href="heatmap-metsat25.html" class="lb-card">
-      <div>
-        <div class="lb-card-name">Met Regatta 2025 - Saturday</div>
-        <div class="lb-card-meta">Dorney Lake · 65 finals · Heatmap, Top 250, Club Compare</div>
-      </div>
-      <span class="lb-arrow">→</span>
-    </a>
-    <a href="heatmap-metsun25.html" class="lb-card">
-      <div>
-        <div class="lb-card-name">Met Regatta 2025 - Sunday</div>
-        <div class="lb-card-meta">Dorney Lake · 54 finals · Heatmap, Top 250, Club Compare</div>
-      </div>
-      <span class="lb-arrow">→</span>
-    </a>
+  <div class="lb-year-section">
+    <div class="lb-year">2026</div>
+    <div class="lb-grid">
+    </div>
+  </div>
+  <div class="lb-year-section">
+    <div class="lb-year">2025</div>
+    <div class="lb-grid">
+      <a href="heatmap-metsat25.html" class="lb-card">
+        <div>
+          <div class="lb-card-name">Met Regatta - Saturday</div>
+          <div class="lb-card-date">31 May 2025</div>
+          <div class="lb-card-meta">Dorney Lake · 65 finals · Heatmap, Top 250, Club Compare</div>
+        </div>
+        <span class="lb-arrow">→</span>
+      </a>
+      <a href="heatmap-metsun25.html" class="lb-card">
+        <div>
+          <div class="lb-card-name">Met Regatta - Sunday</div>
+          <div class="lb-card-date">1 June 2025</div>
+          <div class="lb-card-meta">Dorney Lake · 54 finals · Heatmap, Top 250, Club Compare</div>
+        </div>
+        <span class="lb-arrow">→</span>
+      </a>
+    </div>
   </div>
 </div><!-- /sec-leaderboards -->
 
