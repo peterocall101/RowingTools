@@ -3,8 +3,8 @@ generate_heatmap.py
 Fetch results from rowresults.co.uk and generate a self-contained heatmap HTML.
 
 Usage:
-    python generate_heatmap.py --comp metsat25 --out ../../heatmap-demo.html
-    python generate_heatmap.py --comp metsun25
+    python generate_heatmap.py --comp metsat25
+    python generate_heatmap.py --comp metsun25 --out ../../heatmap-metsun25.html
 """
 import argparse, json, re, sys, time
 from pathlib import Path

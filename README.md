@@ -12,7 +12,7 @@ RowingTools/
 ├── index.html                          # Public website (GitHub Pages)
 ├── heatmap-metsat25.html               # Met 2025 Saturday - regatta analysis page
 ├── heatmap-metsun25.html               # Met 2025 Sunday - regatta analysis page
-├── heatmap-demo.html                   # Test/demo output from generate_heatmap.py
+├── heatmap-brcc25.html                 # British Rowing Club Championships 2025
 │
 ├── data/
 │   ├── benchmarks_v1.json              # Frozen 2025-03-24
