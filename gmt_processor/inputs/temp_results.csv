@@ -1,0 +1,314 @@
+Race,Event,Type,Name,Position,Lane,Time,Diff
+1,Op.Int.1x,Heat 1,Leicester (ALLEN),1,5,07:50.5,00:00.0
+1,Op.Int.1x,Heat 1,Norwich (ROTHERAM),2,3,07:56.7,00:06.2
+1,Op.Int.1x,Heat 1,York (LEWIS),3,2,08:09.2,00:18.7
+1,Op.Int.1x,Heat 1,Leeds (BRODERICK),4,4,08:12.4,00:22.0
+2,Op.Int.1x,Heat 2,Nottingham (LUNN),1,2,07:42.1,00:00.0
+2,Op.Int.1x,Heat 2,Leicester (NICKSON),2,3,07:43.8,00:01.8
+2,Op.Int.1x,Heat 2,Nottingham (BLACK),3,5,07:49.9,00:07.8
+2,Op.Int.1x,Heat 2,Hereford (RAY),4,4,08:09.1,00:27.0
+3,Op.J18.1x,Heat 1,Warrington (PRITCHARD),1,2,07:52.4,00:00.0
+3,Op.J18.1x,Heat 1,Newark (WOODMAN),2,3,08:01.0,00:08.6
+3,Op.J18.1x,Heat 1,Newark (PETKOVIC),3,4,08:33.7,00:41.3
+4,Op.J18.1x,Heat 2,American Sch (TEJPAUL),1,2,07:22.6,00:00.0
+4,Op.J18.1x,Heat 2,Windsor BS (REES-J),2,4,07:57.4,00:34.8
+4,Op.J18.1x,Heat 2,Newark (BELL) C,3,3,07:57.7,00:35.2
+5,W.1x,Heat 1,Oxford (ARMSTRONG),1,2,06:22.8,00:00.0
+5,W.1x,Heat 1,City of Oxford (BIGGS),2,5,06:23.0,00:00.2
+5,W.1x,Heat 1,Hollingworth (DANIELS),3,4,06:23.1,00:00.3
+5,W.1x,Heat 1,Upper Thames (HOLLAND),4,1,06:23.2,00:00.4
+5,W.1x,Heat 1,Dart Totnes (HALLETT),5,3,06:25.3,00:02.5
+6,W.1x,Heat 2,Leeds Univ (BROOKS),1,2,08:22.1,00:00.0
+6,W.1x,Heat 2,Upper Thames (TIJSSEN),2,3,08:24.9,00:02.8
+6,W.1x,Heat 2,Derby (TAYLOR),3,5,08:31.8,00:09.7
+6,W.1x,Heat 2,Oxford (HEYMANN) C,4,4,08:39.8,00:17.6
+6,W.1x,Heat 2,Exeter (COPPING),5,1,08:55.4,00:33.3
+7,W.J18.2x,Heat 1,Chester le Street,1,3,07:53.6,00:00.0
+7,W.J18.2x,Heat 1,Chester Le St/Hexham,2,2,08:03.5,00:09.9
+7,W.J18.2x,Heat 1,Warrington,3,4,08:07.0,00:13.4
+8,W.J18.2x,Heat 2,Nottingham/Northampton,1,4,08:10.7,00:00.0
+8,W.J18.2x,Heat 2,Oundle Sch,2,2,08:32.4,00:21.7
+8,W.J18.2x,Heat 2,Leeds,3,3,08:47.8,00:37.1
+9,Op.Dev.4x-,Heat 1,Leeds (LANGDON),1,4,07:14.6,00:00.0
+9,Op.Dev.4x-,Heat 1,Leicester,2,3,07:20.8,00:06.2
+9,Op.Dev.4x-,Heat 1,Leeds (KING),3,2,07:23.5,00:08.9
+10,Op.Dev.4x-,Heat 2,Leeds Univ,1,4,06:56.8,00:00.0
+10,Op.Dev.4x-,Heat 2,City of Cambridge,2,2,07:19.1,00:22.3
+11,Op.Int.4-,Heat 1,Durham,1,3,06:54.3,00:00.0
+11,Op.Int.4-,Heat 1,City of Oxford,2,4,06:55.5,00:01.2
+11,Op.Int.4-,Heat 1,Warwick,3,5,06:56.6,00:02.3
+11,Op.Int.4-,Heat 1,Leeds,4,1,07:01.4,00:07.1
+11,Op.Int.4-,Heat 1,Curlew,5,2,07:46.7,00:52.4
+12,Op.Int.4-,Heat 2,Globe,1,4,07:01.0,00:00.0
+12,Op.Int.4-,Heat 2,Cantabs (ALMQVIST),2,5,07:16.3,00:15.3
+12,Op.Int.4-,Heat 2,York (BARKER),3,2,07:40.6,00:39.6
+12,Op.Int.4-,Heat 2,Norwich,4,3,07:42.5,00:41.5
+13,Op.Int.4-,H3,York (PRESS),1,3,07:27.9,00:00.0
+13,Op.Int.4-,H3,Nottingham,2,2,07:41.8,00:14.0
+13,Op.Int.4-,H3,Auriol Kensington,3,4,07:54.7,00:26.8
+13,Op.Int.4-,H3,Cantabrigian (HUNTER),4,5,07:57.8,00:29.9
+14,Op.J18.8+,Heat 1,Hampton Sch,1,3,05:53.2,00:00.0
+14,Op.J18.8+,Heat 1,Bedford Sch,2,2,05:54.8,00:01.6
+14,Op.J18.8+,Heat 1,Shrewsbury Sch,3,4,05:55.9,00:02.7
+15,Op.J18.8+,Heat 2,Norwich Sch,1,2,06:04.8,00:00.0
+15,Op.J18.8+,Heat 2,Kings Sch Chester,2,4,06:25.4,00:20.6
+15,Op.J18.8+,Heat 2,Nottm & Union,3,3,07:02.0,00:57.2
+16,W.8+,Heat 1,Auriol Kensington,1,5,07:11.1,00:00.0
+16,W.8+,Heat 1,Tyne (BASEY),2,3,07:21.9,00:10.8
+16,W.8+,Heat 1,Emmanuel,3,2,07:23.8,00:12.6
+16,W.8+,Heat 1,Magdalen,4,4,07:45.2,00:34.1
+17,W.8+,Heat 2,City of Oxford,1,3,07:08.6,00:00.0
+17,W.8+,Heat 2,Tyne (PEACOCK),2,2,07:13.1,00:04.5
+17,W.8+,Heat 2,Norwich Sch,3,4,07:51.7,00:43.1
+18,W.4-,Heat 1,Upper Thames,1,2,07:30.4,00:00.0
+18,W.4-,Heat 1,York,2,5,07:41.7,00:11.3
+18,W.4-,Heat 1,Putney Town (WARREN),3,4,07:48.9,00:18.5
+18,W.4-,Heat 1,Putney Town (PAXMAN),4,3,07:56.7,00:26.3
+19,W.4-,Heat 2,City of Oxford,1,4,07:39.7,00:00.0
+19,W.4-,Heat 2,Auriol Kensington,2,2,08:01.0,00:21.3
+19,W.4-,Heat 2,Putney Town (KLYMOW) C,3,5,08:36.8,00:57.1
+20,Op.Ch.4x-,Final,Loughborough Students,1,3,06:03.2,00:00.0
+20,Op.Ch.4x-,Final,Kings Sch Chester,2,4,06:37.1,00:33.9
+21,Op.Ch.4-,Final,Northwich,1,2,05:55.6,00:00.0
+21,Op.Ch.4-,Final,Agecroft,2,5,06:09.9,00:14.3
+21,Op.Ch.4-,Final,City of Oxford,3,4,06:26.2,00:30.6
+21,Op.Ch.4-,Final,Tyne,4,3,06:29.6,00:34.0
+22,Op.J18.4-,Final,Nottm & Union,1,4,07:25.4,00:00.0
+22,Op.J18.4-,Final,Shrewsbury Sch,2,3,07:42.6,00:17.1
+23,Op.4+,Final,Emmanuel,1,3,07:04.1,00:00.0
+23,Op.4+,Final,Agecroft,2,1,07:10.7,00:06.6
+23,Op.4+,Final,Norwich Sch,3,4,07:18.4,00:14.3
+25,W.Dev.4+,Final,Peterborough,1,2,07:59.5,00:00.0
+25,W.Dev.4+,Final,Agecroft,2,1,08:23.6,00:24.1
+25,W.Dev.4+,Final,Curlew,3,4,08:30.4,00:30.9
+25,W.Dev.4+,Final,City of Oxford,4,5,08:45.9,00:46.4
+25,W.Dev.4+,Final,Durham,5,3,08:50.1,00:50.6
+26,W.J18.4+,Final,Sir William Perkins,1,4,07:45.8,00:00.0
+26,W.J18.4+,Final,Shrewsbury Sch,2,3,07:55.4,00:09.6
+26,W.J18.4+,Final,Nottm & Union (time only),9999,1,07:59.4,00:13.6
+27,Op.J18.1x,Final,American Sch (TEJPAUL),1,3,07:26.4,00:00.0
+27,Op.J18.1x,Final,Warrington (PRITCHARD),2,2,07:41.0,00:14.6
+27,Op.J18.1x,Final,Newark (WOODMAN),3,1,07:55.1,00:28.7
+27,Op.J18.1x,Final,Newark (BELL) C,4,5,08:02.0,00:35.6
+27,Op.J18.1x,Final,Windsor BS (REES-J),5,4,08:17.2,00:50.8
+27,Op.J18.1x,Final,Newark (PETKOVIC),6,6,08:26.0,01:00.5
+28,Op.Int.1x,Final,Nottingham (LUNN),1,4,07:35.4,00:00.0
+28,Op.Int.1x,Final,Nottingham (BLACK),2,6,07:40.3,00:04.9
+28,Op.Int.1x,Final,Leicester (ALLEN),3,3,07:46.6,00:11.2
+28,Op.Int.1x,Final,Leicester (NICKSON),4,2,07:49.5,00:14.0
+28,Op.Int.1x,Final,Norwich (ROTHERAM),5,5,08:13.2,00:37.7
+28,Op.Int.1x,Final,York (LEWIS),6,1,08:16.1,00:40.7
+29,W.1x,Final,Oxford (ARMSTRONG),1,3,08:12.9,00:00.0
+29,W.1x,Final,Hollingworth (DANIELS),2,1,08:18.4,00:05.5
+29,W.1x,Final,Upper Thames (TIJSSEN),3,2,08:22.0,00:09.0
+29,W.1x,Final,City of Oxford (BIGGS),4,5,08:26.6,00:13.6
+29,W.1x,Final,Leeds Univ (BROOKS),5,4,08:29.2,00:16.3
+29,W.1x,Final,Derby (TAYLOR),6,6,09:04.5,00:51.6
+30,Op.Dev.1x,Final,Nottingham (HARTLEY),1,1,08:03.3,00:00.0
+30,Op.Dev.1x,Final,Newark (BELL),2,5,08:11.7,00:08.4
+30,Op.Dev.1x,Final,Rob Roy (EVANS),3,3,08:18.1,00:14.8
+30,Op.Dev.1x,Final,Hollingworth (DIVER),4,2,08:57.5,00:54.2
+30,Op.Dev.1x,Final,Leeds (MILES),5,4,09:12.4,01:09.0
+31,Op.Ch.1x,Final,NCRA (KNIGHTON),1,3,07:32.5,00:00.0
+31,Op.Ch.1x,Final,Cambridge (CHARD),2,4,07:36.8,00:04.4
+31,Op.Ch.1x,Final,Leeds Univ (OWEN),3,2,08:05.3,00:32.9
+32,W.Dev.2x,Final,NCRA/Lboro Students,1,3,08:09.6,00:00.0
+32,W.Dev.2x,Final,Leicester,2,5,08:19.7,00:10.1
+32,W.Dev.2x,Final,Auriol Kensington,3,2,08:33.9,00:24.3
+32,W.Dev.2x,Final,City of Oxford,4,4,09:16.9,01:07.3
+33,W.Int.2x,Final,Warrington,1,3,07:46.3,00:00.0
+33,W.Int.2x,Final,Cantabrigian,2,4,07:57.6,00:11.3
+33,W.Int.2x,Final,Windermere/Sheffield,3,2,08:08.9,00:22.6
+34,W.J18.2x,Final,Nottingham/Northampton,1,5,07:41.7,00:00.0
+34,W.J18.2x,Final,Chester le Street,2,3,07:56.5,00:14.8
+34,W.J18.2x,Final,Oundle Sch,3,1,08:03.5,00:21.8
+34,W.J18.2x,Final,Chester Le St/Hexham,4,4,08:09.4,00:27.6
+34,W.J18.2x,Final,Warrington,5,2,08:19.1,00:37.4
+34,W.J18.2x,Final,Leeds,6,6,08:24.6,00:42.8
+35,W.Ch.2x,Final,Leicester,1,3,07:35.2,00:00.0
+35,W.Ch.2x,Final,Dart Totnes,2,2,07:38.8,00:03.7
+35,W.Ch.2x,Final,City of Oxford,3,5,07:43.9,00:08.8
+35,W.Ch.2x,Final,Warwick,4,4,07:50.2,00:15.1
+36,Op.Int.4-,Final,Globe,1,4,06:42.6,00:00.0
+36,Op.Int.4-,Final,York (PRESS),2,2,06:49.8,00:07.1
+36,Op.Int.4-,Final,Cantabs (ALMQVIST),3,1,06:54.9,00:12.3
+36,Op.Int.4-,Final,Durham,4,3,07:07.2,00:24.5
+36,Op.Int.4-,Final,Nottingham,5,6,07:10.9,00:28.3
+36,Op.Int.4-,Final,City of Oxford,6,5,07:11.4,00:28.8
+37,Op.Dev.4x-,Final,Leeds Univ,1,3,07:01.1,00:00.0
+37,Op.Dev.4x-,Final,Leeds (LANGDON),2,4,07:11.3,00:10.3
+37,Op.Dev.4x-,Final,City of Cambridge,3,2,07:20.0,00:18.9
+37,Op.Dev.4x-,Final,Leeds (KING),4,1,07:24.9,00:23.8
+37,Op.Dev.4x-,Final,Leicester,5,5,07:36.1,00:35.0
+38,Op.J18.8+,Final,Bedford Sch,1,4,05:57.3,00:00.0
+38,Op.J18.8+,Final,Hampton Sch,2,3,05:59.7,00:02.5
+38,Op.J18.8+,Final,Shrewsbury Sch,3,2,06:01.5,00:04.3
+38,Op.J18.8+,Final,Kings Sch Chester,4,1,06:09.1,00:11.8
+38,Op.J18.8+,Final,Norwich Sch,5,5,06:10.4,00:13.1
+38,Op.J18.8+,Final,Nottm & Union,6,6,06:46.9,00:49.6
+39,Op.Ch.8+,Final,Hampton Sch,1,2,05:54.0,00:00.0
+39,Op.Ch.8+,Final,Tyne,2,3,06:35.2,00:41.2
+40,Op.Int.8+,Final,Hampton Sch,1,3,06:23.5,00:00.0
+40,Op.Int.8+,Final,Dart Totnes,2,4,06:25.6,00:02.1
+40,Op.Int.8+,Final,Peterborough,3,5,06:27.6,00:04.1
+40,Op.Int.8+,Final,City of Oxford,4,6,06:39.8,00:16.3
+40,Op.Int.8+,Final,Leeds,5,1,06:47.9,00:24.5
+41,Op Dev 8+,Final,Hampton Sch,1,2,06:50.5,00:00.0
+41,Op Dev 8+,Final,Agecroft,2,3,07:19.0,00:28.4
+41,Op Dev 8+,Final,Norwich Sch,3,1,07:27.6,00:37.1
+41,Op J16 8+,Final,Hampton Sch,1,5,06:23.2,00:00.0
+41,Op J16 8+,Final,Shrewsbury Sch,2,6,06:35.4,00:12.2
+42,Op.J18.4x-,Final,Windsor BS (RICHARDS),1,1,06:38.3,00:00.0
+42,Op.J18.4x-,Final,Oundle Sch (COULTER),2,2,06:41.9,00:03.6
+42,Op.J18.4x-,Final,Windsor BS (MORGAN),3,6,06:42.2,00:03.9
+42,Op.J18.4x-,Final,Kings Sch Chester,4,3,06:44.9,00:06.6
+42,Op.J18.4x-,Final,Leeds,5,4,06:53.4,00:15.1
+42,Op.J18.4x-,Final,Oundle Sch (SHEIKH),6,5,07:19.8,00:41.5
+43,W.4x-,Final,Sir William Perkins,1,3,07:03.9,00:00.0
+43,W.4x-,Final,Upper Thames,2,4,07:29.0,00:25.1
+43,W.4x-,Final,City of Oxford,3,2,07:34.4,00:30.4
+44,W.8+,Final,Tyne (PEACOCK),1,2,07:04.4,00:00.0
+44,W.8+,Final,City of Oxford,2,4,07:17.2,00:12.8
+44,W.8+,Final,Auriol Kensington,3,3,07:19.5,00:15.1
+44,W.8+,Final,Emmanuel,4,1,07:44.1,00:39.7
+44,W.8+,Final,Tyne (BASEY),5,5,07:48.1,00:43.7
+47,Op.4-,Heat 1,Durham,1,2,07:10.1,00:00.0
+47,Op.4-,Heat 1,Tyne (DUGUID),2,3,07:15.8,00:05.7
+47,Op.4-,Heat 1,Oxford (ELWELL),3,5,07:19.9,00:09.8
+47,Op.4-,Heat 1,Norwich,4,4,07:26.2,00:16.0
+48,Op.4-,Heat 2,Northwich,1,3,06:55.7,00:00.0
+48,Op.4-,Heat 2,Tyne (JONES),2,4,07:01.4,00:05.7
+48,Op.4-,Heat 2,Oxford (BRITTON),3,2,07:04.1,00:08.4
+48,Op.4-,Heat 2,Warwick,4,5,07:10.9,00:15.2
+48,Op.4-,Heat 2,Curlew (COOKE),5,1,07:12.2,00:16.5
+49,W.J18.4x-,Heat 1,Durham,1,3,07:58.6,00:00.0
+49,W.J18.4x-,Heat 1,Oundle Sch (HINDMARSH),2,4,08:10.8,00:12.3
+50,W.J18.4x-,Heat 2,Sir William Perkins,1,2,07:06.9,00:00.0
+50,W.J18.4x-,Heat 2,Shrewsbury Sch,2,4,07:14.0,00:07.1
+50,W.J18.4x-,Heat 2,Oundle Sch (LAWSON),3,3,07:20.9,00:14.0
+51,W.Dev.8+,Heat 1,Leeds (VINCENT),1,2,07:25.5,00:00.0
+51,W.Dev.8+,Heat 1,Lady Margaret (W1),2,3,07:33.3,00:07.8
+51,W.Dev.8+,Heat 1,Magdalen,3,4,07:40.8,00:15.3
+51,W.Dev.8+,Heat 1,Emmanuel,4,5,07:43.5,00:17.9
+52,W.Dev.8+,Heat 2,Shrewsbury Sch,1,5,07:29.6,00:00.0
+52,W.Dev.8+,Heat 2,Leeds (LISTER),2,4,07:36.5,00:06.9
+52,W.Dev.8+,Heat 2,Norwich Sch,3,3,07:53.8,00:24.2
+52,W.Dev.8+,Heat 2,Lady Margaret (W2),4,2,08:11.3,00:41.7
+53,Op.1x,Heat 1,Burton Ldr (CARROLL),1,2,08:11.8,00:00.0
+53,Op.1x,Heat 1,Leeds Univ (DREW),2,4,08:16.4,00:04.6
+53,Op.1x,Heat 1,Dart Totnes (DOSSETT),3,3,09:07.0,00:55.3
+54,Op.1x,Heat 2,Norwich (ROTHERAM),1,2,08:26.9,00:00.0
+54,Op.1x,Heat 2,Maidstone (MIHR),2,4,08:29.0,00:02.1
+54,Op.1x,Heat 2,Leeds Univ (BARRETT),3,3,08:31.4,00:04.4
+55,Op.Int.2x,Final,Leicester,1,4,07:13.4,00:00.0
+55,Op.Int.2x,Final,Auriol Kensington,2,3,07:45.7,00:32.4
+55,Op.Int.2x,Final,Lakeland,3,2,08:18.0,01:04.6
+56,Op.J18.2x,Final,Windsor Boys Sch,1,4,07:04.1,00:00.0
+56,Op.J18.2x,Final,Norwich,2,3,07:25.8,00:21.8
+56,Op.J18.2x,Final,Newark,3,2,07:45.9,00:41.8
+57,Op.J16.2x,Final,Newark,1,3,07:14.5,00:00.0
+57,Op.J16.2x,Final,Burton Leander,2,4,07:28.7,00:14.2
+58,Op.Dev.2x,Final,Poole/Cambois,1,5,07:20.7,00:00.0
+58,Op.Dev.2x,Final,Leeds (SOUPE),2,1,07:25.2,00:04.5
+58,Op.Dev.2x,Final,Warwick,3,4,07:29.0,00:08.3
+58,Op.Dev.2x,Final,Leeds Univ,4,2,08:02.1,00:41.4
+58,Op.Dev.2x,Final,Leeds (COSTANTINI),5,3,08:38.4,01:17.7
+59,W.J18.1x,Heat 1,Chester-le-S (YOULTON) C,1,2,08:27.8,00:00.0
+59,W.J18.1x,Heat 1,Leeds (MARKS),2,1,08:31.1,00:03.3
+59,W.J18.1x,Heat 1,Derby (TAYLOR),3,4,08:33.6,00:05.8
+59,W.J18.1x,Heat 1,Chester-le-St (PALMER),4,3,08:39.3,00:11.5
+60,W.J18.1x,Heat 2,Warrington (BRITTLES),1,5,08:35.9,00:00.0
+60,W.J18.1x,Heat 2,Leicester (GOUGH),2,4,08:54.4,00:18.5
+60,W.J18.1x,Heat 2,NCRA (WESSON),3,2,08:58.1,00:22.3
+60,W.J18.1x,Heat 2,Leeds (COLE),4,3,09:04.9,00:29.0
+61,W.Lwt.1x,Final,Dart Totnes (MACRO),1,4,08:18.8,00:00.0
+61,W.Lwt.1x,Final,Hollingworth (DANIELS),2,2,08:30.5,00:11.7
+61,W.Lwt.1x,Final,Nottingham (COOPER),3,5,08:39.3,00:20.5
+61,W.Lwt.1x,Final,Dart Totnes (HALLETT),4,3,09:09.9,00:51.1
+63,W.Int.1x,Final,Dart Totnes (MANNING),1,3,08:59.4,00:30.1
+63,W.Int.1x,Final,NCRA (BESLEY),2,4,09:27.0,00:57.7
+63,W.Int.1x,Final,Leicester (time only),9999,1,08:29.3,00:00.0
+64,W.Dev.1x,Final,Exeter (COPPING),1,4,08:49.4,00:00.0
+64,W.Dev.1x,Final,Leicester (DUFFY),2,2,08:53.6,00:04.2
+64,W.Dev.1x,Final,Auriol Kens (STUART-H),3,3,09:23.9,00:34.6
+64,W.Dev.1x,Final,Warwick (HUNTER),4,6,09:24.5,00:35.2
+64,W.Dev.1x,Final,Maidstone Inv (ABBOTT),5,5,10:20.2,01:30.9
+65,W.2x,Final,Cantabrigian,1,3,07:48.8,00:00.0
+65,W.2x,Final,Warwick,2,1,07:52.0,00:03.2
+65,W.2x,Final,Warrington,3,5,07:55.2,00:06.4
+65,W.2x,Final,Upper Thames,4,2,07:58.4,00:09.6
+65,W.2x,Final,City of Oxford,5,4,08:09.8,00:21.0
+67,Op.J18.4+,Final,Windsor Boys (REILLY),1,4,06:58.5,00:00.0
+67,Op.J18.4+,Final,Windsor BS (MANWARING),2,2,07:14.3,00:15.8
+67,Op.J18.4+,Final,Shrewsbury Sch,3,3,07:14.6,00:16.1
+67,Op.J18.4+,Final,Leeds (time only),9999,6,07:07.6,00:09.0
+68,Op.Dev.4+,Final,Emmanuel,1,4,07:16.3,00:00.0
+68,Op.Dev.4+,Final,Norwich Sch (VEDRENNE),2,1,07:20.9,00:04.6
+68,Op.Dev.4+,Final,Kings Sch Chester,3,2,07:28.9,00:12.6
+68,Op.Dev.4+,Final,Agecroft,4,3,07:54.3,00:38.0
+68,Op.Dev.4+,Final,Norwich Sch (STRIKE),5,5,07:58.5,00:42.2
+68,Op.Dev.4+,Final,York,6,6,08:00.2,00:43.9
+69,W.4+,Final,Sir William Perkins,1,3,07:55.4,00:00.0
+69,W.4+,Final,Oxford (PASSEY),2,2,08:26.6,00:31.1
+69,W.4+,Final,Oxford (BILLSON),3,4,09:11.5,01:16.0
+70,Op.4x-,Final,Nottingham,1,3,06:43.4,00:00.0
+71,Op.4-,Final,Northwich,1,4,06:38.2,00:00.0
+71,Op.4-,Final,Tyne (JONES),2,2,06:56.1,00:17.9
+71,Op.4-,Final,Oxford (BRITTON),3,6,07:05.0,00:26.8
+71,Op.4-,Final,Durham,4,3,07:09.9,00:31.7
+71,Op.4-,Final,Tyne (DUGUID),5,5,07:10.6,00:32.4
+72,W.J18.4x-,Final,Sir William Perkins,1,3,07:08.3,00:00.0
+72,W.J18.4x-,Final,Shrewsbury Sch,2,4,07:17.5,00:09.2
+72,W.J18.4x-,Final,Oundle Sch (LAWSON),3,2,07:24.7,00:16.4
+72,W.J18.4x-,Final,Durham,4,5,08:06.8,00:58.5
+72,W.J18.4x-,Final,Oundle Sch (HINDMARSH),5,1,08:21.4,01:13.1
+73,Op.1x,Final,Leeds Univ (DREW),1,2,07:49.9,00:00.0
+73,Op.1x,Final,Burton Ldr (CARROLL),2,1,07:50.1,00:00.2
+73,Op.1x,Final,Norwich (ROTHERAM),3,3,08:01.5,00:11.5
+73,Op.1x,Final,Maidstone (MIHR),4,4,08:03.3,00:13.4
+73,Op.1x,Final,Leeds Univ (BARRETT),5,5,08:12.7,00:22.7
+73,Op.1x,Final,Dart Totnes (DOSSETT),6,6,08:17.2,00:27.3
+74,W.Int.4x-,Final,NCRA/Lboro Students,2,2,07:28.6,00:17.9
+74,W.Int.4x-,Final,Leicester,3,4,07:31.7,00:21.1
+74,W.Int.4x-,Final,City of Oxford,4,3,07:32.6,00:22.0
+74,W.Int.4x-,Final,Nottm/Leeds Univ (time only),9999,6,07:10.6,00:00.0
+75,W Dev 4x-,Final,Leeds,1,5,08:51.2,00:00.0
+75,W Dev 4x-,Final,Leeds Univ,2,2,08:56.4,00:05.2
+75,W J16 4x-,Final,Leeds,1,3,09:07.4,00:00.0
+75,W J16 4x-,Final,Nottm & Union,2,6,09:08.9,00:01.5
+76,W.Int.4-,Final,Nottingham,1,2,07:48.1,00:00.0
+76,W.Int.4-,Final,York,2,4,07:51.6,00:03.5
+76,W.Int.4-,Final,Putney Town,3,3,07:58.0,00:09.9
+76,W.Int.4-,Final,Warwick,4,1,08:20.9,00:32.9
+77,W.Ch.8+,Final,Tyne,1,4,06:59.8,00:00.0
+77,W.Ch.8+,Final,City of Oxford,2,3,07:00.9,00:01.1
+78,Op.8+,Final,Norwich Sch,1,1,06:12.2,00:00.0
+78,Op.8+,Final,Agecroft,2,3,06:29.1,00:16.9
+78,Op.8+,Final,Dart Totnes,3,5,06:33.4,00:21.2
+78,Op.8+,Final,York,4,6,06:42.6,00:30.4
+78,Op.8+,Final,Cantabrigian,5,4,06:43.0,00:30.7
+78,Op.8+,Final,City of Oxford,6,2,06:45.2,00:33.0
+79,W.Int.8+,Final,Upper Thames,1,6,07:01.0,00:00.0
+79,W.Int.8+,Final,Kings Sch Chester,2,2,07:09.1,00:08.0
+79,W.Int.8+,Final,Curlew,3,4,07:11.0,00:10.0
+79,W.Int.8+,Final,City of Oxford,4,3,07:22.6,00:21.5
+79,W.Int.8+,Final,Tyne,5,1,07:40.0,00:39.0
+79,W.Int.8+,Final,Putney Town,6,5,08:01.7,01:00.6
+80,W.Dev.8+,Final,Leeds (VINCENT),1,3,07:35.6,00:00.0
+80,W.Dev.8+,Final,Lady Margaret (W1),2,5,07:39.5,00:04.0
+80,W.Dev.8+,Final,Shrewsbury Sch,3,4,07:39.9,00:04.3
+80,W.Dev.8+,Final,Magdalen,4,1,07:57.4,00:21.8
+80,W.Dev.8+,Final,Leeds (LISTER),5,2,07:59.7,00:24.1
+80,W.Dev.8+,Final,Norwich Sch,6,6,08:14.3,00:38.8
+81,W.J18.1x,Final,Warrington (BRITTLES),1,4,08:35.2,00:00.0
+81,W.J18.1x,Final,Chester-le-S (YOULTON) C,2,3,08:36.6,00:01.5
+81,W.J18.1x,Final,Leicester (GOUGH),3,2,08:44.4,00:09.2
+81,W.J18.1x,Final,Leeds (MARKS),4,5,08:47.5,00:12.3
+81,W.J18.1x,Final,Derby (TAYLOR),5,1,08:57.8,00:22.6
+81,W.J18.1x,Final,NCRA (WESSON),6,6,09:04.3,00:29.1
+45,W.4-,Final,Upper Thames,1,3,07:25.2,00:00.0
+45,W.4-,Final,City of Oxford,2,4,07:30.5,00:05.3
+45,W.4-,Final,York,3,5,07:47.1,00:21.9
+45,W.4-,Final,Putney Town (WARREN),4,1,07:53.5,00:28.3
+45,W.4-,Final,Auriol Kensington,5,2,08:00.0,00:34.8
+45,W.4-,Final,Putney Town (KLYMOW) C,6,6,09:01.6,01:36.4

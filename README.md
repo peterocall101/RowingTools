@@ -25,8 +25,9 @@ RowingTools/
 │   ├── requirements.txt
 │   ├── inputs/
 │   │   ├── scraper.py                  # Stage 2: URL in, results fetched + processed
-│   │   ├── generate_heatmap.py         # Stage 3: rowresults comp in, heatmap HTML out
-│   │   ├── generate_carousel.py        # Stage 4: rowresults comp in, carousel PNGs out
+│   │   ├── generate_heatmap.py         # Stage 3a: rowresults comp code in, heatmap HTML out
+│   │   ├── generate_heatmap_sheet.py   # Stage 3b: Google Sheets CSV in, heatmap HTML out
+│   │   ├── generate_carousel.py        # Stage 4: heatmap HTML in, carousel PNGs out
 │   │   ├── carousel-template-final.html # Carousel slide template (Fraunces / dark theme)
 │   │   ├── met_finals_scraper.py       # Benchmark updater: scrapes Met finals data
 │   │   └── testinputset1.csv           # Test input data
@@ -137,7 +138,7 @@ pip install anthropic requests beautifulsoup4 selenium pandas
 # See: googlechromelabs.github.io/chrome-for-testing/
 ```
 
-### Stage 3 - generate_heatmap.py
+### Stage 3a - generate_heatmap.py (rowresults.co.uk competitions)
 
 Fetches results directly from the rowresults.co.uk JSON API and generates a self-contained regatta analysis HTML page. No Selenium or Claude API needed.
 
@@ -146,16 +147,48 @@ python inputs/generate_heatmap.py --comp metsat25 --out ../../heatmap-metsat25.h
 python inputs/generate_heatmap.py --comp metsun25 --out ../../heatmap-metsun25.html
 ```
 
-The output HTML has four tabs:
+**Competition codes** follow rowresults.co.uk naming: `metsat25` (Met 2025 Saturday), `metsun25` (Met 2025 Sunday), etc.
 
-- **Heatmap** - race-by-race grid, one column per lane, colour-coded by GMT% tier (elite / high club / competitive / developing)
+### Stage 3b - generate_heatmap_sheet.py (Google Sheets / CSV competitions)
+
+For regattas whose results come from a Google Sheets export rather than rowresults. Expects a CSV with columns: `Race, Event, Type, Name, Position, Lane, Time, Diff`.
+
+**Getting the CSV:** export the Google Sheet via `File > Download > CSV`, or use the direct export URL:
+
+```text
+https://docs.google.com/spreadsheets/d/<SHEET_ID>/export?format=csv&gid=0
+```
+
+```bash
+python inputs/generate_heatmap_sheet.py \
+  --csv inputs/nottm25_results.csv \
+  --comp nottm25 \
+  --title "Nottingham Regatta 2025" \
+  --out ../../heatmap-nottm25.html
+```
+
+**Event code format** the script expects (e.g. Nottingham Regatta style):
+
+- Gender prefix: `Op.` (Open/Men's) or `W.`
+- Optional category: `.Ch.` `.Int.` `.Dev.` `.J18.` `.Lwt.`
+- Boat type: `1x` `2x` `4x-` `4-` `4+` `8+`
+- Examples: `Op.Ch.4-`, `W.J18.2x`, `Op.Dev.4x-`, `W.Lwt.1x`
+
+**Filtering rules:**
+
+- Only `Final` rows are used (heats/semis skipped)
+- Position `9999` (time-only non-competitive entries) excluded
+- J16 and below excluded; J18 included using adult WBTs
+- Times over 20 minutes treated as null (bad data) - fix in CSV before running
+
+**Both Stage 3 scripts produce the same four-tab HTML output:**
+
+- **Heatmap** - race-by-race grid, one column per finisher, colour-coded by GMT% tier (elite / high club / competitive / developing)
 - **Top 250 Results** - individual results ranked by GMT%, filterable by club
-- **Club Leaderboard** - clubs ranked by average GMT% across all their entries
+- **Club Leaderboard** - clubs ranked by top-3-avg GMT%, composites toggle, CSV download
 - **Club Compare** - dot-plot comparing selected clubs' GMT% distributions
 
 The file is fully self-contained (no external dependencies) and can be opened locally or pushed to the repo and linked from the site.
-
-**Competition codes** follow rowresults.co.uk naming: `metsat25` (Met 2025 Saturday), `metsun25` (Met 2025 Sunday), etc.
 
 ### Stage 4 - generate_carousel.py
 
@@ -209,9 +242,50 @@ Outputs `met_a_slowest`, `met_b_slowest`, `met_c_slowest` sections. Paste into `
 
 ## Workflow: post-regatta GMT analysis
 
-1. Run `python inputs/generate_heatmap.py --comp <code> --out ../../heatmap-<code>.html`
-2. Open the HTML locally to review, then push to repo to publish
-3. Optionally: run `python inputs/scraper.py --url <url>` + `gmt_processor.py` for a ranked CSV to write up as a post
+### Path A - rowresults.co.uk regatta
+
+```bash
+# 1. Generate heatmap (fetches live from rowresults API)
+python inputs/generate_heatmap.py --comp <code> --out ../../heatmap-<code>.html
+
+# 2. Add a card to the #sec-leaderboards grid in index.html:
+#    <a href="heatmap-<code>.html" class="lb-card">
+#      <div>
+#        <div class="lb-card-name">Regatta Name</div>
+#        <div class="lb-card-date">DD Month YYYY</div>
+#      </div>
+#      <span class="lb-arrow">→</span>
+#    </a>
+
+# 3. Open locally to review both files, then push
+git add heatmap-<code>.html index.html && git commit -m "add <comp> heatmap" && git push origin main
+
+# 4. Optionally generate carousel slides
+python inputs/generate_carousel.py --html ../../heatmap-<code>.html
+```
+
+### Path B - Google Sheets results (other regattas)
+
+```bash
+# 1. Export the sheet as CSV (File > Download > CSV, or use export URL)
+
+# 2. Generate heatmap from CSV
+python inputs/generate_heatmap_sheet.py \
+  --csv inputs/<comp>_results.csv \
+  --comp <code> \
+  --title "<Regatta Name Year>" \
+  --out ../../heatmap-<code>.html
+
+# 3. Add a card to the #sec-leaderboards grid in index.html (same as Path A step 2)
+
+# 4. Review locally, then push
+git add heatmap-<code>.html index.html && git commit -m "add <comp> heatmap" && git push origin main
+
+# 5. Optionally generate carousel
+python inputs/generate_carousel.py --html ../../heatmap-<code>.html
+```
+
+If any times look wrong in the output (e.g. clearly a typo in the sheet), fix them in the CSV and re-run Stage 3b - no need to touch the HTML directly.
 
 ---
 

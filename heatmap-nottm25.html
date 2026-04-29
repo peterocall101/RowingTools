@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nottingham Regatta 2025</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#111;color:#e8e8e6;font-size:13px;padding:24px 20px}
+h1{font-size:17px;font-weight:600;margin-bottom:4px}
+.sub{color:#666;font-size:12px;margin-bottom:18px}
+input{background:#1e1e1e;border:1px solid #333;color:#e8e8e6;padding:5px 10px;border-radius:6px;font-size:12px;margin-bottom:18px;width:220px}
+table{border-collapse:collapse;font-size:11px;margin-bottom:28px}
+caption{text-align:left;font-size:12px;font-weight:600;color:#aaa;padding:0 0 6px;letter-spacing:.03em;text-transform:uppercase}
+th{background:#1a1a1a;color:#555;font-weight:500;padding:4px 8px;border:1px solid #222;text-align:center;white-space:nowrap}
+th.rh{text-align:left;width:80px}
+td{border:1px solid #1e1e1e;padding:0;vertical-align:top;min-width:80px;max-width:120px}
+td.rnd{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space:nowrap;vertical-align:middle}
+.cell{padding:5px 6px;display:flex;flex-direction:column;align-items:center;gap:1px}
+.cn{font-weight:600;font-size:10px;color:rgba(255,255,255,.85);white-space:normal;text-align:center;max-width:110px;word-break:break-word;line-height:1.3}
+.cp{font-size:12px;font-weight:700}
+.ct{font-size:10px;color:rgba(255,255,255,.4)}
+.legend{display:flex;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.li{display:flex;align-items:center;gap:5px;font-size:11px;color:#777}
+.ls{width:12px;height:12px;border-radius:2px;flex-shrink:0}
+.tabs{display:flex;gap:8px;margin-bottom:18px}
+.tab{background:#1e1e1e;border:1px solid #333;color:#888;padding:6px 16px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit}
+.tab.active{background:#2a2a2a;border-color:#555;color:#e8e8e6;font-weight:600}
+#lb-table,#clublb-table{width:100%;border-collapse:collapse;font-size:12px}
+#lb-table th,#clublb-table th{background:#1a1a1a;color:#555;font-weight:500;padding:6px 10px;border:1px solid #222;text-align:left;white-space:nowrap}
+#lb-table th.num,#clublb-table th.num{text-align:right}
+#lb-table td,#clublb-table td{border:1px solid #1e1e1e;padding:6px 10px;vertical-align:middle}
+#lb-table td.num,#clublb-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+#lb-table tr:hover td,#clublb-table tr:hover td{background:#1a1a1a}
+</style>
+</head>
+<body>
+<h1>Nottingham Regatta 2025</h1>
+<p class="sub">GMT% vs WBT. Dev, Int, Champ and Open categories. J18 events included. Heats excluded.</p>
+<div class="tabs">
+  <button class="tab active" onclick="showTab('heatmap',this)">Heatmap</button>
+  <button class="tab" onclick="showTab('top100',this)">Top 250 Results</button>
+  <button class="tab" onclick="showTab('clublb',this)">Club Leaderboard</button>
+  <button class="tab" onclick="showTab('compare',this)">Club Compare</button>
+</div>
+<div id="view-heatmap">
+  <div class="legend">
+    <div class="li"><div class="ls" style="background:#1a4d3e"></div>&#x2265;87% elite</div>
+    <div class="li"><div class="ls" style="background:#1a3a5c"></div>80&#8211;87% high club</div>
+    <div class="li"><div class="ls" style="background:#4a3200"></div>72&#8211;80% competitive</div>
+    <div class="li"><div class="ls" style="background:#4a1a0a"></div>&lt;72% developing</div>
+    <div class="li"><div class="ls" style="background:#2a2a2a"></div>no data</div>
+  </div>
+  <input type="text" id="ev-filter" placeholder="Filter events&#8230;" oninput="filterHeatmap(this.value)" style="margin-right:8px">
+  <input type="text" id="club-filter-hm" list="cmp-clubs-list" placeholder="Filter by club&#8230;" oninput="filterClubHm(this.value)">
+  <div id="heatmap-out"></div>
+</div>
+<div id="view-compare" style="display:none">
+  <div style="margin-bottom:14px">
+    <div id="cmp-inputs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+    <button onclick="addCmpClub()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">+ Add club</button>
+    <button onclick="downloadCompare()" style="background:#c8472b;border:1px solid #c8472b;color:#fff;padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;margin-left:8px">&#x2193; Save image</button>
+  </div>
+  <div id="cmp-stats" style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap"></div>
+  <div id="cmp-chart"></div>
+</div>
+<datalist id="cmp-clubs-list"></datalist>
+<div id="view-top100" style="display:none">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+    <input type="text" id="lb-club-filter" list="cmp-clubs-list" placeholder="Filter by club&#8230;" oninput="renderTop100()" style="margin-bottom:0">
+    <button onclick="downloadTop100CSV()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap">&#x2193; CSV</button>
+  </div>
+  <table id="lb-table">
+    <thead><tr>
+      <th class="num">#</th><th>Crew</th><th>Club</th><th>Event</th><th>Round</th>
+      <th class="num">Time</th><th class="num">GMT%</th>
+    </tr></thead>
+    <tbody id="lb-body"></tbody>
+  </table>
+</div>
+<div id="view-clublb" style="display:none">
+  <label style="font-size:12px;color:#666;display:inline-block;margin-bottom:10px">Min entries: <input type="number" id="min-entries" value="2" min="1" style="width:52px;margin-left:4px" oninput="renderClubLB()"></label>
+  <label style="font-size:12px;color:#666;display:inline-flex;align-items:center;gap:4px;margin-bottom:10px;margin-left:16px"><input type="checkbox" id="incl-composites" onchange="renderClubLB()" style="width:auto;margin-bottom:0;padding:0">Include composites</label>
+  <button onclick="downloadClubLBCSV()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;margin-left:10px;margin-bottom:10px">&#x2193; CSV</button>
+  <table id="clublb-table">
+    <thead><tr>
+      <th class="num">#</th><th>Club</th>
+      <th class="num">Entries</th><th class="num">Events</th>
+      <th class="num">Top 3 Avg</th><th class="num">Avg GMT%</th><th class="num">Best</th>
+    </tr></thead>
+    <tbody id="clublb-body"></tbody>
+  </table>
+</div>
+<script>
+const ROWS=[{"event": "W 1x", "round": "Final", "lanes": [{"crew": "Oxford (ARMSTRONG)", "club": "Oxford", "time": "8:12.9", "pct": 86.8}, {"crew": "Hollingworth (DANIELS)", "club": "Hollingworth", "time": "8:18.4", "pct": 85.8}, {"crew": "Upper Thames (TIJSSEN)", "club": "Upper Thames", "time": "8:22.0", "pct": 85.2}, {"crew": "City of Oxford (BIGGS)", "club": "City of Oxford", "time": "8:26.6", "pct": 84.4}, {"crew": "Leeds Univ (BROOKS)", "club": "Leeds Univ", "time": "8:29.2", "pct": 84.0}, {"crew": "Derby (TAYLOR)", "club": "Derby", "time": "9:04.5", "pct": 78.6}], "boat": "W1x"}, {"event": "W 2x", "round": "Final", "lanes": [{"crew": "Cantabrigian", "club": "Cantabrigian", "time": "7:48.8", "pct": 84.8}, {"crew": "Warwick", "club": "Warwick", "time": "7:52.0", "pct": 84.2}, {"crew": "Warrington", "club": "Warrington", "time": "7:55.2", "pct": 83.6}, {"crew": "Upper Thames", "club": "Upper Thames", "time": "7:58.4", "pct": 83.0}, {"crew": "City of Oxford", "club": "City of Oxford", "time": "8:09.8", "pct": 81.1}], "boat": "W2x"}, {"event": "W 4+", "round": "Final", "lanes": [{"crew": "Sir William Perkins", "club": "Sir William Perkins", "time": "7:55.4", "pct": 81.1}, {"crew": "Oxford (PASSEY)", "club": "Oxford", "time": "8:26.6", "pct": 76.1}, {"crew": "Oxford (BILLSON)", "club": "Oxford", "time": "9:11.5", "pct": 69.9}], "boat": "W4+"}, {"event": "W 4-", "round": "Final", "lanes": [{"crew": "Upper Thames", "club": "Upper Thames", "time": "7:25.2", "pct": 84.1}, {"crew": "City of Oxford", "club": "City of Oxford", "time": "7:30.5", "pct": 83.1}, {"crew": "York", "club": "York", "time": "7:47.1", "pct": 80.1}, {"crew": "Putney Town (WARREN)", "club": "Putney Town", "time": "7:53.5", "pct": 79.1}, {"crew": "Auriol Kensington", "club": "Auriol Kensington", "time": "8:00.0", "pct": 78.0}, {"crew": "Putney Town (KLYMOW) C", "club": "Putney Town", "time": "9:01.6", "pct": 69.1}], "boat": "W4-"}, {"event": "W 4x", "round": "Final", "lanes": [{"crew": "Sir William Perkins", "club": "Sir William Perkins", "time": "7:03.9", "pct": 86.5}, {"crew": "Upper Thames", "club": "Upper Thames", "time": "7:29.0", "pct": 81.7}, {"crew": "City of Oxford", "club": "City of Oxford", "time": "7:34.4", "pct": 80.7}], "boat": "W4x"}, {"event": "W 8+", "round": "Final", "lanes": [{"crew": "Tyne (PEACOCK)", "club": "Tyne", "time": "7:04.4", "pct": 83.4}, {"crew": "City of Oxford", "club": "City of Oxford", "time": "7:17.2", "pct": 81.0}, {"crew": "Auriol Kensington", "club": "Auriol Kensington", "time": "7:19.5", "pct": 80.6}, {"crew": "Emmanuel", "club": "Emmanuel", "time": "7:44.1", "pct": 76.3}, {"crew": "Tyne (BASEY)", "club": "Tyne", "time": "7:48.1", "pct": 75.7}], "boat": "W8+"}, {"event": "W Champ 2x", "round": "Final", "lanes": [{"crew": "Leicester", "club": "Leicester", "time": "7:35.2", "pct": 87.3}, {"crew": "Dart Totnes", "club": "Dart Totnes", "time": "7:38.8", "pct": 86.6}, {"crew": "City of Oxford", "club": "City of Oxford", "time": "7:43.9", "pct": 85.6}, {"crew": "Warwick", "club": "Warwick", "time": "7:50.2", "pct": 84.5}], "boat": "W2x"}, {"event": "W Champ 8+", "round": "Final", "lanes": [{"crew": "Tyne", "club": "Tyne", "time": "6:59.8", "pct": 84.4}, {"crew": "City of Oxford", "club": "City of Oxford", "time": "7:00.9", "pct": 84.1}], "boat": "W8+"}, {"event": "W Dev 1x", "round": "Final", "lanes": [{"crew": "Exeter (COPPING)", "club": "Exeter", "time": "8:49.4", "pct": 80.8}, {"crew": "Leicester (DUFFY)", "club": "Leicester", "time": "8:53.6", "pct": 80.2}, {"crew": "Auriol Kens (STUART-H)", "club": "Auriol Kens", "time": "9:23.9", "pct": 75.8}, {"crew": "Warwick (HUNTER)", "club": "Warwick", "time": "9:24.5", "pct": 75.8}, {"crew": "Maidstone Inv (ABBOTT)", "club": "Maidstone Inv", "time": "10:20.2", "pct": 69.0}], "boat": "W1x"}, {"event": "W Dev 2x", "round": "Final", "lanes": [{"crew": "NCRA/Lboro Students", "club": "NCRA/Lboro Students", "time": "8:09.6", "pct": 81.1}, {"crew": "Leicester", "club": "Leicester", "time": "8:19.7", "pct": 79.5}, {"crew": "Auriol Kensington", "club": "Auriol Kensington", "time": "8:33.9", "pct": 77.3}, {"crew": "City of Oxford", "club": "City of Oxford", "time": "9:16.9", "pct": 71.3}], "boat": "W2x"}, {"event": "W Dev 4+", "round": "Final", "lanes": [{"crew": "Peterborough", "club": "Peterborough", "time": "7:59.5", "pct": 80.4}, {"crew": "Agecroft", "club": "Agecroft", "time": "8:23.6", "pct": 76.5}, {"crew": "Curlew", "club": "Curlew", "time": "8:30.4", "pct": 75.5}, {"crew": "City of Oxford", "club": "City of Oxford", "time": "8:45.9", "pct": 73.3}, {"crew": "Durham", "club": "Durham", "time": "8:50.1", "pct": 72.7}], "boat": "W4+"}, {"event": "W Dev 4x", "round": "Final", "lanes": [{"crew": "Leeds", "club": "Leeds", "time": "8:51.2", "pct": 69.1}, {"crew": "Leeds Univ", "club": "Leeds Univ", "time": "8:56.4", "pct": 68.4}], "boat": "W4x"}, {"event": "W Dev 8+", "round": "Final", "lanes": [{"crew": "Leeds (VINCENT)", "club": "Leeds", "time": "7:35.6", "pct": 77.7}, {"crew": "Lady Margaret (W1)", "club": "Lady Margaret", "time": "7:39.5", "pct": 77.1}, {"crew": "Shrewsbury Sch", "club": "Shrewsbury Sch", "time": "7:39.9", "pct": 77.0}, {"crew": "Magdalen", "club": "Magdalen", "time": "7:57.4", "pct": 74.2}, {"crew": "Leeds (LISTER)", "club": "Leeds", "time": "7:59.7", "pct": 73.8}, {"crew": "Norwich Sch", "club": "Norwich Sch", "time": "8:14.3", "pct": 71.6}], "boat": "W8+"}, {"event": "W Int 1x", "round": "Final", "lanes": [{"crew": "Dart Totnes (MANNING)", "club": "Dart Totnes", "time": "8:59.4", "pct": 79.3}, {"crew": "NCRA (BESLEY)", "club": "NCRA", "time": "9:27.0", "pct": 75.4}], "boat": "W1x"}, {"event": "W Int 2x", "round": "Final", "lanes": [{"crew": "Warrington", "club": "Warrington", "time": "7:46.3", "pct": 85.2}, {"crew": "Cantabrigian", "club": "Cantabrigian", "time": "7:57.6", "pct": 83.2}, {"crew": "Windermere/Sheffield", "club": "Windermere/Sheffield", "time": "8:08.9", "pct": 81.3}], "boat": "W2x"}, {"event": "W Int 4-", "round": "Final", "lanes": [{"crew": "Nottingham", "club": "Nottingham", "time": "7:48.1", "pct": 80.0}, {"crew": "York", "club": "York", "time": "7:51.6", "pct": 79.4}, {"crew": "Putney Town", "club": "Putney Town", "time": "7:58.0", "pct": 78.3}, {"crew": "Warwick", "club": "Warwick", "time": "8:20.9", "pct": 74.7}], "boat": "W4-"}, {"event": "W Int 4x", "round": "Final", "lanes": [{"crew": "NCRA/Lboro Students", "club": "NCRA/Lboro Students", "time": "7:28.6", "pct": 81.8}, {"crew": "Leicester", "club": "Leicester", "time": "7:31.7", "pct": 81.2}, {"crew": "City of Oxford", "club": "City of Oxford", "time": "7:32.6", "pct": 81.1}], "boat": "W4x"}, {"event": "W Int 8+", "round": "Final", "lanes": [{"crew": "Upper Thames", "club": "Upper Thames", "time": "7:01.0", "pct": 84.1}, {"crew": "Kings Sch Chester", "club": "Kings Sch Chester", "time": "7:09.1", "pct": 82.5}, {"crew": "Curlew", "club": "Curlew", "time": "7:11.0", "pct": 82.2}, {"crew": "City of Oxford", "club": "City of Oxford", "time": "7:22.6", "pct": 80.0}, {"crew": "Tyne", "club": "Tyne", "time": "7:40.0", "pct": 77.0}, {"crew": "Putney Town", "club": "Putney Town", "time": "8:01.7", "pct": 73.5}], "boat": "W8+"}, {"event": "W J18 1x", "round": "Final", "lanes": [{"crew": "Warrington (BRITTLES)", "club": "Warrington", "time": "8:35.2", "pct": 83.0}, {"crew": "Chester-le-S (YOULTON) C", "club": "Chester-le-S", "time": "8:36.6", "pct": 82.8}, {"crew": "Leicester (GOUGH)", "club": "Leicester", "time": "8:44.4", "pct": 81.6}, {"crew": "Leeds (MARKS)", "club": "Leeds", "time": "8:47.5", "pct": 81.1}, {"crew": "Derby (TAYLOR)", "club": "Derby", "time": "8:57.8", "pct": 79.5}, {"crew": "NCRA (WESSON)", "club": "NCRA", "time": "9:04.3", "pct": 78.6}], "boat": "W1x"}, {"event": "W J18 2x", "round": "Final", "lanes": [{"crew": "Nottingham/Northampton", "club": "Nottingham/Northampton", "time": "7:41.7", "pct": 86.1}, {"crew": "Chester le Street", "club": "Chester le Street", "time": "7:56.5", "pct": 83.4}, {"crew": "Oundle Sch", "club": "Oundle Sch", "time": "8:03.5", "pct": 82.2}, {"crew": "Chester Le St/Hexham", "club": "Chester Le St/Hexham", "time": "8:09.4", "pct": 81.2}, {"crew": "Warrington", "club": "Warrington", "time": "8:19.1", "pct": 79.6}, {"crew": "Leeds", "club": "Leeds", "time": "8:24.6", "pct": 78.7}], "boat": "W2x"}, {"event": "W J18 4+", "round": "Final", "lanes": [{"crew": "Sir William Perkins", "club": "Sir William Perkins", "time": "7:45.8", "pct": 82.7}, {"crew": "Shrewsbury Sch", "club": "Shrewsbury Sch", "time": "7:55.4", "pct": 81.1}], "boat": "W4+"}, {"event": "W J18 4x", "round": "Final", "lanes": [{"crew": "Sir William Perkins", "club": "Sir William Perkins", "time": "7:08.3", "pct": 85.7}, {"crew": "Shrewsbury Sch", "club": "Shrewsbury Sch", "time": "7:17.5", "pct": 83.8}, {"crew": "Oundle Sch (LAWSON)", "club": "Oundle Sch", "time": "7:24.7", "pct": 82.5}, {"crew": "Durham", "club": "Durham", "time": "8:06.8", "pct": 75.4}, {"crew": "Oundle Sch (HINDMARSH)", "club": "Oundle Sch", "time": "8:21.4", "pct": 73.2}], "boat": "W4x"}, {"event": "W Lwt 1x", "round": "Final", "lanes": [{"crew": "Dart Totnes (MACRO)", "club": "Dart Totnes", "time": "8:18.8", "pct": 89.1}, {"crew": "Hollingworth (DANIELS)", "club": "Hollingworth", "time": "8:30.5", "pct": 87.1}, {"crew": "Nottingham (COOPER)", "club": "Nottingham", "time": "8:39.3", "pct": 85.6}, {"crew": "Dart Totnes (HALLETT)", "club": "Dart Totnes", "time": "9:09.9", "pct": 80.8}], "boat": "LW1x"}, {"event": "Open 1x", "round": "Final", "lanes": [{"crew": "Leeds Univ (DREW)", "club": "Leeds Univ", "time": "7:49.9", "pct": 83.2}, {"crew": "Burton Ldr (CARROLL)", "club": "Burton Ldr", "time": "7:50.1", "pct": 83.1}, {"crew": "Norwich (ROTHERAM)", "club": "Norwich", "time": "8:01.5", "pct": 81.2}, {"crew": "Maidstone (MIHR)", "club": "Maidstone", "time": "8:03.3", "pct": 80.8}, {"crew": "Leeds Univ (BARRETT)", "club": "Leeds Univ", "time": "8:12.7", "pct": 79.3}, {"crew": "Dart Totnes (DOSSETT)", "club": "Dart Totnes", "time": "8:17.2", "pct": 78.6}], "boat": "M1x"}, {"event": "Open 4+", "round": "Final", "lanes": [{"crew": "Emmanuel", "club": "Emmanuel", "time": "7:04.1", "pct": 84.6}, {"crew": "Agecroft", "club": "Agecroft", "time": "7:10.7", "pct": 83.3}, {"crew": "Norwich Sch", "club": "Norwich Sch", "time": "7:18.4", "pct": 81.9}], "boat": "M4+"}, {"event": "Open 4-", "round": "Final", "lanes": [{"crew": "Northwich", "club": "Northwich", "time": "6:38.2", "pct": 84.8}, {"crew": "Tyne (JONES)", "club": "Tyne", "time": "6:56.1", "pct": 81.2}, {"crew": "Oxford (BRITTON)", "club": "Oxford", "time": "7:05.0", "pct": 79.5}, {"crew": "Durham", "club": "Durham", "time": "7:09.9", "pct": 78.6}, {"crew": "Tyne (DUGUID)", "club": "Tyne", "time": "7:10.6", "pct": 78.5}], "boat": "M4-"}, {"event": "Open 4x", "round": "Final", "lanes": [{"crew": "Nottingham", "club": "Nottingham", "time": "6:43.4", "pct": 82.4}], "boat": "M4x"}, {"event": "Open 8+", "round": "Final", "lanes": [{"crew": "Norwich Sch", "club": "Norwich Sch", "time": "6:12.2", "pct": 85.6}, {"crew": "Agecroft", "club": "Agecroft", "time": "6:29.1", "pct": 81.9}, {"crew": "Dart Totnes", "club": "Dart Totnes", "time": "6:33.4", "pct": 81.0}, {"crew": "York", "club": "York", "time": "6:42.6", "pct": 79.2}, {"crew": "Cantabrigian", "club": "Cantabrigian", "time": "6:43.0", "pct": 79.1}, {"crew": "City of Oxford", "club": "City of Oxford", "time": "6:45.2", "pct": 78.6}], "boat": "M8+"}, {"event": "Open Champ 1x", "round": "Final", "lanes": [{"crew": "NCRA (KNIGHTON)", "club": "NCRA", "time": "7:32.5", "pct": 86.4}, {"crew": "Cambridge (CHARD)", "club": "Cambridge", "time": "7:36.8", "pct": 85.5}, {"crew": "Leeds Univ (OWEN)", "club": "Leeds Univ", "time": "8:05.3", "pct": 80.5}], "boat": "M1x"}, {"event": "Open Champ 4-", "round": "Final", "lanes": [{"crew": "Northwich", "club": "Northwich", "time": "5:55.6", "pct": 95.0}, {"crew": "Agecroft", "club": "Agecroft", "time": "6:09.9", "pct": 91.3}, {"crew": "City of Oxford", "club": "City of Oxford", "time": "6:26.2", "pct": 87.5}, {"crew": "Tyne", "club": "Tyne", "time": "6:29.6", "pct": 86.7}], "boat": "M4-"}, {"event": "Open Champ 4x", "round": "Final", "lanes": [{"crew": "Loughborough Students", "club": "Loughborough Students", "time": "6:03.2", "pct": 91.5}, {"crew": "Kings Sch Chester", "club": "Kings Sch Chester", "time": "6:37.1", "pct": 83.7}], "boat": "M4x"}, {"event": "Open Champ 8+", "round": "Final", "lanes": [{"crew": "Hampton Sch", "club": "Hampton Sch", "time": "5:54.0", "pct": 90.0}, {"crew": "Tyne", "club": "Tyne", "time": "6:35.2", "pct": 80.6}], "boat": "M8+"}, {"event": "Open Dev 1x", "round": "Final", "lanes": [{"crew": "Nottingham (HARTLEY)", "club": "Nottingham", "time": "8:03.3", "pct": 80.8}, {"crew": "Newark (BELL)", "club": "Newark", "time": "8:11.7", "pct": 79.5}, {"crew": "Rob Roy (EVANS)", "club": "Rob Roy", "time": "8:18.1", "pct": 78.4}, {"crew": "Hollingworth (DIVER)", "club": "Hollingworth", "time": "8:57.5", "pct": 72.7}, {"crew": "Leeds (MILES)", "club": "Leeds", "time": "9:12.4", "pct": 70.7}], "boat": "M1x"}, {"event": "Open Dev 2x", "round": "Final", "lanes": [{"crew": "Poole/Cambois", "club": "Poole/Cambois", "time": "7:20.7", "pct": 81.6}, {"crew": "Leeds (SOUPE)", "club": "Leeds", "time": "7:25.2", "pct": 80.8}, {"crew": "Warwick", "club": "Warwick", "time": "7:29.0", "pct": 80.1}, {"crew": "Leeds Univ", "club": "Leeds Univ", "time": "8:02.1", "pct": 74.6}, {"crew": "Leeds (COSTANTINI)", "club": "Leeds", "time": "8:38.4", "pct": 69.4}], "boat": "M2x"}, {"event": "Open Dev 4+", "round": "Final", "lanes": [{"crew": "Emmanuel", "club": "Emmanuel", "time": "7:16.3", "pct": 82.3}, {"crew": "Norwich Sch (VEDRENNE)", "club": "Norwich Sch", "time": "7:20.9", "pct": 81.4}, {"crew": "Kings Sch Chester", "club": "Kings Sch Chester", "time": "7:28.9", "pct": 80.0}, {"crew": "Agecroft", "club": "Agecroft", "time": "7:54.3", "pct": 75.7}, {"crew": "Norwich Sch (STRIKE)", "club": "Norwich Sch", "time": "7:58.5", "pct": 75.0}, {"crew": "York", "club": "York", "time": "8:00.2", "pct": 74.8}], "boat": "M4+"}, {"event": "Open Dev 4x", "round": "Final", "lanes": [{"crew": "Leeds Univ", "club": "Leeds Univ", "time": "7:01.1", "pct": 78.9}, {"crew": "Leeds (LANGDON)", "club": "Leeds", "time": "7:11.3", "pct": 77.0}, {"crew": "City of Cambridge", "club": "City of Cambridge", "time": "7:20.0", "pct": 75.5}, {"crew": "Leeds (KING)", "club": "Leeds", "time": "7:24.9", "pct": 74.7}, {"crew": "Leicester", "club": "Leicester", "time": "7:36.1", "pct": 72.8}], "boat": "M4x"}, {"event": "Open Dev 8+", "round": "Final", "lanes": [{"crew": "Hampton Sch", "club": "Hampton Sch", "time": "6:50.5", "pct": 77.6}, {"crew": "Agecroft", "club": "Agecroft", "time": "7:19.0", "pct": 72.6}, {"crew": "Norwich Sch", "club": "Norwich Sch", "time": "7:27.6", "pct": 71.2}], "boat": "M8+"}, {"event": "Open Int 1x", "round": "Final", "lanes": [{"crew": "Nottingham (LUNN)", "club": "Nottingham", "time": "7:35.4", "pct": 85.8}, {"crew": "Nottingham (BLACK)", "club": "Nottingham", "time": "7:40.3", "pct": 84.9}, {"crew": "Leicester (ALLEN)", "club": "Leicester", "time": "7:46.6", "pct": 83.7}, {"crew": "Leicester (NICKSON)", "club": "Leicester", "time": "7:49.5", "pct": 83.2}, {"crew": "Norwich (ROTHERAM)", "club": "Norwich", "time": "8:13.2", "pct": 79.2}, {"crew": "York (LEWIS)", "club": "York", "time": "8:16.1", "pct": 78.8}], "boat": "M1x"}, {"event": "Open Int 2x", "round": "Final", "lanes": [{"crew": "Leicester", "club": "Leicester", "time": "7:13.4", "pct": 83.0}, {"crew": "Auriol Kensington", "club": "Auriol Kensington", "time": "7:45.7", "pct": 77.2}, {"crew": "Lakeland", "club": "Lakeland", "time": "8:18.0", "pct": 72.2}], "boat": "M2x"}, {"event": "Open Int 4-", "round": "Final", "lanes": [{"crew": "Globe", "club": "Globe", "time": "6:42.6", "pct": 83.9}, {"crew": "York (PRESS)", "club": "York", "time": "6:49.8", "pct": 82.4}, {"crew": "Cantabs (ALMQVIST)", "club": "Cantabs", "time": "6:54.9", "pct": 81.4}, {"crew": "Durham", "club": "Durham", "time": "7:07.2", "pct": 79.1}, {"crew": "Nottingham", "club": "Nottingham", "time": "7:10.9", "pct": 78.4}, {"crew": "City of Oxford", "club": "City of Oxford", "time": "7:11.4", "pct": 78.3}], "boat": "M4-"}, {"event": "Open Int 8+", "round": "Final", "lanes": [{"crew": "Hampton Sch", "club": "Hampton Sch", "time": "6:23.5", "pct": 83.1}, {"crew": "Dart Totnes", "club": "Dart Totnes", "time": "6:25.6", "pct": 82.6}, {"crew": "Peterborough", "club": "Peterborough", "time": "6:27.6", "pct": 82.2}, {"crew": "City of Oxford", "club": "City of Oxford", "time": "6:39.8", "pct": 79.7}, {"crew": "Leeds", "club": "Leeds", "time": "6:47.9", "pct": 78.1}], "boat": "M8+"}, {"event": "Open J18 1x", "round": "Final", "lanes": [{"crew": "American Sch (TEJPAUL)", "club": "American Sch", "time": "7:26.4", "pct": 87.5}, {"crew": "Warrington (PRITCHARD)", "club": "Warrington", "time": "7:41.0", "pct": 84.8}, {"crew": "Newark (WOODMAN)", "club": "Newark", "time": "7:55.1", "pct": 82.2}, {"crew": "Newark (BELL) C", "club": "Newark", "time": "8:02.0", "pct": 81.1}, {"crew": "Windsor BS (REES-J)", "club": "Windsor BS", "time": "8:17.2", "pct": 78.6}, {"crew": "Newark (PETKOVIC)", "club": "Newark", "time": "8:26.0", "pct": 77.2}], "boat": "M1x"}, {"event": "Open J18 2x", "round": "Final", "lanes": [{"crew": "Windsor Boys Sch", "club": "Windsor Boys Sch", "time": "7:04.1", "pct": 84.8}, {"crew": "Norwich", "club": "Norwich", "time": "7:25.8", "pct": 80.7}, {"crew": "Newark", "club": "Newark", "time": "7:45.9", "pct": 77.2}], "boat": "M2x"}, {"event": "Open J18 4+", "round": "Final", "lanes": [{"crew": "Windsor Boys (REILLY)", "club": "Windsor Boys", "time": "6:58.5", "pct": 85.8}, {"crew": "Windsor BS (MANWARING)", "club": "Windsor BS", "time": "7:14.3", "pct": 82.7}, {"crew": "Shrewsbury Sch", "club": "Shrewsbury Sch", "time": "7:14.6", "pct": 82.6}], "boat": "M4+"}, {"event": "Open J18 4-", "round": "Final", "lanes": [{"crew": "Nottm & Union", "club": "Nottm & Union", "time": "7:25.4", "pct": 75.9}, {"crew": "Shrewsbury Sch", "club": "Shrewsbury Sch", "time": "7:42.6", "pct": 73.0}], "boat": "M4-"}, {"event": "Open J18 4x", "round": "Final", "lanes": [{"crew": "Windsor BS (RICHARDS)", "club": "Windsor BS", "time": "6:38.3", "pct": 83.4}, {"crew": "Oundle Sch (COULTER)", "club": "Oundle Sch", "time": "6:41.9", "pct": 82.7}, {"crew": "Windsor BS (MORGAN)", "club": "Windsor BS", "time": "6:42.2", "pct": 82.6}, {"crew": "Kings Sch Chester", "club": "Kings Sch Chester", "time": "6:44.9", "pct": 82.1}, {"crew": "Leeds", "club": "Leeds", "time": "6:53.4", "pct": 80.4}, {"crew": "Oundle Sch (SHEIKH)", "club": "Oundle Sch", "time": "7:19.8", "pct": 75.5}], "boat": "M4x"}, {"event": "Open J18 8+", "round": "Final", "lanes": [{"crew": "Bedford Sch", "club": "Bedford Sch", "time": "5:57.3", "pct": 89.2}, {"crew": "Hampton Sch", "club": "Hampton Sch", "time": "5:59.7", "pct": 88.6}, {"crew": "Shrewsbury Sch", "club": "Shrewsbury Sch", "time": "6:01.5", "pct": 88.2}, {"crew": "Kings Sch Chester", "club": "Kings Sch Chester", "time": "6:09.1", "pct": 86.3}, {"crew": "Norwich Sch", "club": "Norwich Sch", "time": "6:10.4", "pct": 86.0}, {"crew": "Nottm & Union", "club": "Nottm & Union", "time": "6:46.9", "pct": 78.3}], "boat": "M8+"}];
+for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null&&l.pct<50)l.pct=null;
+function normClub(n){return(n||'').replace(/\s*\([^)]+\)\s*$/,'').trim();}
+function bg(p){return p===null?'#2a2a2a':p>=87?'#1a4d3e':p>=80?'#1a3a5c':p>=72?'#4a3200':'#4a1a0a'}
+function fg(p){return p===null?'#555':p>=87?'#4ee8b0':p>=80?'#7bbfff':p>=72?'#f0b030':'#ff7050'}
+function showTab(name,btn){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('view-heatmap').style.display =name==='heatmap'?'':'none';
+  document.getElementById('view-top100').style.display  =name==='top100' ?'':'none';
+  document.getElementById('view-compare').style.display =name==='compare'?'':'none';
+  document.getElementById('view-clublb').style.display  =name==='clublb' ?'':'none';
+  if(name==='heatmap')renderHeatmap(ROWS,document.getElementById('club-filter-hm').value);
+  if(name==='top100') renderTop100();
+  if(name==='clublb') renderClubLB();
+}
+function renderHeatmap(rows,clubQ){
+  clubQ=(clubQ||'').toLowerCase().trim();
+  const groups=new Map();
+  for(const r of rows){if(!groups.has(r.event))groups.set(r.event,[]);groups.get(r.event).push(r);}
+  let h='';
+  for(const[ev,races] of groups){
+    const maxP=Math.min(Math.max(...races.map(r=>r.lanes.length)),8);
+    let th='<th class="rh">Round</th>';
+    for(let i=1;i<=maxP;i++)th+=`<th>P${i}</th>`;
+    let tb='';
+    for(const r of races){
+      let cells=`<td class="rnd">${r.round}</td>`;
+      for(let i=0;i<maxP;i++){
+        const l=r.lanes[i];
+        if(!l){cells+='<td></td>';continue;}
+        const b=bg(l.pct),f=fg(l.pct),p=l.pct!==null?l.pct.toFixed(1)+'%':'&#x2014;';
+        const dim=clubQ&&!l.club.toLowerCase().includes(clubQ)?'opacity:0.12;':'';
+        cells+=`<td style="background:${b};${dim}"><div class="cell"><span class="cn">${l.crew}</span><span class="cp" style="color:${f}">${p}</span><span class="ct">${l.time}</span></div></td>`;
+      }
+      tb+=`<tr>${cells}</tr>`;
+    }
+    h+=`<table><caption>${ev}</caption><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table>`;
+  }
+  document.getElementById('heatmap-out').innerHTML=h||'<p style="color:#555">No results.</p>';
+}
+function filterHeatmap(q){
+  q=q.toLowerCase().trim();
+  const rows=q?ROWS.filter(r=>r.event.toLowerCase().includes(q)||r.boat.toLowerCase().includes(q)):ROWS;
+  renderHeatmap(rows,document.getElementById('club-filter-hm').value);
+}
+function filterClubHm(q){
+  const evQ=(document.getElementById('ev-filter').value||'').toLowerCase().trim();
+  const rows=evQ?ROWS.filter(r=>r.event.toLowerCase().includes(evQ)||r.boat.toLowerCase().includes(evQ)):ROWS;
+  renderHeatmap(rows,q);
+}
+function renderTop100(){
+  const clubQ=(document.getElementById('lb-club-filter').value||'').toLowerCase().trim();
+  const entries=[];
+  for(const r of ROWS)for(const l of r.lanes)
+    if(l.pct!==null)entries.push({crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct});
+  entries.sort((a,b)=>b.pct-a.pct);
+  const filtered=clubQ?entries.filter(e=>e.club.toLowerCase().includes(clubQ)):entries;
+  let h='';
+  filtered.slice(0,250).forEach((e,i)=>{
+    const f=fg(e.pct);
+    h+=`<tr><td class="num" style="color:#555">${i+1}</td><td><strong>${e.crew}</strong></td><td style="color:#888">${e.club}</td><td style="color:#aaa">${e.event}</td><td style="color:#666">${e.round}</td><td class="num" style="color:#888">${e.time}</td><td class="num"><strong style="color:${f}">${e.pct.toFixed(1)}%</strong></td></tr>`;
+  });
+  document.getElementById('lb-body').innerHTML=h||'<tr><td colspan="7" style="color:#555;text-align:center;padding:20px">No results.</td></tr>';
+}
+const ALL_CLUBS=[...new Set(ROWS.flatMap(r=>r.lanes.map(l=>l.club).filter(c=>c&&!c.includes('/'))))].sort((a,b)=>a.localeCompare(b));
+document.getElementById('cmp-clubs-list').innerHTML=ALL_CLUBS.map(c=>'<option value="'+c.replace(/"/g,'&quot;')+'">').join('');
+let cmpClubs=['',''];
+const CMP_COLS=['#7bbfff','#f0b030','#4ee8b0','#ff7050','#c084fc','#fb923c'];
+function renderClubInputs(){
+  let h='';
+  cmpClubs.forEach((q,i)=>{
+    const col=CMP_COLS[i%CMP_COLS.length];
+    const rm=cmpClubs.length>1?'<button onclick="removeCmpClub('+i+')" style="background:none;border:1px solid #2a2a2a;color:#555;cursor:pointer;font-size:13px;padding:1px 6px;border-radius:4px">&#x2715;</button>':'';
+    h+='<div style="display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:'+col+';flex-shrink:0"></div><input type="text" list="cmp-clubs-list" value="'+q.replace(/"/g,'&quot;')+'" placeholder="Club name&#8230;" oninput="updateCmpClub('+i+',this.value)" style="margin-bottom:0;width:200px">'+rm+'</div>';
+  });
+  document.getElementById('cmp-inputs').innerHTML=h;
+}
+function addCmpClub(){if(cmpClubs.length>=6)return;cmpClubs.push('');renderClubInputs();}
+function removeCmpClub(i){cmpClubs.splice(i,1);renderClubInputs();renderCompare();}
+function updateCmpClub(i,v){cmpClubs[i]=v;renderCompare();}
+function renderCompare(){
+  const active=cmpClubs.map((q,i)=>{return{q:q.trim(),col:CMP_COLS[i%CMP_COLS.length]}}).filter(c=>c.q);
+  if(!active.length){
+    document.getElementById('cmp-stats').innerHTML='';
+    document.getElementById('cmp-chart').innerHTML='<p style="color:#555;margin-top:8px">Enter one or more club names above.</p>';
+    return;
+  }
+  const all=[];
+  for(const r of ROWS)for(const l of r.lanes)
+    if(l.pct!==null)all.push({crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct});
+  const clubs=active.map(c=>{return{...c,entries:all.filter(e=>!e.club.includes('/')&&e.club.toLowerCase()===c.q.toLowerCase())}});
+  function mkStat(c){
+    if(!c.entries.length)return'<div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:12px 16px;min-width:160px"><div style="color:'+c.col+';font-weight:700;font-size:13px">'+c.q+'</div><div style="color:#555;font-size:11px;margin-top:6px">No results found</div></div>';
+    const pcts=c.entries.map(e=>e.pct);
+    const avg=pcts.reduce((a,b)=>a+b,0)/pcts.length;
+    const best=Math.max(...pcts);
+    const top3=pcts.slice().sort((a,b)=>b-a).slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,pcts.length);
+    const evts=new Set(c.entries.map(e=>e.event)).size;
+    return'<div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:12px 16px;min-width:170px"><div style="color:'+c.col+';font-weight:700;font-size:13px;margin-bottom:8px">'+c.q+'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:11px"><span style="color:#666">Entries</span><span style="color:#ccc">'+c.entries.length+'</span><span style="color:#666">Events</span><span style="color:#ccc">'+evts+'</span><span style="color:#666">Avg GMT%</span><span style="color:'+c.col+';font-weight:600">'+avg.toFixed(1)+'%</span><span style="color:#666">Top 3 avg</span><span style="color:'+c.col+';font-weight:600">'+top3.toFixed(1)+'%</span><span style="color:#666">Best</span><span style="color:#fff;font-weight:700">'+best.toFixed(1)+'%</span></div></div>';
+  }
+  document.getElementById('cmp-stats').innerHTML=clubs.map(mkStat).join('');
+  const allPcts=clubs.flatMap(c=>c.entries.map(e=>e.pct));
+  if(!allPcts.length){document.getElementById('cmp-chart').innerHTML='';return;}
+  const minP=Math.max(50,Math.floor(Math.min(...allPcts))-3);
+  const maxP=Math.min(100,Math.ceil(Math.max(...allPcts))+2);
+  const n=clubs.length;
+  const BAND_H=Math.max(44,Math.min(70,Math.floor(280/n)));
+  const PL=96,PR=20,PT=14,PB=36,W=720;
+  const H=PT+n*BAND_H+PB;
+  const cW=W-PL-PR;
+  function xOf(p){return PL+(p-minP)/(maxP-minP)*cW;}
+  let s='';
+  for(let p=Math.ceil(minP/5)*5;p<=maxP;p+=5){const x=xOf(p).toFixed(1);s+='<line x1="'+x+'" y1="'+PT+'" x2="'+x+'" y2="'+(PT+n*BAND_H)+'" stroke="#1e1e1e" stroke-width="1"/>';}
+  const axY=PT+n*BAND_H;
+  s+='<line x1="'+PL+'" y1="'+axY+'" x2="'+(W-PR)+'" y2="'+axY+'" stroke="#2a2a2a" stroke-width="1"/>';
+  for(let p=Math.ceil(minP/5)*5;p<=maxP;p+=5){const x=xOf(p).toFixed(1);s+='<line x1="'+x+'" y1="'+axY+'" x2="'+x+'" y2="'+(axY+5)+'" stroke="#333" stroke-width="1"/><text x="'+x+'" y="'+(axY+16)+'" text-anchor="middle" fill="#444" font-size="10">'+p+'%</text>';}
+  clubs.forEach((c,bi)=>{
+    const bY=PT+bi*BAND_H;
+    if(bi%2===0)s+='<rect x="'+PL+'" y="'+bY+'" width="'+cW+'" height="'+BAND_H+'" fill="#161616"/>';
+    s+='<text x="'+(PL-8)+'" y="'+(bY+BAND_H/2+4)+'" text-anchor="end" fill="'+c.col+'" font-size="11" font-weight="600">'+c.q.substring(0,16)+'</text>';
+    if(c.entries.length){const avg=c.entries.map(e=>e.pct).reduce((a,b)=>a+b,0)/c.entries.length;const ax=xOf(avg).toFixed(1);s+='<line x1="'+ax+'" y1="'+bY+'" x2="'+ax+'" y2="'+(bY+BAND_H)+'" stroke="'+c.col+'" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/><text x="'+ax+'" y="'+(bY+10)+'" text-anchor="middle" fill="'+c.col+'" font-size="9" opacity="0.7">'+avg.toFixed(1)+'%</text>';}
+    const sorted=[...c.entries].sort((a,b)=>a.pct-b.pct);
+    sorted.forEach((e,j)=>{
+      const jy=(bY+BAND_H/2-BAND_H*0.3+((j*7+3)%11)/10*BAND_H*0.6).toFixed(1);
+      const tip=e.crew+' ('+e.club+')&#10;'+e.event+'&#10;'+e.time+' ('+e.pct.toFixed(1)+'%)';
+      s+='<circle cx="'+xOf(e.pct).toFixed(1)+'" cy="'+jy+'" r="4" fill="'+c.col+'" fill-opacity="0.75" stroke="#111" stroke-width="0.5"><title>'+tip+'</title></circle>';
+    });
+  });
+  document.getElementById('cmp-chart').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:'+W+'px;height:'+H+'px;display:block;overflow:visible">'+s+'</svg>';
+}
+function buildClubMap(){
+  const inclComp=document.getElementById('incl-composites').checked;
+  const minN=Math.max(1,parseInt(document.getElementById('min-entries').value)||1);
+  const map={};
+  for(const r of ROWS)for(const l of r.lanes){
+    if(l.pct===null||(!inclComp&&l.club.includes('/')))continue;
+    const cn=l.club;if(!cn)continue;
+    if(!map[cn])map[cn]={pcts:[],events:new Set()};
+    map[cn].pcts.push(l.pct);map[cn].events.add(r.event);
+  }
+  return Object.entries(map).map(([name,c])=>{
+    const s=c.pcts.slice().sort((a,b)=>b-a);
+    return{name,count:c.pcts.length,events:c.events.size,avg:c.pcts.reduce((a,b)=>a+b,0)/c.pcts.length,top3avg:s.slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,s.length),best:s[0]};
+  }).filter(c=>c.count>=minN).sort((a,b)=>b.top3avg-a.top3avg);
+}
+function renderClubLB(){
+  const ranked=buildClubMap();
+  let h='';
+  ranked.forEach((c,i)=>{
+    const f=fg(c.avg),ft=fg(c.top3avg);
+    h+='<tr><td class="num" style="color:#555">'+(i+1)+'</td><td><strong>'+c.name+'</strong></td><td class="num" style="color:#888">'+c.count+'</td><td class="num" style="color:#888">'+c.events+'</td><td class="num"><strong style="color:'+ft+'">'+c.top3avg.toFixed(1)+'%</strong></td><td class="num" style="color:#aaa">'+c.avg.toFixed(1)+'%</td><td class="num" style="color:#ccc">'+c.best.toFixed(1)+'%</td></tr>';
+  });
+  document.getElementById('clublb-body').innerHTML=h||'<tr><td colspan="7" style="color:#555;text-align:center;padding:20px">No data.</td></tr>';
+}
+function dlCSV(rows,fn){
+  const blob=new Blob([rows.map(r=>r.map(c=>(typeof c==='string'&&(c.includes(',')||c.includes('"')))?'"'+c.replace(/"/g,'""')+'"':c).join(',')).join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;a.click();
+}
+function downloadTop100CSV(){
+  const clubQ=(document.getElementById('lb-club-filter').value||'').toLowerCase().trim();
+  const entries=[];
+  for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null)entries.push({crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct});
+  entries.sort((a,b)=>b.pct-a.pct);
+  const filtered=clubQ?entries.filter(e=>e.club.toLowerCase().includes(clubQ)):entries;
+  dlCSV([['Crew','Club','Event','Round','Time','GMT%'],...filtered.slice(0,250).map(e=>[e.crew,e.club,e.event,e.round,e.time,e.pct.toFixed(1)])],'heatmap-nottm25-top250.csv');
+}
+function downloadClubLBCSV(){
+  const ranked=buildClubMap();
+  dlCSV([['#','Club','Entries','Events','Top 3 Avg %','Avg GMT%','Best %'],...ranked.map((c,i)=>[i+1,c.name,c.count,c.events,c.top3avg.toFixed(1),c.avg.toFixed(1),c.best.toFixed(1)])],'heatmap-nottm25-clubs.csv');
+}
+function downloadCompare(){
+  const svg=document.querySelector('#cmp-chart svg');
+  if(!svg){alert('Nothing to download.');return;}
+  const vb=svg.getAttribute('viewBox').split(' ').map(Number);
+  const W=vb[2]||720,H=vb[3]||400,PL=20,HEADER=54,PB=44;
+  const TW=W+PL*2,TH=H+HEADER+PB;
+  const full='<svg xmlns="http://www.w3.org/2000/svg" width="'+TW+'" height="'+TH+'"><rect width="'+TW+'" height="'+TH+'" fill="#111"/><text x="'+PL+'" y="28" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" font-weight="700" fill="#e8e8e6">Nottingham Regatta 2025</text><text x="'+PL+'" y="46" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11" fill="#c8472b" font-weight="600">rowingtools.co.uk</text><g transform="translate('+PL+','+HEADER+')">'+svg.innerHTML+'</g></svg>';
+  const blob=new Blob([full],{type:'image/svg+xml'});
+  const url=URL.createObjectURL(blob);
+  const img=new Image();
+  img.onload=()=>{const c=document.createElement('canvas');c.width=TW*2;c.height=TH*2;const ctx=c.getContext('2d');ctx.scale(2,2);ctx.drawImage(img,0,0);c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='heatmap-nottm25-compare.png';a.click();},'image/png');URL.revokeObjectURL(url);};
+  img.src=url;
+}
+renderClubInputs();
+renderHeatmap(ROWS,'');
+</script>
+</body>
+</html>
