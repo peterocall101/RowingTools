@@ -180,13 +180,17 @@ td.rnd{{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space
   <div style="margin-bottom:14px">
     <div id="cmp-inputs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
     <button onclick="addCmpClub()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">+ Add club</button>
+    <button onclick="downloadCompare()" style="background:#c8472b;border:1px solid #c8472b;color:#fff;padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;margin-left:8px">&#x2193; Save image</button>
   </div>
   <div id="cmp-stats" style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap"></div>
   <div id="cmp-chart"></div>
 </div>
 <datalist id="cmp-clubs-list"></datalist>
 <div id="view-top100" style="display:none;">
-  <input type="text" id="lb-club-filter" placeholder="Filter by club…" oninput="renderTop100()">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+    <input type="text" id="lb-club-filter" placeholder="Filter by club…" oninput="renderTop100()" style="margin-bottom:0">
+    <button onclick="downloadTop100CSV()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap">&#x2193; CSV</button>
+  </div>
   <table id="lb-table">
     <thead><tr>
       <th class="num">#</th><th>Crew</th><th>Club</th><th>Event</th><th>Round</th>
@@ -196,11 +200,12 @@ td.rnd{{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space
   </table>
 </div>
 <div id="view-clublb" style="display:none">
+  <button onclick="downloadClubLBCSV()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;margin-bottom:10px">&#x2193; CSV</button>
   <table id="clublb-table">
     <thead><tr>
       <th class="num">#</th><th>Club</th>
       <th class="num">Entries</th><th class="num">Events</th>
-      <th class="num">Avg GMT%</th><th class="num">Best</th>
+      <th class="num">Top 3 Avg</th><th class="num">Avg GMT%</th><th class="num">Best</th>
     </tr></thead>
     <tbody id="clublb-body"></tbody>
   </table>
@@ -397,7 +402,7 @@ function renderCompare(){{
   document.getElementById('cmp-chart').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:'+W+'px;height:'+H+'px;display:block;overflow:visible">'+s+'</svg>';
 }}
 
-function renderClubLB(){{
+function buildClubMap(){{
   const map={{}};
   for(const r of ROWS) for(const l of r.lanes){{
     if(l.pct===null||l.club.includes('/')) continue;
@@ -407,23 +412,76 @@ function renderClubLB(){{
     map[cn].pcts.push(l.pct);
     map[cn].events.add(r.event);
   }}
-  const ranked=Object.entries(map).map(([name,c])=>{{
+  return Object.entries(map).map(([name,c])=>{{
+    const sorted=c.pcts.slice().sort((a,b)=>b-a);
     const avg=c.pcts.reduce((a,b)=>a+b,0)/c.pcts.length;
-    return{{name,count:c.pcts.length,events:c.events.size,avg,best:Math.max(...c.pcts)}};
-  }}).sort((a,b)=>b.avg-a.avg);
+    const top3avg=sorted.slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,sorted.length);
+    return{{name,count:c.pcts.length,events:c.events.size,avg,top3avg,best:sorted[0]}};
+  }}).sort((a,b)=>b.top3avg-a.top3avg);
+}}
+
+function renderClubLB(){{
+  const ranked=buildClubMap();
   let h='';
   ranked.forEach((c,i)=>{{
-    const f=fg(c.avg);
+    const f=fg(c.avg);const ft=fg(c.top3avg);
     h+='<tr>'
       +'<td class="num" style="color:#555">'+(i+1)+'</td>'
       +'<td><strong>'+c.name+'</strong></td>'
       +'<td class="num" style="color:#888">'+c.count+'</td>'
       +'<td class="num" style="color:#888">'+c.events+'</td>'
-      +'<td class="num"><strong style="color:'+f+'">'+c.avg.toFixed(1)+'%</strong></td>'
+      +'<td class="num"><strong style="color:'+ft+'">'+c.top3avg.toFixed(1)+'%</strong></td>'
+      +'<td class="num" style="color:#aaa">'+c.avg.toFixed(1)+'%</td>'
       +'<td class="num" style="color:#ccc">'+c.best.toFixed(1)+'%</td>'
       +'</tr>';
   }});
-  document.getElementById('clublb-body').innerHTML=h||'<tr><td colspan="6" style="color:#555;text-align:center;padding:20px">No data.</td></tr>';
+  document.getElementById('clublb-body').innerHTML=h||'<tr><td colspan="7" style="color:#555;text-align:center;padding:20px">No data.</td></tr>';
+}}
+
+function dlCSV(rows,fn){{
+  const blob=new Blob([rows.map(r=>r.map(c=>(typeof c==='string'&&(c.includes(',')||c.includes('"')))?'"'+c.replace(/"/g,'""')+'"':c).join(',')).join('\\n')],{{type:'text/csv'}});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;a.click();
+}}
+function downloadTop100CSV(){{
+  const clubQ=(document.getElementById('lb-club-filter').value||'').toLowerCase().trim();
+  const entries=[];
+  for(const r of ROWS) for(const l of r.lanes)
+    if(l.pct!==null) entries.push({{crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct}});
+  entries.sort((a,b)=>b.pct-a.pct);
+  const filtered=clubQ?entries.filter(e=>normClub(e.club).toLowerCase()===clubQ):entries;
+  dlCSV([['Crew','Club','Event','Round','Time','GMT%'],...filtered.slice(0,250).map((e,i)=>[e.crew,e.club,e.event,e.round,e.time,e.pct.toFixed(1)])],'heatmap-{comp}-top250.csv');
+}}
+function downloadClubLBCSV(){{
+  const ranked=buildClubMap();
+  dlCSV([['#','Club','Entries','Events','Top 3 Avg %','Avg GMT%','Best %'],
+    ...ranked.map((c,i)=>[i+1,c.name,c.count,c.events,c.top3avg.toFixed(1),c.avg.toFixed(1),c.best.toFixed(1)])],'heatmap-{comp}-clubs.csv');
+}}
+function downloadCompare(){{
+  const svg=document.querySelector('#cmp-chart svg');
+  if(!svg){{alert('Nothing to download - add clubs and data first.');return;}}
+  const vb=svg.getAttribute('viewBox').split(' ').map(Number);
+  const W=vb[2]||720,H=vb[3]||400;
+  const PL=20,HEADER=54,PB=44;
+  const TW=W+PL*2,TH=H+HEADER+PB;
+  const full='<svg xmlns="http://www.w3.org/2000/svg" width="'+TW+'" height="'+TH+'">'
+    +'<rect width="'+TW+'" height="'+TH+'" fill="#111"/>'
+    +'<text x="'+PL+'" y="28" font-family="-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif" font-size="15" font-weight="700" fill="#e8e8e6">{title}</text>'
+    +'<text x="'+PL+'" y="46" font-family="-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif" font-size="11" fill="#c8472b" font-weight="600">rowingtools.co.uk</text>'
+    +'<g transform="translate('+PL+','+HEADER+')">'
+    +svg.innerHTML
+    +'</g>'
+    +'</svg>';
+  const blob=new Blob([full],{{type:'image/svg+xml'}});
+  const url=URL.createObjectURL(blob);
+  const img=new Image();
+  img.onload=()=>{{
+    const c=document.createElement('canvas');
+    c.width=TW*2;c.height=TH*2;
+    const ctx=c.getContext('2d');ctx.scale(2,2);ctx.drawImage(img,0,0);
+    c.toBlob(b=>{{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='heatmap-{comp}-compare.png';a.click();}},'image/png');
+    URL.revokeObjectURL(url);
+  }};
+  img.src=url;
 }}
 
 renderClubInputs();
