@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>rowingtools.co.uk &ndash; Carousel Template</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,700;9..144,900&family=JetBrains+Mono:wght@400;500;700&family=Inter+Tight:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0a1628;
+    --paper: #f4efe6;
+    --accent: #c8472b;
+    --gold: #b8893a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter Tight', sans-serif;
+    background: #0a0a0a;
+    min-height: 100vh;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    color: #ccc;
+  }
+
+  /* CONFIG PANEL */
+  .config {
+    background: #161616;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 18px;
+    width: 100%;
+    max-width: 720px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+
+  .config h3 {
+    color: #fff;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin-bottom: 14px;
+    font-weight: 700;
+  }
+
+  .config-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 14px;
+  }
+
+  .config-tabs button {
+    background: #0a0a0a;
+    border: 1px solid #2a2a2a;
+    color: #888;
+    padding: 8px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+
+  .config-tabs button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .config-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+  }
+
+  .config-row label {
+    flex: 0 0 130px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 9px;
+  }
+
+  .config input, .config textarea, .config select {
+    flex: 1;
+    background: #0a0a0a;
+    border: 1px solid #333;
+    color: #f4efe6;
+    padding: 7px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    border-radius: 3px;
+  }
+
+  .config textarea {
+    height: 140px;
+    resize: vertical;
+    line-height: 1.5;
+  }
+
+  .config-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    align-items: center;
+  }
+
+  .config button.primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 9px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    font-weight: 700;
+    border-radius: 3px;
+  }
+
+  .config button.secondary {
+    background: transparent;
+    color: #aaa;
+    border: 1px solid #333;
+    padding: 9px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+
+  .config-help {
+    color: #666;
+    font-size: 9px;
+    line-height: 1.5;
+    margin-top: 8px;
+  }
+
+  .pane { display: none; }
+  .pane.active { display: block; }
+
+  /* PHONE FRAME */
+  .phone {
+    width: 405px;
+    height: 720px;
+    background: #000;
+    border-radius: 32px;
+    border: 8px solid #1a1a1a;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+  }
+
+  .stage {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background: var(--ink);
+    overflow: hidden;
+  }
+
+  .stage::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  .stage-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 20px 24px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 4;
+  }
+
+  .stage-masthead {
+    font-family: 'Fraunces', serif;
+    font-weight: 900;
+    font-size: 13px;
+    letter-spacing: -0.02em;
+    color: var(--paper);
+  }
+
+  .stage-masthead .dot { color: var(--accent); }
+
+  .stage-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: rgba(244, 239, 230, 0.5);
+    text-align: right;
+  }
+
+  .progress-dots {
+    position: absolute;
+    top: 50px;
+    left: 24px;
+    right: 24px;
+    display: flex;
+    gap: 3px;
+    z-index: 4;
+  }
+
+  .dot-segment {
+    flex: 1;
+    height: 2px;
+    background: rgba(244, 239, 230, 0.2);
+    border-radius: 1px;
+  }
+
+  .dot-segment.viewed,
+  .dot-segment.current {
+    background: rgba(244, 239, 230, 0.7);
+  }
+
+  .track {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  .track.dragging { transition: none; }
+
+  .slide {
+    flex: 0 0 100%;
+    height: 100%;
+    position: relative;
+    color: var(--paper);
+    padding: 80px 32px 60px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .rank-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: rgba(244, 239, 230, 0.5);
+    margin-bottom: 4px;
+  }
+
+  .rank-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .rank-num {
+    font-family: 'Fraunces', serif;
+    font-weight: 900;
+    font-size: 160px;
+    line-height: 0.85;
+    letter-spacing: -0.06em;
+    color: var(--paper);
+    font-feature-settings: 'lnum';
+  }
+
+  .rank-num.top { color: var(--accent); }
+  .rank-num.gold { color: var(--gold); }
+
+  .rank-of {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-size: 48px;
+    color: rgba(244, 239, 230, 0.3);
+    letter-spacing: -0.04em;
+  }
+
+  .divider {
+    height: 1px;
+    background: rgba(244, 239, 230, 0.2);
+    margin: 20px 0 16px;
+  }
+
+  .event-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: rgba(244, 239, 230, 0.6);
+    margin-bottom: 8px;
+  }
+
+  .crew {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 30px;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+
+  .crew em {
+    font-style: italic;
+    font-weight: 300;
+    color: rgba(244, 239, 230, 0.6);
+  }
+
+  .spacer { flex: 1; min-height: 14px; }
+
+  .gmt-section {
+    border-top: 1px solid rgba(244, 239, 230, 0.2);
+    padding-top: 20px;
+  }
+
+  .gmt-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: rgba(244, 239, 230, 0.5);
+    margin-bottom: 6px;
+  }
+
+  .gmt-value {
+    font-family: 'Fraunces', serif;
+    font-weight: 900;
+    font-size: 80px;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    font-feature-settings: 'lnum';
+  }
+
+  .gmt-value sup {
+    font-size: 28px;
+    font-weight: 400;
+    color: var(--accent);
+    margin-left: 2px;
+  }
+
+  .footer-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(244, 239, 230, 0.15);
+  }
+
+  .stat {
+    padding: 0 12px;
+    border-left: 1px solid rgba(244, 239, 230, 0.15);
+  }
+
+  .stat:first-child {
+    padding-left: 0;
+    border-left: none;
+  }
+
+  .stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: rgba(244, 239, 230, 0.5);
+    margin-bottom: 4px;
+  }
+
+  .stat-value {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+    font-feature-settings: 'lnum';
+  }
+
+  /* CLUB SLIDE */
+  .slide.club {
+    padding: 80px 32px 60px;
+  }
+
+  .club-name {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 36px;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin-bottom: 6px;
+  }
+
+  .club-subline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: rgba(244, 239, 230, 0.5);
+  }
+
+  .club-headline {
+    margin: 22px 0 18px;
+    padding: 18px 0;
+    border-top: 1px solid rgba(244, 239, 230, 0.2);
+    border-bottom: 1px solid rgba(244, 239, 230, 0.2);
+  }
+
+  .club-headline-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: rgba(244, 239, 230, 0.5);
+    margin-bottom: 4px;
+  }
+
+  .club-headline-value {
+    font-family: 'Fraunces', serif;
+    font-weight: 900;
+    font-size: 76px;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    font-feature-settings: 'lnum';
+  }
+
+  .club-headline-value sup {
+    font-size: 26px;
+    font-weight: 400;
+    color: var(--accent);
+    margin-left: 2px;
+  }
+
+  .club-headline-sub {
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: rgba(244, 239, 230, 0.4);
+  }
+
+  /* mini bar chart for top 3 results */
+  .top-results {
+    margin-bottom: 14px;
+  }
+
+  .top-results-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: rgba(244, 239, 230, 0.5);
+    margin-bottom: 10px;
+  }
+
+  .result-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(244, 239, 230, 0.08);
+  }
+
+  .result-row:last-child { border-bottom: none; }
+
+  .result-event {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 14px;
+    color: rgba(244, 239, 230, 0.85);
+    line-height: 1.2;
+  }
+
+  .result-event small {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: rgba(244, 239, 230, 0.45);
+    margin-top: 2px;
+  }
+
+  .result-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 110px;
+  }
+
+  .result-bar {
+    flex: 1;
+    height: 4px;
+    background: rgba(244, 239, 230, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    min-width: 50px;
+  }
+
+  .result-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  .result-gmt {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 14px;
+    font-feature-settings: 'lnum';
+    min-width: 44px;
+    text-align: right;
+  }
+
+  /* footer section stats */
+  .club-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding-top: 14px;
+    border-top: 1px solid rgba(244, 239, 230, 0.15);
+    margin-top: auto;
+  }
+
+  /* COVER */
+  .slide.cover {
+    text-align: center;
+    justify-content: center;
+    align-items: center;
+    padding: 80px 36px;
+  }
+
+  .cover .kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    margin-bottom: 18px;
+  }
+
+  .cover .title {
+    font-family: 'Fraunces', serif;
+    font-weight: 900;
+    font-size: 96px;
+    line-height: 0.85;
+    letter-spacing: -0.04em;
+    color: var(--paper);
+    margin-bottom: 22px;
+  }
+
+  .cover .subtitle {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: 22px;
+    line-height: 1.25;
+    color: rgba(244, 239, 230, 0.7);
+    margin-bottom: 38px;
+  }
+
+  .cover .regatta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: rgba(244, 239, 230, 0.5);
+    padding-top: 28px;
+    border-top: 1px solid rgba(244, 239, 230, 0.2);
+    width: 60%;
+  }
+
+  .cover .swipe-hint {
+    margin-top: 50px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: rgba(244, 239, 230, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; transform: translateX(0); }
+    50% { opacity: 0.8; transform: translateX(6px); }
+  }
+
+  .cover .swipe-hint::after {
+    content: '\2192';
+    font-size: 16px;
+  }
+
+  /* OUTRO */
+  .slide.outro {
+    text-align: center;
+    justify-content: center;
+    align-items: center;
+    padding: 80px 36px;
+  }
+
+  .outro .big {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: 46px;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--paper);
+    margin-bottom: 28px;
+  }
+
+  .outro .url {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: var(--paper);
+    background: var(--accent);
+    font-weight: 700;
+    padding: 14px 24px;
+  }
+
+  .outro .footnote {
+    margin-top: 28px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: rgba(244, 239, 230, 0.4);
+    line-height: 1.6;
+  }
+
+  /* Section divider slide */
+  .slide.section {
+    text-align: center;
+    justify-content: center;
+    align-items: center;
+    padding: 80px 36px;
+  }
+
+  .section .kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: rgba(244, 239, 230, 0.5);
+    margin-bottom: 18px;
+  }
+
+  .section .title {
+    font-family: 'Fraunces', serif;
+    font-weight: 900;
+    font-size: 80px;
+    line-height: 0.85;
+    letter-spacing: -0.04em;
+    color: var(--paper);
+    margin-bottom: 18px;
+  }
+
+  .section .subtitle {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: 20px;
+    line-height: 1.25;
+    color: rgba(244, 239, 230, 0.7);
+  }
+
+  /* Nav */
+  .nav-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    background: rgba(244, 239, 230, 0.1);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(244, 239, 230, 0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--paper);
+    cursor: pointer;
+    z-index: 6;
+    font-size: 16px;
+    user-select: none;
+  }
+
+  .nav-arrow:hover { background: rgba(244, 239, 230, 0.2); }
+  .nav-arrow.prev { left: 12px; }
+  .nav-arrow.next { right: 12px; }
+  .nav-arrow.disabled { opacity: 0.3; pointer-events: none; }
+
+  .index-pill {
+    position: absolute;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(6px);
+    color: var(--paper);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    padding: 6px 12px;
+    border-radius: 12px;
+    z-index: 4;
+  }
+
+  .label {
+    color: #888;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    text-align: center;
+  }
+
+  details {
+    width: 100%;
+    max-width: 720px;
+    color: #888;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+  }
+
+  details summary {
+    cursor: pointer;
+    padding: 8px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+
+  details pre {
+    background: #0f0f0f;
+    border: 1px solid #2a2a2a;
+    padding: 12px;
+    border-radius: 4px;
+    overflow-x: auto;
+    line-height: 1.5;
+    color: #aaa;
+  }
+</style>
+</head>
+<body>
+
+<div class="config">
+  <h3>Carousel data</h3>
+
+  <div class="config-row">
+    <label>Regatta full</label>
+    <input id="cfg-regatta-full" value="Metropolitan Regatta &middot; 2026">
+  </div>
+  <div class="config-row">
+    <label>Header tag</label>
+    <input id="cfg-regatta-short" value="Met &middot; 2026">
+  </div>
+
+  <div class="config-tabs">
+    <button class="active" data-pane="results-pane">Top 5 results</button>
+    <button data-pane="clubs-pane">Top 5 clubs</button>
+  </div>
+
+  <div class="pane active" id="results-pane">
+    <textarea id="cfg-results" spellcheck="false">rank,crew,modifier,event,gmt,time,margin
+5,Tideway Scullers,,Senior 8+ &middot; Final,91.4,5:48.2,+12.4s
+4,Thames RC,A,Senior 4- &middot; Final,92.1,6:24.8,+10.1s
+3,Imperial College,,Champ 8+ &middot; Final,94.6,5:42.1,+5.9s
+2,Leander Club,,Champ 4x &middot; Final,96.2,5:51.4,+3.6s
+1,Oxford Brookes,,Champ 8+ &middot; Final,97.8,5:38.7,Course best</textarea>
+    <div class="config-help">Columns: rank, crew, modifier (e.g. 'A' or blank), event, gmt, time, margin</div>
+  </div>
+
+  <div class="pane" id="clubs-pane">
+    <textarea id="cfg-clubs" spellcheck="false">rank,club,top3_avg,best_gmt,crews_entered,r1_event,r1_gmt,r2_event,r2_gmt,r3_event,r3_gmt
+5,Tideway Scullers,89.1,91.4,18,Senior 8+ &middot; Final,91.4,Senior 4x &middot; Final,88.6,IM2 8+ &middot; Final,87.3
+4,Thames RC,90.3,92.1,22,Senior 4- &middot; Final,92.1,Senior 8+ &middot; SF,90.2,Champ 2x &middot; Final,88.6
+3,Imperial College,92.0,94.6,14,Champ 8+ &middot; Final,94.6,Champ 4+ &middot; Final,91.8,IM1 8+ &middot; Final,89.6
+2,Leander Club,93.7,96.2,12,Champ 4x &middot; Final,96.2,Champ 1x &middot; Final,93.1,Champ 4- &middot; Final,91.8
+1,Oxford Brookes,94.9,97.8,16,Champ 8+ &middot; Final,97.8,Champ 4- &middot; Final,94.2,Champ 4x &middot; SF,92.7</textarea>
+    <div class="config-help">Top 3 average GMT &mdash; strongest 3 results per club. Bars scale 80% &rarr; 100%.</div>
+  </div>
+
+  <div class="config-actions">
+    <button class="primary" id="rebuild">Rebuild</button>
+    <select id="cfg-mode" class="secondary" style="flex: 0 0 auto;">
+      <option value="combined">Combined carousel (results + clubs)</option>
+      <option value="results">Results only</option>
+      <option value="clubs">Clubs only</option>
+    </select>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="stage" id="stage">
+    <div class="stage-header">
+      <div class="stage-masthead">rowingtools<span class="dot">.</span></div>
+      <div class="stage-meta" id="header-tag">Met &middot; 2026</div>
+    </div>
+    <div class="progress-dots" id="progress-dots"></div>
+    <div class="track" id="track"></div>
+    <div class="nav-arrow prev" id="prev">&#8249;</div>
+    <div class="nav-arrow next" id="next">&#8250;</div>
+    <div class="index-pill" id="index-pill">1 / 1</div>
+  </div>
+</div>
+
+<div class="label">405 &times; 720 preview &middot; swipe / arrow keys / drag</div>
+
+<script>
+  // ============= STATE =============
+  const track = document.getElementById('track');
+  const dotsContainer = document.getElementById('progress-dots');
+  const indexPill = document.getElementById('index-pill');
+  const prevBtn = document.getElementById('prev');
+  const nextBtn = document.getElementById('next');
+  const headerTag = document.getElementById('header-tag');
+
+  let currentIndex = 0;
+  let totalSlides = 0;
+
+  // ============= CSV PARSER =============
+  function parseCSV(text) {
+    const lines = text.trim().split('\n').filter(l => l.trim());
+    const headers = lines[0].split(',').map(h => h.trim());
+    return lines.slice(1).map(line => {
+      const values = line.split(',').map(v => v.trim());
+      const row = {};
+      headers.forEach((h, i) => row[h] = values[i] || '');
+      return row;
+    });
+  }
+
+  // ============= SLIDE BUILDERS =============
+  function rankClass(rank) {
+    if (rank === 1) return 'top';
+    if (rank <= 3) return 'gold';
+    return '';
+  }
+
+  function buildCover(regattaFull, mode) {
+    const subtitle = mode === 'clubs'
+      ? 'Strongest clubs by<br>top 3 average GMT%'
+      : mode === 'results'
+      ? 'Fastest GMT% performances<br>across all events'
+      : 'Day in numbers';
+
+    return `
+      <div class="slide cover">
+        <div class="kicker">${regattaFull}</div>
+        <div class="title">${mode === 'clubs' ? 'Top<br>Clubs' : mode === 'results' ? 'Top 5' : 'Top 5'}</div>
+        <div class="subtitle">${subtitle}</div>
+        <div class="regatta">Ranked by rowingtools.co.uk</div>
+        <div class="swipe-hint">Swipe</div>
+      </div>
+    `;
+  }
+
+  function buildResultSlide(d) {
+    const rank = parseInt(d.rank);
+    const cls = rankClass(rank);
+    return `
+      <div class="slide">
+        <div class="rank-label">Rank</div>
+        <div class="rank-row">
+          <div class="rank-num ${cls}">${d.rank}</div>
+          <div class="rank-of">/5</div>
+        </div>
+        <div class="divider"></div>
+        <div class="event-line">${d.event}</div>
+        <div class="crew">${d.crew}${d.modifier ? ` <em>'${d.modifier}'</em>` : ''}</div>
+        <div class="spacer"></div>
+        <div class="gmt-section">
+          <div class="gmt-label">Gold Medal Time %</div>
+          <div class="gmt-value">${d.gmt}<sup>%</sup></div>
+          <div class="footer-stats">
+            <div class="stat">
+              <div class="stat-label">Time</div>
+              <div class="stat-value">${d.time}</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Margin to WBT</div>
+              <div class="stat-value">${d.margin}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // bar fill: scale 80% -> 100% across the bar
+  function barWidth(gmt) {
+    const pct = parseFloat(gmt);
+    const w = Math.max(0, Math.min(100, ((pct - 80) / 20) * 100));
+    return w.toFixed(1);
+  }
+
+  function buildClubSlideV2(d) {
+    const rank = parseInt(d.rank);
+    const cls = rankClass(rank);
+    return `
+      <div class="slide club">
+        <div class="rank-label">Club rank</div>
+        <div class="rank-row" style="margin-bottom: 8px;">
+          <div class="rank-num ${cls}" style="font-size: 130px;">${d.rank}</div>
+          <div class="rank-of" style="font-size: 40px;">/5</div>
+        </div>
+        <div class="club-name">${d.club}</div>
+        <div class="club-subline">${d.crews_entered} entries</div>
+
+        <div class="club-headline">
+          <div class="club-headline-label">Top 3 average GMT%</div>
+          <div class="club-headline-value">${d.top3_avg}<sup>%</sup></div>
+        </div>
+
+        <div class="top-results">
+          <div class="top-results-label">Top 3 results</div>
+          <div class="result-row">
+            <div class="result-event">${d.r1_event}</div>
+            <div class="result-bar-container">
+              <div class="result-bar"><div class="result-bar-fill" style="width: ${barWidth(d.r1_gmt)}%"></div></div>
+              <div class="result-gmt">${d.r1_gmt}%</div>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="result-event">${d.r2_event}</div>
+            <div class="result-bar-container">
+              <div class="result-bar"><div class="result-bar-fill" style="width: ${barWidth(d.r2_gmt)}%"></div></div>
+              <div class="result-gmt">${d.r2_gmt}%</div>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="result-event">${d.r3_event}</div>
+            <div class="result-bar-container">
+              <div class="result-bar"><div class="result-bar-fill" style="width: ${barWidth(d.r3_gmt)}%"></div></div>
+              <div class="result-gmt">${d.r3_gmt}%</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="club-stats">
+          <div class="stat">
+            <div class="stat-label">Best individual</div>
+            <div class="stat-value">${d.best_gmt}%</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Top 3 avg</div>
+            <div class="stat-value">${d.top3_avg}%</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function buildSection(title, subtitle) {
+    return `
+      <div class="slide section">
+        <div class="kicker">Part 2</div>
+        <div class="title">${title}</div>
+        <div class="subtitle">${subtitle}</div>
+      </div>
+    `;
+  }
+
+  function buildOutro() {
+    return `
+      <div class="slide outro">
+        <div class="big">See where<br>your crew<br>ranked.</div>
+        <div class="url">rowingtools.co.uk</div>
+        <div class="footnote">Full leaderboard online<br>Updated after every regatta</div>
+      </div>
+    `;
+  }
+
+  // ============= ASSEMBLY =============
+  function assemble() {
+    const regattaFull = document.getElementById('cfg-regatta-full').value;
+    const regattaShort = document.getElementById('cfg-regatta-short').value;
+    const mode = document.getElementById('cfg-mode').value;
+    const results = parseCSV(document.getElementById('cfg-results').value);
+    const clubs = parseCSV(document.getElementById('cfg-clubs').value);
+
+    headerTag.textContent = regattaShort;
+
+    const slides = [];
+
+    if (mode === 'combined') {
+      slides.push(buildCover(regattaFull, 'combined'));
+      slides.push(buildSection('Top 5<br>crews', 'Highest GMT% performances'));
+      results.forEach(d => slides.push(buildResultSlide(d)));
+      slides.push(buildSection('Top 5<br>clubs', 'Strongest by top 3 average GMT'));
+      clubs.forEach(d => slides.push(buildClubSlideV2(d)));
+      slides.push(buildOutro());
+    } else if (mode === 'results') {
+      slides.push(buildCover(regattaFull, 'results'));
+      results.forEach(d => slides.push(buildResultSlide(d)));
+      slides.push(buildOutro());
+    } else if (mode === 'clubs') {
+      slides.push(buildCover(regattaFull, 'clubs'));
+      clubs.forEach(d => slides.push(buildClubSlideV2(d)));
+      slides.push(buildOutro());
+    }
+
+    track.innerHTML = slides.join('');
+    totalSlides = slides.length;
+
+    dotsContainer.innerHTML = '';
+    for (let i = 0; i < totalSlides; i++) {
+      const seg = document.createElement('div');
+      seg.className = 'dot-segment';
+      dotsContainer.appendChild(seg);
+    }
+
+    goTo(0);
+  }
+
+  // ============= NAV =============
+  function updateDots() {
+    document.querySelectorAll('.dot-segment').forEach((seg, i) => {
+      seg.classList.remove('viewed', 'current');
+      if (i < currentIndex) seg.classList.add('viewed');
+      if (i === currentIndex) seg.classList.add('current');
+    });
+  }
+
+  function goTo(index) {
+    currentIndex = Math.max(0, Math.min(totalSlides - 1, index));
+    track.style.transform = `translateX(-${currentIndex * 100}%)`;
+    indexPill.textContent = `${currentIndex + 1} / ${totalSlides}`;
+    updateDots();
+    prevBtn.classList.toggle('disabled', currentIndex === 0);
+    nextBtn.classList.toggle('disabled', currentIndex === totalSlides - 1);
+  }
+
+  prevBtn.addEventListener('click', () => goTo(currentIndex - 1));
+  nextBtn.addEventListener('click', () => goTo(currentIndex + 1));
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') goTo(currentIndex - 1);
+    if (e.key === 'ArrowRight') goTo(currentIndex + 1);
+  });
+
+  // touch / drag
+  let touchStartX = 0;
+  let touchCurrentX = 0;
+  let isDragging = false;
+  const stage = document.getElementById('stage');
+
+  function getX(e) { return e.touches ? e.touches[0].clientX : e.clientX; }
+
+  function dragStart(e) {
+    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    isDragging = true;
+    touchStartX = getX(e);
+    track.classList.add('dragging');
+  }
+
+  function dragMove(e) {
+    if (!isDragging) return;
+    touchCurrentX = getX(e);
+    const diff = touchCurrentX - touchStartX;
+    const stageWidth = stage.offsetWidth;
+    const offset = (currentIndex * 100) - (diff / stageWidth * 100);
+    track.style.transform = `translateX(-${offset}%)`;
+  }
+
+  function dragEnd() {
+    if (!isDragging) return;
+    isDragging = false;
+    track.classList.remove('dragging');
+    const diff = touchCurrentX - touchStartX;
+    const threshold = stage.offsetWidth * 0.2;
+    if (diff < -threshold && currentIndex < totalSlides - 1) goTo(currentIndex + 1);
+    else if (diff > threshold && currentIndex > 0) goTo(currentIndex - 1);
+    else goTo(currentIndex);
+    touchStartX = 0;
+    touchCurrentX = 0;
+  }
+
+  stage.addEventListener('touchstart', dragStart, { passive: true });
+  stage.addEventListener('touchmove', dragMove, { passive: true });
+  stage.addEventListener('touchend', dragEnd);
+  stage.addEventListener('mousedown', dragStart);
+  stage.addEventListener('mousemove', dragMove);
+  stage.addEventListener('mouseup', dragEnd);
+  stage.addEventListener('mouseleave', dragEnd);
+
+  // tabs
+  document.querySelectorAll('.config-tabs button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.config-tabs button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.pane).classList.add('active');
+    });
+  });
+
+  document.getElementById('rebuild').addEventListener('click', assemble);
+  document.getElementById('cfg-mode').addEventListener('change', assemble);
+
+  // ============= RENDER HOOKS (for Playwright) =============
+  window.__inject = function(data) {
+    if (data.regattaFull) document.getElementById('cfg-regatta-full').value = data.regattaFull;
+    if (data.regattaShort) document.getElementById('cfg-regatta-short').value = data.regattaShort;
+    if (data.results) document.getElementById('cfg-results').value = data.results;
+    if (data.clubs) document.getElementById('cfg-clubs').value = data.clubs;
+    if (data.mode) document.getElementById('cfg-mode').value = data.mode;
+    assemble();
+  };
+  window.__slideCount = function() { return totalSlides; };
+  window.__goTo = function(idx) { goTo(idx); };
+
+  // initial build
+  assemble();
+</script>
+
+</body>
+</html>

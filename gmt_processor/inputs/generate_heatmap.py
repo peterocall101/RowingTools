@@ -35,7 +35,7 @@ def clean_round(r):
 
 def to_boat_class(ev):
     n = ev.strip()
-    if re.search(r'\bJ\d{2}\b|\bU23\b', n, re.I): return None
+    if re.search(r'\bJ(?!18)\d{2}\b|\bU23\b|\bAR\b|\bBeg\b', n, re.I): return None
     is_w   = bool(re.match(r'W\b', n))
     is_lwt = bool(re.search(r'\bLwt\b', n, re.I))
     pfx    = ("L" if is_lwt else "") + ("W" if is_w else "M")
@@ -200,7 +200,11 @@ td.rnd{{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space
   </table>
 </div>
 <div id="view-clublb" style="display:none">
-  <button onclick="downloadClubLBCSV()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;margin-bottom:10px">&#x2193; CSV</button>
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+    <label style="font-size:12px;color:#666">Min entries: <input type="number" id="min-entries" value="2" min="1" style="width:52px;margin-left:4px;background:#1e1e1e;border:1px solid #333;color:#e8e8e6;padding:4px 8px;border-radius:6px;font-size:12px" oninput="renderClubLB()"></label>
+    <label style="font-size:12px;color:#666;display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="incl-composites" onchange="renderClubLB()" style="width:auto;margin:0;padding:0">Include composites</label>
+    <button onclick="downloadClubLBCSV()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap">&#x2193; CSV</button>
+  </div>
   <table id="clublb-table">
     <thead><tr>
       <th class="num">#</th><th>Club</th>
@@ -212,7 +216,7 @@ td.rnd{{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space
 </div>
 <script>
 const ROWS={data_json};
-function normClub(n){{return(n||'').replace(/\s*\([A-Za-z]\)\s*$/,'').trim();}}
+function normClub(n){{return(n||'').replace(/\\s*\\([A-Za-z]\\)\\s*$/,'').trim();}}
 function bg(p){{return p===null?'#2a2a2a':p>=87?'#1a4d3e':p>=80?'#1a3a5c':p>=72?'#4a3200':'#4a1a0a'}}
 function fg(p){{return p===null?'#555':p>=87?'#4ee8b0':p>=80?'#7bbfff':p>=72?'#f0b030':'#ff7050'}}
 
@@ -403,9 +407,11 @@ function renderCompare(){{
 }}
 
 function buildClubMap(){{
+  const inclComposites=document.getElementById('incl-composites').checked;
+  const minN=Math.max(1,parseInt(document.getElementById('min-entries').value)||1);
   const map={{}};
   for(const r of ROWS) for(const l of r.lanes){{
-    if(l.pct===null||l.club.includes('/')) continue;
+    if(l.pct===null||(!inclComposites&&l.club.includes('/'))) continue;
     const cn=normClub(l.club);
     if(!cn) continue;
     if(!map[cn]) map[cn]={{pcts:[],events:new Set()}};
@@ -417,7 +423,7 @@ function buildClubMap(){{
     const avg=c.pcts.reduce((a,b)=>a+b,0)/c.pcts.length;
     const top3avg=sorted.slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,sorted.length);
     return{{name,count:c.pcts.length,events:c.events.size,avg,top3avg,best:sorted[0]}};
-  }}).sort((a,b)=>b.top3avg-a.top3avg);
+  }}).filter(c=>c.count>=minN).sort((a,b)=>b.top3avg-a.top3avg);
 }}
 
 function renderClubLB(){{

@@ -26,9 +26,14 @@ RowingTools/
 │   ├── inputs/
 │   │   ├── scraper.py                  # Stage 2: URL in, results fetched + processed
 │   │   ├── generate_heatmap.py         # Stage 3: rowresults comp in, heatmap HTML out
+│   │   ├── generate_carousel.py        # Stage 4: rowresults comp in, carousel PNGs out
+│   │   ├── carousel-template-final.html # Carousel slide template (Fraunces / dark theme)
 │   │   ├── met_finals_scraper.py       # Benchmark updater: scrapes Met finals data
 │   │   └── testinputset1.csv           # Test input data
 │   └── outputs/                        # Local only (gitignored)
+│
+├── exhibits/                           # Local only (gitignored) - carousel PNG output
+│   └── <comp>/slide-00.png ...
 │
 └── CNAME                               # rowingtools.co.uk domain config
 ```
@@ -151,6 +156,40 @@ The output HTML has four tabs:
 The file is fully self-contained (no external dependencies) and can be opened locally or pushed to the repo and linked from the site.
 
 **Competition codes** follow rowresults.co.uk naming: `metsat25` (Met 2025 Saturday), `metsun25` (Met 2025 Sunday), etc.
+
+### Stage 4 - generate_carousel.py
+
+Reads the ROWS data from an already-generated heatmap HTML file and produces Instagram/TikTok carousel slide images (Top 5 Results + Top 5 Clubs) using a headless Chromium browser. No API calls needed - the heatmap is the source of truth.
+
+```bash
+python inputs/generate_carousel.py --html ../../heatmap-brcc25.html
+python inputs/generate_carousel.py --html ../../heatmap-metsun25.html --mode clubs
+```
+
+The `--comp` code is auto-derived from the HTML filename. Use `--comp` to override, or to fetch direct from the rowresults API instead (omit `--html`).
+
+Output: `exhibits/<comp>/slide-00.png` ... `slide-NN.png` (gitignored, local only)
+
+Each slide is 810x1440px (2x of the 405x720 phone preview). Combined mode produces:
+`Cover → Section divider → 5 result slides → Section divider → 5 club slides → Outro`
+
+**Options:**
+
+| Flag | Default | Description |
+| ---- | ------- | ----------- |
+| `--html` | - | Path to heatmap HTML (preferred - no API call, matches heatmap exactly) |
+| `--comp` | auto from `--html` | rowresults comp code (required if `--html` not given) |
+| `--mode` | `combined` | `combined`, `results`, or `clubs` |
+| `--min-entries` | `3` | Minimum scored entries to qualify for club leaderboard |
+| `--title` | auto | Override carousel title text |
+| `--short` | auto | Override short header tag |
+
+**Local setup:**
+
+```bash
+pip install requests playwright
+playwright install chromium
+```
 
 ---
 
