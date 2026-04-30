@@ -471,8 +471,8 @@ function downloadCompare(){{
   const TW=W+PL*2,TH=H+HEADER+PB;
   const full='<svg xmlns="http://www.w3.org/2000/svg" width="'+TW+'" height="'+TH+'">'
     +'<rect width="'+TW+'" height="'+TH+'" fill="#111"/>'
-    +'<text x="'+PL+'" y="28" font-family="-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif" font-size="15" font-weight="700" fill="#e8e8e6">{title}</text>'
-    +'<text x="'+PL+'" y="46" font-family="-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif" font-size="11" fill="#c8472b" font-weight="600">rowingtools.co.uk</text>'
+    +'<text x="'+PL+'" y="28" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="15" font-weight="700" fill="#e8e8e6">{title}</text>'
+    +'<text x="'+PL+'" y="46" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#c8472b" font-weight="600">rowingtools.co.uk</text>'
     +'<g transform="translate('+PL+','+HEADER+')">'
     +svg.innerHTML
     +'</g>'
