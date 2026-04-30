@@ -1,0 +1,131 @@
+name: Generate Heatmap
+
+on:
+  workflow_dispatch:
+    inputs:
+      comp:
+        description: 'Comp code (e.g. nottm26)'
+        required: true
+      title:
+        description: 'Page title (e.g. Nottingham Regatta 2026)'
+        required: true
+      year:
+        description: 'Year (e.g. 2026)'
+        required: true
+      date:
+        description: 'Event date (e.g. 12–13 July 2026)'
+        required: true
+      venue:
+        description: 'Venue (e.g. Nottingham Holme Pierrepont)'
+        required: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install requests playwright
+          playwright install chromium --with-deps
+
+      - name: Generate heatmap
+        run: |
+          python gmt_processor/inputs/generate_heatmap.py \
+            --comp "${{ inputs.comp }}" \
+            --out "heatmap-${{ inputs.comp }}.html"
+
+      - name: Count finals
+        id: count
+        run: |
+          FINALS=$(grep -o '"round":"Final A"' "heatmap-${{ inputs.comp }}.html" | wc -l | tr -d ' ')
+          echo "finals=$FINALS" >> $GITHUB_OUTPUT
+
+      - name: Add card to index.html
+        env:
+          COMP: ${{ inputs.comp }}
+          TITLE: ${{ inputs.title }}
+          YEAR: ${{ inputs.year }}
+          DATE: ${{ inputs.date }}
+          VENUE: ${{ inputs.venue }}
+          FINALS: ${{ steps.count.outputs.finals }}
+        run: |
+          python - << 'PYEOF'
+          import os
+
+          comp   = os.environ['COMP']
+          title  = os.environ['TITLE']
+          year   = os.environ['YEAR']
+          date   = os.environ['DATE']
+          venue  = os.environ['VENUE']
+          finals = os.environ['FINALS']
+
+          card = (
+              f'      <a href="heatmap-{comp}.html" class="lb-card">\n'
+              f'        <div>\n'
+              f'          <div class="lb-card-name">{title}</div>\n'
+              f'          <div class="lb-card-date">{date}</div>\n'
+              f'          <div class="lb-card-meta">{venue} · {finals} finals · Heatmap, Top 250, Club Leaderboard, Club Compare</div>\n'
+              f'        </div>\n'
+              f'        <span class="lb-arrow">→</span>\n'
+              f'      </a>'
+          )
+
+          with open('index.html', encoding='utf-8') as f:
+              content = f.read()
+
+          year_marker = f'<div class="lb-year">{year}</div>'
+          grid_open   = '<div class="lb-grid">'
+
+          year_pos = content.find(year_marker)
+          if year_pos != -1:
+              grid_pos = content.find(grid_open, year_pos)
+              insert_at = grid_pos + len(grid_open)
+              content = content[:insert_at] + '\n' + card + '\n    ' + content[insert_at:]
+          else:
+              new_section = (
+                  f'  <div class="lb-year-section">\n'
+                  f'    <div class="lb-year">{year}</div>\n'
+                  f'    <div class="lb-grid">\n'
+                  f'{card}\n'
+                  f'    </div>\n'
+                  f'  </div>\n'
+                  f'  '
+              )
+              first_section = '  <div class="lb-year-section">'
+              content = content.replace(first_section, new_section + first_section, 1)
+
+          with open('index.html', 'w', encoding='utf-8') as f:
+              f.write(content)
+
+          print(f'Added {comp} ({finals} finals) to index.html under {year}')
+          PYEOF
+
+      - name: Generate carousel
+        run: |
+          python gmt_processor/inputs/generate_carousel.py \
+            --html "heatmap-${{ inputs.comp }}.html" \
+            --title "${{ inputs.title }}"
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "heatmap-${{ inputs.comp }}.html" index.html
+          git commit -m "add ${{ inputs.comp }} heatmap"
+          git push
+
+      - name: Upload carousel slides
+        uses: actions/upload-artifact@v4
+        with:
+          name: carousel-${{ inputs.comp }}
+          path: exhibits/${{ inputs.comp }}/
+          retention-days: 30
