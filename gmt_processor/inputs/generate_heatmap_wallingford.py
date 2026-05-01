@@ -366,7 +366,7 @@ function renderHeatmap(rows,clubQ){{
         const l=r.lanes[i];
         if(!l){{cells+='<td></td>';continue;}}
         const b=bg(l.pct),f=fg(l.pct),p=l.pct!==null?l.pct.toFixed(1)+'%':'&#x2014;';
-        const dim=clubQ&&!l.club.toLowerCase().includes(clubQ)?'opacity:0.12;':'';
+        const dim=clubQ&&l.club.toLowerCase()!==clubQ?'opacity:0.12;':'';
         cells+=`<td style="background:${{b}};${{dim}}"><div class="cell"><span class="cn">${{l.crew}}</span><span class="cp" style="color:${{f}}">${{p}}</span><span class="ct">${{l.time}}</span></div></td>`;
       }}
       tb+=`<tr>${{cells}}</tr>`;
