@@ -262,7 +262,7 @@ function renderHeatmap(rows,clubQ){{
         const l=r.lanes[i];
         if(!l){{cells+='<td></td>';continue;}}
         const b=bg(l.pct),f=fg(l.pct),p=l.pct!==null?l.pct.toFixed(1)+'%':'&#x2014;';
-        const dim=clubQ&&!l.club.toLowerCase().includes(clubQ)?'opacity:0.12;':'';
+        const dim=clubQ&&l.club.toLowerCase()!==clubQ?'opacity:0.12;':'';
         cells+=`<td style="background:${{b}};${{dim}}"><div class="cell"><span class="cn">${{l.crew}}</span><span class="cp" style="color:${{f}}">${{p}}</span><span class="ct">${{l.time}}</span></div></td>`;
       }}
       tb+=`<tr>${{cells}}</tr>`;
@@ -287,7 +287,7 @@ function renderTop100(){{
   for(const r of ROWS)for(const l of r.lanes)
     if(l.pct!==null)entries.push({{crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct}});
   entries.sort((a,b)=>b.pct-a.pct);
-  const filtered=clubQ?entries.filter(e=>e.club.toLowerCase().includes(clubQ)):entries;
+  const filtered=clubQ?entries.filter(e=>e.club.toLowerCase()===clubQ):entries;
   let h='';
   filtered.slice(0,250).forEach((e,i)=>{{
     const f=fg(e.pct);
@@ -394,7 +394,7 @@ function downloadTop100CSV(){{
   const entries=[];
   for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null)entries.push({{crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct}});
   entries.sort((a,b)=>b.pct-a.pct);
-  const filtered=clubQ?entries.filter(e=>e.club.toLowerCase().includes(clubQ)):entries;
+  const filtered=clubQ?entries.filter(e=>e.club.toLowerCase()===clubQ):entries;
   dlCSV([['Crew','Club','Event','Round','Time','GMT%'],...filtered.slice(0,250).map(e=>[e.crew,e.club,e.event,e.round,e.time,e.pct.toFixed(1)])],'heatmap-{comp}-top250.csv');
 }}
 function downloadClubLBCSV(){{
