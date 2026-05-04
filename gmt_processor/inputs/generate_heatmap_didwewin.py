@@ -28,6 +28,19 @@ EVENT_GROUPS = [
 TIME_RE = re.compile(r'^\d+:\d{2}\.\d+$')
 H2_RE   = re.compile(r'Race\s+\d+\s+(?:(W)\s+)?(?:Op\s+)?(Challenge|Club|Schools)\s+(\S+)\s+Final', re.I)
 
+# Clubs whose 3-letter code doesn't resolve via the site's search endpoint.
+# Values confirmed by searching the site with likely full names.
+CLUB_FALLBACK = {
+    'HAM': 'Hampton School',
+    'HEN': 'Henley',
+    'HIN': 'Hinksey Sculling School',
+    'MAR': 'Marlow',
+    'MIN': 'Minerva Bath',
+    'OXB': 'Oxford Brookes University',
+    'STA': 'Star',
+    'WAR': 'Warwick',
+}
+
 BOAT_NORM = {
     '8+':  '8+',
     '4+':  '4+',
@@ -177,6 +190,8 @@ def build_races(session, wbt):
     club_names = {}
     for code in sorted(all_codes):
         full_name = lookup_club_name(session, code)
+        if full_name == code and code in CLUB_FALLBACK:
+            full_name = CLUB_FALLBACK[code]
         club_names[code] = full_name
         if full_name != code:
             print(f"  {code} -> {full_name}")
