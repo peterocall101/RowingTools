@@ -160,13 +160,14 @@ function renderTop100(){
     }
   }
   entries.sort((a,b)=>b.pct-a.pct);
+  entries.forEach((e,i)=>e.rank=i+1);
   const filtered=clubQ?entries.filter(e=>normClub(e.club).toLowerCase()===clubQ):entries;
   const top=filtered.slice(0,250);
   let h='';
-  top.forEach((e,i)=>{
+  top.forEach((e)=>{
     const f=fg(e.pct);
     h+=`<tr>
-      <td class="num" style="color:#555">${i+1}</td>
+      <td class="num" style="color:#555">${e.rank}</td>
       <td><strong>${e.crew}</strong></td>
       <td style="color:#888">${e.club}</td>
       <td style="color:#aaa">${e.event}</td>
