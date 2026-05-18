@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Poplar Regatta 2026</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#111;color:#e8e8e6;font-size:13px;padding:24px 20px}
+h1{font-size:17px;font-weight:600;margin-bottom:4px}
+.sub{color:#666;font-size:12px;margin-bottom:18px}
+input{background:#1e1e1e;border:1px solid #333;color:#e8e8e6;padding:5px 10px;border-radius:6px;font-size:12px;margin-bottom:18px;width:220px}
+table{border-collapse:collapse;font-size:11px;margin-bottom:28px}
+caption{text-align:left;font-size:12px;font-weight:600;color:#aaa;padding:0 0 6px;letter-spacing:.03em;text-transform:uppercase}
+th{background:#1a1a1a;color:#555;font-weight:500;padding:4px 8px;border:1px solid #222;text-align:center;white-space:nowrap}
+th.rh{text-align:left;width:80px}
+td{border:1px solid #1e1e1e;padding:0;vertical-align:top;min-width:80px;max-width:110px}
+td.rnd{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space:nowrap;vertical-align:middle}
+.cell{padding:5px 6px;display:flex;flex-direction:column;align-items:center;gap:1px}
+.cn{font-weight:600;font-size:11px;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96px}
+.cp{font-size:12px;font-weight:700}
+.ct{font-size:10px;color:rgba(255,255,255,.4)}
+.legend{display:flex;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.li{display:flex;align-items:center;gap:5px;font-size:11px;color:#777}
+.ls{width:12px;height:12px;border-radius:2px;flex-shrink:0}
+.tabs{display:flex;gap:8px;margin-bottom:18px}
+.tab{background:#1e1e1e;border:1px solid #333;color:#888;padding:6px 16px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit}
+.tab.active{background:#2a2a2a;border-color:#555;color:#e8e8e6;font-weight:600}
+#lb-table,#clublb-table{width:100%;border-collapse:collapse;font-size:12px}
+#lb-table th,#clublb-table th{background:#1a1a1a;color:#555;font-weight:500;padding:6px 10px;border:1px solid #222;text-align:left;white-space:nowrap}
+#lb-table th.num,#clublb-table th.num{text-align:right}
+#lb-table td,#clublb-table td{border:1px solid #1e1e1e;padding:6px 10px;vertical-align:middle}
+#lb-table td.num,#clublb-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+#lb-table tr:hover td,#clublb-table tr:hover td{background:#1a1a1a}
+</style>
+</head>
+<body>
+<h1>Poplar Regatta 2026</h1>
+<p class="sub">GMT% vs WBT. Heats excluded (Finals only). J14 and J15 events excluded. <strong style="color:#c8a030">Conditions:</strong> there was a strong headwind throughout the day, with conditions getting significantly worse for the last races of the day.</p>
+<div class="tabs">
+  <button class="tab active" onclick="showTab('heatmap',this)">Heatmap</button>
+  <button class="tab" onclick="showTab('top100',this)">Top 250 Results</button>
+  <button class="tab" onclick="showTab('clublb',this)">Club Leaderboard</button>
+  <button class="tab" onclick="showTab('compare',this)">Club Compare</button>
+</div>
+<div id="view-heatmap">
+  <div class="legend">
+    <div class="li"><div class="ls" style="background:#1a4d3e"></div>&#x2265;87% elite</div>
+    <div class="li"><div class="ls" style="background:#1a3a5c"></div>80&#x2013;87% high club</div>
+    <div class="li"><div class="ls" style="background:#4a3200"></div>72&#x2013;80% competitive</div>
+    <div class="li"><div class="ls" style="background:#4a1a0a"></div>&lt;72% developing</div>
+    <div class="li"><div class="ls" style="background:#2a2a2a"></div>no WBT data</div>
+  </div>
+  <input type="text" id="ev-filter" placeholder="Filter events&#8230;" oninput="filterHeatmap(this.value)" style="margin-right:8px">
+  <input type="text" id="club-filter-hm" list="cmp-clubs-list" placeholder="Filter by club&#8230;" oninput="filterClubHm(this.value)">
+  <div id="heatmap-out"></div>
+</div>
+<div id="view-compare" style="display:none">
+  <div style="margin-bottom:14px">
+    <div id="cmp-inputs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+    <button onclick="addCmpClub()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">+ Add club</button>
+    <button onclick="downloadCompare()" style="background:#c8472b;border:1px solid #c8472b;color:#fff;padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;margin-left:8px">&#x2193; Save image</button>
+  </div>
+  <div id="cmp-stats" style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap"></div>
+  <div id="cmp-chart"></div>
+</div>
+<datalist id="cmp-clubs-list"></datalist>
+<div id="view-top100" style="display:none;">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+    <input type="text" id="lb-club-filter" list="cmp-clubs-list" placeholder="Filter by club&#8230;" oninput="renderTop100()" style="margin-bottom:0">
+    <button onclick="downloadTop100CSV()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap">&#x2193; CSV</button>
+  </div>
+  <table id="lb-table">
+    <thead><tr>
+      <th class="num">#</th><th>Crew</th><th>Club</th><th>Event</th><th>Round</th>
+      <th class="num">Time</th><th class="num">GMT%</th>
+    </tr></thead>
+    <tbody id="lb-body"></tbody>
+  </table>
+</div>
+<div id="view-clublb" style="display:none">
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+    <label style="font-size:12px;color:#666">Min entries: <input type="number" id="min-entries" value="2" min="1" style="width:52px;margin-left:4px;background:#1e1e1e;border:1px solid #333;color:#e8e8e6;padding:4px 8px;border-radius:6px;font-size:12px" oninput="renderClubLB()"></label>
+    <label style="font-size:12px;color:#666;display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="incl-composites" onchange="renderClubLB()" style="width:auto;margin:0;padding:0">Include composites</label>
+    <button onclick="downloadClubLBCSV()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap">&#x2193; CSV</button>
+  </div>
+  <table id="clublb-table">
+    <thead><tr>
+      <th class="num">#</th><th>Club</th>
+      <th class="num">Entries</th><th class="num">Events</th>
+      <th class="num">Top 3 Avg</th><th class="num">Avg GMT%</th><th class="num">Best</th>
+    </tr></thead>
+    <tbody id="clublb-body"></tbody>
+  </table>
+</div>
+<script>
+const ROWS=[{"event": "W 4x- Trophy", "round": "Final A", "lanes": [{"crew": "London, University of, Boat Club", "club": "London, University of, Boat Club", "time": "7:38.1", "pct": 80.1}, {"crew": "London Rowing Club", "club": "London Rowing Club", "time": "7:41.5", "pct": 79.5}, {"crew": "Globe Rowing Club", "club": "Globe Rowing Club", "time": "8:00.3", "pct": 76.4}, {"crew": "Kingston Rowing Club", "club": "Kingston Rowing Club", "time": "8:31.2", "pct": 71.8}, {"crew": "Eton Excelsior Rowing Club", "club": "Eton Excelsior Rowing Club", "time": "8:32.6", "pct": 71.6}, {"crew": "London Otters Rowing Club", "club": "London Otters Rowing Club", "time": "10:18.5", "pct": 59.3}], "boat": "W4x"}, {"event": "W 2- Trophy", "round": "Final A", "lanes": [{"crew": "St George's College Boat Club", "club": "St George's College Boat Club", "time": "9:26.8", "pct": 72.2}, {"crew": "St Edward's School Boat Club", "club": "St Edward's School Boat Club", "time": "9:32.0", "pct": 71.5}], "boat": "W2-"}, {"event": "Op J18 1x", "round": "Final A", "lanes": [{"crew": "Thomas Pakulis", "club": "Lea Rowing Club", "time": "8:14.8", "pct": 79.0}, {"crew": "Kieran O\u2019Loughlin", "club": "Molesey Boat Club", "time": "8:38.1", "pct": 75.4}, {"crew": "Noah Tejpaul", "club": "American School In London Boat Club", "time": "8:51.2", "pct": 73.6}, {"crew": "Spencer Taylor", "club": "American School In London Boat Club", "time": "9:30.9", "pct": 68.4}, {"crew": "Karl Schreiber", "club": "American School In London Boat Club", "time": "10:08.4", "pct": 64.2}], "boat": "M1x"}, {"event": "W J18 1x", "round": "Final A", "lanes": [{"crew": "Maya Weiler", "club": "American School In London Boat Club", "time": "9:44.4", "pct": 73.2}, {"crew": "Ella Gerber", "club": "St George's College Boat Club", "time": "10:40.6", "pct": 66.8}, {"crew": "Mia Miller Noya", "club": "1863 Club, The", "time": "11:17.8", "pct": 63.1}, {"crew": "Anastasia Cawley", "club": "American School In London Boat Club", "time": "11:34.7", "pct": 61.6}], "boat": "W1x"}, {"event": "W 8+ Trophy", "round": "Final A", "lanes": [{"crew": "Oxford Brookes University Boat Club", "club": "Oxford Brookes University Boat Club", "time": "7:15.6", "pct": 81.3}, {"crew": "Oxford Brookes University Boat Club", "club": "Oxford Brookes University Boat Club", "time": "7:36.1", "pct": 77.6}, {"crew": "Vesta Rowing Club", "club": "Vesta Rowing Club", "time": "7:53.4", "pct": 74.8}, {"crew": "Globe Rowing Club", "club": "Globe Rowing Club", "time": "8:14.6", "pct": 71.6}, {"crew": "Bedford Modern School Boat Club", "club": "Bedford Modern School Boat Club", "time": "8:19.4", "pct": 70.9}, {"crew": "Tideway Scullers School", "club": "Tideway Scullers School", "time": "8:20.0", "pct": 70.8}], "boat": "W8+"}, {"event": "W 4- Gold", "round": "Final A", "lanes": [{"crew": "London Rowing Club", "club": "London Rowing Club", "time": "7:50.7", "pct": 79.5}, {"crew": "Vesta Rowing Club", "club": "Vesta Rowing Club", "time": "7:58.1", "pct": 78.3}, {"crew": "Vesta Rowing Club", "club": "Vesta Rowing Club", "time": "8:03.4", "pct": 77.4}, {"crew": "London Rowing Club", "club": "London Rowing Club", "time": "8:05.8", "pct": 77.1}, {"crew": "Lea Rowing Club", "club": "Lea Rowing Club", "time": "8:13.7", "pct": 75.8}, {"crew": "Vesta Rowing Club", "club": "Vesta Rowing Club", "time": "8:37.4", "pct": 72.3}], "boat": "W4-"}, {"event": "Op J16 2x", "round": "Final A", "lanes": [{"crew": "American School In London Boat Club", "club": "American School In London Boat Club", "time": "8:23.8", "pct": 71.4}, {"crew": "Lea Rowing Club", "club": "Lea Rowing Club", "time": "8:38.4", "pct": 69.4}, {"crew": "Kew House School Boat Club", "club": "Kew House School Boat Club", "time": "8:40.7", "pct": 69.1}], "boat": "M2x"}, {"event": "Op 2- Trophy", "round": "Final A", "lanes": [{"crew": "St Edward's School Boat Club", "club": "St Edward's School Boat Club", "time": "8:24.0", "pct": 73.1}, {"crew": "Tideway Scullers School", "club": "Tideway Scullers School", "time": "8:32.8", "pct": 71.9}, {"crew": "Tideway Scullers School", "club": "Tideway Scullers School", "time": "8:42.7", "pct": 70.5}, {"crew": "Globe Rowing Club", "club": "Globe Rowing Club", "time": "9:05.7", "pct": 67.5}, {"crew": "Furnivall Sculling Club", "club": "Furnivall Sculling Club", "time": "9:38.7", "pct": 63.7}], "boat": "M2-"}, {"event": "W J16 2x", "round": "Final A", "lanes": [{"crew": "Kingston Rowing Club", "club": "Kingston Rowing Club", "time": "9:38.5", "pct": 68.7}, {"crew": "Kingston Rowing Club", "club": "Kingston Rowing Club", "time": "9:39.0", "pct": 68.6}, {"crew": "James Allen's Girls' School Boat Club", "club": "James Allen's Girls' School Boat Club", "time": "10:32.5", "pct": 62.8}], "boat": "W2x"}, {"event": "W 1x Gold", "round": "Final A", "lanes": [{"crew": "Isabelle Maxwell", "club": "Vesta Rowing Club", "time": "9:17.1", "pct": 76.8}, {"crew": "Rachel Grainger", "club": "Vesta Rowing Club", "time": "9:17.4", "pct": 76.7}, {"crew": "Jennifer Titterington", "club": "Newark Rowing Club", "time": "9:23.9", "pct": 75.8}, {"crew": "Evelyn Pakule", "club": "Lea Rowing Club", "time": "9:35.5", "pct": 74.3}, {"crew": "Devin Ward", "club": "London Rowing Club", "time": "9:41.0", "pct": 73.6}, {"crew": "Charlotte Knigge", "club": "Lea Rowing Club", "time": "10:44.9", "pct": 66.3}], "boat": "W1x"}, {"event": "W J16 4+", "round": "Final A", "lanes": [{"crew": "Kingston Grammar School Boat Club", "club": "Kingston Grammar School Boat Club", "time": "8:47.4", "pct": 73.1}, {"crew": "St George's College Boat Club", "club": "St George's College Boat Club", "time": "8:51.4", "pct": 72.5}, {"crew": "King's School Ely, The, Boat Club", "club": "King's School Ely, The, Boat Club", "time": "9:24.0", "pct": 68.3}, {"crew": "Emanuel School Boat Club", "club": "Emanuel School Boat Club", "time": "9:42.2", "pct": 66.2}], "boat": "W4+"}, {"event": "Op 4x- Trophy", "round": "Final A", "lanes": [{"crew": "Tideway Scullers School", "club": "Tideway Scullers School", "time": "7:26.9", "pct": 74.3}, {"crew": "Poplar Blackwall & District Rowing Club", "club": "Poplar Blackwall & District Rowing Club", "time": "7:33.6", "pct": 73.3}, {"crew": "Kingston Grammar School Boat Club", "club": "Kingston Grammar School Boat Club", "time": "7:42.2", "pct": 71.9}, {"crew": "London Otters Rowing Club", "club": "London Otters Rowing Club", "time": "8:33.3", "pct": 64.7}, {"crew": "London Otters Rowing Club", "club": "London Otters Rowing Club", "time": "8:44.1", "pct": 63.4}], "boat": "M4x"}, {"event": "W 4+ Gold", "round": "Final A", "lanes": [{"crew": "London, University of, Boat Club", "club": "London, University of, Boat Club", "time": "7:52.0", "pct": 81.6}, {"crew": "Oxford Brookes University Boat Club", "club": "Oxford Brookes University Boat Club", "time": "8:13.5", "pct": 78.1}, {"crew": "Oxford Brookes University Boat Club", "club": "Oxford Brookes University Boat Club", "time": "8:36.6", "pct": 74.6}, {"crew": "Emanuel School Boat Club", "club": "Emanuel School Boat Club", "time": "8:41.1", "pct": 73.9}], "boat": "W4+"}, {"event": "Op J16 4+", "round": "Final A", "lanes": [{"crew": "Dulwich College Boat Club", "club": "Dulwich College Boat Club", "time": "7:44.7", "pct": 77.2}, {"crew": "Emanuel School Boat Club", "club": "Emanuel School Boat Club", "time": "8:46.7", "pct": 68.1}, {"crew": "1863 Club, The", "club": "1863 Club, The", "time": "9:02.0", "pct": 66.2}, {"crew": "Reading Blue Coat School Boat Club", "club": "Reading Blue Coat School Boat Club", "time": "9:09.4", "pct": 65.3}], "boat": "M4+"}, {"event": "Op 2x Trophy", "round": "Final A", "lanes": [{"crew": "Globe Rowing Club", "club": "Globe Rowing Club", "time": "7:51.2", "pct": 76.3}, {"crew": "St George's College Boat Club", "club": "St George's College Boat Club", "time": "8:21.3", "pct": 71.8}, {"crew": "Tideway Scullers School", "club": "Tideway Scullers School", "time": "8:34.8", "pct": 69.9}, {"crew": "London Otters Rowing Club", "club": "London Otters Rowing Club", "time": "9:14.9", "pct": 64.8}, {"crew": "London Otters Rowing Club", "club": "London Otters Rowing Club", "time": "10:08.6", "pct": 59.1}, {"crew": "London Otters Rowing Club", "club": "London Otters Rowing Club", "time": "12:14.1", "pct": 49.0}], "boat": "M2x"}, {"event": "Op 8+ Trophy", "round": "Final A", "lanes": [{"crew": "London Rowing Club", "club": "London Rowing Club", "time": "6:34.8", "pct": 80.7}, {"crew": "Wolfson College (Oxford) Boat Club", "club": "Wolfson College (Oxford) Boat Club", "time": "6:40.4", "pct": 79.6}, {"crew": "University College London Boat Club", "club": "University College London Boat Club", "time": "6:43.8", "pct": 78.9}, {"crew": "Kingston Rowing Club", "club": "Kingston Rowing Club", "time": "6:53.9", "pct": 77.0}, {"crew": "London Otters Rowing Club", "club": "London Otters Rowing Club", "time": "7:28.0", "pct": 71.1}, {"crew": "Curlew Rowing Club", "club": "Curlew Rowing Club", "time": "7:43.9", "pct": 68.7}], "boat": "M8+"}, {"event": "Op J18 8+", "round": "Final A", "lanes": [{"crew": "St Edward's School Boat Club", "club": "St Edward's School Boat Club", "time": "6:16.1", "pct": 84.7}, {"crew": "Westminster School Boat Club", "club": "Westminster School Boat Club", "time": "6:21.5", "pct": 83.5}, {"crew": "Dulwich College Boat Club", "club": "Dulwich College Boat Club", "time": "6:25.2", "pct": 82.7}, {"crew": "St Paul's School Boat Club", "club": "St Paul's School Boat Club", "time": "6:28.2", "pct": 82.1}, {"crew": "Reading Blue Coat School Boat Club", "club": "Reading Blue Coat School Boat Club", "time": "6:30.6", "pct": 81.6}, {"crew": "St Paul's School Boat Club", "club": "St Paul's School Boat Club", "time": "6:41.3", "pct": 79.4}], "boat": "M8+"}, {"event": "W 2x Trophy", "round": "Final A", "lanes": [{"crew": "London, University of, Boat Club", "club": "London, University of, Boat Club", "time": "8:36.2", "pct": 77.0}, {"crew": "Tideway Scullers School", "club": "Tideway Scullers School", "time": "8:46.5", "pct": 75.5}, {"crew": "London Rowing Club", "club": "London Rowing Club", "time": "9:01.4", "pct": 73.4}, {"crew": "London Rowing Club", "club": "London Rowing Club", "time": "9:01.8", "pct": 73.3}, {"crew": "Sons of the Thames Rowing Club", "club": "Sons of the Thames Rowing Club", "time": "9:18.0", "pct": 71.2}, {"crew": "Eton Excelsior Rowing Club", "club": "Eton Excelsior Rowing Club", "time": "9:59.1", "pct": 66.3}], "boat": "W2x"}, {"event": "Op 4+ Gold", "round": "Final A", "lanes": [{"crew": "London Rowing Club", "club": "London Rowing Club", "time": "7:08.5", "pct": 83.8}, {"crew": "London Rowing Club", "club": "London Rowing Club", "time": "7:14.1", "pct": 82.7}, {"crew": "London, University of, Boat Club", "club": "London, University of, Boat Club", "time": "7:17.1", "pct": 82.1}, {"crew": "Kingston Rowing Club", "club": "Kingston Rowing Club", "time": "7:24.5", "pct": 80.8}, {"crew": "Reading Blue Coat School Boat Club", "club": "Reading Blue Coat School Boat Club", "time": "7:58.2", "pct": 75.1}], "boat": "M4+"}, {"event": "Op 4- Gold", "round": "Final A", "lanes": [{"crew": "Leander Club", "club": "Leander Club", "time": "6:55.4", "pct": 81.3}, {"crew": "London Rowing Club", "club": "London Rowing Club", "time": "7:04.2", "pct": 79.6}, {"crew": "London Rowing Club", "club": "London Rowing Club", "time": "7:07.6", "pct": 79.0}, {"crew": "Kingston Rowing Club", "club": "Kingston Rowing Club", "time": "7:13.1", "pct": 78.0}, {"crew": "London Rowing Club", "club": "London Rowing Club", "time": "7:34.9", "pct": 74.3}, {"crew": "Kingston Rowing Club", "club": "Kingston Rowing Club", "time": "7:36.1", "pct": 74.1}], "boat": "M4-"}, {"event": "Op 1x Gold", "round": "Final A", "lanes": [{"crew": "Laurence Joss", "club": "Tideway Scullers School", "time": "8:23.4", "pct": 77.6}, {"crew": "Michael Janeway", "club": "Globe Rowing Club", "time": "8:33.2", "pct": 76.1}, {"crew": "Arun Jackson", "club": "London Rowing Club", "time": "8:34.4", "pct": 76.0}, {"crew": "Mark Mozes", "club": "Tideway Scullers School", "time": "8:47.1", "pct": 74.1}, {"crew": "Felix Buttle", "club": "Tideway Scullers School", "time": "8:50.8", "pct": 73.6}, {"crew": "Dimeji Ogunyoye", "club": "Tideway Scullers School", "time": "8:51.0", "pct": 73.6}], "boat": "M1x"}, {"event": "W J18 2x", "round": "Final A", "lanes": [{"crew": "Godolphin & Latymer School Boat Club", "club": "Godolphin & Latymer School Boat Club", "time": "9:40.4", "pct": 68.5}, {"crew": "Kingston Grammar School Boat Club", "club": "Kingston Grammar School Boat Club", "time": "10:30.9", "pct": 63.0}], "boat": "W2x"}, {"event": "W 1x Trophy", "round": "Final A", "lanes": [{"crew": "Teresa Kwiecinska", "club": "Lea Rowing Club", "time": "10:20.4", "pct": 68.9}, {"crew": "Sophie Stoddart", "club": "Evesham Rowing Club", "time": "10:42.3", "pct": 66.6}, {"crew": "Andrea Stock", "club": "Poplar Blackwall & District Rowing Club", "time": "10:50.1", "pct": 65.8}, {"crew": "Charlotte Kilpatrick", "club": "Poplar Blackwall & District Rowing Club", "time": "10:56.6", "pct": 65.1}, {"crew": "Helen Gilbody", "club": "Globe Rowing Club", "time": "11:04.4", "pct": 64.4}, {"crew": "Melina Schmidt", "club": "Putney Town Rowing Club", "time": "11:56.9", "pct": 59.7}], "boat": "W1x"}, {"event": "Op J18 2x", "round": "Final A", "lanes": [{"crew": "American School In London Boat Club", "club": "American School In London Boat Club", "time": "8:10.1", "pct": 73.4}, {"crew": "Molesey Boat Club", "club": "Molesey Boat Club", "time": "8:21.6", "pct": 71.7}, {"crew": "Lea Rowing Club", "club": "Lea Rowing Club", "time": "8:30.1", "pct": 70.5}, {"crew": "St George's College Boat Club", "club": "St George's College Boat Club", "time": "8:38.2", "pct": 69.4}], "boat": "M2x"}, {"event": "Op 2- Gold", "round": "Final A", "lanes": [{"crew": "Lea Rowing Club", "club": "Lea Rowing Club", "time": "8:02.2", "pct": 76.4}, {"crew": "St George's College Boat Club", "club": "St George's College Boat Club", "time": "8:09.9", "pct": 75.2}, {"crew": "St Paul's School Boat Club", "club": "St Paul's School Boat Club", "time": "8:53.2", "pct": 69.1}, {"crew": "Tideway Scullers School", "club": "Tideway Scullers School", "time": "9:30.2", "pct": 64.6}], "boat": "M2-"}, {"event": "Op J16 4x-", "round": "Final A", "lanes": [{"crew": "Lea Rowing Club", "club": "Lea Rowing Club", "time": "7:42.9", "pct": 71.8}, {"crew": "American School In London Boat Club", "club": "American School In London Boat Club", "time": "7:47.0", "pct": 71.1}, {"crew": "Kingston Rowing Club", "club": "Kingston Rowing Club", "time": "8:37.3", "pct": 64.2}], "boat": "M4x"}, {"event": "W J16 8+", "round": "Final A", "lanes": [{"crew": "Surbiton High School Boat Club", "club": "Surbiton High School Boat Club", "time": "7:44.0", "pct": 76.3}, {"crew": "Surbiton High School Boat Club", "club": "Surbiton High School Boat Club", "time": "7:59.0", "pct": 73.9}, {"crew": "St Edward's School Boat Club", "club": "St Edward's School Boat Club", "time": "8:38.4", "pct": 68.3}], "boat": "W8+"}, {"event": "W 4x- Gold", "round": "Final A", "lanes": [{"crew": "London Rowing Club", "club": "London Rowing Club", "time": "7:41.9", "pct": 79.4}, {"crew": "London, University of, Boat Club", "club": "London, University of, Boat Club", "time": "7:45.4", "pct": 78.8}, {"crew": "London Rowing Club", "club": "London Rowing Club", "time": "7:46.1", "pct": 78.7}, {"crew": "Oxford Brookes University Boat Club", "club": "Oxford Brookes University Boat Club", "time": "8:08.4", "pct": 75.1}, {"crew": "Tideway Scullers School", "club": "Tideway Scullers School", "time": "8:09.0", "pct": 75.0}, {"crew": "Oxford Brookes University Boat Club", "club": "Oxford Brookes University Boat Club", "time": "8:17.4", "pct": 73.8}], "boat": "W4x"}, {"event": "Op 4+ Trophy", "round": "Final A", "lanes": [{"crew": "London Rowing Club", "club": "London Rowing Club", "time": "7:27.8", "pct": 80.2}, {"crew": "Oxford Brookes University Boat Club", "club": "Oxford Brookes University Boat Club", "time": "7:30.6", "pct": 79.7}, {"crew": "University College London Boat Club", "club": "University College London Boat Club", "time": "7:45.7", "pct": 77.1}, {"crew": "Kingston Grammar School Boat Club", "club": "Kingston Grammar School Boat Club", "time": "8:04.9", "pct": 74.0}, {"crew": "London Otters Rowing Club", "club": "London Otters Rowing Club", "time": "8:48.1", "pct": 68.0}, {"crew": "London Otters Rowing Club", "club": "London Otters Rowing Club", "time": "10:05.9", "pct": 59.2}], "boat": "M4+"}, {"event": "W J18 4x-", "round": "Final A", "lanes": [{"crew": "Lea Rowing Club", "club": "Lea Rowing Club", "time": "8:14.5", "pct": 74.2}, {"crew": "Kew House School Boat Club", "club": "Kew House School Boat Club", "time": "8:35.6", "pct": 71.2}, {"crew": "Kingston Rowing Club", "club": "Kingston Rowing Club", "time": "8:42.7", "pct": 70.2}, {"crew": "Putney High School Boat Club", "club": "Putney High School Boat Club", "time": "8:49.8", "pct": 69.2}], "boat": "W4x"}, {"event": "W 2- Gold", "round": "Final A", "lanes": [{"crew": "Vesta Rowing Club", "club": "Vesta Rowing Club", "time": "9:15.9", "pct": 73.6}, {"crew": "Vesta Rowing Club", "club": "Vesta Rowing Club", "time": "9:37.2", "pct": 70.9}], "boat": "W2-"}, {"event": "Op J16 8+", "round": "Final A", "lanes": [{"crew": "Westminster School Boat Club", "club": "Westminster School Boat Club", "time": "7:07.9", "pct": 74.5}, {"crew": "Hampton School Boat Club", "club": "Hampton School Boat Club", "time": "7:25.2", "pct": 71.6}, {"crew": "Reading Blue Coat School Boat Club", "club": "Reading Blue Coat School Boat Club", "time": "7:42.5", "pct": 68.9}], "boat": "M8+"}, {"event": "W 2x Gold", "round": "Final A", "lanes": [{"crew": "Newark/Vesta", "club": "Newark/Vesta", "time": "8:29.6", "pct": 78.0}, {"crew": "London, University of, Boat Club", "club": "London, University of, Boat Club", "time": "8:42.1", "pct": 76.1}, {"crew": "Furnivall Sculling Club", "club": "Furnivall Sculling Club", "time": "9:07.1", "pct": 72.6}, {"crew": "Furnivall Sculling Club", "club": "Furnivall Sculling Club", "time": "9:25.5", "pct": 70.3}, {"crew": "Furnivall Sculling Club", "club": "Furnivall Sculling Club", "time": "9:50.8", "pct": 67.2}], "boat": "W2x"}, {"event": "Op J18 4+", "round": "Final A", "lanes": [{"crew": "St Edward's School Boat Club", "club": "St Edward's School Boat Club", "time": "7:27.7", "pct": 80.2}, {"crew": "Westminster School Boat Club", "club": "Westminster School Boat Club", "time": "7:38.2", "pct": 78.3}, {"crew": "Reading Blue Coat School Boat Club", "club": "Reading Blue Coat School Boat Club", "time": "7:48.0", "pct": 76.7}, {"crew": "Bedford Modern School Boat Club", "club": "Bedford Modern School Boat Club", "time": "7:55.7", "pct": 75.5}, {"crew": "Kew House School Boat Club", "club": "Kew House School Boat Club", "time": "8:08.4", "pct": 73.5}, {"crew": "1863 Club, The", "club": "1863 Club, The", "time": "8:18.4", "pct": 72.0}], "boat": "M4+"}, {"event": "W J18 4+", "round": "Final A", "lanes": [{"crew": "Kingston Grammar School Boat Club", "club": "Kingston Grammar School Boat Club", "time": "8:43.1", "pct": 73.7}, {"crew": "Godolphin & Latymer School Boat Club", "club": "Godolphin & Latymer School Boat Club", "time": "9:30.0", "pct": 67.6}, {"crew": "Surbiton High School Boat Club", "club": "Surbiton High School Boat Club", "time": "9:44.4", "pct": 65.9}, {"crew": "James Allen's Girls' School Boat Club", "club": "James Allen's Girls' School Boat Club", "time": "9:57.1", "pct": 64.5}, {"crew": "Sydenham & Dulwich Girls Rowing Club", "club": "Sydenham & Dulwich Girls Rowing Club", "time": "11:36.1", "pct": 55.4}], "boat": "W4+"}, {"event": "Op 4- Trophy", "round": "Final A", "lanes": [{"crew": "Auriol Kensington Rowing Club", "club": "Auriol Kensington Rowing Club", "time": "7:33.5", "pct": 74.5}, {"crew": "Tideway Scullers School", "club": "Tideway Scullers School", "time": "7:37.4", "pct": 73.9}, {"crew": "Tideway Scullers School", "club": "Tideway Scullers School", "time": "7:39.1", "pct": 73.6}, {"crew": "Evesham Rowing Club", "club": "Evesham Rowing Club", "time": "7:50.1", "pct": 71.9}, {"crew": "Lea Rowing Club", "club": "Lea Rowing Club", "time": "8:09.0", "pct": 69.1}, {"crew": "Kingston Rowing Club", "club": "Kingston Rowing Club", "time": "8:12.9", "pct": 68.6}], "boat": "M4-"}, {"event": "W 4+ Trophy", "round": "Final A", "lanes": [{"crew": "Vesta Rowing Club", "club": "Vesta Rowing Club", "time": "9:30.8", "pct": 67.5}, {"crew": "London, University of, Boat Club", "club": "London, University of, Boat Club", "time": "9:35.6", "pct": 66.9}, {"crew": "University College London Boat Club", "club": "University College London Boat Club", "time": "9:49.6", "pct": 65.4}, {"crew": "Putney High School Boat Club", "club": "Putney High School Boat Club", "time": "9:50.0", "pct": 65.3}, {"crew": "Globe Rowing Club", "club": "Globe Rowing Club", "time": "9:58.7", "pct": 64.4}, {"crew": "Vesta Rowing Club", "club": "Vesta Rowing Club", "time": "10:43.0", "pct": 59.9}], "boat": "W4+"}, {"event": "Op 1x Trophy", "round": "Final A", "lanes": [{"crew": "Peter O'Callaghan", "club": "Globe Rowing Club", "time": "10:38.1", "pct": 61.2}, {"crew": "Rory Mooney", "club": "Lea Rowing Club", "time": "10:44.0", "pct": 60.7}, {"crew": "Callum Howard", "club": "Globe Rowing Club", "time": "10:53.4", "pct": 59.8}, {"crew": "Richard Sharratt", "club": "Kingston Rowing Club", "time": "11:10.4", "pct": 58.3}, {"crew": "Aidan O'Neill", "club": "Kew House School Boat Club", "time": "11:21.4", "pct": 57.3}], "boat": "M1x"}, {"event": "Op 8+ Gold", "round": "Final A", "lanes": [{"crew": "Oxford Brookes University Boat Club", "club": "Oxford Brookes University Boat Club", "time": "6:35.9", "pct": 80.5}, {"crew": "Oxford Brookes University Boat Club", "club": "Oxford Brookes University Boat Club", "time": "6:37.9", "pct": 80.1}, {"crew": "Leander Club", "club": "Leander Club", "time": "6:38.2", "pct": 80.0}, {"crew": "London Rowing Club", "club": "London Rowing Club", "time": "6:38.4", "pct": 80.0}, {"crew": "London Rowing Club", "club": "London Rowing Club", "time": "6:39.0", "pct": 79.9}, {"crew": "Oxford Brookes University Boat Club", "club": "Oxford Brookes University Boat Club", "time": "6:50.1", "pct": 77.7}], "boat": "M8+"}, {"event": "W 8+ Gold", "round": "Final A", "lanes": [{"crew": "London, University of, Boat Club", "club": "London, University of, Boat Club", "time": "7:32.5", "pct": 78.3}, {"crew": "Oxford Brookes University Boat Club", "club": "Oxford Brookes University Boat Club", "time": "7:40.5", "pct": 76.9}, {"crew": "London Rowing Club", "club": "London Rowing Club", "time": "7:56.1", "pct": 74.4}, {"crew": "St Edward's School Boat Club", "club": "St Edward's School Boat Club", "time": "8:03.5", "pct": 73.2}, {"crew": "Vesta Rowing Club", "club": "Vesta Rowing Club", "time": "8:06.7", "pct": 72.8}, {"crew": "London Rowing Club", "club": "London Rowing Club", "time": "8:17.8", "pct": 71.1}], "boat": "W8+"}];
+for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null&&l.pct<50)l.pct=null;
+function normClub(n){return(n||'').replace(/\s*\([A-Za-z]\)\s*$/,'').trim();}
+function bg(p){return p===null?'#2a2a2a':p>=87?'#1a4d3e':p>=80?'#1a3a5c':p>=72?'#4a3200':'#4a1a0a'}
+function fg(p){return p===null?'#555':p>=87?'#4ee8b0':p>=80?'#7bbfff':p>=72?'#f0b030':'#ff7050'}
+function showTab(name,btn){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('view-heatmap').style.display=name==='heatmap'?'':'none';
+  document.getElementById('view-top100').style.display=name==='top100'?'':'none';
+  document.getElementById('view-compare').style.display=name==='compare'?'':'none';
+  document.getElementById('view-clublb').style.display=name==='clublb'?'':'none';
+  if(name==='heatmap')renderHeatmap(ROWS,document.getElementById('club-filter-hm').value);
+  if(name==='top100')renderTop100();
+  if(name==='clublb')renderClubLB();
+}
+function renderHeatmap(rows,clubQ){
+  clubQ=(clubQ||'').toLowerCase().trim();
+  const groups=new Map();
+  for(const r of rows){if(!groups.has(r.event))groups.set(r.event,[]);groups.get(r.event).push(r);}
+  let h='';
+  for(const[ev,races] of groups){
+    const maxP=Math.min(Math.max(...races.map(r=>r.lanes.length)),8);
+    let th='<th class="rh">Round</th>';
+    for(let i=1;i<=maxP;i++)th+=`<th>P${i}</th>`;
+    let tb='';
+    for(const r of races){
+      let cells=`<td class="rnd">${r.round}</td>`;
+      for(let i=0;i<maxP;i++){
+        const l=r.lanes[i];
+        if(!l){cells+='<td></td>';continue;}
+        const b=bg(l.pct),f=fg(l.pct),p=l.pct!==null?l.pct.toFixed(1)+'%':'&#x2014;';
+        const dim=clubQ&&normClub(l.club).toLowerCase()!==clubQ?'opacity:0.12;':'';
+        cells+=`<td style="background:${b};${dim}"><div class="cell" title="${l.club}"><span class="cn">${l.crew}</span><span class="cp" style="color:${f}">${p}</span><span class="ct">${l.time}</span></div></td>`;
+      }
+      tb+=`<tr>${cells}</tr>`;
+    }
+    h+=`<table><caption>${ev}</caption><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table>`;
+  }
+  document.getElementById('heatmap-out').innerHTML=h||'<p style="color:#555">No results.</p>';
+}
+function filterHeatmap(q){
+  q=q.toLowerCase().trim();
+  const rows=q?ROWS.filter(r=>r.event.toLowerCase().includes(q)||r.boat.toLowerCase().includes(q)):ROWS;
+  renderHeatmap(rows,document.getElementById('club-filter-hm').value);
+}
+function filterClubHm(q){
+  const evQ=(document.getElementById('ev-filter').value||'').toLowerCase().trim();
+  const rows=evQ?ROWS.filter(r=>r.event.toLowerCase().includes(evQ)||r.boat.toLowerCase().includes(evQ)):ROWS;
+  renderHeatmap(rows,q);
+}
+function renderTop100(){
+  const clubQ=(document.getElementById('lb-club-filter').value||'').toLowerCase().trim();
+  const entries=[];
+  for(const r of ROWS)for(const l of r.lanes)
+    if(l.pct!==null)entries.push({crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct});
+  entries.sort((a,b)=>b.pct-a.pct);
+  entries.forEach((e,i)=>e.rank=i+1);
+  const filtered=clubQ?entries.filter(e=>normClub(e.club).toLowerCase()===clubQ):entries;
+  let h='';
+  filtered.slice(0,250).forEach((e)=>{
+    const f=fg(e.pct);
+    h+=`<tr><td class="num" style="color:#555">${e.rank}</td><td><strong>${e.crew}</strong></td><td style="color:#888">${e.club}</td><td style="color:#aaa">${e.event}</td><td style="color:#666">${e.round}</td><td class="num" style="color:#888">${e.time}</td><td class="num"><strong style="color:${f}">${e.pct.toFixed(1)}%</strong></td></tr>`;
+  });
+  document.getElementById('lb-body').innerHTML=h||'<tr><td colspan="7" style="color:#555;text-align:center;padding:20px">No results.</td></tr>';
+}
+const ALL_CLUBS=[...new Set(ROWS.flatMap(r=>r.lanes.map(l=>l.club).filter(c=>c&&!c.includes('/')).map(normClub)))].sort((a,b)=>a.localeCompare(b));
+document.getElementById('cmp-clubs-list').innerHTML=ALL_CLUBS.map(c=>'<option value="'+c.replace(/"/g,'&quot;')+'">').join('');
+let cmpClubs=['',''];
+const CMP_COLS=['#7bbfff','#f0b030','#4ee8b0','#ff7050','#c084fc','#fb923c'];
+function renderClubInputs(){
+  let h='';
+  cmpClubs.forEach((q,i)=>{
+    const col=CMP_COLS[i%CMP_COLS.length];
+    const rm=cmpClubs.length>1?'<button onclick="removeCmpClub('+i+')" style="background:none;border:1px solid #2a2a2a;color:#555;cursor:pointer;font-size:13px;padding:1px 6px;border-radius:4px">&#x2715;</button>':'';
+    h+='<div style="display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:'+col+';flex-shrink:0"></div><input type="text" list="cmp-clubs-list" value="'+q.replace(/"/g,'&quot;')+'" placeholder="Club name&#8230;" oninput="updateCmpClub('+i+',this.value)" style="margin-bottom:0;width:220px">'+rm+'</div>';
+  });
+  document.getElementById('cmp-inputs').innerHTML=h;
+}
+function addCmpClub(){if(cmpClubs.length>=6)return;cmpClubs.push('');renderClubInputs();}
+function removeCmpClub(i){cmpClubs.splice(i,1);renderClubInputs();renderCompare();}
+function updateCmpClub(i,v){cmpClubs[i]=v;renderCompare();}
+function renderCompare(){
+  const active=cmpClubs.map((q,i)=>{return{q:q.trim(),col:CMP_COLS[i%CMP_COLS.length]}}).filter(c=>c.q);
+  if(!active.length){
+    document.getElementById('cmp-stats').innerHTML='';
+    document.getElementById('cmp-chart').innerHTML='<p style="color:#555;margin-top:8px">Enter one or more club names above.</p>';
+    return;
+  }
+  const all=[];
+  for(const r of ROWS)for(const l of r.lanes)
+    if(l.pct!==null)all.push({crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct});
+  const clubs=active.map(c=>{
+    return{...c,entries:all.filter(e=>!e.club.includes('/')&&normClub(e.club).toLowerCase()===c.q.toLowerCase())};
+  });
+  function mkStat(c){
+    if(!c.entries.length)return'<div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:12px 16px;min-width:160px"><div style="color:'+c.col+';font-weight:700;font-size:13px">'+c.q+'</div><div style="color:#555;font-size:11px;margin-top:6px">No results found</div></div>';
+    const pcts=c.entries.map(e=>e.pct);
+    const avg=pcts.reduce((a,b)=>a+b,0)/pcts.length;
+    const best=Math.max(...pcts);
+    const top3=pcts.slice().sort((a,b)=>b-a).slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,pcts.length);
+    const evts=new Set(c.entries.map(e=>e.event)).size;
+    return'<div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:12px 16px;min-width:170px">'
+      +'<div style="color:'+c.col+';font-weight:700;font-size:13px;margin-bottom:8px">'+c.q+'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:11px">'
+      +'<span style="color:#666">Entries</span><span style="color:#ccc">'+c.entries.length+'</span>'
+      +'<span style="color:#666">Events</span><span style="color:#ccc">'+evts+'</span>'
+      +'<span style="color:#666">Avg GMT%</span><span style="color:'+c.col+';font-weight:600">'+avg.toFixed(1)+'%</span>'
+      +'<span style="color:#666">Top 3 avg</span><span style="color:'+c.col+';font-weight:600">'+top3.toFixed(1)+'%</span>'
+      +'<span style="color:#666">Best</span><span style="color:#fff;font-weight:700">'+best.toFixed(1)+'%</span>'
+      +'</div></div>';
+  }
+  document.getElementById('cmp-stats').innerHTML=clubs.map(mkStat).join('');
+  const allPcts=clubs.flatMap(c=>c.entries.map(e=>e.pct));
+  if(!allPcts.length){document.getElementById('cmp-chart').innerHTML='';return;}
+  const minP=Math.max(50,Math.floor(Math.min(...allPcts))-3);
+  const maxP=Math.min(100,Math.ceil(Math.max(...allPcts))+2);
+  const n=clubs.length;
+  const BAND_H=Math.max(44,Math.min(70,Math.floor(280/n)));
+  const PL=96,PR=20,PT=14,PB=36,W=720;
+  const H=PT+n*BAND_H+PB;
+  const cW=W-PL-PR;
+  function xOf(p){return PL+(p-minP)/(maxP-minP)*cW;}
+  let s='';
+  for(let p=Math.ceil(minP/5)*5;p<=maxP;p+=5){
+    const x=xOf(p).toFixed(1);
+    s+='<line x1="'+x+'" y1="'+PT+'" x2="'+x+'" y2="'+(PT+n*BAND_H)+'" stroke="#1e1e1e" stroke-width="1"/>';
+  }
+  const axY=PT+n*BAND_H;
+  s+='<line x1="'+PL+'" y1="'+axY+'" x2="'+(W-PR)+'" y2="'+axY+'" stroke="#2a2a2a" stroke-width="1"/>';
+  for(let p=Math.ceil(minP/5)*5;p<=maxP;p+=5){
+    const x=xOf(p).toFixed(1);
+    s+='<line x1="'+x+'" y1="'+axY+'" x2="'+x+'" y2="'+(axY+5)+'" stroke="#333" stroke-width="1"/>';
+    s+='<text x="'+x+'" y="'+(axY+16)+'" text-anchor="middle" fill="#444" font-size="10">'+p+'%</text>';
+  }
+  clubs.forEach((c,bi)=>{
+    const bY=PT+bi*BAND_H;
+    if(bi%2===0)s+='<rect x="'+PL+'" y="'+bY+'" width="'+cW+'" height="'+BAND_H+'" fill="#161616"/>';
+    s+='<text x="'+(PL-8)+'" y="'+(bY+BAND_H/2+4)+'" text-anchor="end" fill="'+c.col+'" font-size="11" font-weight="600">'+c.q.substring(0,16)+'</text>';
+    if(c.entries.length){
+      const avg=c.entries.map(e=>e.pct).reduce((a,b)=>a+b,0)/c.entries.length;
+      const ax=xOf(avg).toFixed(1);
+      s+='<line x1="'+ax+'" y1="'+bY+'" x2="'+ax+'" y2="'+(bY+BAND_H)+'" stroke="'+c.col+'" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/>';
+      s+='<text x="'+ax+'" y="'+(bY+10)+'" text-anchor="middle" fill="'+c.col+'" font-size="9" opacity="0.7">'+avg.toFixed(1)+'%</text>';
+    }
+    const sorted=[...c.entries].sort((a,b)=>a.pct-b.pct);
+    sorted.forEach((e,j)=>{
+      const jy=(bY+BAND_H/2-BAND_H*0.3+((j*7+3)%11)/10*BAND_H*0.6).toFixed(1);
+      const tip=e.crew+' ('+e.club+')&#10;'+e.event+' '+e.round+'&#10;'+e.time+' ('+e.pct.toFixed(1)+'%)';
+      s+='<circle cx="'+xOf(e.pct).toFixed(1)+'" cy="'+jy+'" r="4" fill="'+c.col+'" fill-opacity="0.75" stroke="#111" stroke-width="0.5"><title>'+tip+'</title></circle>';
+    });
+  });
+  document.getElementById('cmp-chart').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:'+W+'px;height:'+H+'px;display:block;overflow:visible">'+s+'</svg>';
+}
+function buildClubMap(){
+  const inclComposites=document.getElementById('incl-composites').checked;
+  const minN=Math.max(1,parseInt(document.getElementById('min-entries').value)||1);
+  const map={};
+  for(const r of ROWS)for(const l of r.lanes){
+    if(l.pct===null||(!inclComposites&&l.club.includes('/')))continue;
+    const cn=normClub(l.club);if(!cn)continue;
+    if(!map[cn])map[cn]={pcts:[],events:new Set()};
+    map[cn].pcts.push(l.pct);map[cn].events.add(r.event);
+  }
+  return Object.entries(map).map(([name,c])=>{
+    const sorted=c.pcts.slice().sort((a,b)=>b-a);
+    const avg=c.pcts.reduce((a,b)=>a+b,0)/c.pcts.length;
+    const top3avg=sorted.slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,sorted.length);
+    return{name,count:c.pcts.length,events:c.events.size,avg,top3avg,best:sorted[0]};
+  }).filter(c=>c.count>=minN).sort((a,b)=>b.top3avg-a.top3avg);
+}
+function renderClubLB(){
+  const ranked=buildClubMap();
+  let h='';
+  ranked.forEach((c,i)=>{
+    const f=fg(c.avg);const ft=fg(c.top3avg);
+    h+='<tr>'
+      +'<td class="num" style="color:#555">'+(i+1)+'</td>'
+      +'<td><strong>'+c.name+'</strong></td>'
+      +'<td class="num" style="color:#888">'+c.count+'</td>'
+      +'<td class="num" style="color:#888">'+c.events+'</td>'
+      +'<td class="num"><strong style="color:'+ft+'">'+c.top3avg.toFixed(1)+'%</strong></td>'
+      +'<td class="num" style="color:#aaa">'+c.avg.toFixed(1)+'%</td>'
+      +'<td class="num" style="color:#ccc">'+c.best.toFixed(1)+'%</td>'
+      +'</tr>';
+  });
+  document.getElementById('clublb-body').innerHTML=h||'<tr><td colspan="7" style="color:#555;text-align:center;padding:20px">No data.</td></tr>';
+}
+function dlCSV(rows,fn){
+  const blob=new Blob([rows.map(r=>r.map(c=>(typeof c==='string'&&(c.includes(',')||c.includes('"')))?'"'+c.replace(/"/g,'""')+'"':c).join(',')).join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;a.click();
+}
+function downloadTop100CSV(){
+  const clubQ=(document.getElementById('lb-club-filter').value||'').toLowerCase().trim();
+  const entries=[];
+  for(const r of ROWS)for(const l of r.lanes)
+    if(l.pct!==null)entries.push({crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct});
+  entries.sort((a,b)=>b.pct-a.pct);
+  const filtered=clubQ?entries.filter(e=>normClub(e.club).toLowerCase()===clubQ):entries;
+  dlCSV([['Crew','Club','Event','Round','Time','GMT%'],...filtered.slice(0,250).map(e=>[e.crew,e.club,e.event,e.round,e.time,e.pct.toFixed(1)])],'heatmap-poplar26-top250.csv');
+}
+function downloadClubLBCSV(){
+  const ranked=buildClubMap();
+  dlCSV([['#','Club','Entries','Events','Top 3 Avg %','Avg GMT%','Best %'],
+    ...ranked.map((c,i)=>[i+1,c.name,c.count,c.events,c.top3avg.toFixed(1),c.avg.toFixed(1),c.best.toFixed(1)])],'heatmap-poplar26-clubs.csv');
+}
+function downloadCompare(){
+  const svg=document.querySelector('#cmp-chart svg');
+  if(!svg){alert('Nothing to download - add clubs and data first.');return;}
+  const vb=svg.getAttribute('viewBox').split(' ').map(Number);
+  const W=vb[2]||720,H=vb[3]||400;
+  const PL=20,HEADER=54,PB=44;
+  const TW=W+PL*2,TH=H+HEADER+PB;
+  const full='<svg xmlns="http://www.w3.org/2000/svg" width="'+TW+'" height="'+TH+'">'
+    +'<rect width="'+TW+'" height="'+TH+'" fill="#111"/>'
+    +'<text x="'+PL+'" y="28" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="15" font-weight="700" fill="#e8e8e6">Poplar Regatta 2026</text>'
+    +'<text x="'+PL+'" y="46" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#c8472b" font-weight="600">rowingtools.co.uk</text>'
+    +'<g transform="translate('+PL+','+HEADER+')">'
+    +svg.innerHTML
+    +'</g>'
+    +'</svg>';
+  const blob=new Blob([full],{type:'image/svg+xml'});
+  const url=URL.createObjectURL(blob);
+  const img=new Image();
+  img.onload=()=>{
+    const c=document.createElement('canvas');
+    c.width=TW*2;c.height=TH*2;
+    const ctx=c.getContext('2d');ctx.scale(2,2);ctx.drawImage(img,0,0);
+    c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='heatmap-poplar26-compare.png';a.click();},'image/png');
+    URL.revokeObjectURL(url);
+  };
+  img.src=url;
+}
+renderClubInputs();
+renderHeatmap(ROWS,'');
+</script>
+</body>
+</html>
