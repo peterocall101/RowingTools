@@ -8,58 +8,48 @@
 
 ```text
 RowingTools/
-│
-├── index.html                          # Public website (GitHub Pages)
-├── heatmap-metsat25.html               # Met 2025 Saturday - regatta analysis page
-├── heatmap-metsun25.html               # Met 2025 Sunday - regatta analysis page
-├── heatmap-brcc25.html                 # British Rowing Club Championships 2025
-│
+├── index.html                               # Public website (GitHub Pages)
+├── heatmap-metsat25.html                    # Met 2025 Saturday
+├── heatmap-metsun25.html                    # Met 2025 Sunday
+├── heatmap-brcc25.html                      # British Rowing Club Championships 2025
+├── heatmap-wallingford25.html               # Wallingford Regatta 2025
+├── heatmap-nottm25.html                     # Nottingham City Regatta 2025 (not linked - suspect data)
+├── heatmap-wallingford26.html               # Wallingford Regatta 2026
+├── heatmap-nottm26.html                     # Nottingham City Regatta 2026
+├── heatmap-poplar26.html                    # Poplar Regatta 2026
+├── heatmap-bucs26.html                      # BUCS Regatta 2026 (not linked - multi-day, scores not comparable)
+├── wallingford26-workflow.yml               # Post-race checklist for Wallingford 2026
 ├── data/
-│   ├── benchmarks_v1.json              # Frozen 2025-03-24
-│   ├── benchmarks_v2.json              # Frozen - adds HWR benchmark
-│   └── benchmarks_v3.json              # Current - adds Met A/B/C final benchmarks
-│
+│   ├── benchmarks_v1.json                   # Frozen 2025-03-24
+│   ├── benchmarks_v2.json                   # Frozen - adds HWR benchmark
+│   └── benchmarks_v3.json                   # Current - adds Met A/B/C final benchmarks
 ├── gmt_processor/
-│   ├── gmt_processor.py                # Stage 1: CSV in, ranked GMT table out
-│   ├── benchmarks.py                   # Loads benchmark data from data/
-│   ├── requirements.txt
+│   ├── gmt_processor.py                     # Stage 1: CSV in, ranked GMT table out
+│   ├── benchmarks.py                        # Loads benchmark data from data/
 │   ├── inputs/
-│   │   ├── scraper.py                  # Stage 2: URL in, results fetched + processed
-│   │   ├── generate_heatmap.py         # Stage 3a: rowresults comp code in, heatmap HTML out
-│   │   ├── generate_heatmap_sheet.py   # Stage 3b: Google Sheets CSV in, heatmap HTML out
-│   │   ├── generate_carousel.py        # Stage 4: heatmap HTML in, carousel PNGs out
-│   │   ├── carousel-template-final.html # Carousel slide template (Fraunces / dark theme)
-│   │   ├── met_finals_scraper.py       # Benchmark updater: scrapes Met finals data
-│   │   └── testinputset1.csv           # Test input data
-│   └── outputs/                        # Local only (gitignored)
-│
-├── exhibits/                           # Local only (gitignored) - carousel PNG output
-│   └── <comp>/slide-00.png ...
-│
-└── CNAME                               # rowingtools.co.uk domain config
+│   │   ├── scraper.py                       # Stage 2: URL in, results fetched + processed
+│   │   ├── generate_heatmap.py              # Stage 3a: rowresults.co.uk comp in, heatmap HTML out
+│   │   ├── generate_heatmap_sheet.py        # Stage 3b: Google Sheets CSV in, heatmap HTML out
+│   │   ├── generate_heatmap_wallingford.py  # Stage 3c: wallingford-regatta.org.uk HTML in, heatmap HTML out
+│   │   ├── generate_heatmap_didwewin.py     # Stage 3d: didwewin.info in, heatmap HTML out
+│   │   ├── generate_heatmap_nottm26.py      # Event-specific: regatta.time-team.nl (Nottingham 2026)
+│   │   ├── generate_heatmap_poplar26.py     # Event-specific: beta.regatta.time-team.nl (Poplar 2026)
+│   │   ├── generate_heatmap_bucs.py         # Event-specific: results.bucsrowing.org.uk (BUCS)
+│   │   ├── generate_carousel.py             # Stage 4: heatmap HTML in, carousel PNGs out
+│   │   ├── carousel-template-final.html     # Carousel slide template
+│   │   └── met_finals_scraper.py            # Benchmark updater: scrapes Met finals data
+│   └── outputs/                             # Local only (gitignored)
+├── exhibits/                                # Local only (gitignored) - carousel PNG output
+└── CNAME                                    # rowingtools.co.uk domain config
 ```
 
 ---
 
 ## Architecture
 
-### Single source of truth
+All benchmark data lives in `data/benchmarks_vN.json`. Both the website and Python tools load from it - `index.html` via `fetch()` at load time, `benchmarks.py` from disk at runtime. Never edit benchmark numbers directly in either file.
 
-All benchmark data lives in `data/benchmarks_vN.json`. Both tools load from it:
-
-- `index.html` fetches it at load time via `fetch('data/benchmarks_v3.json')`
-- `gmt_processor/benchmarks.py` reads it from disk at runtime
-
-**Never edit benchmark numbers directly in index.html or benchmarks.py.**
-Edit the JSON only. Both tools update automatically.
-
-### Benchmark versioning
-
-When benchmark data needs updating (e.g. adding 2026 Met results), create a new
-`data/benchmarks_v4.json` - never edit the current version. This keeps historical scores reproducible.
-The version is recorded in the JSON `_meta` block.
-
-### Benchmark data
+When benchmark data needs updating, create `data/benchmarks_v4.json` - never edit the current version.
 
 | Version | What changed | Status |
 | ------- | ------------ | ------ |
@@ -67,263 +57,52 @@ The version is recorded in the JSON `_meta` block.
 | v2 | Adds HWR (Henley Women's Regatta) | Frozen |
 | v3 | Adds Met A/B/C final benchmarks | **Current** |
 
-**v3 sections:**
-
-| Section | What it is | Distance | Years |
-| ------- | ---------- | -------- | ----- |
-| `wbt` | World Best Times (World Rowing official) | 2000m | all-time |
-| `met_raw` | Met Regatta championship A-final winning times | 2000m | 2021-2025 (no 2024) |
-| `hrr_raw` | Henley Royal Regatta fastest non-qualifying times | 2112m → scaled to 2000m | 2021-2025 |
-| `hwr_raw` | Henley Women's Regatta championship winning times | 1500m → scaled to 2000m | 2022-2025 |
-| `met_a_slowest` | 2nd-slowest A-final finisher per boat class, avg across years | 2000m | 2021-2025 (no 2024) |
-| `met_b_slowest` | 2nd-slowest B-final finisher per boat class, avg across years | 2000m | 2021-2025 (no 2024) |
-| `met_c_slowest` | 2nd-slowest C-final finisher per boat class, avg across years | 2000m | 2021-2025 (no 2024) |
-
-HRR times are scaled by `× 2000/2112`. HWR times are scaled by `× 2000/1500`.
-HWR 2021 is excluded - that year used a shortened course due to pandemic construction.
-The 2nd-slowest (not slowest) finisher is used for met_a/b/c_slowest to guard against outliers from equipment failures.
-
 ---
 
 ## Tool 1 - index.html (public website)
 
-Hosted on GitHub Pages at rowingtools.co.uk. Static, no backend, no API calls.
-
-**Features:**
-
-- Enter multiple results and calculate GMT% against WBT, Met avg, Henley qual., and HWR avg
-- Toggle which benchmarks to show (WBT, Met, Henley qual., HWR)
-- Sort by any metric
-- Download results as CSV
-- Benchmark reference tabs: WBT, Met, Henley qualification, HWR
-- "What is GMT?" explainer
-
-**Deploy:** Push `index.html` to main branch. GitHub Pages redeploys in ~30s.
+Hosted on GitHub Pages at rowingtools.co.uk. Static, no backend. Features: GMT% calculator against WBT, Met, HRR, and HWR benchmarks; sort by any metric; CSV download; benchmark reference tabs; mobile responsive; dark mode. Deploy by pushing to main - GitHub Pages redeploys in ~30s.
 
 ---
 
 ## Tool 2 - gmt_processor (local Python, never deployed)
 
-Run locally to process bulk results and generate ranked tables for publishing.
+Pipeline from a live regatta results source to a published heatmap page.
 
-### Stage 1 - gmt_processor.py
+**Stage 1 - gmt_processor.py:** takes a CSV of results, calculates GMT%, outputs a ranked table.
 
-Takes a CSV of results, calculates GMT%, outputs ranked table.
+**Stage 2 - scraper.py:** points at a URL, fetches results, extracts finals via Claude API, outputs CSV. Needs `pip install anthropic requests beautifulsoup4 selenium pandas`. rowresults.co.uk also needs ChromeDriver.
 
-```bash
-python gmt_processor.py --sample
-python gmt_processor.py --input inputs/testinputset1.csv --output outputs/top100.csv --top 100
-python gmt_processor.py --input inputs/results.csv --sort met_pct
-```
+**Stage 3 - heatmap generators:** all output a self-contained four-tab HTML file (Heatmap, Top 250 Results, Club Leaderboard, Club Compare). All take `--comp`, `--title`, `--out`. Choose by results source:
 
-### Stage 2 - scraper.py (written, needs local setup)
+| Script | Results source |
+| ------ | -------------- |
+| `generate_heatmap.py` (3a) | rowresults.co.uk JSON API |
+| `generate_heatmap_sheet.py` (3b) | Google Sheets export CSV |
+| `generate_heatmap_wallingford.py` (3c) | wallingford-regatta.org.uk HTML tables |
+| `generate_heatmap_didwewin.py` (3d) | didwewin.info (Wallingford 2026) - URL hardcoded |
+| `generate_heatmap_nottm26.py` | regatta.time-team.nl (Nottingham 2026) |
+| `generate_heatmap_poplar26.py` | beta.regatta.time-team.nl (Poplar 2026) |
+| `generate_heatmap_bucs.py` | results.bucsrowing.org.uk (BUCS) |
 
-Points at a URL, fetches results, extracts finals via Claude API, pipes through GMT.
+For Stage 3b, CSV needs columns: `Race, Event, Type, Name, Position, Lane, Time, Diff`. Finals only; position 9999 and J16-and-below excluded; times over 20 minutes treated as null.
 
-```bash
-export ANTHROPIC_API_KEY=your_key_here
-
-# Wallingford (static HTML - no Chrome needed)
-python inputs/scraper.py --url "https://wallingford-regatta.org.uk/results/" --output inputs/wallingford_2025.csv
-
-# Met Saturday (rowresults - needs ChromeDriver)
-python inputs/scraper.py --url "https://rowresults.co.uk/metsat25" --top 100
-```
-
-**Local setup:**
-
-```bash
-pip install anthropic requests beautifulsoup4 selenium pandas
-# For rowresults only: install ChromeDriver matching your Chrome version
-# See: googlechromelabs.github.io/chrome-for-testing/
-```
-
-### Stage 3a - generate_heatmap.py (rowresults.co.uk competitions)
-
-Fetches results directly from the rowresults.co.uk JSON API and generates a self-contained regatta analysis HTML page. No Selenium or Claude API needed.
-
-```bash
-python inputs/generate_heatmap.py --comp metsat25 --out ../../heatmap-metsat25.html
-python inputs/generate_heatmap.py --comp metsun25 --out ../../heatmap-metsun25.html
-```
-
-**Competition codes** follow rowresults.co.uk naming: `metsat25` (Met 2025 Saturday), `metsun25` (Met 2025 Sunday), etc.
-
-### Stage 3b - generate_heatmap_sheet.py (Google Sheets / CSV competitions)
-
-For regattas whose results come from a Google Sheets export rather than rowresults. Expects a CSV with columns: `Race, Event, Type, Name, Position, Lane, Time, Diff`.
-
-**Getting the CSV:** export the Google Sheet via `File > Download > CSV`, or use the direct export URL:
-
-```text
-https://docs.google.com/spreadsheets/d/<SHEET_ID>/export?format=csv&gid=0
-```
-
-```bash
-python inputs/generate_heatmap_sheet.py \
-  --csv inputs/nottm25_results.csv \
-  --comp nottm25 \
-  --title "Nottingham Regatta 2025" \
-  --out ../../heatmap-nottm25.html
-```
-
-**Event code format** the script expects (e.g. Nottingham Regatta style):
-
-- Gender prefix: `Op.` (Open/Men's) or `W.`
-- Optional category: `.Ch.` `.Int.` `.Dev.` `.J18.` `.Lwt.`
-- Boat type: `1x` `2x` `4x-` `4-` `4+` `8+`
-- Examples: `Op.Ch.4-`, `W.J18.2x`, `Op.Dev.4x-`, `W.Lwt.1x`
-
-**Filtering rules:**
-
-- Only `Final` rows are used (heats/semis skipped)
-- Position `9999` (time-only non-competitive entries) excluded
-- J16 and below excluded; J18 included using adult WBTs
-- Times over 20 minutes treated as null (bad data) - fix in CSV before running
-
-**Both Stage 3 scripts produce the same four-tab HTML output:**
-
-- **Heatmap** - race-by-race grid, one column per finisher, colour-coded by GMT% tier (elite / high club / competitive / developing)
-- **Top 250 Results** - individual results ranked by GMT%, filterable by club
-- **Club Leaderboard** - clubs ranked by top-3-avg GMT%, composites toggle, CSV download
-- **Club Compare** - dot-plot comparing selected clubs' GMT% distributions
-
-The file is fully self-contained (no external dependencies) and can be opened locally or pushed to the repo and linked from the site.
-
-### Stage 4 - generate_carousel.py
-
-Reads the ROWS data from an already-generated heatmap HTML file and produces Instagram/TikTok carousel slide images (Top 5 Results + Top 5 Clubs) using a headless Chromium browser. No API calls needed - the heatmap is the source of truth.
-
-```bash
-python inputs/generate_carousel.py --html ../../heatmap-brcc25.html
-python inputs/generate_carousel.py --html ../../heatmap-metsun25.html --mode clubs
-```
-
-The `--comp` code is auto-derived from the HTML filename. Use `--comp` to override, or to fetch direct from the rowresults API instead (omit `--html`).
-
-Output: `exhibits/<comp>/slide-00.png` ... `slide-NN.png` (gitignored, local only)
-
-Each slide is 810x1440px (2x of the 405x720 phone preview). Combined mode produces:
-`Cover → Section divider → 5 result slides → Section divider → 5 club slides → Outro`
-
-**Options:**
-
-| Flag | Default | Description |
-| ---- | ------- | ----------- |
-| `--html` | - | Path to heatmap HTML (preferred - no API call, matches heatmap exactly) |
-| `--comp` | auto from `--html` | rowresults comp code (required if `--html` not given) |
-| `--mode` | `combined` | `combined`, `results`, or `clubs` |
-| `--min-entries` | `3` | Minimum scored entries to qualify for club leaderboard |
-| `--title` | auto | Override carousel title text |
-| `--short` | auto | Override short header tag |
-
-**Local setup:**
-
-```bash
-pip install requests playwright
-playwright install chromium
-```
+**Stage 4 - generate_carousel.py:** reads a heatmap HTML file, produces carousel PNGs (810x1440px) via headless Chromium into `exhibits/<comp>/` (gitignored). Needs `pip install requests playwright && playwright install chromium`.
 
 ---
 
 ## Tool 3 - met_finals_scraper.py (benchmark data updater)
 
-Scrapes A/B/C final results from rowresults.co.uk across multiple Met years and outputs JSON ready to paste into the next benchmarks version. No Selenium or Claude API needed.
-
-```bash
-python inputs/met_finals_scraper.py
-python inputs/met_finals_scraper.py --output met_finals_data.json
-python inputs/met_finals_scraper.py --include-2024
-```
-
-Outputs `met_a_slowest`, `met_b_slowest`, `met_c_slowest` sections. Paste into `data/benchmarks_vN.json` alongside the existing sections. Only Championship events are included to match `met_raw`.
+Scrapes Met A/B/C final results from rowresults.co.uk across multiple years and outputs JSON ready to paste into the next benchmarks version.
 
 ---
 
-## Workflow: post-regatta GMT analysis
+## Workflow: post-regatta
 
-### Path A - rowresults.co.uk regatta
+Run the appropriate Stage 3 script, add a card to the `#sec-leaderboards` grid in `index.html`, review locally, push. Optionally run Stage 4 for carousel slides.
 
-```bash
-# 1. Generate heatmap (fetches live from rowresults API)
-python inputs/generate_heatmap.py --comp <code> --out ../../heatmap-<code>.html
-
-# 2. Add a card to the #sec-leaderboards grid in index.html:
-#    <a href="heatmap-<code>.html" class="lb-card">
-#      <div>
-#        <div class="lb-card-name">Regatta Name</div>
-#        <div class="lb-card-date">DD Month YYYY</div>
-#      </div>
-#      <span class="lb-arrow">→</span>
-#    </a>
-
-# 3. Open locally to review both files, then push
-git add heatmap-<code>.html index.html && git commit -m "add <comp> heatmap" && git push origin main
-
-# 4. Optionally generate carousel slides
-python inputs/generate_carousel.py --html ../../heatmap-<code>.html
-```
-
-### Path B - Google Sheets results (other regattas)
-
-```bash
-# 1. Export the sheet as CSV (File > Download > CSV, or use export URL)
-
-# 2. Generate heatmap from CSV
-python inputs/generate_heatmap_sheet.py \
-  --csv inputs/<comp>_results.csv \
-  --comp <code> \
-  --title "<Regatta Name Year>" \
-  --out ../../heatmap-<code>.html
-
-# 3. Add a card to the #sec-leaderboards grid in index.html (same as Path A step 2)
-
-# 4. Review locally, then push
-git add heatmap-<code>.html index.html && git commit -m "add <comp> heatmap" && git push origin main
-
-# 5. Optionally generate carousel
-python inputs/generate_carousel.py --html ../../heatmap-<code>.html
-```
-
-If any times look wrong in the output (e.g. clearly a typo in the sheet), fix them in the CSV and re-run Stage 3b - no need to touch the HTML directly.
-
----
-
-## Progression steps
-
-### Done
-
-- [x] GMT calculator HTML tool (WBT, Met, Henley qual., HWR benchmarks)
-- [x] Benchmark tabs with searchable reference tables
-- [x] Sort and reorder by any metric
-- [x] CSV download
-- [x] Mobile responsive layout
-- [x] Dark mode
-- [x] Google Analytics (G-876ELQ9529)
-- [x] Google Search Console verified
-- [x] Live at rowingtools.co.uk
-- [x] Python Stage 1 - CSV processor with ranked output
-- [x] Python Stage 2 - scraper.py written (needs local deps)
-- [x] benchmarks_v1.json as single source of truth (frozen 2025-03-24)
-- [x] benchmarks_v2.json - adds HWR (Henley Women's Regatta) benchmark
-- [x] benchmarks_v3.json - adds Met A/B/C final benchmarks (via met_finals_scraper.py)
-- [x] HTML loads benchmarks from JSON (consistency loop closed)
-- [x] Benchmark versioning architecture in place
-- [x] HWR as fourth benchmark (W8+, W4-, W2-, W4x, W2x, W1x, 2022-2025 avg, 1500m→2000m)
-- [x] Set up Namecheap email forwarding (feedback@rowingtools.co.uk to personal Gmail)
-- [x] generate_heatmap.py - self-contained regatta analysis HTML from rowresults API
-- [x] Regatta analysis pages published (heatmap-metsat25.html, heatmap-metsun25.html)
-- [x] met_finals_scraper.py - benchmark data updater for Met A/B/C finals
-
-### Next
-
-- [ ] Install scraper.py dependencies locally and test against Wallingford URL
-- [ ] Test scraper.py against rowresults (needs ChromeDriver)
-- [ ] Add 2026 Met data to benchmarks_v4.json once available
-- [ ] Head race converter (next tool - different distances, same logic)
-- [ ] Henley eligibility checker (pure logic, no data needed)
-
-### Future / subscription tier
-
-- [ ] Performance tracking over time (requires accounts + storage)
-- [ ] Club dashboard (coach sees all crews GMT trend across a season)
+- **Path A - rowresults.co.uk:** Stage 3a with the comp code
+- **Path B - Google Sheets:** export CSV, run Stage 3b
+- **Path C - wallingford-regatta.org.uk:** Stage 3c
+- **Path D - didwewin.info:** Stage 3d - full checklist in `wallingford26-workflow.yml`
+- **Path E - event-specific scraper:** dedicated script for that regatta (see table above)
