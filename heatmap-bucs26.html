@@ -64,7 +64,7 @@ td:not(.rnd):hover .cell{transform:scale(1.04)}
 <body>
 <div class="topbar"></div>
 <header class="page-hdr">
-  <a href="/" class="back-nav"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Rowing Tools</a>
+  <a href="/#leaderboards" class="back-nav"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Rowing Tools</a>
   <h1>BUCS Regatta 2026</h1>
   <p class="sub">GMT% vs WBT. Finals only. Lightweight events without a dedicated WBT use the heavyweight WBT as the benchmark.</p>
 </header>
@@ -201,7 +201,7 @@ function renderTop100(){
   let h='';
   filtered.slice(0,250).forEach((e,i)=>{
     const f=fg(e.pct);
-    h+=`<tr style="animation:viewIn .2s ease ${Math.min(i,20)*0.04}s both"><td class="num">${rankBadge(e.rank)}</td><td><strong>${e.crew}</strong></td><td style="color:var(--text2)">${e.club}</td><td style="color:var(--text3)">${e.event}</td><td style="color:var(--text3)">${e.round}</td><td class="num" style="color:var(--text2)">${e.time}</td><td class="num"><strong style="color:${f}">${e.pct.toFixed(1)}%</strong></td></tr>`;
+    h+=`<tr><td class="num">${rankBadge(e.rank)}</td><td><strong>${e.crew}</strong></td><td style="color:var(--text2)">${e.club}</td><td style="color:var(--text3)">${e.event}</td><td style="color:var(--text3)">${e.round}</td><td class="num" style="color:var(--text2)">${e.time}</td><td class="num"><strong style="color:${f}">${e.pct.toFixed(1)}%</strong></td></tr>`;
   });
   document.getElementById('lb-body').innerHTML=h||'<tr><td colspan="7" style="color:#555;text-align:center;padding:20px">No results.</td></tr>';
 }
