@@ -495,11 +495,12 @@ function renderTop100(){{
   for(const r of ROWS)for(const l of r.lanes)
     if(l.pct!==null)entries.push({{crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct}});
   entries.sort((a,b)=>b.pct-a.pct);
+  entries.forEach((e,i)=>e.rank=i+1);
   const filtered=clubQ?entries.filter(e=>normClub(e.club).toLowerCase()===clubQ):entries;
   let h='';
-  filtered.slice(0,250).forEach((e,i)=>{{
+  filtered.slice(0,250).forEach((e)=>{{
     const f=fg(e.pct);
-    h+=`<tr><td class="num" style="color:#555">${{i+1}}</td><td><strong>${{e.crew}}</strong></td><td style="color:#888">${{e.club}}</td><td style="color:#aaa">${{e.event}}</td><td style="color:#666">${{e.round}}</td><td class="num" style="color:#888">${{e.time}}</td><td class="num"><strong style="color:${{f}}">${{e.pct.toFixed(1)}}%</strong></td></tr>`;
+    h+=`<tr><td class="num" style="color:#555">${{e.rank}}</td><td><strong>${{e.crew}}</strong></td><td style="color:#888">${{e.club}}</td><td style="color:#aaa">${{e.event}}</td><td style="color:#666">${{e.round}}</td><td class="num" style="color:#888">${{e.time}}</td><td class="num"><strong style="color:${{f}}">${{e.pct.toFixed(1)}}%</strong></td></tr>`;
   }});
   document.getElementById('lb-body').innerHTML=h||'<tr><td colspan="7" style="color:#555;text-align:center;padding:20px">No results.</td></tr>';
 }}
