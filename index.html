@@ -158,6 +158,15 @@ button.ghost:hover{color:var(--text);background:var(--bg3)}
 .lb-arrow{font-size:18px;color:var(--text3);flex-shrink:0;margin-left:16px;transition:transform .2s ease,color .2s ease}
 .lb-card:hover .lb-arrow{transform:translateX(4px);color:var(--text2)}
 .sec{display:none}.sec.active{display:block}
+@keyframes panelIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.panel.active,.sec.active,.bpanel.active{animation:panelIn .6s cubic-bezier(0.16,1,0.3,1)}
+@keyframes rowIn{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
+tr.row-new{animation:rowIn .55s cubic-bezier(0.16,1,0.3,1)}
+@keyframes lbIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.lb-anim{animation:lbIn .35s ease both}
+@keyframes shimmer{0%{background-position:-200px 0}100%{background-position:calc(200px + 100%) 0}}
+body.loading .btog{background:linear-gradient(90deg,var(--bg3) 25%,var(--bg2) 50%,var(--bg3) 75%) !important;background-size:200px 100%;animation:shimmer 1.2s infinite;color:transparent !important;border-color:transparent !important}
+body.loading .btog .dot{opacity:0}
 </style>
 </head>
 <body>
@@ -430,7 +439,6 @@ function applyToggleStyle(b){
   if(bench[b]){btn.style.borderColor=bCfg[b].c;btn.style.background=bCfg[b].bg;btn.style.color=bCfg[b].c;}
   else{btn.style.borderColor='';btn.style.background='';btn.style.color='';}
 }
-Object.keys(bench).forEach(applyToggleStyle); // styling only, safe before fetch
 
 function toggleBench(b){
   bench[b]=!bench[b];applyToggleStyle(b);
@@ -477,6 +485,8 @@ function addRow(){
   const id=rowId++;
   rows.push({id,label:'',time:'',boat:'M8+',hrrKey:'',hwrKey:''});
   rebuildBody();
+  const el=document.getElementById('row-'+id);
+  if(el)el.classList.add('row-new');
   setTimeout(()=>document.getElementById('label-'+id)?.focus(),30);
 }
 
@@ -506,11 +516,28 @@ function renderRow(id){
   el.outerHTML=rowHTML(r);refreshScores(id);
 }
 function upd(id,field,val){const r=rows.find(r=>r.id===id);if(!r)return;r[field]=val;refreshScores(id);}
+const countUpTimers={};
+function animatePct(el,target,color){
+  if(countUpTimers[el.id])cancelAnimationFrame(countUpTimers[el.id]);
+  const cur=el.querySelector&&el.querySelector('.pv');
+  const from=cur?parseFloat(cur.textContent)||0:0;
+  const dur=700,start=performance.now();
+  function step(now){
+    const p=Math.min((now-start)/dur,1),ease=1-Math.pow(1-p,3);
+    const val=from+(target-from)*ease;
+    el.innerHTML=`<span class="pv" style="color:${color}">${val.toFixed(1)}%</span>`;
+    if(p<1)countUpTimers[el.id]=requestAnimationFrame(step);else countUpTimers[el.id]=null;
+  }
+  countUpTimers[el.id]=requestAnimationFrame(step);
+}
 function sc(vid,bid,pct){
   const v=document.getElementById(vid),b=document.getElementById(bid);if(!v||!b)return;
-  if(pct===null){v.textContent='—';v.style.color='';b.innerHTML='';return;}
+  if(pct===null){
+    if(countUpTimers[vid])cancelAnimationFrame(countUpTimers[vid]);
+    v.textContent='—';v.style.color='';b.innerHTML='';return;
+  }
   const c=pctColor(pct),w=Math.min(100,pct).toFixed(1);
-  v.innerHTML=`<span class="pv" style="color:${c}">${pct.toFixed(1)}%</span>`;
+  animatePct(v,pct,c);
   b.innerHTML=`<div class="bar-bg"><div class="bar" style="width:${w}%;background:${c}"></div></div>`;
 }
 function refreshScores(id){
@@ -711,6 +738,7 @@ function renderHWR(){
 
 // ── FETCH BENCHMARKS AND START ────────────────────────────────────────────────
 function startApp(){
+  Object.keys(bench).forEach(applyToggleStyle);
   renderHeader();
   addRow();
   renderWBT();
@@ -719,10 +747,12 @@ function startApp(){
   renderHWR();
 }
 
+document.body.classList.add('loading');
 fetch('data/benchmarks_v3.json?v=1')
   .then(r=>{if(!r.ok)throw new Error(r.status);return r.json();})
-  .then(data=>{buildBenchmarks(data);startApp();})
+  .then(data=>{document.body.classList.remove('loading');buildBenchmarks(data);startApp();})
   .catch(err=>{
+    document.body.classList.remove('loading');
     document.getElementById('empty-msg').textContent='Could not load benchmark data. Check data/benchmarks_v3.json exists in the repo.';
     console.error('Benchmark fetch failed:',err);
   });
@@ -742,6 +772,14 @@ function goSection(name){
   document.getElementById('sub-calc').style.display=name==='calc'?'':'none';
   document.getElementById('sub-leaderboards').style.display=name==='leaderboards'?'':'none';
   history.replaceState(null,'',name==='calc'?window.location.pathname:'#'+name);
+  if(name==='leaderboards'){
+    document.querySelectorAll('.lb-grid .lb-card').forEach((card,i)=>{
+      card.classList.remove('lb-anim');
+      void card.offsetWidth;
+      card.style.animationDelay=(0.04+i*0.06)+'s';
+      card.classList.add('lb-anim');
+    });
+  }
 }
 if(SECTIONS.includes(location.hash.slice(1)))goSection(location.hash.slice(1));
 const BTABS=['wbt','met','hrr','hwr'];
