@@ -85,10 +85,13 @@ def parse_crew(raw):
     # Strip trailing (NNN) entry number to get crew display name
     m = re.match(r'^(.+?)\s*\(\d+\)$', raw)
     crew = m.group(1).strip() if m else raw
-    # Strip trailing suffix letter/code: "- A", "- B", "- L/E", "- A/E" etc.
-    club = re.sub(r'\s*[–\-]\s*(?:[A-Z](?:/E)?|L/E)\s*$', '', crew, flags=re.I).strip()
+    # Strip entry-letter suffix: "- A", "– B", "- C Stroke Name", "- L/E" etc.
+    # Dash variants: hyphen, en-dash, em-dash, and � (replacement char from bad encoding)
+    # Stroke name may follow the entry letter, so match to end-of-string greedily
+    SUFFIX_RE = r'\s*[\-–—�]\s*(?:[A-Z](?:/E)?|L/E)(?:\s+\S.*?)?\s*$'
+    club = re.sub(SUFFIX_RE, '', crew, flags=re.I).strip()
     # Handle double suffix e.g. "- A - L/E"
-    club = re.sub(r'\s*[–\-]\s*(?:[A-Z](?:/E)?|L/E)\s*$', '', club, flags=re.I).strip()
+    club = re.sub(SUFFIX_RE, '', club, flags=re.I).strip()
     return club, crew
 
 
