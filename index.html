@@ -14,7 +14,7 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -41,10 +41,11 @@
   --c-hwr:#fbbf24;--c-hwr-bg:#451a03;
 }}
 body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);padding:0 1.5rem 2.5rem;max-width:1100px;margin:0 auto;line-height:1.6}
-.topbar{position:fixed;top:0;left:0;width:100%;height:3px;background:linear-gradient(90deg,#1d4ed8,#7c3aed 50%,#059669);z-index:9999;pointer-events:none}
+.topbar{position:fixed;top:0;left:0;width:100%;height:3px;background:#c8472b;z-index:9999;pointer-events:none}
 .site-hdr{padding:2.5rem 0 1.5rem;margin-bottom:1.75rem;border-bottom:1px solid var(--border)}
 .brand{display:flex;align-items:center;gap:11px;margin-bottom:8px}
-.brand-mark{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#1d4ed8,#059669);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;letter-spacing:-0.5px;flex-shrink:0;box-shadow:0 2px 8px rgba(29,78,216,0.3)}
+.brand-mark{font-family:'Fraunces',serif;font-weight:900;font-size:30px;letter-spacing:-0.04em;line-height:1;flex-shrink:0;color:var(--text)}
+.brand-dot{color:#c8472b}
 h1{font-size:23px;font-weight:700;letter-spacing:-0.5px;line-height:1}
 .sub{font-size:14px;color:var(--text2);margin:0}
 .sec-tabs{display:inline-flex;background:var(--bg3);border-radius:999px;padding:3px;gap:2px;margin-bottom:1.75rem;border:none}
@@ -173,7 +174,7 @@ body.loading .btog .dot{opacity:0}
 <div class="topbar"></div>
 <header class="site-hdr">
   <div class="brand">
-    <div class="brand-mark"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 7 C5 4.5, 8 4.5, 10 7 C12 9.5, 15 9.5, 18 7" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M2 13 C5 10.5, 8 10.5, 10 13 C12 15.5, 15 15.5, 18 13" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/></svg></div>
+    <div class="brand-mark">rt<span class="brand-dot">.</span></div>
     <h1>Rowing Tools</h1>
   </div>
   <p class="sub" id="sub-calc">GMT% Calculator - winning benchmarks (WBT, Met Regatta, HWR) &amp; Henley qualification benchmark</p>
