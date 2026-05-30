@@ -864,11 +864,10 @@
   }
 
   function buildCover(regattaFull, mode) {
-    const subtitle = mode === 'clubs'
-      ? 'Top 3 clubs by average GMT%'
-      : mode === 'results'
-      ? 'Top 5 performances by GMT%'
-      : 'Top results &amp; clubs by GMT%';
+    const subtitle = window.__coverSubtitle ||
+      (mode === 'clubs' ? 'Top 3 clubs by average GMT%'
+      : mode === 'results' ? 'Top 5 performances by GMT%'
+      : 'Top results &amp; clubs by GMT%');
 
     return `
       <div class="slide cover">
@@ -1010,20 +1009,19 @@
     const slides = [];
 
     if (mode === 'combined') {
-      // Cover + 5 results + divider + top 3 clubs + outro = 11 slides
       slides.push(buildCover(regattaFull, 'combined'));
       results.forEach(d => slides.push(buildResultSlide(d)));
       slides.push(buildSection('Top 3<br>clubs', 'Strongest by top 3 average GMT%'));
       clubs.slice(-3).forEach(d => slides.push(buildClubSlideV2(d)));
-      slides.push(buildOutro());
+      if (!window.__noOutro) slides.push(buildOutro());
     } else if (mode === 'results') {
       slides.push(buildCover(regattaFull, 'results'));
       results.forEach(d => slides.push(buildResultSlide(d)));
-      slides.push(buildOutro());
+      if (!window.__noOutro) slides.push(buildOutro());
     } else if (mode === 'clubs') {
       slides.push(buildCover(regattaFull, 'clubs'));
       clubs.forEach(d => slides.push(buildClubSlideV2(d)));
-      slides.push(buildOutro());
+      if (!window.__noOutro) slides.push(buildOutro());
     }
 
     track.innerHTML = slides.join('');
@@ -1125,11 +1123,13 @@
 
   // ============= RENDER HOOKS (for Playwright) =============
   window.__inject = function(data) {
-    if (data.regattaFull) document.getElementById('cfg-regatta-full').value = data.regattaFull;
-    if (data.regattaShort) document.getElementById('cfg-regatta-short').value = data.regattaShort;
-    if (data.results) document.getElementById('cfg-results').value = data.results;
-    if (data.clubs) document.getElementById('cfg-clubs').value = data.clubs;
-    if (data.mode) document.getElementById('cfg-mode').value = data.mode;
+    if (data.regattaFull)    document.getElementById('cfg-regatta-full').value  = data.regattaFull;
+    if (data.regattaShort)   document.getElementById('cfg-regatta-short').value = data.regattaShort;
+    if (data.results)        document.getElementById('cfg-results').value        = data.results;
+    if (data.clubs)          document.getElementById('cfg-clubs').value          = data.clubs;
+    if (data.mode)           document.getElementById('cfg-mode').value           = data.mode;
+    window.__coverSubtitle = data.coverSubtitle || '';
+    window.__noOutro       = !!data.noOutro;
     assemble();
   };
   window.__slideCount = function() { return totalSlides; };
