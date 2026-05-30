@@ -546,26 +546,26 @@
     text-transform: uppercase;
     letter-spacing: 0.3em;
     color: var(--accent);
-    margin-bottom: 18px;
+    margin-bottom: 16px;
   }
 
-  .cover .title {
+  .cover .cover-name {
     font-family: 'Fraunces', serif;
     font-weight: 900;
-    font-size: 96px;
-    line-height: 0.85;
+    font-size: 62px;
+    line-height: 0.92;
     letter-spacing: -0.04em;
     color: var(--paper);
-    margin-bottom: 22px;
+    margin-bottom: 24px;
   }
 
   .cover .subtitle {
     font-family: 'Fraunces', serif;
     font-weight: 300;
     font-style: italic;
-    font-size: 22px;
+    font-size: 20px;
     line-height: 1.25;
-    color: rgba(244, 239, 230, 0.7);
+    color: rgba(244, 239, 230, 0.6);
     margin-bottom: 38px;
   }
 
@@ -574,9 +574,9 @@
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.25em;
-    color: rgba(244, 239, 230, 0.5);
-    padding-top: 28px;
-    border-top: 1px solid rgba(244, 239, 230, 0.2);
+    color: rgba(244, 239, 230, 0.4);
+    padding-top: 24px;
+    border-top: 1px solid rgba(244, 239, 230, 0.15);
     width: 60%;
   }
 
@@ -611,26 +611,25 @@
     padding: 80px 36px;
   }
 
-  .outro .big {
+  .outro-brand {
     font-family: 'Fraunces', serif;
-    font-weight: 300;
-    font-style: italic;
-    font-size: 46px;
+    font-weight: 900;
+    font-size: 140px;
+    letter-spacing: -0.05em;
     line-height: 1;
-    letter-spacing: -0.03em;
     color: var(--paper);
-    margin-bottom: 28px;
+    margin-bottom: 24px;
   }
 
-  .outro .url {
+  .outro-dot { color: var(--accent); }
+
+  .outro-url {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
+    font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.25em;
-    color: var(--paper);
-    background: var(--accent);
-    font-weight: 700;
-    padding: 14px 24px;
+    color: rgba(244, 239, 230, 0.5);
+    margin-bottom: 0;
   }
 
   .outro .footnote {
@@ -639,7 +638,7 @@
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.2em;
-    color: rgba(244, 239, 230, 0.4);
+    color: rgba(244, 239, 230, 0.25);
     line-height: 1.6;
   }
 
@@ -837,8 +836,20 @@
   function parseCSV(text) {
     const lines = text.trim().split('\n').filter(l => l.trim());
     const headers = lines[0].split(',').map(h => h.trim());
+    function splitLine(line) {
+      const vals = [];
+      let cur = '', inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') { inQ = !inQ; }
+        else if (c === ',' && !inQ) { vals.push(cur.trim()); cur = ''; }
+        else { cur += c; }
+      }
+      vals.push(cur.trim());
+      return vals;
+    }
     return lines.slice(1).map(line => {
-      const values = line.split(',').map(v => v.trim());
+      const values = splitLine(line);
       const row = {};
       headers.forEach((h, i) => row[h] = values[i] || '');
       return row;
@@ -854,17 +865,17 @@
 
   function buildCover(regattaFull, mode) {
     const subtitle = mode === 'clubs'
-      ? 'Strongest clubs by<br>top 3 average GMT%'
+      ? 'Top 3 clubs by average GMT%'
       : mode === 'results'
-      ? 'Fastest GMT% performances<br>across all events'
-      : 'Day in numbers';
+      ? 'Top 5 performances by GMT%'
+      : 'Top results &amp; clubs by GMT%';
 
     return `
       <div class="slide cover">
-        <div class="kicker">${regattaFull}</div>
-        <div class="title">${mode === 'clubs' ? 'Top<br>Clubs' : mode === 'results' ? 'Top 5' : 'Top 5'}</div>
+        <div class="kicker">GMT% Rankings</div>
+        <div class="cover-name">${regattaFull}</div>
         <div class="subtitle">${subtitle}</div>
-        <div class="regatta">Ranked by rowingtools.co.uk</div>
+        <div class="regatta">rowingtools.co.uk</div>
         <div class="swipe-hint">Swipe</div>
       </div>
     `;
@@ -979,9 +990,9 @@
   function buildOutro() {
     return `
       <div class="slide outro">
-        <div class="big">See where<br>your crew<br>ranked.</div>
-        <div class="url">rowingtools.co.uk</div>
-        <div class="footnote">Full leaderboard online<br>Updated after every regatta</div>
+        <div class="outro-brand">rt<span class="outro-dot">.</span></div>
+        <div class="outro-url">rowingtools.co.uk</div>
+        <div class="footnote">Full leaderboard &amp; GMT% analysis<br>Updated after every regatta</div>
       </div>
     `;
   }
@@ -999,11 +1010,11 @@
     const slides = [];
 
     if (mode === 'combined') {
+      // Cover + 5 results + divider + top 3 clubs + outro = 11 slides
       slides.push(buildCover(regattaFull, 'combined'));
-      slides.push(buildSection('Top 5<br>crews', 'Highest GMT% performances'));
       results.forEach(d => slides.push(buildResultSlide(d)));
-      slides.push(buildSection('Top 5<br>clubs', 'Strongest by top 3 average GMT'));
-      clubs.forEach(d => slides.push(buildClubSlideV2(d)));
+      slides.push(buildSection('Top 3<br>clubs', 'Strongest by top 3 average GMT%'));
+      clubs.slice(-3).forEach(d => slides.push(buildClubSlideV2(d)));
       slides.push(buildOutro());
     } else if (mode === 'results') {
       slides.push(buildCover(regattaFull, 'results'));

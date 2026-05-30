@@ -208,24 +208,32 @@ def compute_top5_clubs(rows, min_entries=2):
 
 # ── CSV FORMATTING ────────────────────────────────────────────────────────────
 
+import csv as _csv
+import io as _io
+
+def _csv_row(writer, buf, row):
+    writer.writerow(row)
+    return buf.getvalue()
+
 def results_to_csv(results):
-    lines = ['rank,crew,modifier,event,gmt,time,margin']
+    buf = _io.StringIO()
+    w = _csv.writer(buf, quoting=_csv.QUOTE_MINIMAL)
+    w.writerow(['rank', 'crew', 'modifier', 'event', 'gmt', 'time', 'margin'])
     for r in results:
-        lines.append(
-            f"{r['rank']},{r['crew']},{r['modifier']},{r['event']},"
-            f"{r['gmt']:.1f},{r['time']},{r['margin']}"
-        )
-    return '\n'.join(lines)
+        w.writerow([r['rank'], r['crew'], r['modifier'], r['event'],
+                    f"{r['gmt']:.1f}", r['time'], r['margin']])
+    return buf.getvalue().strip()
 
 def clubs_to_csv(clubs):
-    lines = ['rank,club,top3_avg,best_gmt,crews_entered,r1_event,r1_gmt,r2_event,r2_gmt,r3_event,r3_gmt']
+    buf = _io.StringIO()
+    w = _csv.writer(buf, quoting=_csv.QUOTE_MINIMAL)
+    w.writerow(['rank', 'club', 'top3_avg', 'best_gmt', 'crews_entered',
+                'r1_event', 'r1_gmt', 'r2_event', 'r2_gmt', 'r3_event', 'r3_gmt'])
     for c in clubs:
-        lines.append(
-            f"{c['rank']},{c['club']},{c['top3_avg']},{c['best_gmt']},{c['crews_entered']},"
-            f"{c['r1_event']},{c['r1_gmt']},{c['r2_event']},{c['r2_gmt']},"
-            f"{c['r3_event']},{c['r3_gmt']}"
-        )
-    return '\n'.join(lines)
+        w.writerow([c['rank'], c['club'], c['top3_avg'], c['best_gmt'], c['crews_entered'],
+                    c['r1_event'], c['r1_gmt'], c['r2_event'], c['r2_gmt'],
+                    c['r3_event'], c['r3_gmt']])
+    return buf.getvalue().strip()
 
 
 # ── PLAYWRIGHT RENDER ─────────────────────────────────────────────────────────
@@ -236,8 +244,8 @@ def render_carousel(template_path, inject_data, out_dir):
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(
-            viewport={'width': 405, 'height': 720},
-            device_scale_factor=2,  # 810x1440 output
+            viewport={'width': 540, 'height': 675},
+            device_scale_factor=2,  # 1080x1350 output — Instagram 4:5
         )
 
         url = template_path.resolve().as_uri()
@@ -246,6 +254,18 @@ def render_carousel(template_path, inject_data, out_dir):
 
         page.evaluate(f"window.__inject({json.dumps(inject_data)})")
         page.wait_for_timeout(600)
+
+        # Resize phone frame to fill viewport (4:5, no rounded corners)
+        page.evaluate("""
+            const ph = document.querySelector('.phone');
+            if (ph) {
+                ph.style.width = '540px';
+                ph.style.height = '675px';
+                ph.style.borderRadius = '0';
+                ph.style.border = 'none';
+                ph.style.boxShadow = 'none';
+            }
+        """)
 
         slide_count = page.evaluate("window.__slideCount()")
         print(f"  {slide_count} slides to render")
