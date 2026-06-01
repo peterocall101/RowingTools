@@ -108,6 +108,7 @@ def build_data(comp, bm_path):
         finishers = []
         for l in lanes:
             t   = parse_t(l.get("Finish"))
+            if t and t > 1200: t = None  # bogus placeholder times (>20 min for 2000m)
             pct = round(wbt_t / t * 100, 1) if (wbt_t and t) else None
             finishers.append({
                 "crew": (l.get("ClubName") or "?").strip(),
