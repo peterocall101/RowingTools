@@ -17,6 +17,18 @@ HEATMAPS = [
     {'file': 'heatmap-wallingford25.html','comp': 'wallingford25','date': '2025-05-04'},
 ]
 
+def norm_club(name):
+    name = re.sub(r'\s*\([A-Za-z]\)\s*$', '', name or '').strip()
+    return name
+
+def canon_display(name):
+    name = norm_club(name)
+    name = re.sub(r'\bUniv\b', 'University', name)
+    name = re.sub(r'\bColl\b', 'College', name)
+    name = re.sub(r'\bSch\b', 'School', name)
+    name = re.sub(r'\s+(Rowing Club|Boat Club|RC|BC|ARC)\s*$', '', name, flags=re.IGNORECASE).strip()
+    return name
+
 def extract_title(content):
     m = re.search(r'<title>([^<]+)</title>', content)
     if not m:
@@ -46,7 +58,7 @@ def main():
                 if lane.get('pct') is not None and lane['pct'] >= 50 and lane.get('time'):
                     results.append({
                         'crew': lane['crew'],
-                        'club': lane['club'],
+                        'club': canon_display(lane['club']),
                         'event': r['event'],
                         'round': r['round'],
                         'time': lane['time'],

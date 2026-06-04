@@ -60,6 +60,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .reg-table td.r{text-align:right;font-variant-numeric:tabular-nums}
 .reg-table tr:hover td{background:var(--bg3)}
 .loading{text-align:center;color:var(--text3);padding:3rem;font-size:14px}
+.merged-note{font-size:12px;color:var(--text3);margin-top:6px;padding:6px 10px;background:var(--bg3);border-radius:6px;display:inline-block}
 </style>
 </head>
 <body>
@@ -71,6 +72,26 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 <div id="root"><div class="loading">Loading…</div></div>
 <script>
 function normClub(n){return(n||'').replace(/\s*\([A-Za-z]\)\s*$/,'').trim();}
+function canonDisplay(n){
+  return normClub(n)
+    .replace(/\bUniv\b/g,'University').replace(/\bColl\b/g,'College').replace(/\bSch\b/g,'School')
+    .replace(/\s+(Rowing Club|Boat Club|RC|BC|ARC)\s*$/i,'').trim();
+}
+function canon(n){return canonDisplay(n).toLowerCase();}
+
+var ALIASES={
+  'auriol ken':'Auriol Kensington',
+  'university of bath':'Bath University',
+  'university of exeter':'Exeter University',
+  'claires court':'Claires Court School',
+  'furnivall sculling club':'Furnivall',
+  'chester le street amateur':'Chester le Street'
+};
+function resolve(n){
+  var disp=canonDisplay(n),key=canon(n);
+  if(ALIASES[key]){disp=ALIASES[key];key=canon(disp);}
+  return{disp:disp,key:key};
+}
 function fgVal(p){return p>=87?'#34d399':p>=80?'#60a5fa':p>=72?'#fb923c':'#f87171';}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
@@ -80,21 +101,22 @@ function renderSearch(data){
   var clubMap={};
   data.forEach(function(reg){
     reg.results.forEach(function(r){
-      var cn=normClub(r.club);
-      if(!cn||cn.includes('/'))return;
-      if(!clubMap[cn])clubMap[cn]={entries:0,bestPct:0,regattas:new Set()};
-      clubMap[cn].entries++;
-      if(r.pct>clubMap[cn].bestPct)clubMap[cn].bestPct=r.pct;
-      clubMap[cn].regattas.add(reg.comp);
+      if(r.club.includes('/'))return;
+      var res=resolve(r.club);
+      if(!res.key)return;
+      if(!clubMap[res.key])clubMap[res.key]={disp:res.disp,entries:0,bestPct:0,regattas:new Set()};
+      clubMap[res.key].entries++;
+      if(r.pct>clubMap[res.key].bestPct)clubMap[res.key].bestPct=r.pct;
+      clubMap[res.key].regattas.add(reg.comp);
     });
   });
   var clubs=Object.entries(clubMap).map(function(kv){
-    return{name:kv[0],entries:kv[1].entries,bestPct:kv[1].bestPct,regattas:kv[1].regattas.size};
+    return{name:kv[1].disp,key:kv[0],entries:kv[1].entries,bestPct:kv[1].bestPct,regattas:kv[1].regattas.size};
   }).sort(function(a,b){return a.name.localeCompare(b.name);});
 
   var cards='';
   clubs.forEach(function(c){
-    cards+='<a class="club-card" href="clubs.html?club='+encodeURIComponent(c.name)+'">'
+    cards+='<a class="club-card" href="clubs.html?club='+encodeURIComponent(c.name)+'" data-n="'+esc(c.name.toLowerCase())+'">'
       +'<div class="club-card-name">'+esc(c.name)+'</div>'
       +'<div class="club-card-meta">'+c.regattas+' '+(c.regattas===1?'regatta':'regattas')+' &nbsp;&middot;&nbsp; best '+c.bestPct.toFixed(1)+'%</div>'
       +'</a>';
@@ -110,18 +132,26 @@ function renderSearch(data){
 window.filterClubs=function(){
   var q=(document.getElementById('club-search').value||'').toLowerCase().trim();
   document.querySelectorAll('#club-grid .club-card').forEach(function(card){
-    card.style.display=(!q||card.querySelector('.club-card-name').textContent.toLowerCase().includes(q))?'':'none';
+    card.style.display=(!q||card.dataset.n.includes(q))?'':'none';
   });
 };
 
 function renderProfile(clubParam,data){
-  var cn=clubParam.trim();
+  var resolved=resolve(clubParam.trim());
+  var cn=resolved.disp,cnKey=resolved.key;
   document.title=cn+' - Club Profile | RowingTools';
 
   var regattas=[],totalEntries=0,sumPct=0,bestPct=0,bestEvent='';
+  var mergedNames=new Set();
   data.forEach(function(reg){
     var results=reg.results.filter(function(r){
-      return normClub(r.club).toLowerCase()===cn.toLowerCase();
+      if(r.club.includes('/'))return false;
+      var res=resolve(r.club);
+      if(res.key===cnKey){
+        if(res.disp!==cn)mergedNames.add(res.disp);
+        return true;
+      }
+      return false;
     });
     if(!results.length)return;
     results.sort(function(a,b){return b.pct-a.pct;});
@@ -136,16 +166,19 @@ function renderProfile(clubParam,data){
   if(!totalEntries){
     document.getElementById('root').innerHTML=
       '<div class="profile-hdr"><div class="profile-name">'+esc(cn)+'</div>'
-      +'<div class="breadcrumb" style="margin-top:8px">No results found for this club.</div></div>'
-      +'<p style="margin-top:1rem"><a href="clubs.html" style="color:#c8472b">Browse all clubs</a></p>';
+      +'<div class="breadcrumb" style="margin-top:8px">No results found. <a href="clubs.html" style="color:#c8472b">Browse all clubs</a></div></div>';
     return;
   }
 
   var avgPct=sumPct/totalEntries;
+  var mergedNote=mergedNames.size>0
+    ?'<div class="merged-note">Also includes results entered as: '+Array.from(mergedNames).map(esc).join(', ')+'</div>'
+    :'';
   var html=
     '<div class="profile-hdr">'
     +'<div class="breadcrumb"><a href="clubs.html">All clubs</a> &rsaquo; '+esc(cn)+'</div>'
     +'<div class="profile-name" style="margin-top:6px">'+esc(cn)+'</div>'
+    +mergedNote
     +'</div>'
     +'<div class="stats-row">'
     +'<div class="stat-box"><div class="stat-val">'+regattas.length+'</div><div class="stat-lbl">'+(regattas.length===1?'Regatta':'Regattas')+'</div></div>'
