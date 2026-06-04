@@ -124,6 +124,8 @@ button.ghost:hover{color:var(--text);background:var(--bg3)}
 .pill-hrr{background:var(--c-hrr-bg);color:var(--c-hrr)}
 .pill-hwr{background:var(--c-hwr-bg);color:var(--c-hwr)}
 .sep{color:var(--text3);margin:0 2px}
+.lb-clubs-card{display:block;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);text-decoration:none;color:var(--text);transition:box-shadow .15s,border-color .15s}
+.lb-clubs-card:hover{box-shadow:var(--shadow);border-color:var(--border2)}
 .subscribe{margin-top:2.5rem;padding:2rem;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);text-align:center}
 .subscribe h3{font-size:16px;font-weight:600;margin-bottom:6px}
 .subscribe p{font-size:13px;color:var(--text2);margin-bottom:1.25rem}
@@ -193,11 +195,13 @@ body.loading .btog .dot{opacity:0}
   </div>
   <p class="sub" id="sub-calc">GMT% Calculator - winning benchmarks (WBT, Met Regatta, HWR) &amp; Henley qualification benchmark</p>
   <p class="sub" id="sub-leaderboards" style="display:none">Regatta Leaderboards - GMT% analysis, club rankings and club comparison across UK regattas</p>
+  <p class="sub" id="sub-clubs" style="display:none">Club Profiles - performance analysis for UK rowing clubs across all regattas</p>
 </header>
 
 <div class="sec-tabs">
   <button class="sec-tab active" onclick="goSection('calc')">GMT% Calculator</button>
   <button class="sec-tab" onclick="goSection('leaderboards')">Regatta Leaderboards</button>
+  <button class="sec-tab" onclick="goSection('clubs')">Club Profiles</button>
 </div>
 <div id="sec-calc" class="sec active">
 <div class="tabs">
@@ -399,6 +403,10 @@ body.loading .btog .dot{opacity:0}
     <div id="lb-clubs-content"><p style="color:var(--text3);padding:2rem 0">Loading…</p></div>
   </div>
 </div><!-- /sec-leaderboards -->
+
+<div id="sec-clubs" class="sec">
+  <div id="sec-clubs-content"><p style="color:var(--text3);padding:2rem 0">Loading…</p></div>
+</div>
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ── BENCHMARK DATA ────────────────────────────────────────────────────────────
@@ -804,13 +812,14 @@ function go(name){
   document.getElementById('panel-'+name).classList.add('active');
 }
 const TABS=['calc','benchmarks','about'];
-const SECTIONS=['calc','leaderboards'];
+const SECTIONS=['calc','leaderboards','clubs'];
 function goSection(name){
   document.querySelectorAll('.sec-tab').forEach((b,i)=>b.classList.toggle('active',SECTIONS[i]===name));
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+name).classList.add('active');
   document.getElementById('sub-calc').style.display=name==='calc'?'':'none';
   document.getElementById('sub-leaderboards').style.display=name==='leaderboards'?'':'none';
+  document.getElementById('sub-clubs').style.display=name==='clubs'?'':'none';
   history.replaceState(null,'',name==='calc'?window.location.pathname:'#'+name);
   if(name==='leaderboards'){
     document.querySelectorAll('.lb-grid .lb-card').forEach((card,i)=>{
@@ -820,6 +829,7 @@ function goSection(name){
       card.classList.add('lb-anim');
     });
   }
+  if(name==='clubs')loadClubsSection();
 }
 if(SECTIONS.includes(location.hash.slice(1)))goSection(location.hash.slice(1));
 function goLbTab(name,btn){
@@ -827,17 +837,24 @@ function goLbTab(name,btn){
   document.querySelectorAll('.lbpanel').forEach(p=>p.classList.toggle('active',p.id==='lbpanel-'+name));
   if(name==='clubs')loadClubAnalysis();
 }
+// Shared club normalisation helpers
+(function(){
+  function normClub(n){return(n||'').replace(/\s*\([A-Za-z]\)\s*$/,'').replace(/\s+(Rowing Club|Boat Club|RC|BC|ARC)\s*$/i,'').trim();}
+  function canonDisplay(n){return normClub(n).replace(/\bUniv\b/g,'University').replace(/\bColl\b/g,'College').replace(/\bSch\b/g,'School').trim();}
+  function canon(n){return canonDisplay(n).toLowerCase();}
+  var AL={'auriol ken':'Auriol Kensington','university of bath':'Bath University','university of exeter':'Exeter University','claires court':'Claires Court School','furnivall sculling club':'Furnivall','chester le street amateur':'Chester le Street'};
+  function resolve(n){var d=canonDisplay(n),k=canon(n);if(AL[k]){d=AL[k];k=canon(d);}return{disp:d,key:k};}
+  window._clubHelpers={normClub,canonDisplay,canon,resolve};
+})();
+function _fgVal(p){return p>=87?'#34d399':p>=80?'#60a5fa':p>=72?'#fb923c':'#f87171';}
+
 var _clubsLoaded=false;
 function loadClubAnalysis(){
   if(_clubsLoaded)return;
   _clubsLoaded=true;
   var el=document.getElementById('lb-clubs-content');
-  function normClub(n){return(n||'').replace(/\s*\([A-Za-z]\)\s*$/,'').trim();}
-  function canonDisplay(n){return normClub(n).replace(/\bUniv\b/g,'University').replace(/\bColl\b/g,'College').replace(/\bSch\b/g,'School').replace(/\s+(Rowing Club|Boat Club|RC|BC|ARC)\s*$/i,'').trim();}
-  function canon(n){return canonDisplay(n).toLowerCase();}
-  var ALIASES={'auriol ken':'Auriol Kensington','university of bath':'Bath University','university of exeter':'Exeter University','claires court':'Claires Court School','furnivall sculling club':'Furnivall','chester le street amateur':'Chester le Street'};
-  function resolve(n){var disp=canonDisplay(n),key=canon(n);if(ALIASES[key]){disp=ALIASES[key];key=canon(disp);}return{disp,key};}
-  function fgVal(p){return p>=87?'#34d399':p>=80?'#60a5fa':p>=72?'#fb923c':'#f87171';}
+  var resolve=window._clubHelpers.resolve;
+  var fgVal=_fgVal;
   function buildClubs(regs){
     var map={};
     regs.forEach(reg=>{
@@ -855,7 +872,7 @@ function loadClubAnalysis(){
       var s=c.pcts.slice().sort((a,b)=>b-a);
       var top10=s.slice(0,10).reduce((a,b)=>a+b,0)/Math.min(10,s.length);
       return{name:c.disp,entries:c.entries,avg:c.sumPct/c.entries,best:c.bestPct,regattas:c.regattas.size,top10avg:top10};
-    }).sort((a,b)=>b.top10avg-a.top10avg);
+    }).filter(c=>c.entries>=10).sort((a,b)=>b.top10avg-a.top10avg);
   }
   fetch('data/all_results.json')
     .then(r=>r.json())
@@ -867,10 +884,14 @@ function loadClubAnalysis(){
         byYear[y].push(reg);
       });
       var years=Object.keys(byYear).sort((a,b)=>b-a);
-      var h='<div style="margin-bottom:1.25rem"><input type="text" id="lb-clubs-search" placeholder="Search clubs&#8230;" oninput="filterLbClubs()" style="max-width:360px"></div>';
+      var tabHtml='<div class="lbtab-wrap" style="margin-bottom:1.5rem">'
+        +'<button class="lbtab active" onclick="filterLbYear(\'all\',this)">All years</button>';
+      years.forEach(y=>{tabHtml+='<button class="lbtab" onclick="filterLbYear(\''+y+'\',this)">'+y+'</button>';});
+      tabHtml+='</div>';
+      var h=tabHtml+'<div style="margin-bottom:1.25rem"><input type="text" id="lb-clubs-search" placeholder="Search clubs&#8230;" oninput="filterLbClubs()" style="max-width:360px"></div>';
       years.forEach(year=>{
         var clubs=buildClubs(byYear[year]);
-        h+='<div style="margin-bottom:2rem"><div class="lb-year">'+year+'</div>'
+        h+='<div data-year="'+year+'" style="margin-bottom:2rem"><div class="lb-year">'+year+'</div>'
           +'<div class="tbl-wrap" style="margin-top:0.75rem"><table class="tbl"><thead><tr>'
           +'<th>#</th><th>Club</th><th>Regattas</th><th>Entries</th><th>Top 10 Avg</th><th>Avg GMT%</th><th>Best</th>'
           +'</tr></thead><tbody class="lb-clubs-tbody">';
@@ -895,6 +916,54 @@ function loadClubAnalysis(){
 window.filterLbClubs=function(){
   var q=(document.getElementById('lb-clubs-search').value||'').toLowerCase().trim();
   document.querySelectorAll('.lb-clubs-tbody tr').forEach(r=>r.style.display=(!q||r.dataset.n.includes(q))?'':'none');
+};
+window.filterLbYear=function(year,btn){
+  document.querySelectorAll('#lb-clubs-content .lbtab').forEach(b=>b.classList.toggle('active',b===btn));
+  document.querySelectorAll('#lb-clubs-content [data-year]').forEach(s=>s.style.display=(year==='all'||s.dataset.year===year)?'':'none');
+};
+var _clubsSectionLoaded=false;
+function loadClubsSection(){
+  if(_clubsSectionLoaded)return;
+  _clubsSectionLoaded=true;
+  var el=document.getElementById('sec-clubs-content');
+  var resolve=window._clubHelpers.resolve;
+  fetch('data/all_results.json')
+    .then(r=>r.json())
+    .then(data=>{
+      var map={};
+      data.forEach(reg=>{
+        reg.results.forEach(r=>{
+          if(r.club.includes('/'))return;
+          var{disp,key}=resolve(r.club);
+          if(!key)return;
+          if(!map[key])map[key]={disp,entries:0,bestPct:0,regattas:new Set()};
+          map[key].entries++;
+          if(r.pct>map[key].bestPct)map[key].bestPct=r.pct;
+          map[key].regattas.add(reg.comp);
+        });
+      });
+      var clubs=Object.entries(map).map(([key,c])=>{
+        return{name:c.disp,entries:c.entries,bestPct:c.bestPct,regattas:c.regattas.size};
+      }).sort((a,b)=>a.name.localeCompare(b.name));
+      var cards='';
+      clubs.forEach(c=>{
+        cards+='<a class="lb-clubs-card" href="clubs.html?club='+encodeURIComponent(c.name)+'" data-n="'+c.name.toLowerCase()+'">'
+          +'<div style="font-weight:600;font-size:14px;margin-bottom:3px">'+c.name+'</div>'
+          +'<div style="font-size:12px;color:var(--text3)">'+c.regattas+' '+(c.regattas===1?'regatta':'regattas')+'&nbsp;&nbsp;&middot;&nbsp;&nbsp;best '+c.bestPct.toFixed(1)+'%</div>'
+          +'</a>';
+      });
+      el.innerHTML=
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:1.25rem">'
+        +'<input type="text" id="clubs-sec-search" placeholder="Search clubs&#8230;" oninput="filterClubsSec()" style="max-width:360px">'
+        +'<span style="font-size:13px;color:var(--text3)">'+clubs.length+' clubs</span>'
+        +'</div>'
+        +'<div id="clubs-sec-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">'+cards+'</div>';
+    })
+    .catch(()=>{el.innerHTML='<p style="color:var(--text3)">Failed to load club data.</p>';_clubsSectionLoaded=false;});
+}
+window.filterClubsSec=function(){
+  var q=(document.getElementById('clubs-sec-search').value||'').toLowerCase().trim();
+  document.querySelectorAll('#clubs-sec-grid a').forEach(c=>c.style.display=(!q||c.dataset.n.includes(q))?'':'none');
 };
 const BTABS=['wbt','met','hrr','hwr'];
 function gob(name){

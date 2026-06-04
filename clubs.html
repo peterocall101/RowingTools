@@ -61,6 +61,10 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .reg-table tr:hover td{background:var(--bg3)}
 .loading{text-align:center;color:var(--text3);padding:3rem;font-size:14px}
 .merged-note{font-size:12px;color:var(--text3);margin-top:6px;padding:6px 10px;background:var(--bg3);border-radius:6px;display:inline-block}
+.year-tabs{display:inline-flex;background:var(--bg3);border-radius:999px;padding:3px;gap:2px;margin-bottom:1.75rem}
+.year-tab{padding:9px 22px;font-size:14px;font-weight:500;border-radius:999px;border:none;background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;height:auto;transition:all .18s ease}
+.year-tab.active{background:var(--bg2);color:var(--text);box-shadow:0 1px 5px rgba(0,0,0,0.13)}
+.year-tab:hover:not(.active){color:var(--text)}
 </style>
 </head>
 <body>
@@ -166,10 +170,10 @@ function renderProfile(clubParam,data){
     ?'<div class="merged-note">Also includes results entered as: '+Array.from(mergedNames).map(esc).join(', ')+'</div>'
     :'';
 
-  var tabs='<div class="lbtab-wrap" style="margin-bottom:1.5rem">'
-    +'<button class="lbtab active" onclick="switchProfileYear(\'all\',this)">All years</button>';
+  var tabs='<div class="year-tabs" style="margin-bottom:1.5rem">'
+    +'<button class="year-tab active" onclick="switchProfileYear(\'all\',this)">All years</button>';
   years.forEach(function(y){
-    tabs+='<button class="lbtab" onclick="switchProfileYear(\''+y+'\',this)">'+y+'</button>';
+    tabs+='<button class="year-tab" onclick="switchProfileYear(\''+y+'\',this)">'+y+'</button>';
   });
   tabs+='</div>';
 
@@ -186,7 +190,7 @@ function renderProfile(clubParam,data){
 }
 
 window.switchProfileYear=function(year,btn){
-  document.querySelectorAll('#root .lbtab').forEach(function(b){b.classList.toggle('active',b===btn);});
+  document.querySelectorAll('#root .year-tab').forEach(function(b){b.classList.toggle('active',b===btn);});
   renderProfileYear(year);
 };
 
