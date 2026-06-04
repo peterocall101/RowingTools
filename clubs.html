@@ -65,6 +65,34 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .year-tab{padding:9px 22px;font-size:14px;font-weight:500;border-radius:999px;border:none;background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;height:auto;transition:all .18s ease}
 .year-tab.active{background:var(--bg2);color:var(--text);box-shadow:0 1px 5px rgba(0,0,0,0.13)}
 .year-tab:hover:not(.active){color:var(--text)}
+.profile-main-row{display:flex;gap:1.5rem;align-items:flex-start;margin-bottom:2rem}
+.profile-main-row .stats-row{margin-bottom:0;flex:1;min-width:0}
+.rank-clickable{cursor:pointer}
+.rank-clickable:hover{border-color:var(--border2);box-shadow:var(--shadow)}
+.rank-peek{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;width:210px;flex-shrink:0}
+.rank-peek-hdr{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.rank-peek-btn{background:none;border:none;color:#c8472b;font-size:11px;cursor:pointer;padding:0;font-family:inherit;font-weight:500}
+.rank-peek-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px}
+.rank-peek-row+.rank-peek-row{border-top:1px solid var(--border)}
+.rank-peek-current .rank-peek-name{font-weight:700;color:var(--text)}
+.rank-peek-num{color:var(--text3);width:30px;flex-shrink:0;font-variant-numeric:tabular-nums}
+.rank-peek-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank-peek-avg{flex-shrink:0;font-weight:600}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem}
+.modal-box{background:var(--bg2);border-radius:var(--rl);box-shadow:0 8px 40px rgba(0,0,0,0.25);max-width:480px;width:100%;max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-hdr{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0}
+.modal-title{font-size:15px;font-weight:600}
+.modal-sub{font-size:11px;color:var(--text3);margin-top:3px}
+.modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--text3);line-height:1;padding:0;font-family:inherit;flex-shrink:0}
+.modal-close:hover{color:var(--text)}
+.modal-body{overflow-y:auto;flex:1}
+.lb-table{width:100%;border-collapse:collapse;font-size:13px}
+.lb-table th{padding:8px 20px;text-align:left;font-size:11px;color:var(--text3);font-weight:500;letter-spacing:.04em;text-transform:uppercase;position:sticky;top:0;background:var(--bg2);border-bottom:1px solid var(--border)}
+.lb-table th.r,.lb-table td.r{text-align:right}
+.lb-table td{padding:8px 20px;border-top:1px solid var(--border)}
+.lb-table td.lb-rank{color:var(--text3);font-variant-numeric:tabular-nums;width:40px}
+.lb-table tr.lb-current td{background:rgba(200,71,43,0.07);font-weight:600}
+@media(max-width:640px){.profile-main-row{flex-direction:column}.rank-peek{width:100%}}
 </style>
 </head>
 <body>
@@ -203,21 +231,21 @@ function computeRanking(allData,year,cnKey){
       if(r.club.includes('/'))return;
       var res=resolve(r.club);
       if(!res.key)return;
-      if(!clubPcts[res.key])clubPcts[res.key]=[];
-      clubPcts[res.key].push(r.pct);
+      if(!clubPcts[res.key])clubPcts[res.key]={disp:res.disp,pcts:[]};
+      clubPcts[res.key].pcts.push(r.pct);
     });
   });
   var rankings=[];
   Object.keys(clubPcts).forEach(function(key){
-    var pcts=clubPcts[key];
-    if(pcts.length<10)return;
-    var s=pcts.slice().sort(function(a,b){return b-a;});
-    rankings.push({key:key,avg:s.slice(0,10).reduce(function(a,b){return a+b;},0)/10});
+    var c=clubPcts[key];
+    if(c.pcts.length<10)return;
+    var s=c.pcts.slice().sort(function(a,b){return b-a;});
+    rankings.push({key:key,name:c.disp,avg:s.slice(0,10).reduce(function(a,b){return a+b;},0)/10});
   });
   rankings.sort(function(a,b){return b.avg-a.avg;});
   var rank=-1;
   for(var i=0;i<rankings.length;i++){if(rankings[i].key===cnKey){rank=i+1;break;}}
-  return{rank:rank,total:rankings.length};
+  return{rank:rank,total:rankings.length,rankings:rankings};
 }
 
 function renderProfileYear(year){
@@ -237,19 +265,44 @@ function renderProfileYear(year){
   var sorted=pcts.slice().sort(function(a,b){return b-a;});
   var n=Math.min(10,sorted.length);
   var top10=sorted.slice(0,10).reduce(function(a,b){return a+b;},0)/n;
-  var rankBox='';
+  var rankBox='',peekHtml='';
   if(n>=10){
     var rk=computeRanking(d.allData,year,d.cnKey);
-    if(rk.rank>0)rankBox='<div class="stat-box"><div class="stat-val">#'+rk.rank+'</div><div class="stat-lbl">of '+rk.total+' clubs</div></div>';
+    if(rk.rank>0){
+      d._lastRanking=rk;
+      rankBox='<div class="stat-box rank-clickable" onclick="showLeaderboard()">'
+        +'<div class="stat-val">#'+rk.rank+'</div>'
+        +'<div class="stat-lbl">of '+rk.total+' clubs'
+        +'<br><span style="font-size:10px;color:var(--text3)">top 10 avg &middot; 10+ entries</span></div>'
+        +'</div>';
+      var idx=rk.rank-1;
+      var start=Math.max(0,idx-3);
+      var end=Math.min(rk.rankings.length-1,idx+3);
+      peekHtml='<div class="rank-peek">'
+        +'<div class="rank-peek-hdr">Nearby clubs <button class="rank-peek-btn" onclick="showLeaderboard()">Full table &#x2197;</button></div>';
+      for(var i=start;i<=end;i++){
+        var rc=rk.rankings[i];
+        var isCur=(rc.key===d.cnKey);
+        peekHtml+='<div class="rank-peek-row'+(isCur?' rank-peek-current':'')+'">'
+          +'<span class="rank-peek-num">#'+(i+1)+'</span>'
+          +'<span class="rank-peek-name">'+esc(rc.name)+'</span>'
+          +'<span class="rank-peek-avg" style="color:'+fgVal(rc.avg)+'">'+rc.avg.toFixed(1)+'%</span>'
+          +'</div>';
+      }
+      peekHtml+='</div>';
+    }
   }
 
   var html=
-    '<div class="stats-row">'
+    '<div class="profile-main-row">'
+    +'<div class="stats-row">'
     +'<div class="stat-box"><div class="stat-val">'+regs.length+'</div><div class="stat-lbl">'+(regs.length===1?'Regatta':'Regattas')+'</div></div>'
     +'<div class="stat-box"><div class="stat-val">'+totalEntries+'</div><div class="stat-lbl">Entries with times</div></div>'
     +'<div class="stat-box"><div class="stat-val" style="color:'+fgVal(top10)+'">'+top10.toFixed(1)+'%</div><div class="stat-lbl">Top 10 avg GMT%'+(n<10?'<br><span style="font-size:10px;color:var(--text3)">(only '+n+' entries)</span>':'')+'</div></div>'
     +rankBox
     +'<div class="stat-box"><div class="stat-val" style="color:'+fgVal(bestPct)+'">'+bestPct.toFixed(1)+'%</div><div class="stat-lbl">Best'+(bestEvent?' &mdash; '+esc(bestEvent):'')+'</div></div>'
+    +'</div>'
+    +peekHtml
     +'</div>';
 
   regs.forEach(function(reg){
@@ -274,6 +327,42 @@ function renderProfileYear(year){
 
   document.getElementById('profile-body').innerHTML=html;
 }
+
+window.showLeaderboard=function(){
+  var rk=window._profData&&window._profData._lastRanking;
+  if(!rk)return;
+  var rows='';
+  rk.rankings.forEach(function(c,i){
+    var isCur=(c.key===window._profData.cnKey);
+    rows+='<tr'+(isCur?' class="lb-current"':'')+'>'
+      +'<td class="lb-rank">'+(i+1)+'</td>'
+      +'<td>'+esc(c.name)+'</td>'
+      +'<td class="r" style="color:'+fgVal(c.avg)+'">'+c.avg.toFixed(1)+'%</td>'
+      +'</tr>';
+  });
+  var modal='<div class="modal-overlay" id="lb-modal" onclick="closeLeaderboard(event)">'
+    +'<div class="modal-box">'
+    +'<div class="modal-hdr"><div><div class="modal-title">Club Rankings</div>'
+    +'<div class="modal-sub">Ranked by top 10 avg GMT% &middot; clubs with 10+ entries only</div></div>'
+    +'<button class="modal-close" onclick="closeLeaderboard()">&times;</button></div>'
+    +'<div class="modal-body"><table class="lb-table">'
+    +'<thead><tr><th>#</th><th>Club</th><th class="r">Top 10 avg</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'</table></div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',modal);
+  var cur=document.querySelector('#lb-modal .lb-current');
+  if(cur)setTimeout(function(){cur.scrollIntoView({block:'center'});},30);
+  document.addEventListener('keydown',closeOnEsc);
+};
+
+function closeOnEsc(e){if(e.key==='Escape')closeLeaderboard();}
+
+window.closeLeaderboard=function(e){
+  if(e&&e.target!==document.getElementById('lb-modal'))return;
+  var modal=document.getElementById('lb-modal');
+  if(modal)modal.remove();
+  document.removeEventListener('keydown',closeOnEsc);
+};
 
 fetch('data/all_results.json')
   .then(function(r){return r.json();})
