@@ -185,7 +185,7 @@ function renderProfile(clubParam,data){
     +tabs
     +'<div id="profile-body"></div>';
 
-  window._profData={cn:cn,allRegs:allRegs};
+  window._profData={cn:cn,cnKey:cnKey,allRegs:allRegs,allData:data};
   renderProfileYear('all');
 }
 
@@ -194,6 +194,32 @@ window.switchProfileYear=function(year,btn){
   renderProfileYear(year);
 };
 
+function computeRanking(allData,year,cnKey){
+  var clubPcts={};
+  allData.forEach(function(reg){
+    var regYear='20'+reg.comp.slice(-2);
+    if(year!=='all'&&regYear!==year)return;
+    reg.results.forEach(function(r){
+      if(r.club.includes('/'))return;
+      var res=resolve(r.club);
+      if(!res.key)return;
+      if(!clubPcts[res.key])clubPcts[res.key]=[];
+      clubPcts[res.key].push(r.pct);
+    });
+  });
+  var rankings=[];
+  Object.keys(clubPcts).forEach(function(key){
+    var pcts=clubPcts[key];
+    if(pcts.length<10)return;
+    var s=pcts.slice().sort(function(a,b){return b-a;});
+    rankings.push({key:key,avg:s.slice(0,10).reduce(function(a,b){return a+b;},0)/10});
+  });
+  rankings.sort(function(a,b){return b.avg-a.avg;});
+  var rank=-1;
+  for(var i=0;i<rankings.length;i++){if(rankings[i].key===cnKey){rank=i+1;break;}}
+  return{rank:rank,total:rankings.length};
+}
+
 function renderProfileYear(year){
   var d=window._profData;
   var regs=year==='all'?d.allRegs:d.allRegs.filter(function(r){return r.year===year;});
@@ -201,24 +227,28 @@ function renderProfileYear(year){
     document.getElementById('profile-body').innerHTML='<p style="color:var(--text3);padding:1rem 0">No results for this year.</p>';
     return;
   }
-  var totalEntries=0,sumPct=0,bestPct=0,bestEvent='',pcts=[];
+  var totalEntries=0,bestPct=0,bestEvent='',pcts=[];
   regs.forEach(function(reg){
     reg.results.forEach(function(r){
-      totalEntries++;sumPct+=r.pct;pcts.push(r.pct);
+      totalEntries++;pcts.push(r.pct);
       if(r.pct>bestPct){bestPct=r.pct;bestEvent=r.event;}
     });
   });
-  var avg=sumPct/totalEntries;
   var sorted=pcts.slice().sort(function(a,b){return b-a;});
   var n=Math.min(10,sorted.length);
   var top10=sorted.slice(0,10).reduce(function(a,b){return a+b;},0)/n;
+  var rankBox='';
+  if(n>=10){
+    var rk=computeRanking(d.allData,year,d.cnKey);
+    if(rk.rank>0)rankBox='<div class="stat-box"><div class="stat-val">#'+rk.rank+'</div><div class="stat-lbl">of '+rk.total+' clubs</div></div>';
+  }
 
   var html=
     '<div class="stats-row">'
     +'<div class="stat-box"><div class="stat-val">'+regs.length+'</div><div class="stat-lbl">'+(regs.length===1?'Regatta':'Regattas')+'</div></div>'
     +'<div class="stat-box"><div class="stat-val">'+totalEntries+'</div><div class="stat-lbl">Entries with times</div></div>'
     +'<div class="stat-box"><div class="stat-val" style="color:'+fgVal(top10)+'">'+top10.toFixed(1)+'%</div><div class="stat-lbl">Top 10 avg GMT%'+(n<10?'<br><span style="font-size:10px;color:var(--text3)">(only '+n+' entries)</span>':'')+'</div></div>'
-    +'<div class="stat-box"><div class="stat-val" style="color:'+fgVal(avg)+'">'+avg.toFixed(1)+'%</div><div class="stat-lbl">Avg GMT%</div></div>'
+    +rankBox
     +'<div class="stat-box"><div class="stat-val" style="color:'+fgVal(bestPct)+'">'+bestPct.toFixed(1)+'%</div><div class="stat-lbl">Best'+(bestEvent?' &mdash; '+esc(bestEvent):'')+'</div></div>'
     +'</div>';
 
