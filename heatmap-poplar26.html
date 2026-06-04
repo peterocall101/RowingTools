@@ -327,6 +327,7 @@ function renderClubLB(){
       +'<td class="num"><strong style="color:'+ft+'">'+c.top3avg.toFixed(1)+'%</strong></td>'
       +'<td class="num" style="color:#aaa">'+c.avg.toFixed(1)+'%</td>'
       +'<td class="num" style="color:#ccc">'+c.best.toFixed(1)+'%</td>'
+      +'<td class="num"><button onclick="shareClub(this)" data-club="'+c.name.replace(/"/g,'&quot;')+'" data-rank="'+(i+1)+'" data-total="'+ranked.length+'" data-top3="'+c.top3avg.toFixed(1)+'" data-avg="'+c.avg.toFixed(1)+'" data-best="'+c.best.toFixed(1)+'" data-entries="'+c.count+'" style="background:none;border:none;cursor:pointer;color:#555;font-size:14px;padding:2px 6px;border-radius:4px" title="Download club card">&#x2197;</button></td>'
       +'</tr>';
   });
   document.getElementById('clublb-body').innerHTML=h||'<tr><td colspan="7" style="color:#555;text-align:center;padding:20px">No data.</td></tr>';

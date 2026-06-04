@@ -94,7 +94,7 @@
       input.value=club;
       var tabs=document.querySelectorAll('.tab');
       for(var i=0;i<tabs.length;i++){
-        if(tabs[i].textContent.includes('250')){tabs[i].click();break;}
+        if((tabs[i].getAttribute('onclick')||'').includes('top100')){tabs[i].click();break;}
       }
     }
   }

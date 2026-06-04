@@ -53,6 +53,11 @@ h1{font-size:23px;font-weight:700;letter-spacing:-0.5px;line-height:1}
 .sec-tab{padding:8px 20px;font-size:13.5px;font-weight:500;border-radius:999px;border:none;background:transparent;color:var(--text2);cursor:pointer;transition:all .18s ease;font-family:inherit;white-space:nowrap;margin-bottom:0;height:auto}
 .sec-tab.active{background:var(--bg2);color:var(--text);box-shadow:0 1px 5px rgba(0,0,0,0.13)}
 .sec-tab:hover:not(.active){color:var(--text)}
+.lbtab-wrap{display:inline-flex;background:var(--bg3);border-radius:999px;padding:3px;gap:2px;margin-bottom:1.75rem;border:none}
+.lbtab{padding:7px 18px;font-size:13px;font-weight:500;border-radius:999px;border:none;background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;height:auto;transition:all .18s ease}
+.lbtab.active{background:var(--bg2);color:var(--text);box-shadow:0 1px 5px rgba(0,0,0,0.13)}
+.lbtab:hover:not(.active){color:var(--text)}
+.lbpanel{display:none}.lbpanel.active{display:block}
 .tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:1.5rem;flex-wrap:wrap}
 .tab{padding:8px 14px;font-size:14px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit;white-space:nowrap;font-weight:500;transition:color .15s;height:auto}
 .tab.active{color:var(--text);font-weight:600;border-bottom-color:var(--text)}
@@ -294,6 +299,11 @@ body.loading .btog .dot{opacity:0}
 </div><!-- /sec-calc -->
 
 <div id="sec-leaderboards" class="sec">
+  <div class="lbtab-wrap">
+    <button class="lbtab active" onclick="goLbTab('regattas',this)">By Regatta</button>
+    <button class="lbtab" onclick="goLbTab('clubs',this)">By Club</button>
+  </div>
+  <div id="lbpanel-regattas" class="lbpanel active">
   <p class="info">Full regatta analysis: GMT% heatmap across every event, top performers leaderboard, and club comparison.</p>
   <div class="lb-year-section">
     <div class="lb-year">2026</div>
@@ -384,6 +394,10 @@ body.loading .btog .dot{opacity:0}
         <span class="lb-arrow">→</span>
       </a>
     </div>
+  </div>
+  </div><!-- /lbpanel-regattas -->
+  <div id="lbpanel-clubs" class="lbpanel">
+    <div id="lb-clubs-content"><p style="color:var(--text3);padding:2rem 0">Loading…</p></div>
   </div>
 </div><!-- /sec-leaderboards -->
 
@@ -809,6 +823,60 @@ function goSection(name){
   }
 }
 if(SECTIONS.includes(location.hash.slice(1)))goSection(location.hash.slice(1));
+function goLbTab(name,btn){
+  document.querySelectorAll('.lbtab').forEach(b=>b.classList.toggle('active',b===btn));
+  document.querySelectorAll('.lbpanel').forEach(p=>p.classList.toggle('active',p.id==='lbpanel-'+name));
+  if(name==='clubs')loadClubAnalysis();
+}
+var _clubsLoaded=false;
+function loadClubAnalysis(){
+  if(_clubsLoaded)return;
+  _clubsLoaded=true;
+  var el=document.getElementById('lb-clubs-content');
+  function normClub(n){return(n||'').replace(/\s*\([A-Za-z]\)\s*$/,'').trim();}
+  function fgVal(p){return p>=87?'#34d399':p>=80?'#60a5fa':p>=72?'#fb923c':'#f87171';}
+  fetch('data/all_results.json')
+    .then(r=>r.json())
+    .then(data=>{
+      var map={};
+      data.forEach(reg=>{
+        reg.results.forEach(r=>{
+          var cn=normClub(r.club);
+          if(!cn||cn.includes('/'))return;
+          if(!map[cn])map[cn]={entries:0,sumPct:0,bestPct:0,regattas:new Set(),pcts:[]};
+          map[cn].entries++;map[cn].sumPct+=r.pct;map[cn].pcts.push(r.pct);
+          if(r.pct>map[cn].bestPct)map[cn].bestPct=r.pct;
+          map[cn].regattas.add(reg.comp);
+        });
+      });
+      var clubs=Object.entries(map).map(([name,c])=>{
+        var s=c.pcts.slice().sort((a,b)=>b-a);
+        var top3=s.slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,s.length);
+        return{name,entries:c.entries,avg:c.sumPct/c.entries,best:c.bestPct,regattas:c.regattas.size,top3avg:top3};
+      }).sort((a,b)=>b.top3avg-a.top3avg);
+      var h='<div style="margin-bottom:1rem"><input type="text" id="lb-clubs-search" placeholder="Search clubs&#8230;" oninput="filterLbClubs()" style="max-width:360px"></div>';
+      h+='<div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Club</th><th>Regattas</th><th>Entries</th><th>Top 3 Avg</th><th>Avg GMT%</th><th>Best</th></tr></thead><tbody id="lb-clubs-tbody">';
+      clubs.forEach((c,i)=>{
+        var f=fgVal(c.top3avg);
+        h+='<tr data-n="'+c.name.toLowerCase()+'">'
+          +'<td style="color:var(--text3)">'+(i+1)+'</td>'
+          +'<td><a href="clubs.html?club='+encodeURIComponent(c.name)+'" style="color:var(--text);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">'+c.name+'</a></td>'
+          +'<td style="color:var(--text2)">'+c.regattas+'</td>'
+          +'<td style="color:var(--text2)">'+c.entries+'</td>'
+          +'<td><strong style="color:'+f+'">'+c.top3avg.toFixed(1)+'%</strong></td>'
+          +'<td style="color:var(--text3)">'+c.avg.toFixed(1)+'%</td>'
+          +'<td style="color:var(--text2)">'+c.best.toFixed(1)+'%</td>'
+          +'</tr>';
+      });
+      h+='</tbody></table></div>';
+      el.innerHTML=h;
+    })
+    .catch(()=>{el.innerHTML='<p style="color:var(--text3)">Failed to load club data.</p>';_clubsLoaded=false;});
+}
+window.filterLbClubs=function(){
+  var q=(document.getElementById('lb-clubs-search').value||'').toLowerCase().trim();
+  document.querySelectorAll('#lb-clubs-tbody tr').forEach(r=>r.style.display=(!q||r.dataset.n.includes(q))?'':'none');
+};
 const BTABS=['wbt','met','hrr','hwr'];
 function gob(name){
   document.querySelectorAll('.btab').forEach((t,i)=>t.classList.toggle('active',BTABS[i]===name));
