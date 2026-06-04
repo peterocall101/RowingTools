@@ -795,6 +795,7 @@ function startApp(){
   renderHWR();
 }
 
+var _aliasesPromise=fetch('data/club_aliases.json').then(r=>r.json());
 document.body.classList.add('loading');
 fetch('data/benchmarks_v3.json?v=1')
   .then(r=>{if(!r.ok)throw new Error(r.status);return r.json();})
@@ -839,12 +840,12 @@ function goLbTab(name,btn){
 }
 // Shared club normalisation helpers
 (function(){
-  function normClub(n){return(n||'').replace(/\s*\([A-Za-z]\)\s*$/,'').replace(/\s+(Rowing Club|Boat Club|RC|BC|ARC)\s*$/i,'').trim();}
+  function normClub(n){return(n||'').replace(/`/g,"'").replace(/\s*\([A-Za-z]\)\s*$/,'').replace(/\s+(Rowing Club|Boat Club|RC|BC|ARC)\s*$/i,'').trim();}
   function canonDisplay(n){return normClub(n).replace(/\bUniv\b/g,'University').replace(/\bColl\b/g,'College').replace(/\bSch\b/g,'School').trim();}
   function canon(n){return canonDisplay(n).toLowerCase();}
-  var AL={'auriol ken':'Auriol Kensington','university of bath':'Bath University','university of exeter':'Exeter University','claires court':'Claires Court School','furnivall sculling club':'Furnivall','chester le street amateur':'Chester le Street'};
+  var AL={};
   function resolve(n){var d=canonDisplay(n),k=canon(n);if(AL[k]){d=AL[k];k=canon(d);}return{disp:d,key:k};}
-  window._clubHelpers={normClub,canonDisplay,canon,resolve};
+  window._clubHelpers={normClub,canonDisplay,canon,resolve,AL};
 })();
 function _fgVal(p){return p>=87?'#34d399':p>=80?'#60a5fa':p>=72?'#fb923c':'#f87171';}
 
@@ -874,9 +875,9 @@ function loadClubAnalysis(){
       return{name:c.disp,entries:c.entries,avg:c.sumPct/c.entries,best:c.bestPct,regattas:c.regattas.size,top10avg:top10};
     }).filter(c=>c.entries>=10).sort((a,b)=>b.top10avg-a.top10avg);
   }
-  fetch('data/all_results.json')
-    .then(r=>r.json())
-    .then(data=>{
+  Promise.all([fetch('data/all_results.json').then(r=>r.json()),_aliasesPromise])
+    .then(([data,aliases])=>{
+      Object.assign(window._clubHelpers.AL,aliases);
       var byYear={};
       data.forEach(reg=>{
         var y='20'+reg.comp.slice(-2);
@@ -927,9 +928,9 @@ function loadClubsSection(){
   _clubsSectionLoaded=true;
   var el=document.getElementById('sec-clubs-content');
   var resolve=window._clubHelpers.resolve;
-  fetch('data/all_results.json')
-    .then(r=>r.json())
-    .then(data=>{
+  Promise.all([fetch('data/all_results.json').then(r=>r.json()),_aliasesPromise])
+    .then(([data,aliases])=>{
+      Object.assign(window._clubHelpers.AL,aliases);
       var map={};
       data.forEach(reg=>{
         reg.results.forEach(r=>{
