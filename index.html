@@ -836,6 +836,8 @@ function loadClubAnalysis(){
   function normClub(n){return(n||'').replace(/\s*\([A-Za-z]\)\s*$/,'').trim();}
   function canonDisplay(n){return normClub(n).replace(/\bUniv\b/g,'University').replace(/\bColl\b/g,'College').replace(/\bSch\b/g,'School').replace(/\s+(Rowing Club|Boat Club|RC|BC|ARC)\s*$/i,'').trim();}
   function canon(n){return canonDisplay(n).toLowerCase();}
+  var ALIASES={'auriol ken':'Auriol Kensington','university of bath':'Bath University','university of exeter':'Exeter University','claires court':'Claires Court School','furnivall sculling club':'Furnivall','chester le street amateur':'Chester le Street'};
+  function resolve(n){var disp=canonDisplay(n),key=canon(n);if(ALIASES[key]){disp=ALIASES[key];key=canon(disp);}return{disp,key};}
   function fgVal(p){return p>=87?'#34d399':p>=80?'#60a5fa':p>=72?'#fb923c':'#f87171';}
   fetch('data/all_results.json')
     .then(r=>r.json())
@@ -843,12 +845,13 @@ function loadClubAnalysis(){
       var map={};
       data.forEach(reg=>{
         reg.results.forEach(r=>{
-          var cn=canon(r.club);
-          if(!cn||r.club.includes('/'))return;
-          if(!map[cn])map[cn]={disp:canonDisplay(r.club),entries:0,sumPct:0,bestPct:0,regattas:new Set(),pcts:[]};
-          map[cn].entries++;map[cn].sumPct+=r.pct;map[cn].pcts.push(r.pct);
-          if(r.pct>map[cn].bestPct)map[cn].bestPct=r.pct;
-          map[cn].regattas.add(reg.comp);
+          if(r.club.includes('/'))return;
+          var {disp,key}=resolve(r.club);
+          if(!key)return;
+          if(!map[key])map[key]={disp,entries:0,sumPct:0,bestPct:0,regattas:new Set(),pcts:[]};
+          map[key].entries++;map[key].sumPct+=r.pct;map[key].pcts.push(r.pct);
+          if(r.pct>map[key].bestPct)map[key].bestPct=r.pct;
+          map[key].regattas.add(reg.comp);
         });
       });
       var clubs=Object.entries(map).map(([key,c])=>{
