@@ -115,32 +115,7 @@ function canonDisplay(n){
 }
 function canon(n){return canonDisplay(n).toLowerCase();}
 
-var ALIASES={
-  'auriol ken':'Auriol Kensington',
-  'university of bath':'Bath University',
-  'university of exeter':'Exeter University',
-  'claires court':'Claires Court School',
-  'furnivall sculling club':'Furnivall',
-  'chester le street amateur':'Chester le Street',
-  'st paul\'s girls':'St Paul\'s Girls\' School',
-  'king\'s school chester, the':'King\'s School Chester',
-  'king\'s school chester, the,':'King\'s School Chester',
-  'the king\'s school, chester':'King\'s School Chester',
-  'loughborough students rowing ltd':'Loughborough Students',
-  'maidstone inv':'Maidstone Invicta',
-  'mortlake a & a':'Mortlake AA',
-  'nott\'m & union':'Nottingham & Union',
-  'nottingham and union':'Nottingham & Union',
-  'oxford brookes':'Oxford Brookes University',
-  'shandon (irl)':'Shandon',
-  'sir william borlase\'s gram school':'Sir William Borlase\'s Grammar School',
-  'sir w borlase\'s gs':'Sir William Borlase\'s Grammar School',
-  'w borlase school':'Sir William Borlase\'s Grammar School',
-  'st george\'s col':'St George\'s College',
-  'tideway scullers':'Tideway Scullers School',
-  'tideway sc school':'Tideway Scullers School',
-  'west of england, university of,':'University of West of England'
-};
+var ALIASES={};
 function resolve(n){
   var disp=canonDisplay(n),key=canon(n);
   if(ALIASES[key]){disp=ALIASES[key];key=canon(disp);}
@@ -470,16 +445,18 @@ window.closeLeaderboard=function(e){
   document.removeEventListener('keydown',closeOnEsc);
 };
 
-fetch('data/all_results.json')
-  .then(function(r){return r.json();})
-  .then(function(data){
-    var club=getParam('club');
-    if(club){renderProfile(club,data);}
-    else{renderSearch(data);}
-  })
-  .catch(function(){
-    document.getElementById('root').innerHTML='<div class="loading">Failed to load data. Please try again.</div>';
-  });
+Promise.all([
+  fetch('data/all_results.json').then(function(r){return r.json();}),
+  fetch('data/club_aliases.json').then(function(r){return r.json();})
+]).then(function(results){
+  var data=results[0],aliases=results[1];
+  Object.keys(aliases).forEach(function(k){ALIASES[k]=aliases[k];});
+  var club=getParam('club');
+  if(club){renderProfile(club,data);}
+  else{renderSearch(data);}
+}).catch(function(){
+  document.getElementById('root').innerHTML='<div class="loading">Failed to load data. Please try again.</div>';
+});
 </script>
 </body>
 </html>
