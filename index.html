@@ -119,6 +119,15 @@ button.ghost:hover{color:var(--text);background:var(--bg3)}
 .pill-hrr{background:var(--c-hrr-bg);color:var(--c-hrr)}
 .pill-hwr{background:var(--c-hwr-bg);color:var(--c-hwr)}
 .sep{color:var(--text3);margin:0 2px}
+.subscribe{margin-top:2.5rem;padding:2rem;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);text-align:center}
+.subscribe h3{font-size:16px;font-weight:600;margin-bottom:6px}
+.subscribe p{font-size:13px;color:var(--text2);margin-bottom:1.25rem}
+.subscribe-form{display:flex;gap:8px;max-width:400px;margin:0 auto}
+.subscribe-form input[type=email]{flex:1;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);font-family:inherit;font-size:13px}
+.subscribe-form input[type=email]:focus{outline:none;border-color:#c8472b}
+.subscribe-form button{padding:9px 18px;background:#c8472b;color:#fff;border:none;border-radius:var(--r);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.subscribe-form button:hover{background:#b03d26}
+@media(max-width:600px){.subscribe-form{flex-direction:column}}
 .footer{margin-top:3rem;padding-top:1.25rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--text3)}
 .footer a{color:var(--text3);text-decoration:none;transition:color .15s}
 .footer a:hover{color:var(--text2)}
@@ -817,6 +826,14 @@ function gob(name){
     <div id="chart-svg-wrap"></div>
     <div class="chart-next" id="chart-next"></div>
   </div>
+</div>
+
+<div class="subscribe">
+  <h3>Get notified when new regatta results are added</h3>
+<form class="subscribe-form" action="https://buttondown.com/api/emails/embed-subscribe/ocallap101" method="post" target="popupwindow" onsubmit="window.open('https://buttondown.com/ocallap101','popupwindow')">
+    <input type="email" name="email" placeholder="your@email.com" required>
+    <button type="submit">Notify me</button>
+  </form>
 </div>
 
 <div class="footer">
