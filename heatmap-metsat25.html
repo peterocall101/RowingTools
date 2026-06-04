@@ -74,7 +74,7 @@ td:not(.rnd):hover .cell{transform:scale(1.04)}
 
 <div class="tabs">
   <button class="tab active" onclick="showTab('heatmap',this)">Heatmap</button>
-  <button class="tab" onclick="showTab('top100',this)">Top 250 Results</button>
+  <button class="tab" onclick="showTab('top100',this)">Result Leaderboard</button>
   <button class="tab" onclick="showTab('clublb',this)">Club Leaderboard</button>
   <button class="tab" onclick="showTab('compare',this)">Club Compare</button>
 </div>
@@ -108,7 +108,7 @@ td:not(.rnd):hover .cell{transform:scale(1.04)}
   <table id="lb-table">
     <thead><tr>
       <th class="num">#</th><th>Crew</th><th>Club</th><th>Event</th><th>Round</th>
-      <th class="num">Time</th><th class="num">GMT%</th>
+      <th class="num">Time</th><th class="num">GMT%</th><th style="color:var(--text3);font-size:10px;text-align:center;text-transform:none;letter-spacing:0">share</th>
     </tr></thead>
     <tbody id="lb-body"></tbody>
   </table>
@@ -121,7 +121,7 @@ td:not(.rnd):hover .cell{transform:scale(1.04)}
     <thead><tr>
       <th class="num">#</th><th>Club</th>
       <th class="num">Entries</th><th class="num">Events</th>
-      <th class="num">Top 3 Avg</th><th class="num">Avg GMT%</th><th class="num">Best</th>
+      <th class="num">Top 3 Avg</th><th class="num">Avg GMT%</th><th class="num">Best</th><th style="color:var(--text3);font-size:10px;text-transform:none;letter-spacing:0">share</th>
     </tr></thead>
     <tbody id="clublb-body"></tbody>
   </table>
@@ -197,18 +197,18 @@ function renderTop100(){
   entries.sort((a,b)=>b.pct-a.pct);
   entries.forEach((e,i)=>e.rank=i+1);
   const filtered=clubQ?entries.filter(e=>normClub(e.club).toLowerCase()===clubQ):entries;
-  const top=filtered.slice(0,250);
   let h='';
-  top.forEach((e)=>{
+  filtered.forEach(e=>{
     const f=fg(e.pct);
     h+=`<tr>
       <td class="num" style="color:#555">${e.rank}</td>
       <td><strong>${e.crew}</strong></td>
-      <td style="color:#888">${e.club}</td>
+      <td style="color:#888"><a href="clubs.html?club=${encodeURIComponent(normClub(e.club))}" style="color:inherit;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${e.club}</a></td>
       <td style="color:#aaa">${e.event}</td>
       <td style="color:#666">${e.round}</td>
       <td class="num" style="color:#888">${e.time}</td>
       <td class="num"><strong style="color:${f}">${e.pct.toFixed(1)}%</strong></td>
+      <td class="num"><button onclick="shareResult(this)" data-club="${e.club.replace(/"/g,'&quot;')}" data-event="${e.event.replace(/"/g,'&quot;')}" data-round="${e.round}" data-time="${e.time}" data-pct="${e.pct.toFixed(1)}" data-rank="${e.rank}" data-total="${entries.length}" style="background:none;border:none;cursor:pointer;color:#555;font-size:14px;padding:2px 6px;border-radius:4px" title="Download result card">&#x2197;</button></td>
     </tr>`;
   });
   document.getElementById('lb-body').innerHTML=h||'<tr><td colspan="7" style="color:#555;text-align:center;padding:20px">No results.</td></tr>';
@@ -347,12 +347,13 @@ function renderClubLB(){
     const f=fg(c.avg);const ft=fg(c.top3avg);
     h+='<tr>'
       +'<td class="num" style="color:#555">'+(i+1)+'</td>'
-      +'<td><strong>'+c.name+'</strong></td>'
+      +'<td><a href="clubs.html?club='+encodeURIComponent(c.name)+'" style="color:inherit;text-decoration:none;font-weight:700" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">'+c.name+'</a></td>'
       +'<td class="num" style="color:#888">'+c.count+'</td>'
       +'<td class="num" style="color:#888">'+c.events+'</td>'
       +'<td class="num"><strong style="color:'+ft+'">'+c.top3avg.toFixed(1)+'%</strong></td>'
       +'<td class="num" style="color:#aaa">'+c.avg.toFixed(1)+'%</td>'
       +'<td class="num" style="color:#ccc">'+c.best.toFixed(1)+'%</td>'
+      +'<td class="num"><button onclick="shareClub(this)" data-club="'+c.name.replace(/"/g,'&quot;')+'" data-rank="'+(i+1)+'" data-total="'+ranked.length+'" data-top3="'+c.top3avg.toFixed(1)+'" data-avg="'+c.avg.toFixed(1)+'" data-best="'+c.best.toFixed(1)+'" data-entries="'+c.count+'" style="background:none;border:none;cursor:pointer;color:#555;font-size:14px;padding:2px 6px;border-radius:4px" title="Download club card">&#x2197;</button></td>'
       +'</tr>';
   });
   document.getElementById('clublb-body').innerHTML=h||'<tr><td colspan="7" style="color:#555;text-align:center;padding:20px">No data.</td></tr>';
@@ -369,7 +370,7 @@ function downloadTop100CSV(){
     if(l.pct!==null) entries.push({crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct});
   entries.sort((a,b)=>b.pct-a.pct);
   const filtered=clubQ?entries.filter(e=>normClub(e.club).toLowerCase()===clubQ):entries;
-  dlCSV([['Crew','Club','Event','Round','Time','GMT%'],...filtered.slice(0,250).map((e,i)=>[e.crew,e.club,e.event,e.round,e.time,e.pct.toFixed(1)])],'metsat25-top250.csv');
+  dlCSV([['Crew','Club','Event','Round','Time','GMT%'],...filtered.map((e,i)=>[e.crew,e.club,e.event,e.round,e.time,e.pct.toFixed(1)])],'metsat25-top250.csv');
 }
 function downloadClubLBCSV(){
   const ranked=buildClubMap();
@@ -410,5 +411,6 @@ renderHeatmap(ROWS, '');
 </script>
 
 <div class="footer"><a href="/">← rowingtools.co.uk</a></div>
+<script src="rowingtools-share.js"></script>
 </body>
 </html>
