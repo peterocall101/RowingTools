@@ -149,21 +149,97 @@ function renderSearch(data){
   var clubs=Object.entries(clubMap).map(function(kv){
     return{name:kv[1].disp,key:kv[0],entries:kv[1].entries,bestPct:kv[1].bestPct,regattas:kv[1].regattas.size};
   }).sort(function(a,b){return a.name.localeCompare(b.name);});
+  var years=[...new Set(data.map(function(r){return '20'+r.comp.slice(-2);}))].sort(function(a,b){return b-a;});
+  window._searchData={data:data,clubs:clubs,years:years};
 
+  document.getElementById('root').innerHTML=
+    '<div class="page-title">Club Profiles</div>'
+    +'<div class="year-tabs" id="search-tabs" style="margin-bottom:1.5rem">'
+    +'<button class="year-tab active" onclick="switchSearchTab(\'browse\',this)">Browse clubs</button>'
+    +'<button class="year-tab" onclick="switchSearchTab(\'leaderboard\',this)">Leaderboard</button>'
+    +'</div>'
+    +'<div id="search-body"></div>';
+  showBrowseView();
+}
+
+function showBrowseView(){
+  var d=window._searchData;
   var cards='';
-  clubs.forEach(function(c){
+  d.clubs.forEach(function(c){
     cards+='<a class="club-card" href="clubs.html?club='+encodeURIComponent(c.name)+'" data-n="'+esc(c.name.toLowerCase())+'">'
       +'<div class="club-card-name">'+esc(c.name)+'</div>'
       +'<div class="club-card-meta">'+c.regattas+' '+(c.regattas===1?'regatta':'regattas')+' &nbsp;&middot;&nbsp; best '+c.bestPct.toFixed(1)+'%</div>'
       +'</a>';
   });
-
-  document.getElementById('root').innerHTML=
-    '<div class="page-title">Club Profiles</div>'
-    +'<div class="page-sub">'+clubs.length+' clubs across all regattas on RowingTools.</div>'
+  document.getElementById('search-body').innerHTML=
+    '<div class="page-sub" style="margin-bottom:1rem">'+d.clubs.length+' clubs across all regattas on RowingTools.</div>'
     +'<input class="search-box" type="text" id="club-search" placeholder="Search clubs&#8230;" oninput="filterClubs()" autocomplete="off">'
     +'<div class="club-grid" id="club-grid">'+cards+'</div>';
 }
+
+function showLeaderboardView(){
+  var d=window._searchData;
+  var tabs='<div class="year-tabs" id="lb-year-tabs" style="margin-bottom:1.5rem">'
+    +'<button class="year-tab active" onclick="switchLbYear(\'all\',this)">All years</button>';
+  d.years.forEach(function(y){
+    tabs+='<button class="year-tab" onclick="switchLbYear(\''+y+'\',this)">'+y+'</button>';
+  });
+  tabs+='</div><div id="lb-body"></div>';
+  document.getElementById('search-body').innerHTML=tabs;
+  renderLbYear('all');
+}
+
+function renderLbYear(year){
+  var d=window._searchData;
+  var clubPcts={};
+  d.data.forEach(function(reg){
+    var regYear='20'+reg.comp.slice(-2);
+    if(year!=='all'&&regYear!==year)return;
+    reg.results.forEach(function(r){
+      if(r.club.includes('/'))return;
+      var res=resolve(r.club);
+      if(!res.key)return;
+      if(!clubPcts[res.key])clubPcts[res.key]={disp:res.disp,pcts:[]};
+      clubPcts[res.key].pcts.push(r.pct);
+    });
+  });
+  var rankings=[];
+  Object.keys(clubPcts).forEach(function(key){
+    var c=clubPcts[key];
+    if(c.pcts.length<10)return;
+    var s=c.pcts.slice().sort(function(a,b){return b-a;});
+    rankings.push({key:key,name:c.disp,avg:s.slice(0,10).reduce(function(a,b){return a+b;},0)/10,entries:c.pcts.length});
+  });
+  rankings.sort(function(a,b){return b.avg-a.avg;});
+  if(!rankings.length){
+    document.getElementById('lb-body').innerHTML='<p style="color:var(--text3);padding:1rem 0">No clubs with 10+ entries for this year.</p>';
+    return;
+  }
+  var rows='';
+  rankings.forEach(function(c,i){
+    rows+='<tr>'
+      +'<td class="lb-rank">'+(i+1)+'</td>'
+      +'<td><a href="clubs.html?club='+encodeURIComponent(c.name)+'" style="color:var(--text);text-decoration:none;font-weight:500">'+esc(c.name)+'</a></td>'
+      +'<td class="r"><strong style="color:'+fgVal(c.avg)+'">'+c.avg.toFixed(1)+'%</strong></td>'
+      +'<td class="r" style="color:var(--text3)">'+c.entries+'</td>'
+      +'</tr>';
+  });
+  document.getElementById('lb-body').innerHTML=
+    '<div style="font-size:12px;color:var(--text3);margin-bottom:12px">Ranked by top 10 avg GMT% &middot; clubs with 10+ entries only</div>'
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">'
+    +'<table class="lb-table"><thead><tr><th>#</th><th>Club</th><th class="r">Top 10 avg</th><th class="r">Entries</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table></div>';
+}
+
+window.switchSearchTab=function(tab,btn){
+  document.querySelectorAll('#search-tabs .year-tab').forEach(function(b){b.classList.toggle('active',b===btn);});
+  if(tab==='browse')showBrowseView();else showLeaderboardView();
+};
+
+window.switchLbYear=function(year,btn){
+  document.querySelectorAll('#lb-year-tabs .year-tab').forEach(function(b){b.classList.toggle('active',b===btn);});
+  renderLbYear(year);
+};
 
 window.filterClubs=function(){
   var q=(document.getElementById('club-search').value||'').toLowerCase().trim();
@@ -212,7 +288,7 @@ function renderProfile(clubParam,data){
   document.getElementById('root').innerHTML=
     '<div class="profile-hdr">'
     +'<div class="breadcrumb"><a href="clubs.html">All clubs</a> &rsaquo; '+esc(cn)+'</div>'
-    +'<div class="profile-name-row"><div class="profile-name">'+esc(cn)+'</div><button class="share-btn" onclick="copyProfileLink(this)">Copy link</button></div>'
+    +'<div class="profile-name-row"><div class="profile-name">'+esc(cn)+'</div><button class="share-btn" onclick="copyProfileLink(this)">Share</button></div>'
     +mergedNote+'</div>'
     +tabs
     +'<div id="profile-body"></div>';
@@ -336,7 +412,7 @@ window.copyProfileLink=function(btn){
   navigator.clipboard.writeText(window.location.href).then(function(){
     btn.textContent='Copied!';
     btn.classList.add('copied');
-    setTimeout(function(){btn.textContent='Copy link';btn.classList.remove('copied');},2000);
+    setTimeout(function(){btn.textContent='Share';btn.classList.remove('copied');},2000);
   });
 };
 
