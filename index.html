@@ -839,48 +839,63 @@ function loadClubAnalysis(){
   var ALIASES={'auriol ken':'Auriol Kensington','university of bath':'Bath University','university of exeter':'Exeter University','claires court':'Claires Court School','furnivall sculling club':'Furnivall','chester le street amateur':'Chester le Street'};
   function resolve(n){var disp=canonDisplay(n),key=canon(n);if(ALIASES[key]){disp=ALIASES[key];key=canon(disp);}return{disp,key};}
   function fgVal(p){return p>=87?'#34d399':p>=80?'#60a5fa':p>=72?'#fb923c':'#f87171';}
+  function buildClubs(regs){
+    var map={};
+    regs.forEach(reg=>{
+      reg.results.forEach(r=>{
+        if(r.club.includes('/'))return;
+        var {disp,key}=resolve(r.club);
+        if(!key)return;
+        if(!map[key])map[key]={disp,entries:0,sumPct:0,bestPct:0,regattas:new Set(),pcts:[]};
+        map[key].entries++;map[key].sumPct+=r.pct;map[key].pcts.push(r.pct);
+        if(r.pct>map[key].bestPct)map[key].bestPct=r.pct;
+        map[key].regattas.add(reg.comp);
+      });
+    });
+    return Object.entries(map).map(([key,c])=>{
+      var s=c.pcts.slice().sort((a,b)=>b-a);
+      var top10=s.slice(0,10).reduce((a,b)=>a+b,0)/Math.min(10,s.length);
+      return{name:c.disp,entries:c.entries,avg:c.sumPct/c.entries,best:c.bestPct,regattas:c.regattas.size,top10avg:top10};
+    }).sort((a,b)=>b.top10avg-a.top10avg);
+  }
   fetch('data/all_results.json')
     .then(r=>r.json())
     .then(data=>{
-      var map={};
+      var byYear={};
       data.forEach(reg=>{
-        reg.results.forEach(r=>{
-          if(r.club.includes('/'))return;
-          var {disp,key}=resolve(r.club);
-          if(!key)return;
-          if(!map[key])map[key]={disp,entries:0,sumPct:0,bestPct:0,regattas:new Set(),pcts:[]};
-          map[key].entries++;map[key].sumPct+=r.pct;map[key].pcts.push(r.pct);
-          if(r.pct>map[key].bestPct)map[key].bestPct=r.pct;
-          map[key].regattas.add(reg.comp);
+        var y='20'+reg.comp.slice(-2);
+        if(!byYear[y])byYear[y]=[];
+        byYear[y].push(reg);
+      });
+      var years=Object.keys(byYear).sort((a,b)=>b-a);
+      var h='<div style="margin-bottom:1.25rem"><input type="text" id="lb-clubs-search" placeholder="Search clubs&#8230;" oninput="filterLbClubs()" style="max-width:360px"></div>';
+      years.forEach(year=>{
+        var clubs=buildClubs(byYear[year]);
+        h+='<div style="margin-bottom:2rem"><div class="lb-year">'+year+'</div>'
+          +'<div class="tbl-wrap" style="margin-top:0.75rem"><table class="tbl"><thead><tr>'
+          +'<th>#</th><th>Club</th><th>Regattas</th><th>Entries</th><th>Top 10 Avg</th><th>Avg GMT%</th><th>Best</th>'
+          +'</tr></thead><tbody class="lb-clubs-tbody">';
+        clubs.forEach((c,i)=>{
+          var f=fgVal(c.top10avg);
+          h+='<tr data-n="'+c.name.toLowerCase()+'">'
+            +'<td style="color:var(--text3)">'+(i+1)+'</td>'
+            +'<td><a href="clubs.html?club='+encodeURIComponent(c.name)+'" style="color:var(--text);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">'+c.name+'</a></td>'
+            +'<td style="color:var(--text2)">'+c.regattas+'</td>'
+            +'<td style="color:var(--text2)">'+c.entries+'</td>'
+            +'<td><strong style="color:'+f+'">'+c.top10avg.toFixed(1)+'%</strong></td>'
+            +'<td style="color:var(--text3)">'+c.avg.toFixed(1)+'%</td>'
+            +'<td style="color:var(--text2)">'+c.best.toFixed(1)+'%</td>'
+            +'</tr>';
         });
+        h+='</tbody></table></div></div>';
       });
-      var clubs=Object.entries(map).map(([key,c])=>{
-        var s=c.pcts.slice().sort((a,b)=>b-a);
-        var top3=s.slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,s.length);
-        return{name:c.disp,entries:c.entries,avg:c.sumPct/c.entries,best:c.bestPct,regattas:c.regattas.size,top3avg:top3};
-      }).sort((a,b)=>b.top3avg-a.top3avg);
-      var h='<div style="margin-bottom:1rem"><input type="text" id="lb-clubs-search" placeholder="Search clubs&#8230;" oninput="filterLbClubs()" style="max-width:360px"></div>';
-      h+='<div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Club</th><th>Regattas</th><th>Entries</th><th>Top 3 Avg</th><th>Avg GMT%</th><th>Best</th></tr></thead><tbody id="lb-clubs-tbody">';
-      clubs.forEach((c,i)=>{
-        var f=fgVal(c.top3avg);
-        h+='<tr data-n="'+c.name.toLowerCase()+'">'
-          +'<td style="color:var(--text3)">'+(i+1)+'</td>'
-          +'<td><a href="clubs.html?club='+encodeURIComponent(c.name)+'" style="color:var(--text);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">'+c.name+'</a></td>'
-          +'<td style="color:var(--text2)">'+c.regattas+'</td>'
-          +'<td style="color:var(--text2)">'+c.entries+'</td>'
-          +'<td><strong style="color:'+f+'">'+c.top3avg.toFixed(1)+'%</strong></td>'
-          +'<td style="color:var(--text3)">'+c.avg.toFixed(1)+'%</td>'
-          +'<td style="color:var(--text2)">'+c.best.toFixed(1)+'%</td>'
-          +'</tr>';
-      });
-      h+='</tbody></table></div>';
       el.innerHTML=h;
     })
     .catch(()=>{el.innerHTML='<p style="color:var(--text3)">Failed to load club data.</p>';_clubsLoaded=false;});
 }
 window.filterLbClubs=function(){
   var q=(document.getElementById('lb-clubs-search').value||'').toLowerCase().trim();
-  document.querySelectorAll('#lb-clubs-tbody tr').forEach(r=>r.style.display=(!q||r.dataset.n.includes(q))?'':'none');
+  document.querySelectorAll('.lb-clubs-tbody tr').forEach(r=>r.style.display=(!q||r.dataset.n.includes(q))?'':'none');
 };
 const BTABS=['wbt','met','hrr','hwr'];
 function gob(name){

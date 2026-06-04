@@ -141,57 +141,88 @@ function renderProfile(clubParam,data){
   var cn=resolved.disp,cnKey=resolved.key;
   document.title=cn+' - Club Profile | RowingTools';
 
-  var regattas=[],totalEntries=0,sumPct=0,bestPct=0,bestEvent='';
-  var mergedNames=new Set();
+  var allRegs=[],mergedNames=new Set();
   data.forEach(function(reg){
     var results=reg.results.filter(function(r){
       if(r.club.includes('/'))return false;
       var res=resolve(r.club);
-      if(res.key===cnKey){
-        if(res.disp!==cn)mergedNames.add(res.disp);
-        return true;
-      }
+      if(res.key===cnKey){if(res.disp!==cn)mergedNames.add(res.disp);return true;}
       return false;
     });
     if(!results.length)return;
     results.sort(function(a,b){return b.pct-a.pct;});
-    totalEntries+=results.length;
-    results.forEach(function(r){
-      sumPct+=r.pct;
-      if(r.pct>bestPct){bestPct=r.pct;bestEvent=r.event;}
-    });
-    regattas.push({title:reg.title,url:reg.url,results:results});
+    allRegs.push({title:reg.title,url:reg.url,year:'20'+reg.comp.slice(-2),results:results});
   });
 
-  if(!totalEntries){
+  if(!allRegs.length){
     document.getElementById('root').innerHTML=
       '<div class="profile-hdr"><div class="profile-name">'+esc(cn)+'</div>'
       +'<div class="breadcrumb" style="margin-top:8px">No results found. <a href="clubs.html" style="color:#c8472b">Browse all clubs</a></div></div>';
     return;
   }
 
-  var avgPct=sumPct/totalEntries;
+  var years=[...new Set(allRegs.map(function(r){return r.year;}))].sort(function(a,b){return b-a;});
   var mergedNote=mergedNames.size>0
     ?'<div class="merged-note">Also includes results entered as: '+Array.from(mergedNames).map(esc).join(', ')+'</div>'
     :'';
-  var html=
+
+  var tabs='<div class="lbtab-wrap" style="margin-bottom:1.5rem">'
+    +'<button class="lbtab active" onclick="switchProfileYear(\'all\',this)">All years</button>';
+  years.forEach(function(y){
+    tabs+='<button class="lbtab" onclick="switchProfileYear(\''+y+'\',this)">'+y+'</button>';
+  });
+  tabs+='</div>';
+
+  document.getElementById('root').innerHTML=
     '<div class="profile-hdr">'
     +'<div class="breadcrumb"><a href="clubs.html">All clubs</a> &rsaquo; '+esc(cn)+'</div>'
     +'<div class="profile-name" style="margin-top:6px">'+esc(cn)+'</div>'
-    +mergedNote
-    +'</div>'
-    +'<div class="stats-row">'
-    +'<div class="stat-box"><div class="stat-val">'+regattas.length+'</div><div class="stat-lbl">'+(regattas.length===1?'Regatta':'Regattas')+'</div></div>'
+    +mergedNote+'</div>'
+    +tabs
+    +'<div id="profile-body"></div>';
+
+  window._profData={cn:cn,allRegs:allRegs};
+  renderProfileYear('all');
+}
+
+window.switchProfileYear=function(year,btn){
+  document.querySelectorAll('#root .lbtab').forEach(function(b){b.classList.toggle('active',b===btn);});
+  renderProfileYear(year);
+};
+
+function renderProfileYear(year){
+  var d=window._profData;
+  var regs=year==='all'?d.allRegs:d.allRegs.filter(function(r){return r.year===year;});
+  if(!regs.length){
+    document.getElementById('profile-body').innerHTML='<p style="color:var(--text3);padding:1rem 0">No results for this year.</p>';
+    return;
+  }
+  var totalEntries=0,sumPct=0,bestPct=0,bestEvent='',pcts=[];
+  regs.forEach(function(reg){
+    reg.results.forEach(function(r){
+      totalEntries++;sumPct+=r.pct;pcts.push(r.pct);
+      if(r.pct>bestPct){bestPct=r.pct;bestEvent=r.event;}
+    });
+  });
+  var avg=sumPct/totalEntries;
+  var sorted=pcts.slice().sort(function(a,b){return b-a;});
+  var n=Math.min(10,sorted.length);
+  var top10=sorted.slice(0,10).reduce(function(a,b){return a+b;},0)/n;
+
+  var html=
+    '<div class="stats-row">'
+    +'<div class="stat-box"><div class="stat-val">'+regs.length+'</div><div class="stat-lbl">'+(regs.length===1?'Regatta':'Regattas')+'</div></div>'
     +'<div class="stat-box"><div class="stat-val">'+totalEntries+'</div><div class="stat-lbl">Entries with times</div></div>'
-    +'<div class="stat-box"><div class="stat-val" style="color:'+fgVal(avgPct)+'">'+avgPct.toFixed(1)+'%</div><div class="stat-lbl">Avg GMT%</div></div>'
-    +'<div class="stat-box"><div class="stat-val" style="color:'+fgVal(bestPct)+'">'+bestPct.toFixed(1)+'%</div><div class="stat-lbl">Best GMT%'+(bestEvent?' &mdash; '+esc(bestEvent):'')+'</div></div>'
+    +'<div class="stat-box"><div class="stat-val" style="color:'+fgVal(top10)+'">'+top10.toFixed(1)+'%</div><div class="stat-lbl">Top '+n+' avg GMT%</div></div>'
+    +'<div class="stat-box"><div class="stat-val" style="color:'+fgVal(avg)+'">'+avg.toFixed(1)+'%</div><div class="stat-lbl">Avg GMT%</div></div>'
+    +'<div class="stat-box"><div class="stat-val" style="color:'+fgVal(bestPct)+'">'+bestPct.toFixed(1)+'%</div><div class="stat-lbl">Best'+(bestEvent?' &mdash; '+esc(bestEvent):'')+'</div></div>'
     +'</div>';
 
-  regattas.forEach(function(reg){
+  regs.forEach(function(reg){
     html+='<div class="reg-section">'
       +'<div class="reg-hdr">'
       +'<div class="reg-name">'+esc(reg.title)+'</div>'
-      +'<a class="reg-link" href="'+reg.url+'?club='+encodeURIComponent(cn)+'">View full regatta &#x2197;</a>'
+      +'<a class="reg-link" href="'+reg.url+'?club='+encodeURIComponent(d.cn)+'">View full regatta &#x2197;</a>'
       +'</div>'
       +'<table class="reg-table">'
       +'<thead><tr><th>Event</th><th>Round</th><th class="r">Time</th><th class="r">GMT%</th></tr></thead>'
@@ -207,7 +238,7 @@ function renderProfile(clubParam,data){
     html+='</tbody></table></div>';
   });
 
-  document.getElementById('root').innerHTML=html;
+  document.getElementById('profile-body').innerHTML=html;
 }
 
 fetch('data/all_results.json')
