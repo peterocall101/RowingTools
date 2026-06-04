@@ -217,7 +217,7 @@ function renderProfileYear(year){
     '<div class="stats-row">'
     +'<div class="stat-box"><div class="stat-val">'+regs.length+'</div><div class="stat-lbl">'+(regs.length===1?'Regatta':'Regattas')+'</div></div>'
     +'<div class="stat-box"><div class="stat-val">'+totalEntries+'</div><div class="stat-lbl">Entries with times</div></div>'
-    +'<div class="stat-box"><div class="stat-val" style="color:'+fgVal(top10)+'">'+top10.toFixed(1)+'%</div><div class="stat-lbl">Top '+n+' avg GMT%</div></div>'
+    +'<div class="stat-box"><div class="stat-val" style="color:'+fgVal(top10)+'">'+top10.toFixed(1)+'%</div><div class="stat-lbl">Top 10 avg GMT%'+(n<10?'<br><span style="font-size:10px;color:var(--text3)">(only '+n+' entries)</span>':'')+'</div></div>'
     +'<div class="stat-box"><div class="stat-val" style="color:'+fgVal(avg)+'">'+avg.toFixed(1)+'%</div><div class="stat-lbl">Avg GMT%</div></div>'
     +'<div class="stat-box"><div class="stat-val" style="color:'+fgVal(bestPct)+'">'+bestPct.toFixed(1)+'%</div><div class="stat-lbl">Best'+(bestEvent?' &mdash; '+esc(bestEvent):'')+'</div></div>'
     +'</div>';
