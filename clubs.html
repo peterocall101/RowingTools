@@ -107,7 +107,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 </div>
 <div id="root"><div class="loading">Loading…</div></div>
 <script>
-function normClub(n){return(n||'').replace(/\s*\([A-Za-z]\)\s*$/,'').trim();}
+function normClub(n){return(n||'').replace(/`/g,"'").replace(/\s*\([A-Za-z]\)\s*$/,'').trim();}
 function canonDisplay(n){
   return normClub(n)
     .replace(/\bUniv\b/g,'University').replace(/\bColl\b/g,'College').replace(/\bSch\b/g,'School')
@@ -121,7 +121,25 @@ var ALIASES={
   'university of exeter':'Exeter University',
   'claires court':'Claires Court School',
   'furnivall sculling club':'Furnivall',
-  'chester le street amateur':'Chester le Street'
+  'chester le street amateur':'Chester le Street',
+  'st paul\'s girls':'St Paul\'s Girls\' School',
+  'king\'s school chester, the':'King\'s School Chester',
+  'king\'s school chester, the,':'King\'s School Chester',
+  'the king\'s school, chester':'King\'s School Chester',
+  'loughborough students rowing ltd':'Loughborough Students',
+  'maidstone inv':'Maidstone Invicta',
+  'mortlake a & a':'Mortlake AA',
+  'nott\'m & union':'Nottingham & Union',
+  'nottingham and union':'Nottingham & Union',
+  'oxford brookes':'Oxford Brookes University',
+  'shandon (irl)':'Shandon',
+  'sir william borlase\'s gram school':'Sir William Borlase\'s Grammar School',
+  'sir w borlase\'s gs':'Sir William Borlase\'s Grammar School',
+  'w borlase school':'Sir William Borlase\'s Grammar School',
+  'st george\'s col':'St George\'s College',
+  'tideway scullers':'Tideway Scullers School',
+  'tideway sc school':'Tideway Scullers School',
+  'west of england, university of,':'University of West of England'
 };
 function resolve(n){
   var disp=canonDisplay(n),key=canon(n);
