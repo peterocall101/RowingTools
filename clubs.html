@@ -445,16 +445,20 @@ window.closeLeaderboard=function(e){
   document.removeEventListener('keydown',closeOnEsc);
 };
 
+var _ctl=new AbortController();
+var _timer=setTimeout(function(){_ctl.abort();},15000);
 Promise.all([
-  fetch('data/all_results.json').then(function(r){return r.json();}),
-  fetch('data/club_aliases.json').then(function(r){return r.json();}).catch(function(){return {};})
+  fetch('data/all_results.json',{signal:_ctl.signal}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json();}),
+  fetch('data/club_aliases.json',{signal:_ctl.signal}).then(function(r){return r.json();}).catch(function(){return {};})
 ]).then(function(results){
+  clearTimeout(_timer);
   var data=results[0],aliases=results[1];
   Object.keys(aliases).forEach(function(k){ALIASES[k]=aliases[k];});
   var club=getParam('club');
   if(club){renderProfile(club,data);}
   else{renderSearch(data);}
 }).catch(function(err){
+  clearTimeout(_timer);
   document.getElementById('root').innerHTML='<p style="padding:3rem;text-align:center;color:#c8472b;font-size:14px">Failed to load data. Please refresh the page.</p>';
 });
 </script>
