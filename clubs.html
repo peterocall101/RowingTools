@@ -447,15 +447,15 @@ window.closeLeaderboard=function(e){
 
 Promise.all([
   fetch('data/all_results.json').then(function(r){return r.json();}),
-  fetch('data/club_aliases.json').then(function(r){return r.json();})
+  fetch('data/club_aliases.json').then(function(r){return r.json();}).catch(function(){return {};})
 ]).then(function(results){
   var data=results[0],aliases=results[1];
   Object.keys(aliases).forEach(function(k){ALIASES[k]=aliases[k];});
   var club=getParam('club');
   if(club){renderProfile(club,data);}
   else{renderSearch(data);}
-}).catch(function(){
-  document.getElementById('root').innerHTML='<div class="loading">Failed to load data. Please try again.</div>';
+}).catch(function(err){
+  document.getElementById('root').innerHTML='<p style="padding:3rem;text-align:center;color:#c8472b;font-size:14px">Failed to load data. Please refresh the page.</p>';
 });
 </script>
 </body>
