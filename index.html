@@ -836,7 +836,6 @@ function goSection(name){
   }
   if(name==='clubs')loadClubsSection();
 }
-if(SECTIONS.includes(location.hash.slice(1)))goSection(location.hash.slice(1));
 function goLbTab(name,btn){
   document.querySelectorAll('.lbtab').forEach(b=>b.classList.toggle('active',b===btn));
   document.querySelectorAll('.lbpanel').forEach(p=>p.classList.toggle('active',p.id==='lbpanel-'+name));
@@ -851,6 +850,7 @@ function goLbTab(name,btn){
   function resolve(n){var d=canonDisplay(n),k=canon(n);if(AL[k]){d=AL[k];k=canon(d);}return{disp:d,key:k};}
   window._clubHelpers={normClub,canonDisplay,canon,resolve,AL};
 })();
+if(SECTIONS.includes(location.hash.slice(1)))goSection(location.hash.slice(1));
 function _fgVal(p){return p>=87?'#34d399':p>=80?'#60a5fa':p>=72?'#fb923c':'#f87171';}
 
 function loadCached(url){
