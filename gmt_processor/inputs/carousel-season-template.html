@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>rowingtools.co.uk &ndash; Season Carousel Template</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,700;9..144,900&family=JetBrains+Mono:wght@400;500;700&family=Inter+Tight:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0a1628;
+    --paper: #f4efe6;
+    --accent: #c8472b;
+    --gold: #b8893a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter Tight', sans-serif;
+    background: #0a0a0a;
+    min-height: 100vh;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    color: #ccc;
+  }
+
+  /* CONFIG PANEL */
+  .config {
+    background: #161616;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 18px;
+    width: 100%;
+    max-width: 720px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+  .config h3 { color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 14px; font-weight: 700; }
+  .config-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .config-row label { flex: 0 0 130px; color: #888; text-transform: uppercase; letter-spacing: 0.1em; font-size: 9px; }
+  .config input, .config textarea, .config select { flex: 1; background: #0a0a0a; border: 1px solid #333; color: #f4efe6; padding: 7px 10px; font-family: 'JetBrains Mono', monospace; font-size: 10px; border-radius: 3px; }
+  .config textarea { height: 200px; resize: vertical; line-height: 1.5; }
+  .config-actions { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+  .config button.primary { background: var(--accent); color: #fff; border: none; padding: 9px 18px; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; cursor: pointer; font-weight: 700; border-radius: 3px; }
+  .config-help { color: #666; font-size: 9px; line-height: 1.5; margin-top: 8px; }
+
+  /* PHONE FRAME */
+  .phone { width: 405px; height: 720px; background: #000; border-radius: 32px; border: 8px solid #1a1a1a; overflow: hidden; position: relative; box-shadow: 0 30px 80px rgba(0,0,0,0.6); }
+
+  .stage { width: 100%; height: 100%; position: relative; background: var(--ink); overflow: hidden; }
+
+  .stage::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  .stage-header { position: absolute; top: 0; left: 0; right: 0; padding: 20px 24px 14px; display: flex; justify-content: space-between; align-items: center; z-index: 4; }
+  .stage-masthead { font-family: 'Fraunces', serif; font-weight: 900; font-size: 13px; letter-spacing: -0.02em; color: var(--paper); }
+  .stage-masthead .dot { color: var(--accent); }
+  .stage-meta { font-family: 'JetBrains Mono', monospace; font-size: 8px; text-transform: uppercase; letter-spacing: 0.2em; color: rgba(244, 239, 230, 0.5); text-align: right; }
+
+  .progress-dots { position: absolute; top: 50px; left: 24px; right: 24px; display: flex; gap: 3px; z-index: 4; }
+  .dot-segment { flex: 1; height: 2px; background: rgba(244, 239, 230, 0.2); border-radius: 1px; }
+  .dot-segment.viewed, .dot-segment.current { background: rgba(244, 239, 230, 0.7); }
+
+  .track { position: absolute; inset: 0; display: flex; transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); will-change: transform; }
+  .track.dragging { transition: none; }
+
+  .slide { flex: 0 0 100%; height: 100%; position: relative; color: var(--paper); padding: 80px 32px 60px; display: flex; flex-direction: column; }
+
+  .rank-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3em; color: rgba(244, 239, 230, 0.5); margin-bottom: 4px; }
+  .rank-row { display: flex; align-items: baseline; gap: 10px; }
+  .rank-num { font-family: 'Fraunces', serif; font-weight: 900; font-size: 130px; line-height: 0.85; letter-spacing: -0.06em; color: var(--paper); font-feature-settings: 'lnum'; }
+  .rank-num.top { color: var(--accent); }
+  .rank-num.gold { color: var(--gold); }
+  .rank-of { font-family: 'Fraunces', serif; font-weight: 300; font-size: 40px; color: rgba(244, 239, 230, 0.3); letter-spacing: -0.04em; }
+  .spacer { flex: 1; min-height: 8px; }
+
+  /* CLUB SLIDE */
+  .club-name { font-family: 'Fraunces', serif; font-weight: 500; font-size: 32px; line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 5px; }
+  .club-subline { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.25em; color: rgba(244, 239, 230, 0.5); }
+
+  .club-headline { margin: 16px 0 14px; padding: 14px 0; border-top: 1px solid rgba(244, 239, 230, 0.2); border-bottom: 1px solid rgba(244, 239, 230, 0.2); }
+  .club-headline-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.3em; color: rgba(244, 239, 230, 0.5); margin-bottom: 4px; }
+  .club-headline-value { font-family: 'Fraunces', serif; font-weight: 900; font-size: 70px; line-height: 0.9; letter-spacing: -0.04em; font-feature-settings: 'lnum'; }
+  .club-headline-value sup { font-size: 24px; font-weight: 400; color: var(--accent); margin-left: 2px; }
+
+  .top-results { margin-bottom: 12px; }
+  .top-results-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.25em; color: rgba(244, 239, 230, 0.5); margin-bottom: 8px; }
+  .result-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(244, 239, 230, 0.08); }
+  .result-row:last-child { border-bottom: none; }
+  .result-event { font-family: 'Fraunces', serif; font-weight: 400; font-size: 13px; color: rgba(244, 239, 230, 0.85); line-height: 1.2; }
+  .result-bar-container { display: flex; align-items: center; gap: 8px; min-width: 110px; }
+  .result-bar { flex: 1; height: 4px; background: rgba(244, 239, 230, 0.1); border-radius: 2px; overflow: hidden; min-width: 50px; }
+  .result-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+  .result-gmt { font-family: 'Fraunces', serif; font-weight: 600; font-size: 13px; font-feature-settings: 'lnum'; min-width: 44px; text-align: right; }
+
+  .club-stats { display: grid; grid-template-columns: 1fr 1fr; padding-top: 12px; border-top: 1px solid rgba(244, 239, 230, 0.15); margin-top: auto; }
+  .stat { padding: 0 12px; border-left: 1px solid rgba(244, 239, 230, 0.15); }
+  .stat:first-child { padding-left: 0; border-left: none; }
+  .stat-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.15em; color: rgba(244, 239, 230, 0.5); margin-bottom: 4px; }
+  .stat-value { font-family: 'Fraunces', serif; font-weight: 500; font-size: 18px; letter-spacing: -0.01em; font-feature-settings: 'lnum'; }
+
+  /* LEADERBOARD TABLE SLIDE (ranks 6-10) */
+  .lb-row { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; padding: 11px 0; border-bottom: 1px solid rgba(244, 239, 230, 0.1); }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-row-rank { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.05em; color: rgba(244, 239, 230, 0.4); }
+  .lb-row-name { font-family: 'Fraunces', serif; font-size: 17px; font-weight: 400; letter-spacing: -0.01em; padding-right: 8px; line-height: 1.2; }
+  .lb-row-score-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+  .lb-row-score { font-family: 'Fraunces', serif; font-size: 17px; font-weight: 600; font-feature-settings: 'lnum'; white-space: nowrap; }
+  .lb-row-bar { width: 56px; height: 3px; background: rgba(244, 239, 230, 0.12); border-radius: 2px; overflow: hidden; }
+  .lb-row-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+
+  /* COVER */
+  .slide.cover { text-align: center; justify-content: center; align-items: center; padding: 80px 36px; }
+  .cover .kicker { font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3em; color: var(--accent); margin-bottom: 16px; }
+  .cover .cover-name { font-family: 'Fraunces', serif; font-weight: 900; font-size: 62px; line-height: 0.92; letter-spacing: -0.04em; color: var(--paper); margin-bottom: 24px; }
+  .cover .subtitle { font-family: 'Fraunces', serif; font-weight: 300; font-style: italic; font-size: 20px; line-height: 1.25; color: rgba(244, 239, 230, 0.6); margin-bottom: 38px; }
+  .cover .regatta { font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.25em; color: rgba(244, 239, 230, 0.4); padding-top: 24px; border-top: 1px solid rgba(244, 239, 230, 0.15); width: 60%; }
+  .cover .swipe-hint { margin-top: 50px; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3em; color: rgba(244, 239, 230, 0.4); display: flex; align-items: center; gap: 8px; animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 0.4; transform: translateX(0); } 50% { opacity: 0.8; transform: translateX(6px); } }
+  .cover .swipe-hint::after { content: '\2192'; font-size: 16px; }
+
+  /* OUTRO */
+  .slide.outro { text-align: center; justify-content: center; align-items: center; padding: 80px 36px; }
+  .outro-brand { font-family: 'Fraunces', serif; font-weight: 900; font-size: 140px; letter-spacing: -0.05em; line-height: 1; color: var(--paper); margin-bottom: 24px; }
+  .outro-dot { color: var(--accent); }
+  .outro-url { font-family: 'JetBrains Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 0.25em; color: rgba(244, 239, 230, 0.5); margin-bottom: 0; }
+  .outro .footnote { margin-top: 28px; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.2em; color: rgba(244, 239, 230, 0.25); line-height: 1.6; }
+
+  /* Nav */
+  .nav-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; background: rgba(244, 239, 230, 0.1); backdrop-filter: blur(6px); border: 1px solid rgba(244, 239, 230, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--paper); cursor: pointer; z-index: 6; font-size: 16px; user-select: none; }
+  .nav-arrow:hover { background: rgba(244, 239, 230, 0.2); }
+  .nav-arrow.prev { left: 12px; }
+  .nav-arrow.next { right: 12px; }
+  .nav-arrow.disabled { opacity: 0.3; pointer-events: none; }
+  .index-pill { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); color: var(--paper); font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.15em; padding: 6px 12px; border-radius: 12px; z-index: 4; }
+
+  .label { color: #888; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.2em; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="config">
+  <h3>Season carousel data</h3>
+  <div class="config-row">
+    <label>Year label</label>
+    <input id="cfg-year" value="2026 Season">
+  </div>
+  <div class="config-row">
+    <label>Header tag</label>
+    <input id="cfg-short" value="Season '26">
+  </div>
+  <div class="config-row">
+    <label>Cover subtitle</label>
+    <input id="cfg-subtitle" value="Top 10 clubs · 2026 season">
+  </div>
+  <textarea id="cfg-clubs" spellcheck="false">rank,club,top10avg,best_gmt,entries,regattas,r1_event,r1_gmt,r2_event,r2_gmt,r3_event,r3_gmt
+10,Shiplake College,89.0,91.8,20,4,Op 8+ · Nottm,91.8,Ch 8+ (Open) · NSR,91.3,Ch 8+ (Girls) · NSR,90.0
+9,Edinburgh University,89.7,92.9,12,2,Open 1x · Met Sat,92.9,Open 4+ · Met Sun,92.3,Op 2x · Met Sun,91.1
+8,University of Galway (IRL),90.3,92.4,24,2,Open 8+ · Met Sun,92.4,Open 2- · Met Sat,91.0,Open 1x · Met Sat,90.7
+7,Molesey,91.0,93.2,38,5,W 4x · Met Sat,93.2,Open 4+ · Met Sat,92.4,Open 4+ · Met Sun,92.3
+6,Marlow,91.5,93.5,38,4,Challenge 8+ · Wlfd,93.5,Open 8+ · Met Sun,93.4,Open 4+ · Met Sun,92.9
+5,Reading University,91.5,93.8,29,2,W 4x- · Met Sun,93.8,W 4x · Met Sat,93.7,W 4x- · Met Sun,93.8
+4,Oxford Brookes University,91.8,94.2,31,4,Open 8+ · Met Sat,94.2,Open 8+ · Met Sat,94.0,Open 4+ · Met Sat,93.3
+3,Leander,92.5,94.7,24,3,Open 8+ · Met Sat,94.7,Challenge 8+ · Wlfd,94.3,Open 4x · Met Sat,92.8
+2,London,93.2,94.9,61,4,Open 8+ · Met Sun,94.9,Open 4+ · Met Sun,94.5,W 4x- · Met Sun,93.9
+1,Thames,93.2,95.5,42,3,Open 8+ · Met Sun,95.5,W 8+ · Met Sun,94.9,W 8+ · Met Sun,94.4</textarea>
+  <div class="config-help">rank,club,top10avg,best_gmt,entries,regattas,r1_event,r1_gmt,r2_event,r2_gmt,r3_event,r3_gmt &mdash; pass rows in carousel order (rank 10 first, rank 1 last)</div>
+  <div class="config-actions">
+    <button class="primary" id="rebuild">Rebuild</button>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="stage" id="stage">
+    <div class="stage-header">
+      <div class="stage-masthead">rowingtools<span class="dot">.</span></div>
+      <div class="stage-meta" id="header-tag">Season '26</div>
+    </div>
+    <div class="progress-dots" id="progress-dots"></div>
+    <div class="track" id="track"></div>
+    <div class="nav-arrow prev" id="prev">&#8249;</div>
+    <div class="nav-arrow next" id="next">&#8250;</div>
+    <div class="index-pill" id="index-pill">1 / 1</div>
+  </div>
+</div>
+
+<div class="label">405 &times; 720 preview &middot; swipe / arrow keys / drag</div>
+
+<script>
+  const track = document.getElementById('track');
+  const dotsContainer = document.getElementById('progress-dots');
+  const indexPill = document.getElementById('index-pill');
+  const prevBtn = document.getElementById('prev');
+  const nextBtn = document.getElementById('next');
+  const headerTag = document.getElementById('header-tag');
+
+  let currentIndex = 0;
+  let totalSlides = 0;
+
+  // ============= CSV PARSER =============
+  function parseCSV(text) {
+    const lines = text.trim().split('\n').filter(l => l.trim());
+    const headers = lines[0].split(',').map(h => h.trim());
+    function splitLine(line) {
+      const vals = [];
+      let cur = '', inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') { inQ = !inQ; }
+        else if (c === ',' && !inQ) { vals.push(cur.trim()); cur = ''; }
+        else { cur += c; }
+      }
+      vals.push(cur.trim());
+      return vals;
+    }
+    return lines.slice(1).map(line => {
+      const values = splitLine(line);
+      const row = {};
+      headers.forEach((h, i) => row[h] = values[i] || '');
+      return row;
+    });
+  }
+
+  // ============= HELPERS =============
+  function rankClass(rank) {
+    if (rank === 1) return 'top';
+    if (rank <= 3) return 'gold';
+    return '';
+  }
+
+  // Bars scale 80% -> 100%
+  function barWidth(gmt) {
+    const pct = parseFloat(gmt);
+    return Math.max(0, Math.min(100, ((pct - 80) / 20) * 100)).toFixed(1);
+  }
+
+  // ============= SLIDE BUILDERS =============
+  function buildCover(yearLabel, subtitle) {
+    return `
+      <div class="slide cover">
+        <div class="kicker">GMT% Rankings</div>
+        <div class="cover-name">${yearLabel}</div>
+        <div class="subtitle">${subtitle}</div>
+        <div class="regatta">rowingtools.co.uk</div>
+        <div class="swipe-hint">Swipe</div>
+      </div>
+    `;
+  }
+
+  // Compact leaderboard table: shows 5 clubs (ranks 6-10)
+  function buildLeaderboardTableSlide(clubs) {
+    let rows = '';
+    clubs.forEach(d => {
+      rows += `
+        <div class="lb-row">
+          <div class="lb-row-rank">#${d.rank}</div>
+          <div class="lb-row-name">${d.club}</div>
+          <div class="lb-row-score-wrap">
+            <div class="lb-row-score">${parseFloat(d.top10avg).toFixed(1)}%</div>
+            <div class="lb-row-bar"><div class="lb-row-bar-fill" style="width:${barWidth(d.top10avg)}%"></div></div>
+          </div>
+        </div>
+      `;
+    });
+    return `
+      <div class="slide">
+        <div class="rank-label" style="margin-bottom:18px;">Also in the top 10</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.25em;color:rgba(244,239,230,0.3);margin-bottom:12px;">Season top-10 avg GMT%</div>
+        ${rows}
+        <div class="spacer"></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.3em;color:rgba(244,239,230,0.3);text-align:center;">Swipe for top 5</div>
+      </div>
+    `;
+  }
+
+  // Individual season club slide (ranks 5-1)
+  function buildSeasonClubSlide(d) {
+    const rank = parseInt(d.rank);
+    const cls = rankClass(rank);
+    return `
+      <div class="slide">
+        <div class="rank-label">Season rank</div>
+        <div class="rank-row" style="margin-bottom:8px;">
+          <div class="rank-num ${cls}">${d.rank}</div>
+          <div class="rank-of">/10</div>
+        </div>
+        <div class="club-name">${d.club}</div>
+        <div class="club-subline">${d.entries} entries &middot; ${d.regattas} regattas</div>
+
+        <div class="club-headline">
+          <div class="club-headline-label">Season top-10 avg GMT%</div>
+          <div class="club-headline-value">${parseFloat(d.top10avg).toFixed(1)}<sup>%</sup></div>
+        </div>
+
+        <div class="top-results">
+          <div class="top-results-label">Top 3 results</div>
+          <div class="result-row">
+            <div class="result-event">${d.r1_event}</div>
+            <div class="result-bar-container">
+              <div class="result-bar"><div class="result-bar-fill" style="width:${barWidth(d.r1_gmt)}%"></div></div>
+              <div class="result-gmt">${d.r1_gmt}%</div>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="result-event">${d.r2_event}</div>
+            <div class="result-bar-container">
+              <div class="result-bar"><div class="result-bar-fill" style="width:${barWidth(d.r2_gmt)}%"></div></div>
+              <div class="result-gmt">${d.r2_gmt}%</div>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="result-event">${d.r3_event}</div>
+            <div class="result-bar-container">
+              <div class="result-bar"><div class="result-bar-fill" style="width:${barWidth(d.r3_gmt)}%"></div></div>
+              <div class="result-gmt">${d.r3_gmt}%</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="club-stats">
+          <div class="stat">
+            <div class="stat-label">Best result</div>
+            <div class="stat-value">${d.best_gmt}%</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Entries</div>
+            <div class="stat-value">${d.entries}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function buildOutro() {
+    return `
+      <div class="slide outro">
+        <div class="outro-brand">rt<span class="outro-dot">.</span></div>
+        <div class="outro-url">rowingtools.co.uk</div>
+        <div class="footnote">Full season leaderboard &amp; GMT% analysis<br>Updated after every regatta</div>
+      </div>
+    `;
+  }
+
+  // ============= ASSEMBLY =============
+  function assemble() {
+    const yearLabel = document.getElementById('cfg-year').value;
+    const shortTag  = document.getElementById('cfg-short').value;
+    const subtitle  = document.getElementById('cfg-subtitle').value;
+    const clubs     = parseCSV(document.getElementById('cfg-clubs').value);
+
+    headerTag.textContent = shortTag;
+
+    const slides = [];
+    slides.push(buildCover(yearLabel, subtitle));
+
+    // CSV passed with rank 10 first, rank 1 last
+    // Rows 0-4 (ranks 10-6) go into the table slide
+    // Rows 5-9 (ranks 5-1) get individual slides
+    const bottom5 = clubs.slice(0, 5);
+    const top5    = clubs.slice(5);
+
+    slides.push(buildLeaderboardTableSlide(bottom5));
+    top5.forEach(d => slides.push(buildSeasonClubSlide(d)));
+    slides.push(buildOutro());
+
+    track.innerHTML = slides.join('');
+    totalSlides = slides.length;
+
+    dotsContainer.innerHTML = '';
+    for (let i = 0; i < totalSlides; i++) {
+      const seg = document.createElement('div');
+      seg.className = 'dot-segment';
+      dotsContainer.appendChild(seg);
+    }
+    goTo(0);
+  }
+
+  // ============= NAV =============
+  function updateDots() {
+    document.querySelectorAll('.dot-segment').forEach((seg, i) => {
+      seg.classList.remove('viewed', 'current');
+      if (i < currentIndex) seg.classList.add('viewed');
+      if (i === currentIndex) seg.classList.add('current');
+    });
+  }
+
+  function goTo(index) {
+    currentIndex = Math.max(0, Math.min(totalSlides - 1, index));
+    track.style.transform = `translateX(-${currentIndex * 100}%)`;
+    indexPill.textContent = `${currentIndex + 1} / ${totalSlides}`;
+    updateDots();
+    prevBtn.classList.toggle('disabled', currentIndex === 0);
+    nextBtn.classList.toggle('disabled', currentIndex === totalSlides - 1);
+  }
+
+  prevBtn.addEventListener('click', () => goTo(currentIndex - 1));
+  nextBtn.addEventListener('click', () => goTo(currentIndex + 1));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft') goTo(currentIndex - 1);
+    if (e.key === 'ArrowRight') goTo(currentIndex + 1);
+  });
+
+  // touch / drag
+  let touchStartX = 0, touchCurrentX = 0, isDragging = false;
+  const stage = document.getElementById('stage');
+  function getX(e) { return e.touches ? e.touches[0].clientX : e.clientX; }
+  function dragStart(e) {
+    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    isDragging = true; touchStartX = getX(e); track.classList.add('dragging');
+  }
+  function dragMove(e) {
+    if (!isDragging) return;
+    touchCurrentX = getX(e);
+    const diff = touchCurrentX - touchStartX;
+    const offset = (currentIndex * 100) - (diff / stage.offsetWidth * 100);
+    track.style.transform = `translateX(-${offset}%)`;
+  }
+  function dragEnd() {
+    if (!isDragging) return;
+    isDragging = false; track.classList.remove('dragging');
+    const diff = touchCurrentX - touchStartX;
+    const threshold = stage.offsetWidth * 0.2;
+    if (diff < -threshold && currentIndex < totalSlides - 1) goTo(currentIndex + 1);
+    else if (diff > threshold && currentIndex > 0) goTo(currentIndex - 1);
+    else goTo(currentIndex);
+    touchStartX = 0; touchCurrentX = 0;
+  }
+  stage.addEventListener('touchstart', dragStart, { passive: true });
+  stage.addEventListener('touchmove', dragMove, { passive: true });
+  stage.addEventListener('touchend', dragEnd);
+  stage.addEventListener('mousedown', dragStart);
+  stage.addEventListener('mousemove', dragMove);
+  stage.addEventListener('mouseup', dragEnd);
+  stage.addEventListener('mouseleave', dragEnd);
+
+  document.getElementById('rebuild').addEventListener('click', assemble);
+
+  // ============= RENDER HOOKS (for Playwright) =============
+  window.__inject = function(data) {
+    if (data.regattaFull)    document.getElementById('cfg-year').value    = data.regattaFull;
+    if (data.regattaShort)   document.getElementById('cfg-short').value   = data.regattaShort;
+    if (data.coverSubtitle)  document.getElementById('cfg-subtitle').value = data.coverSubtitle;
+    if (data.clubs)          document.getElementById('cfg-clubs').value   = data.clubs;
+    assemble();
+  };
+  window.__slideCount = function() { return totalSlides; };
+  window.__goTo = function(idx) { goTo(idx); };
+
+  assemble();
+</script>
+</body>
+</html>
