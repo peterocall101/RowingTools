@@ -1006,6 +1006,27 @@ function gob(name){
 <div class="footer">
   <a href="mailto:feedback@rowingtools.co.uk">Contact Us - Suggestions &amp; Feedback</a>
 </div>
-<script defer src="https://sibforms.com/forms/end-form/build/main.js"></script>
+<script>
+(function(){
+  var form=document.getElementById('sib-form');
+  if(!form)return;
+  form.addEventListener('submit',function(e){
+    e.preventDefault();
+    var btn=form.querySelector('button[type=submit]');
+    btn.disabled=true;
+    btn.textContent='Submitting…';
+    fetch(form.action,{method:'POST',mode:'no-cors',body:new FormData(form)})
+      .then(function(){
+        document.getElementById('success-message').style.display='block';
+        document.getElementById('sib-container').style.display='none';
+      })
+      .catch(function(){
+        document.getElementById('error-message').style.display='block';
+        btn.disabled=false;
+        btn.textContent='Notify me';
+      });
+  });
+})();
+</script>
 </body>
 </html>
