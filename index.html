@@ -853,6 +853,12 @@ function goLbTab(name,btn){
 })();
 function _fgVal(p){return p>=87?'#34d399':p>=80?'#60a5fa':p>=72?'#fb923c':'#f87171';}
 
+function loadCached(url){
+  var key='rt:'+url;
+  var cached=sessionStorage.getItem(key);
+  if(cached){try{return Promise.resolve(JSON.parse(cached));}catch(e){sessionStorage.removeItem(key);}}
+  return fetch(url).then(r=>r.json()).then(d=>{try{sessionStorage.setItem(key,JSON.stringify(d));}catch(e){}return d;});
+}
 var _clubsLoaded=false;
 function loadClubAnalysis(){
   if(_clubsLoaded)return;
@@ -879,7 +885,7 @@ function loadClubAnalysis(){
       return{name:c.disp,entries:c.entries,avg:c.sumPct/c.entries,best:c.bestPct,regattas:c.regattas.size,top10avg:top10};
     }).filter(c=>c.entries>=10).sort((a,b)=>b.top10avg-a.top10avg);
   }
-  Promise.all([fetch('data/all_results.json').then(r=>r.json()),_aliasesPromise])
+  Promise.all([loadCached('data/all_results.json'),_aliasesPromise])
     .then(([data,aliases])=>{
       Object.assign(window._clubHelpers.AL,aliases);
       var byYear={};
@@ -932,7 +938,7 @@ function loadClubsSection(){
   _clubsSectionLoaded=true;
   var el=document.getElementById('sec-clubs-content');
   var resolve=window._clubHelpers.resolve;
-  Promise.all([fetch('data/all_results.json').then(r=>r.json()),_aliasesPromise])
+  Promise.all([loadCached('data/all_results.json'),_aliasesPromise])
     .then(([data,aliases])=>{
       Object.assign(window._clubHelpers.AL,aliases);
       var map={};
