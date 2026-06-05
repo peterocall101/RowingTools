@@ -1,7 +1,7 @@
 # Club Alias Review
-# 293 canonical clubs  |  57 merged groups  |  236 singletons
+# 292 canonical clubs  |  58 merged groups  |  234 singletons
 
-## Merged clubs (57 groups)
+## Merged clubs (58 groups)
 
 ### Aberdeen Schools Rowing Association
   = Aberdeen Schools Rowing Association
@@ -239,6 +239,10 @@
   ~ University College Lon
   = University College London
 
+### University of Bristol
+  ~ Bristol University
+  = University of Bristol
+
 ### University of London
   ~ London University
   = University of London
@@ -254,7 +258,7 @@
 
 - [0.76] **Dublin University Ladies (IRL)**  vs  **Dublin University (IRL)**
 - [0.73] **St Paul's Girls' School**  vs  **St Paul's School**
-- [0.67] **Oxford Brookes University**  vs  **Oxford University**
+- [0.67] **Oxford University**  vs  **Oxford Brookes University**
 - [0.67] **King's College School**  vs  **King's College**
 - [0.67] **Bedford Modern School**  vs  **Bedford School**
 - [0.67] **Bedford Girls' School**  vs  **Bedford School**
@@ -262,15 +266,15 @@
 - [0.64] **St Edward's School**  vs  **St Leonard's School**
 - [0.63] **University of Birmingham**  vs  **University of Nottingham**
 - [0.63] **King's School Chester**  vs  **King's School Worcester**
-- [0.62] **University of Leeds**  vs  **University of London**
-- [0.61] **St Paul's School**  vs  **St Peter's School**
-- [0.60] **University of York**  vs  **University of Warwick**
+- [0.62] **University of London**  vs  **University of Leeds**
+- [0.61] **St Peter's School**  vs  **St Paul's School**
+- [0.60] **University of Warwick**  vs  **University of York**
 - [0.60] **Bedford Girls' School**  vs  **Windsor Girls' School**
 - [0.60] **University College London**  vs  **University of London**
 - [0.60] **University of Surrey**  vs  **University of York**
 - [0.60] **University of London**  vs  **University of York**
 
-## Singleton clubs (236 clubs)
+## Singleton clubs (234 clubs)
 
 - 1863 Club, The
 - 1877 Club
@@ -288,7 +292,6 @@
 - Birmingham University
 - Bradford Grammar School
 - Brentford
-- Bristol University
 - Broxbourne
 - Bryanston School
 - Burton Leander
@@ -477,7 +480,6 @@
 - University College Cork (IRL)
 - University College Dublin Ladies (IRL)
 - University of Birmingham
-- University of Bristol
 - University of Galway (IRL)
 - University of Leeds
 - University of Nottingham
