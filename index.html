@@ -857,7 +857,9 @@ function loadCached(url){
   var key='rt:'+url;
   var cached=sessionStorage.getItem(key);
   if(cached){try{return Promise.resolve(JSON.parse(cached));}catch(e){sessionStorage.removeItem(key);}}
-  return fetch(url).then(r=>r.json()).then(d=>{try{sessionStorage.setItem(key,JSON.stringify(d));}catch(e){}return d;});
+  var ctl=new AbortController();
+  var t=setTimeout(function(){ctl.abort();},10000);
+  return fetch(url,{signal:ctl.signal}).then(function(r){clearTimeout(t);if(!r.ok)throw new Error(r.status);return r.json();}).then(function(d){try{sessionStorage.setItem(key,JSON.stringify(d));}catch(e){}return d;});
 }
 var _clubsLoaded=false;
 function loadClubAnalysis(){
@@ -922,7 +924,7 @@ function loadClubAnalysis(){
       });
       el.innerHTML=h;
     })
-    .catch(()=>{el.innerHTML='<p style="color:var(--text3)">Failed to load club data.</p>';_clubsLoaded=false;});
+    .catch(()=>{el.innerHTML='<p style="color:var(--text3)">Failed to load data. <a href="#" onclick="this.parentElement.parentElement.innerHTML=\'Loading&#8230;\';_clubsLoaded=false;loadClubAnalysis();return false">Try again</a></p>';_clubsLoaded=false;});
 }
 window.filterLbClubs=function(){
   var q=(document.getElementById('lb-clubs-search').value||'').toLowerCase().trim();
@@ -970,7 +972,7 @@ function loadClubsSection(){
         +'</div>'
         +'<div id="clubs-sec-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">'+cards+'</div>';
     })
-    .catch(()=>{el.innerHTML='<p style="color:var(--text3)">Failed to load club data.</p>';_clubsSectionLoaded=false;});
+    .catch(()=>{el.innerHTML='<p style="color:var(--text3)">Failed to load data. <a href="#" onclick="this.parentElement.parentElement.innerHTML=\'Loading&#8230;\';_clubsSectionLoaded=false;loadClubsSection();return false">Try again</a></p>';_clubsSectionLoaded=false;});
 }
 window.filterClubsSec=function(){
   var q=(document.getElementById('clubs-sec-search').value||'').toLowerCase().trim();
