@@ -135,6 +135,10 @@ button.ghost:hover{color:var(--text);background:var(--bg3)}
 .subscribe-form button{padding:9px 18px;background:#c8472b;color:#fff;border:none;border-radius:var(--r);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
 .subscribe-form button:hover{background:#b03d26}
 @media(max-width:600px){.subscribe-form{flex-direction:column}}
+.sub-msg{display:none;margin:10px auto 0;max-width:400px;padding:8px 12px;border-radius:var(--r);font-size:13px}
+#success-message{background:#e7faf0;color:#085229;border:1px solid #13ce66}
+#error-message{background:#ffeded;color:#661d1d;border:1px solid #ff4949}
+.input--hidden{display:none!important}
 .footer{margin-top:3rem;padding-top:1.25rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--text3)}
 .footer a{color:var(--text3);text-decoration:none;transition:color .15s}
 .footer a:hover{color:var(--text2)}
@@ -987,14 +991,21 @@ function gob(name){
 
 <div class="subscribe">
   <h3>Get notified when new regatta results are added</h3>
-<form class="subscribe-form" action="https://buttondown.com/api/emails/embed-subscribe/ocallap101" method="post" target="popupwindow" onsubmit="window.open('https://buttondown.com/ocallap101','popupwindow')">
-    <input type="email" name="email" placeholder="your@email.com" required>
-    <button type="submit">Notify me</button>
-  </form>
+  <div id="error-message" class="sub-msg">Your subscription could not be saved. Please try again.</div>
+  <div id="success-message" class="sub-msg">You&#39;re subscribed! We&#39;ll email you when new results are added.</div>
+  <div id="sib-container">
+    <form id="sib-form" class="subscribe-form" method="POST" action="https://3f21ad40.sibforms.com/serve/MUIFAIyRcuQ6bCKzKFZT2wgiKD0LFDzAyRvYqC0G9gH2H6m_9Uic0dqNTo3ZKEED_7O5cWwppL4l6V6SsRwNH1yQzgxePOjED63GWYWzDIocBYOxNvnGM32rnRnLlOcXicoIGdBc37uTEoVidPd39BYTPRE0XEQJesWgpy9G8t7M8TcDuO46Tu1W-G80rN5G1Dgwn50A1_fCqZdQkQ==" data-type="subscription">
+      <input type="email" name="EMAIL" id="EMAIL" placeholder="your@email.com" autocomplete="off" required>
+      <button type="submit">Notify me</button>
+      <input type="text" name="email_address_check" value="" class="input--hidden">
+      <input type="hidden" name="locale" value="en">
+    </form>
+  </div>
 </div>
 
 <div class="footer">
   <a href="mailto:feedback@rowingtools.co.uk">Contact Us - Suggestions &amp; Feedback</a>
 </div>
+<script defer src="https://sibforms.com/forms/end-form/build/main.js"></script>
 </body>
 </html>
