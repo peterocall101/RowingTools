@@ -81,7 +81,7 @@ button.ghost:hover{color:var(--text);background:var(--bg3)}
 .tbl-wrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
 .tbl-wrap::-webkit-scrollbar-thumb:hover{background:var(--text3)}
 .bar-bg{background:var(--bg3);border-radius:4px;height:8px;overflow:hidden;width:60px;display:inline-block;vertical-align:middle}
-.bar{height:100%;border-radius:4px;transition:width .3s ease}
+.bar{height:100%;border-radius:4px;}
 .pv{font-weight:600;min-width:44px;display:inline-block;font-size:13px}
 .btabs{display:flex;gap:0;margin-bottom:1.25rem;border-bottom:1px solid var(--border)}
 .btab{padding:7px 16px;font-size:13px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit;white-space:nowrap;font-weight:500;transition:color .15s;height:auto}
@@ -180,42 +180,57 @@ button.ghost:hover{color:var(--text);background:var(--bg3)}
 .lb-arrow{font-size:18px;color:var(--text3);flex-shrink:0;margin-left:16px;transition:transform .2s ease,color .2s ease}
 .lb-card:hover .lb-arrow{transform:translateX(4px);color:var(--text2)}
 .sec{display:none}.sec.active{display:block}
-@keyframes panelIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-.panel.active,.sec.active,.bpanel.active{animation:panelIn .6s cubic-bezier(0.16,1,0.3,1)}
-@keyframes rowIn{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
-tr.row-new{animation:rowIn .55s cubic-bezier(0.16,1,0.3,1)}
-@keyframes lbIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.lb-anim{animation:lbIn .35s ease both}
+@keyframes panelIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.panel.active,.sec.active,.bpanel.active{animation:panelIn .2s cubic-bezier(0.16,1,0.3,1)}
+@keyframes rowIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+tr.row-new{animation:rowIn .18s cubic-bezier(0.16,1,0.3,1)}
+@keyframes lbIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.lb-anim{animation:lbIn .18s ease both}
 @keyframes shimmer{0%{background-position:-200px 0}100%{background-position:calc(200px + 100%) 0}}
 body.loading .btog{background:linear-gradient(90deg,var(--bg3) 25%,var(--bg2) 50%,var(--bg3) 75%) !important;background-size:200px 100%;animation:shimmer 1.2s infinite;color:transparent !important;border-color:transparent !important}
 body.loading .btog .dot{opacity:0}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.score-elite{background:var(--c-hrr-bg)}.score-elite .sp{color:#0F6E56}
+.score-high{background:var(--c-wbt-bg)}.score-high .sp{color:#185FA5}
+.score-comp{background:var(--c-hwr-bg)}.score-comp .sp{color:#BA7517}
+.score-dev{background:#ffeded}.score-dev .sp{color:#993C1D}
+@media(prefers-color-scheme:dark){
+  .score-elite .sp{color:#34d399}
+  .score-high .sp{color:#60a5fa}
+  .score-comp .sp{color:#fb923c}
+  .score-dev{background:#3b1010}.score-dev .sp{color:#f87171}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
 </style>
 </head>
 <body>
 <div class="topbar"></div>
 <header class="site-hdr">
   <div class="brand">
-    <div class="brand-mark">Rowing<span class="brand-dot">.</span>Tools</div>
+    <div class="brand-mark" role="heading" aria-level="1">Rowing<span class="brand-dot">.</span>Tools</div>
   </div>
-  <p class="sub" id="sub-calc">GMT% Calculator - winning benchmarks (WBT, Met Regatta, HWR) &amp; Henley qualification benchmark</p>
-  <p class="sub" id="sub-leaderboards" style="display:none">Regatta Leaderboards - GMT% analysis, club rankings and club comparison across UK regattas</p>
-  <p class="sub" id="sub-clubs" style="display:none">Club Profiles - performance analysis for UK rowing clubs across all regattas</p>
+  <p class="sub" id="page-subtitle" aria-live="polite">GMT% Calculator - winning benchmarks (WBT, Met Regatta, HWR) &amp; Henley qualification benchmark</p>
 </header>
 
-<div class="sec-tabs">
-  <button class="sec-tab active" onclick="goSection('calc')">GMT% Calculator</button>
-  <button class="sec-tab" onclick="goSection('leaderboards')">Regatta Leaderboards</button>
-  <button class="sec-tab" onclick="goSection('clubs')">Club Profiles</button>
+<nav aria-label="Main sections">
+<div class="sec-tabs" role="tablist">
+  <button class="sec-tab active" role="tab" aria-selected="true" aria-controls="sec-calc" id="tab-sec-calc" onclick="goSection('calc')">GMT% Calculator</button>
+  <button class="sec-tab" role="tab" aria-selected="false" aria-controls="sec-leaderboards" id="tab-sec-leaderboards" onclick="goSection('leaderboards')">Regatta Leaderboards</button>
+  <button class="sec-tab" role="tab" aria-selected="false" aria-controls="sec-clubs" id="tab-sec-clubs" onclick="goSection('clubs')">Club Profiles</button>
 </div>
-<div id="sec-calc" class="sec active">
-<div class="tabs">
-  <button class="tab active" onclick="go('calc')">Results Table</button>
-  <button class="tab" onclick="go('benchmarks')">Benchmarks</button>
-  <button class="tab" onclick="go('about')">What is GMT?</button>
+</nav>
+<main>
+<div id="sec-calc" class="sec active" role="tabpanel" aria-labelledby="tab-sec-calc">
+<div class="tabs" role="tablist" aria-label="Calculator sections">
+  <button class="tab active" role="tab" aria-selected="true" aria-controls="panel-calc" id="tab-calc" onclick="go('calc')">Results Table</button>
+  <button class="tab" role="tab" aria-selected="false" aria-controls="panel-benchmarks" id="tab-benchmarks" onclick="go('benchmarks')">Benchmarks</button>
+  <button class="tab" role="tab" aria-selected="false" aria-controls="panel-about" id="tab-about" onclick="go('about')">What is GMT?</button>
 </div>
 
 <!-- ── CALCULATOR ─────────────────────────────────────────────────────────── -->
-<div id="panel-calc" class="panel active">
+<div id="panel-calc" class="panel active" role="tabpanel" aria-labelledby="tab-calc">
 
   <div class="bench-row">
     <span style="font-size:13px;color:var(--text2);margin-right:2px">Show:</span>
@@ -230,11 +245,11 @@ body.loading .btog .dot{opacity:0}
   <div class="tbl-wrap">
     <table class="tbl"><thead id="tbl-head"></thead><tbody id="results-body"></tbody></table>
   </div>
-  <div class="empty" id="empty-msg">No rows yet</div>
+  <div class="empty" id="empty-msg">Add a row to start calculating GMT%.</div>
 
   <div class="tool-row" style="margin-top:12px">
     <button onclick="addRow()">+ Add row</button>
-    <span class="sep">|</span>
+    <span class="sep" aria-hidden="true">|</span>
     <select id="sort-by" style="height:32px;font-size:13px;min-width:160px">
       <option value="wbt">Sort by WBT %</option>
       <option value="met">Sort by Met avg winning %</option>
@@ -243,52 +258,52 @@ body.loading .btog .dot{opacity:0}
       <option value="time">Sort by time</option>
     </select>
     <button onclick="sortRows()">↕ Reorder</button>
-    <span class="sep">|</span>
+    <span class="sep" aria-hidden="true">|</span>
     <button onclick="downloadCSV()">↓ Download CSV</button>
   </div>
 </div>
 
 <!-- ── BENCHMARKS ─────────────────────────────────────────────────────────── -->
-<div id="panel-benchmarks" class="panel">
-  <div class="btabs">
-    <button class="btab active" onclick="gob('wbt')">World best times</button>
-    <button class="btab" onclick="gob('met')">Met Regatta averages</button>
-    <button class="btab" onclick="gob('hrr')">Henley qualification benchmarks</button>
-    <button class="btab" onclick="gob('hwr')">Henley Women's Regatta</button>
+<div id="panel-benchmarks" class="panel" role="tabpanel" aria-labelledby="tab-benchmarks">
+  <div class="btabs" role="tablist" aria-label="Benchmark tables">
+    <button class="btab active" role="tab" aria-selected="true" aria-controls="bpanel-wbt" id="btab-wbt" onclick="gob('wbt')">World best times</button>
+    <button class="btab" role="tab" aria-selected="false" aria-controls="bpanel-met" id="btab-met" onclick="gob('met')">Met Regatta averages</button>
+    <button class="btab" role="tab" aria-selected="false" aria-controls="bpanel-hrr" id="btab-hrr" onclick="gob('hrr')">Henley qualification benchmarks</button>
+    <button class="btab" role="tab" aria-selected="false" aria-controls="bpanel-hwr" id="btab-hwr" onclick="gob('hwr')">Henley Women's Regatta</button>
   </div>
-  <div id="bpanel-wbt" class="bpanel active">
+  <div id="bpanel-wbt" class="bpanel active" role="tabpanel" aria-labelledby="btab-wbt">
     <p class="info">Official World Best Times over 2000m as recognised by World Rowing.</p>
     <input type="text" class="srch" placeholder="Search…" oninput="renderWBT(this.value)">
     <div id="wbt-wrap"></div>
   </div>
-  <div id="bpanel-met" class="bpanel">
+  <div id="bpanel-met" class="bpanel" role="tabpanel" aria-labelledby="btab-met">
     <p class="info">Championship A-final winning times at the Metropolitan Regatta at Dorney Lake, averaged across 2021, 2022, 2023 and 2025. Saturday and Sunday events both included. 2024 not available as a published summary.</p>
     <input type="text" class="srch" placeholder="Search…" oninput="renderMET(this.value)">
     <div id="met-wrap"></div>
   </div>
-  <div id="bpanel-hrr" class="bpanel">
+  <div id="bpanel-hrr" class="bpanel" role="tabpanel" aria-labelledby="btab-hrr">
     <p class="info">Unlike the WBT and Met benchmarks which represent <strong>winning</strong> times, these are the fastest <strong>non-qualifying</strong> times at Henley Royal Regatta - i.e. the slowest time that failed to make it into the draw. A score at or above 100% suggests a crew would likely have qualified. Times averaged across available years (2021-2025) and adjusted from Henley course (2112m) to 2000m equivalent (x 2000/2112). Select the event your crew would actually enter - eligibility rules differ significantly between events.</p>
     <input type="text" class="srch" placeholder="Search…" oninput="renderHRR(this.value)">
     <div id="hrr-wrap"></div>
   </div>
-  <div id="bpanel-hwr" class="bpanel">
+  <div id="bpanel-hwr" class="bpanel" role="tabpanel" aria-labelledby="btab-hwr">
     <p class="info"><strong>Winning</strong> times at Henley Women's Regatta across all event categories (Championship, Aspirational, Development, Junior, J16, Para), averaged across 2022-2025. The HWR course is 1500m, so times are adjusted to 2000m equivalent (x 2000/1500). Women's events only. Select the event your crew would actually enter. Times can vary significantly year to year due to river stream conditions. 2021 excluded: course was shortened due to pandemic construction.</p>
     <div id="hwr-wrap"></div>
   </div>
 </div>
 
 <!-- ── ABOUT ──────────────────────────────────────────────────────────────── -->
-<div id="panel-about" class="panel">
+<div id="panel-about" class="panel" role="tabpanel" aria-labelledby="tab-about">
   <div class="card">
     <h2>What is GMT%?</h2>
     <p>GMT stands for <strong>Gold Medal Time</strong> - a percentage score expressing how fast a crew's time is relative to a known benchmark. The higher the percentage, the closer the crew is to that standard.</p>
     <p>The formula is: <strong>GMT% = benchmark time ÷ your time × 100</strong>. Because rowing is a timed sport where faster is better, your time will generally be slower than the benchmark, so scores are typically below 100%.</p>
     <p>For example, a men's eight rowing 5:45 against a WBT of 5:18.68 scores 92.7% - meaning they rowed at 92.7% of the world's best pace.</p>
     <div class="score-grid">
-      <div class="score-box" style="background:#E1F5EE"><span class="sp" style="color:#0F6E56">≥ 87%</span><span class="sl">Elite / international standard</span></div>
-      <div class="score-box" style="background:#E6F1FB"><span class="sp" style="color:#185FA5">80–87%</span><span class="sl">High club / top domestic</span></div>
-      <div class="score-box" style="background:#FAEEDA"><span class="sp" style="color:#BA7517">72–80%</span><span class="sl">Competitive club</span></div>
-      <div class="score-box" style="background:#FCEBEB"><span class="sp" style="color:#993C1D">&lt; 72%</span><span class="sl">Developing / recreational</span></div>
+      <div class="score-box score-elite"><span class="sp">≥ 87%</span><span class="sl">Elite / international standard</span></div>
+      <div class="score-box score-high"><span class="sp">80–87%</span><span class="sl">High club / top domestic</span></div>
+      <div class="score-box score-comp"><span class="sp">72–80%</span><span class="sl">Competitive club</span></div>
+      <div class="score-box score-dev"><span class="sp">&lt; 72%</span><span class="sl">Developing / recreational</span></div>
     </div>
   </div>
   <div class="card">
@@ -305,7 +320,7 @@ body.loading .btog .dot{opacity:0}
 </div>
 </div><!-- /sec-calc -->
 
-<div id="sec-leaderboards" class="sec">
+<div id="sec-leaderboards" class="sec" role="tabpanel" aria-labelledby="tab-sec-leaderboards">
   <div class="lbtab-wrap">
     <button class="lbtab active" onclick="goLbTab('regattas',this)">By Regatta</button>
     <button class="lbtab" onclick="goLbTab('clubs',this)">By Club</button>
@@ -408,9 +423,10 @@ body.loading .btog .dot{opacity:0}
   </div>
 </div><!-- /sec-leaderboards -->
 
-<div id="sec-clubs" class="sec">
+<div id="sec-clubs" class="sec" role="tabpanel" aria-labelledby="tab-sec-clubs">
   <div id="sec-clubs-content"><p style="color:var(--text3);padding:2rem 0">Loading…</p></div>
 </div>
+</main>
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ── BENCHMARK DATA ────────────────────────────────────────────────────────────
@@ -479,7 +495,7 @@ function parseT(s){
   if(!m)return null;return parseInt(m[1])*60+parseFloat(m[2]);
 }
 function fmtT(s){const m=Math.floor(s/60),r=s-m*60;return m+':'+r.toFixed(2).padStart(5,'0');}
-function pctColor(p){return p>=87?'#0F6E56':p>=80?'#185FA5':p>=72?'#BA7517':'#993C1D';}
+function pctColor(p){const dark=window.matchMedia('(prefers-color-scheme:dark)').matches;return p>=87?(dark?'#34d399':'#0F6E56'):p>=80?(dark?'#60a5fa':'#185FA5'):p>=72?(dark?'#fb923c':'#BA7517'):(dark?'#f87171':'#993C1D');}
 function boatOpts(sel){return BOAT_ORDER.map(k=>`<option value="${k}"${k===sel?' selected':''}>${k} — ${WBT[k]?.label||''}</option>`).join('');}
 function hrrOpts(sel){return HRR_OPTS.map(([k,l])=>`<option value="${k}"${k===sel?' selected':''}>${l}</option>`).join('');}
 function hwrOpts(sel){return HWR_OPTS.map(([k,l])=>`<option value="${k}"${k===sel?' selected':''}>${l}</option>`).join('');}
@@ -812,25 +828,24 @@ fetch('data/benchmarks_v3.json?v=1')
 
 
 function go(name){
-  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',TABS[i]===name));
+  document.querySelectorAll('.tab').forEach((t,i)=>{const match=TABS[i]===name;t.classList.toggle('active',match);t.setAttribute('aria-selected',match?'true':'false');});
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('panel-'+name).classList.add('active');
 }
 const TABS=['calc','benchmarks','about'];
 const SECTIONS=['calc','leaderboards','clubs'];
+const SECTION_SUBTITLES={calc:'GMT% Calculator - winning benchmarks (WBT, Met Regatta, HWR) & Henley qualification benchmark',leaderboards:'Regatta Leaderboards - UK club and regatta performance data',clubs:'Club Profiles - browse and compare UK rowing clubs'};
 function goSection(name){
-  document.querySelectorAll('.sec-tab').forEach((b,i)=>b.classList.toggle('active',SECTIONS[i]===name));
+  document.querySelectorAll('.sec-tab').forEach((b,i)=>{const match=SECTIONS[i]===name;b.classList.toggle('active',match);b.setAttribute('aria-selected',match?'true':'false');});
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+name).classList.add('active');
-  document.getElementById('sub-calc').style.display=name==='calc'?'':'none';
-  document.getElementById('sub-leaderboards').style.display=name==='leaderboards'?'':'none';
-  document.getElementById('sub-clubs').style.display=name==='clubs'?'':'none';
+  document.getElementById('page-subtitle').textContent=SECTION_SUBTITLES[name]||'';
   history.replaceState(null,'',name==='calc'?window.location.pathname:'#'+name);
   if(name==='leaderboards'){
     document.querySelectorAll('.lb-grid .lb-card').forEach((card,i)=>{
       card.classList.remove('lb-anim');
       void card.offsetWidth;
-      card.style.animationDelay=(0.04+i*0.06)+'s';
+      card.style.animationDelay=(0.02+i*0.03)+'s';
       card.classList.add('lb-anim');
     });
   }
@@ -980,7 +995,7 @@ window.filterClubsSec=function(){
 };
 const BTABS=['wbt','met','hrr','hwr'];
 function gob(name){
-  document.querySelectorAll('.btab').forEach((t,i)=>t.classList.toggle('active',BTABS[i]===name));
+  document.querySelectorAll('.btab').forEach((t,i)=>{const match=BTABS[i]===name;t.classList.toggle('active',match);t.setAttribute('aria-selected',match?'true':'false');});
   document.querySelectorAll('.bpanel').forEach(p=>p.classList.remove('active'));
   document.getElementById('bpanel-'+name).classList.add('active');
 }

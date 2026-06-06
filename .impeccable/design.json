@@ -1,0 +1,236 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-06T00:00:00.000Z",
+  "title": "Design System: RowingTools",
+  "extensions": {
+    "colorMeta": {
+      "blade-red": {
+        "role": "primary",
+        "displayName": "Blade Red",
+        "canonical": "oklch(50% 0.17 30)",
+        "tonalRamp": ["#2a0705", "#530f09", "#822015", "#c8472b", "#d97b6a", "#e8a89a", "#f0c9c3", "#f9edeb"]
+      },
+      "blade-red-deep": {
+        "role": "primary",
+        "displayName": "Blade Red Deep",
+        "canonical": "oklch(46% 0.16 30)",
+        "tonalRamp": ["#260604", "#4c0e08", "#781c12", "#b03d26", "#cc725f", "#e0a097", "#ecc5bf", "#f7eae8"]
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "Off-White Ground",
+        "canonical": "oklch(97% 0.002 80)",
+        "tonalRamp": ["#1a1a18", "#2d2d2b", "#434340", "#6b6b68", "#9c9c99", "#c8c8c5", "#e8e8e5", "#f7f7f6"]
+      },
+      "bg-surface": {
+        "role": "neutral",
+        "displayName": "Clean Surface",
+        "canonical": "oklch(100% 0 0)",
+        "tonalRamp": ["#1c1c1c", "#303030", "#464646", "#6f6f6f", "#9f9f9f", "#cbcbcb", "#e8e8e8", "#ffffff"]
+      },
+      "bg-elevated": {
+        "role": "neutral",
+        "displayName": "Lifted Ground",
+        "canonical": "oklch(94% 0.002 80)",
+        "tonalRamp": ["#181817", "#2a2a28", "#3f3f3d", "#666663", "#949492", "#c2c2bf", "#e0e0de", "#eeeeec"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(20% 0.02 260)",
+        "tonalRamp": ["#111827", "#1f2937", "#374151", "#4b5563", "#6b7280", "#9ca3af", "#d1d5db", "#f9fafb"]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "oklch(51% 0.02 260)",
+        "tonalRamp": ["#1f2937", "#374151", "#4b5563", "#6b7280", "#9ca3af", "#d1d5db", "#e5e7eb", "#f9fafb"]
+      },
+      "wbt-blue": {
+        "role": "secondary",
+        "displayName": "WBT Blue",
+        "canonical": "oklch(44% 0.26 262)",
+        "tonalRamp": ["#0a1a4a", "#0f2a6e", "#1337a0", "#1d4ed8", "#4b73e8", "#7a9bf0", "#b0c2f7", "#dbeafe"]
+      },
+      "met-purple": {
+        "role": "secondary",
+        "displayName": "MET Purple",
+        "canonical": "oklch(43% 0.26 295)",
+        "tonalRamp": ["#160a30", "#261352", "#3b1a7e", "#7c3aed", "#9e68f2", "#bd97f6", "#dcc4fb", "#ede9fe"]
+      },
+      "hrr-green": {
+        "role": "secondary",
+        "displayName": "HRR Green",
+        "canonical": "oklch(52% 0.17 162)",
+        "tonalRamp": ["#022c22", "#064e3b", "#065f46", "#059669", "#34d399", "#6ee7b7", "#a7f3d0", "#d1fae5"]
+      },
+      "hwr-amber": {
+        "role": "secondary",
+        "displayName": "HWR Amber",
+        "canonical": "oklch(61% 0.17 71)",
+        "tonalRamp": ["#3b1a00", "#451a03", "#78350f", "#d97706", "#f59e0b", "#fbbf24", "#fde68a", "#fef3c7"]
+      }
+    },
+    "shadows": [
+      {
+        "name": "hover-ambient",
+        "value": "0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04)",
+        "purpose": "Card hover and interactive stat box hover. Signals 'this element responds to interaction.'"
+      },
+      {
+        "name": "elevated",
+        "value": "0 4px 14px rgba(0,0,0,0.1), 0 12px 32px rgba(0,0,0,0.07)",
+        "purpose": "Table wrapper cards at rest. Small-scale elevation separation from the page."
+      },
+      {
+        "name": "modal-deep",
+        "value": "0 24px 80px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.15)",
+        "purpose": "Chart overlay card. Paired with backdrop blur(6px) at rgba(0,0,0,0.65)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "0.15s ease",
+        "purpose": "Default state transitions: color, border, background on interactive elements."
+      },
+      {
+        "name": "ease-tab",
+        "value": "0.18s ease",
+        "purpose": "Pill tab and nav tab active state transitions."
+      },
+      {
+        "name": "ease-modal-enter",
+        "value": "0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Modal card entrance: translateY(18px) scale(0.96) to translateY(0) scale(1)."
+      },
+      {
+        "name": "ease-opacity",
+        "value": "0.2s ease",
+        "purpose": "Modal backdrop opacity transition."
+      }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "540px", "purpose": "Score grid collapses from 4-col to 2-col." },
+      { "name": "sm", "value": "600px", "purpose": "Tool rows stack; subscribe form collapses to column." },
+      { "name": "compact", "value": "700px", "purpose": "Tables hide progress bars; cell padding reduces." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Pill Tab (active)",
+      "kind": "nav",
+      "refersTo": "tab-pill-active",
+      "description": "Active state of the pill tab navigation used for section and year switching.",
+      "html": "<div class=\"ds-tab-container\"><button class=\"ds-tab-pill ds-tab-active\">Calculator</button><button class=\"ds-tab-pill\">Leaderboards</button></div>",
+      "css": ".ds-tab-container { display: inline-flex; background: #eeeeec; border-radius: 999px; padding: 3px; gap: 2px; } .ds-tab-pill { padding: 8px 20px; font-size: 13.5px; font-weight: 500; border-radius: 999px; border: none; background: transparent; color: #6b7280; cursor: pointer; transition: all 0.18s ease; font-family: Inter, -apple-system, sans-serif; white-space: nowrap; } .ds-tab-pill:hover:not(.ds-tab-active) { color: #111827; } .ds-tab-active { background: #ffffff; color: #111827; box-shadow: 0 1px 5px rgba(0,0,0,0.13); }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "CTA button in Blade Red. Used for the subscribe form submit action.",
+      "html": "<button class=\"ds-btn-primary\">Subscribe</button>",
+      "css": ".ds-btn-primary { background: #c8472b; color: #ffffff; border: none; border-radius: 10px; padding: 9px 18px; font-size: 13px; font-weight: 600; font-family: Inter, -apple-system, sans-serif; cursor: pointer; transition: background 0.15s ease; } .ds-btn-primary:hover { background: #b03d26; } .ds-btn-primary:focus-visible { outline: 2px solid #c8472b; outline-offset: 2px; }"
+    },
+    {
+      "name": "Default Button",
+      "kind": "button",
+      "refersTo": "button-default",
+      "description": "Tool control button for calculate, filter, and similar actions.",
+      "html": "<button class=\"ds-btn-default\">Calculate</button>",
+      "css": ".ds-btn-default { background: #ffffff; color: #111827; border: 1.5px solid rgba(0,0,0,0.15); border-radius: 10px; padding: 7px 14px; font-size: 14px; font-weight: 500; font-family: Inter, -apple-system, sans-serif; cursor: pointer; height: 36px; transition: background 0.15s ease; } .ds-btn-default:hover { background: #eeeeec; } .ds-btn-default:focus-visible { outline: 2px solid #c8472b; outline-offset: 2px; }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "search-input",
+      "description": "Club search input on clubs.html. Focus ring uses Blade Red.",
+      "html": "<input class=\"ds-search\" type=\"text\" placeholder=\"Search clubs...\">",
+      "css": ".ds-search { width: 100%; max-width: 480px; padding: 11px 14px; font-size: 14px; border: 1.5px solid rgba(0,0,0,0.15); border-radius: 14px; background: #ffffff; color: #111827; font-family: Inter, -apple-system, sans-serif; outline: none; transition: border-color 0.15s ease; } .ds-search:focus { border-color: #c8472b; } .ds-search::placeholder { color: #9ca3af; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Standard content card for info blocks and summary sections.",
+      "html": "<div class=\"ds-card\"><h2 class=\"ds-card-title\">Card heading</h2><p class=\"ds-card-body\">Supporting description text goes here.</p></div>",
+      "css": ".ds-card { background: #ffffff; border-radius: 14px; padding: 24px; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04); } .ds-card-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; letter-spacing: -0.2px; font-family: Inter, -apple-system, sans-serif; color: #111827; } .ds-card-body { font-size: 13px; color: #6b7280; line-height: 1.75; font-family: Inter, -apple-system, sans-serif; }"
+    },
+    {
+      "name": "Stat Box",
+      "kind": "card",
+      "refersTo": "stat-box",
+      "description": "Headline metric display for club profile pages. Interactive variant adds hover.",
+      "html": "<div class=\"ds-stat-box\"><div class=\"ds-stat-val\">87.4%</div><div class=\"ds-stat-lbl\">Top GMT%</div></div>",
+      "css": ".ds-stat-box { background: #ffffff; border: 1px solid rgba(0,0,0,0.08); border-radius: 10px; padding: 14px 18px; flex: 1; min-width: 110px; } .ds-stat-val { font-size: 22px; font-weight: 700; margin-bottom: 2px; font-family: Inter, -apple-system, sans-serif; color: #111827; letter-spacing: -0.5px; } .ds-stat-lbl { font-size: 12px; color: #9ca3af; font-family: Inter, -apple-system, sans-serif; }"
+    },
+    {
+      "name": "Data Category Pill",
+      "kind": "chip",
+      "refersTo": "tab-pill",
+      "description": "Inline badge for WBT/MET/HRR/HWR benchmark categories. Never repurposed as a general UI chip.",
+      "html": "<span class=\"ds-pill ds-pill-wbt\">WBT</span><span class=\"ds-pill ds-pill-hrr\">HRR</span>",
+      "css": ".ds-pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 999px; margin-left: 4px; vertical-align: middle; font-family: Inter, -apple-system, sans-serif; } .ds-pill-wbt { background: #dbeafe; color: #1d4ed8; } .ds-pill-met { background: #ede9fe; color: #7c3aed; } .ds-pill-hrr { background: #d1fae5; color: #059669; } .ds-pill-hwr { background: #fef3c7; color: #d97706; }"
+    },
+    {
+      "name": "External Table Link",
+      "kind": "button",
+      "refersTo": "reg-link",
+      "description": "Low-weight link to regatta results pages, embedded in data tables.",
+      "html": "<a class=\"ds-reg-link\" href=\"#\">View results</a>",
+      "css": ".ds-reg-link { font-size: 12px; color: #c8472b; text-decoration: none; border: 1px solid rgba(200,71,43,0.3); border-radius: 6px; padding: 3px 10px; white-space: nowrap; transition: background 0.15s ease; font-family: Inter, -apple-system, sans-serif; } .ds-reg-link:hover { background: rgba(200,71,43,0.07); } .ds-reg-link:focus-visible { outline: 2px solid #c8472b; outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Timing House",
+    "overview": "RowingTools is official infrastructure, not a consumer product. Like the timing house at a regatta - unglamorous, exacting, trusted - it exists to surface the number that matters. Every visual decision either makes a result easier to read or stays out of the way.\n\nThe system runs on restraint. Blade Red appears sparingly: in the brand mark, a topbar stripe, a focus ring, a link at the edge of a data table. Its rarity is its authority. Backgrounds are near-neutral: off-white at rest, near-black in dark mode. Fraunces at 900 weight carries the personality in one letterform; Inter carries the data in every other.\n\nThis system explicitly rejects the feel of British Rowing's official website and generic sports analytics SaaS dashboards. RowingTools is independent, handbuilt, and earns trust through precision.",
+    "keyCharacteristics": [
+      "Single-accent palette; the data category colors are informational, not decorative",
+      "Serif brand mark + workhorse sans for all UI and data copy",
+      "Flat-by-default surfaces; shadow is a hover and elevation signal only",
+      "Light/dark mode symmetry: same token names, matched perceptual contrast",
+      "Data density without visual noise; tabular numerics, restrained label uppercase"
+    ],
+    "rules": [
+      {
+        "name": "The Blade Red Rule",
+        "body": "Blade Red is one voice. It appears on the brand mark, the topbar stripe, focus states, and .reg-link buttons. It is never used as a background fill on content areas, as a gradient input, or as a decorative element. Never more than twice on one screen outside the brand mark and topbar.",
+        "section": "colors"
+      },
+      {
+        "name": "The Data Color Rule",
+        "body": "WBT/MET/HRR/HWR colors are category markers only. They appear in column headers, pills, and badges tied to their specific benchmark. They are never repurposed as general UI accents.",
+        "section": "colors"
+      },
+      {
+        "name": "The Fraunces Ceiling Rule",
+        "body": "Fraunces appears only in .brand-mark. A serif heading on a data page reads as editorial decoration, not precision. Keep it bounded.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "Surfaces are flat at rest. The 1px border defines the card; the hover shadow confirms it is interactive. Static cards never carry ambient shadow. Modal depth is a hard cut from the page, not a gradient transition.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use Blade Red only on the brand mark, topbar stripe, focus states, and .reg-link buttons.",
+      "Do use font-variant-numeric: tabular-nums on every numeric data column.",
+      "Do step text color up to --text2 for anything the user needs to scan. Use --text3 only for labels and truly secondary metadata.",
+      "Do keep shadow as a hover and elevation signal. The 1px border defines the card.",
+      "Do use uppercase Inter 500 at 11px with 0.04-0.05em tracking for table column headers.",
+      "Do use the pill tab pattern for section and year switching."
+    ],
+    "donts": [
+      "Don't make this look like British Rowing's official site. No institutional layout, no committee fonts, no boxy navy-and-white bureaucratic palette.",
+      "Don't add hero metrics, gradient accents, glassmorphism by default, or sports-analytics SaaS dashboard clichés.",
+      "Don't use Fraunces for anything other than .brand-mark.",
+      "Don't use border-left or border-right greater than 1px as a colored accent stripe on cards, alerts, or list items.",
+      "Don't use gradient text. A single solid Blade Red is all the accent this system needs.",
+      "Don't tilt background colors warm by default.",
+      "Don't use WBT/MET/HRR/HWR category colors outside their benchmark context.",
+      "Don't add ambient shadow to static cards."
+    ]
+  }
+}
