@@ -29,6 +29,7 @@ TEMPLATE  = Path(__file__).parent / "carousel-season-template.html"
 EXHIBITS  = REPO_ROOT / "exhibits"
 
 COMP_SHORT = {
+    'reading26': 'Reading',
     'metsun26': 'Met Sun',
     'metsat26': 'Met Sat',
     'nsr26':    'NSR',

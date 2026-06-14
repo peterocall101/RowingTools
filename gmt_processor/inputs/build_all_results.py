@@ -5,6 +5,7 @@ import json, os, re, sys
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 HEATMAPS = [
+    {'file': 'heatmap-reading26.html',   'comp': 'reading26',     'date': '2026-06-13'},
     {'file': 'heatmap-metsun26.html',    'comp': 'metsun26',      'date': '2026-05-31'},
     {'file': 'heatmap-metsat26.html',    'comp': 'metsat26',      'date': '2026-05-30'},
     {'file': 'heatmap-nsr26.html',       'comp': 'nsr26',         'date': '2026-05-24'},

@@ -18,6 +18,7 @@ RowingTools/
 ├── heatmap-nottm26.html                     # Nottingham City Regatta 2026
 ├── heatmap-poplar26.html                    # Poplar Regatta 2026
 ├── heatmap-nsr26.html                       # National Schools' Regatta 2026
+├── heatmap-reading26.html                   # Reading Amateur Regatta 2026 (Saturday)
 ├── heatmap-bucs26.html                      # BUCS Regatta 2026 (not linked - multi-day, scores not comparable)
 ├── data/
 │   ├── benchmarks_v1.json                   # Frozen 2025-03-24
@@ -35,6 +36,7 @@ RowingTools/
 │   │   ├── generate_heatmap_nottm26.py      # Event-specific: regatta.time-team.nl (Nottingham 2026)
 │   │   ├── generate_heatmap_poplar26.py     # Event-specific: beta.regatta.time-team.nl (Poplar 2026)
 │   │   ├── generate_heatmap_nsr26.py        # Event-specific: regatta.time-team.nl (NSR 2026)
+│   │   ├── generate_heatmap_reading26.py    # Event-specific: reading-amateur-regatta.org (Reading 2026, head-to-head 1500m)
 │   │   ├── generate_heatmap_bucs.py         # Event-specific: results.bucsrowing.org.uk (BUCS)
 │   │   ├── generate_carousel.py             # Stage 4: heatmap HTML in, carousel PNGs out
 │   │   ├── carousel-template-final.html     # Carousel slide template
@@ -85,6 +87,7 @@ Pipeline from a live regatta results source to a published heatmap page.
 | `generate_heatmap_nottm26.py` | regatta.time-team.nl (Nottingham 2026) - events hardcoded |
 | `generate_heatmap_poplar26.py` | beta.regatta.time-team.nl (Poplar 2026) - events hardcoded |
 | `generate_heatmap_nsr26.py` | regatta.time-team.nl (NSR 2026) - events hardcoded |
+| `generate_heatmap_reading26.py` | reading-amateur-regatta.org (Reading 2026) - head-to-head, winners-only over 1500m |
 | `generate_heatmap_bucs.py` | results.bucsrowing.org.uk (BUCS) |
 
 For Stage 3b, CSV needs columns: `Race, Event, Type, Name, Position, Lane, Time, Diff`. Finals only; position 9999 and J16-and-below excluded; times over 20 minutes treated as null.
