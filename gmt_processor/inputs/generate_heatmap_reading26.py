@@ -289,14 +289,16 @@ td.rnd{{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space
 #lb-table td,#clublb-table td{{border:1px solid #1e1e1e;padding:6px 10px;vertical-align:middle}}
 #lb-table td.num,#clublb-table td.num{{text-align:right;font-variant-numeric:tabular-nums}}
 #lb-table tr:hover td,#clublb-table tr:hover td{{background:#1a1a1a}}
+#lb-table a,#clublb-table a{{color:inherit;text-decoration:none}}
+#lb-table a:hover,#clublb-table a:hover{{text-decoration:underline}}
 </style>
 </head>
 <body>
 <h1>{title}</h1>
-<p class="sub">GMT% vs 2000m WBT. Reading is a head-to-head knockout regatta over ~1500m, and only race winners are timed - so each band lists the crews that won at least one race (fastest of their rounds), sorted fastest to slowest. 1500m times are scaled to 2000m, with an adjustment made in the GMT calc to allow for the fact the race is over 1.5k (approx 7.5 seconds added to the time when calculating GMT, since crews fade more over the longer 2k). <span style="color:#f5c518">&#x1F3C6;</span> marks the crew that actually won the band final (usually, but not always, the fastest). Senior, School/Junior, J18 and J16 events are all rated against the senior 2000m WBT, so junior GMT% naturally sits lower. J14 and J15 events are excluded. Results via reading-amateur-regatta.org.</p>
+<p class="sub">GMT% vs 2000m WBT. Reading is a head-to-head knockout regatta over ~1500m, and only race winners are timed - so each band lists the crews that won at least one race (fastest of their rounds), sorted fastest to slowest. 1500m times are scaled to 2000m, with an adjustment made in the GMT calc to allow for the fact the race is over 1.5k (approx 7.5 seconds added to the time when calculating GMT, since crews fade more over the longer 2k). <span style="color:#f5c518">&#x1F3C6;</span> marks the crew that actually won the band final (usually, but not always, the fastest). J14 and J15 events are excluded. Results via reading-amateur-regatta.org.</p>
 <div class="tabs">
   <button class="tab active" onclick="showTab('heatmap',this)">Heatmap</button>
-  <button class="tab" onclick="showTab('top100',this)">Top 250 Results</button>
+  <button class="tab" onclick="showTab('top100',this)">Result Leaderboard</button>
   <button class="tab" onclick="showTab('clublb',this)">Club Leaderboard</button>
   <button class="tab" onclick="showTab('compare',this)">Club Compare</button>
 </div>
@@ -413,7 +415,7 @@ function renderTop100(){{
   let h='';
   filtered.slice(0,250).forEach((e)=>{{
     const f=fg(e.pct);
-    h+=`<tr><td class="num" style="color:#555">${{e.rank}}</td><td><strong>${{e.crew}}</strong></td><td style="color:#888">${{e.club}}</td><td style="color:#aaa">${{e.event}}</td><td style="color:#666">${{e.round}}</td><td class="num" style="color:#888">${{e.time}}</td><td class="num"><strong style="color:${{f}}">${{e.pct.toFixed(1)}}%</strong></td></tr>`;
+    h+=`<tr><td class="num" style="color:#555">${{e.rank}}</td><td><strong>${{e.crew}}</strong></td><td style="color:#888"><a href="clubs.html?club=${{encodeURIComponent(normClub(e.club))}}">${{e.club}}</a></td><td style="color:#aaa">${{e.event}}</td><td style="color:#666">${{e.round}}</td><td class="num" style="color:#888">${{e.time}}</td><td class="num"><strong style="color:${{f}}">${{e.pct.toFixed(1)}}%</strong></td></tr>`;
   }});
   document.getElementById('lb-body').innerHTML=h||'<tr><td colspan="7" style="color:#555;text-align:center;padding:20px">No results.</td></tr>';
 }}
@@ -503,7 +505,7 @@ function renderClubLB(){{
   let h='';
   ranked.forEach((c,i)=>{{
     const f=fg(c.avg),ft=fg(c.top3avg);
-    h+='<tr><td class="num" style="color:#555">'+(i+1)+'</td><td><strong>'+c.name+'</strong></td><td class="num" style="color:#888">'+c.count+'</td><td class="num" style="color:#888">'+c.events+'</td><td class="num"><strong style="color:'+ft+'">'+c.top3avg.toFixed(1)+'%</strong></td><td class="num" style="color:#aaa">'+c.avg.toFixed(1)+'%</td><td class="num" style="color:#ccc">'+c.best.toFixed(1)+'%</td></tr>';
+    h+='<tr><td class="num" style="color:#555">'+(i+1)+'</td><td><a href="clubs.html?club='+encodeURIComponent(c.name)+'"><strong>'+c.name+'</strong></a></td><td class="num" style="color:#888">'+c.count+'</td><td class="num" style="color:#888">'+c.events+'</td><td class="num"><strong style="color:'+ft+'">'+c.top3avg.toFixed(1)+'%</strong></td><td class="num" style="color:#aaa">'+c.avg.toFixed(1)+'%</td><td class="num" style="color:#ccc">'+c.best.toFixed(1)+'%</td></tr>';
   }});
   document.getElementById('clublb-body').innerHTML=h||'<tr><td colspan="7" style="color:#555;text-align:center;padding:20px">No data.</td></tr>';
 }}
