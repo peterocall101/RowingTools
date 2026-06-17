@@ -6,6 +6,19 @@
 <title>RowingTools - GMT% Calculator for UK Rowing</title>
 <meta name="description" content="Free GMT% calculator for UK club rowing. Browse regatta heatmaps, ranked individual results leaderboards, and club performance rankings across the season.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a2744">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RowingTools">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  });
+}
+</script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",

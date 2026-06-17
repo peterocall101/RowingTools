@@ -1,0 +1,33 @@
+{
+  "name": "RowingTools - GMT% Calculator for UK Rowing",
+  "short_name": "RowingTools",
+  "description": "Free GMT% calculator for UK club rowing. Browse regatta heatmaps, ranked results leaderboards, and club performance rankings across the season.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#1a2744",
+  "theme_color": "#1a2744",
+  "lang": "en-GB",
+  "categories": ["sports", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
