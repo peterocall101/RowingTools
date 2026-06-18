@@ -13,6 +13,7 @@ HEATMAPS = [
     {'file': 'heatmap-nottm26.html',     'comp': 'nottm26',       'date': '2026-05-09'},
     {'file': 'heatmap-wallingford26.html','comp': 'wallingford26','date': '2026-05-04'},
     {'file': 'heatmap-brcc25.html',      'comp': 'brcc25',        'date': '2025-07-20'},
+    {'file': 'heatmap-marlow25.html',    'comp': 'marlow25',      'date': '2025-06-21'},
     {'file': 'heatmap-metsun25.html',    'comp': 'metsun25',      'date': '2025-06-01'},
     {'file': 'heatmap-metsat25.html',    'comp': 'metsat25',      'date': '2025-05-31'},
     {'file': 'heatmap-wallingford25.html','comp': 'wallingford25','date': '2025-05-04'},

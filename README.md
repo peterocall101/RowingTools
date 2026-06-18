@@ -12,6 +12,7 @@ RowingTools/
 ├── heatmap-metsat25.html                    # Met 2025 Saturday
 ├── heatmap-metsun25.html                    # Met 2025 Sunday
 ├── heatmap-brcc25.html                      # British Rowing Club Championships 2025
+├── heatmap-marlow25.html                    # Marlow Regatta 2025
 ├── heatmap-wallingford25.html               # Wallingford Regatta 2025
 ├── heatmap-nottm25.html                     # Nottingham City Regatta 2025 (not linked - suspect data)
 ├── heatmap-wallingford26.html               # Wallingford Regatta 2026
@@ -36,6 +37,7 @@ RowingTools/
 │   │   ├── generate_heatmap_nottm26.py      # Event-specific: regatta.time-team.nl (Nottingham 2026)
 │   │   ├── generate_heatmap_poplar26.py     # Event-specific: beta.regatta.time-team.nl (Poplar 2026)
 │   │   ├── generate_heatmap_nsr26.py        # Event-specific: regatta.time-team.nl (NSR 2026)
+│   │   ├── generate_heatmap_marlow25.py     # Event-specific: regatta.time-team.nl (Marlow 2025, 2000m multi-lane)
 │   │   ├── generate_heatmap_reading26.py    # Event-specific: reading-amateur-regatta.org (Reading 2026, head-to-head 1500m)
 │   │   ├── generate_heatmap_bucs.py         # Event-specific: results.bucsrowing.org.uk (BUCS)
 │   │   ├── generate_carousel.py             # Stage 4: heatmap HTML in, carousel PNGs out
@@ -87,6 +89,7 @@ Pipeline from a live regatta results source to a published heatmap page.
 | `generate_heatmap_nottm26.py` | regatta.time-team.nl (Nottingham 2026) - events hardcoded |
 | `generate_heatmap_poplar26.py` | beta.regatta.time-team.nl (Poplar 2026) - events hardcoded |
 | `generate_heatmap_nsr26.py` | regatta.time-team.nl (NSR 2026) - events hardcoded |
+| `generate_heatmap_marlow25.py` | regatta.time-team.nl (Marlow 2025) - events hardcoded, 2000m multi-lane |
 | `generate_heatmap_reading26.py` | reading-amateur-regatta.org (Reading 2026) - head-to-head, winners-only over 1500m |
 | `generate_heatmap_bucs.py` | results.bucsrowing.org.uk (BUCS) |
 
