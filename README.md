@@ -107,7 +107,17 @@ Scrapes Met A/B/C final results from rowresults.co.uk across multiple years and 
 
 ## Workflow: post-regatta
 
-Run the appropriate Stage 3 script, add a card to the `#sec-leaderboards` grid in `index.html`, review locally, push. Optionally run Stage 4 for carousel slides.
+Full publish checklist (do all of these - steps 3-5 are easy to forget and the
+site-wide club pages break silently without them):
+
+1. **Generate the heatmap** - run the appropriate Stage 3 script, writing `heatmap-<comp>.html`.
+2. **Add a card** to the `#sec-leaderboards` grid in `index.html` (newest on top within its year section).
+3. **Rebuild the club dataset** - add the comp to the `HEATMAPS` list in `gmt_processor/inputs/build_all_results.py` (`file`, `comp`, `date`), then run it. This regenerates `data/all_results.json`, which powers the site-wide club analysis in `clubs.html`. Without this the new regatta never appears under any club.
+4. **Add the page to `sitemap.xml`**.
+5. **Refresh club aliases** - run `python scripts/gen_alias_review.py`, read the "Near-duplicate candidates" in `club_aliases_review.md`, and add any genuine same-club duplicates to `data/club_aliases.json` (keyed by the lowercased canonical form). Event-specific scrapers that pull abbreviated club names (e.g. time-team.nl: "Bath Univ", "Kingston GS") often need a few. Re-run the review to confirm they merged.
+6. **Review locally and push.** Optionally run Stage 4 for carousel slides.
+
+Result sources by path:
 
 - **Path A - rowresults.co.uk:** Stage 3a with the comp code
 - **Path B - Google Sheets:** export CSV, run Stage 3b
