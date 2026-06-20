@@ -279,14 +279,15 @@ def scrape_event(session, uuid, display_name):
             # Finish time: scan cells right-to-left for the last TIME_RE match.
             # Rank columns are interleaved between splits, so header-based indexing
             # is unreliable; the finish time is always the last time cell.
+            # Some finals (e.g. a lower final with only places recorded) publish no
+            # finish time ("--"). Keep those crews so the final still shows in the
+            # heatmap - they just get no GMT% and are left out of the leaderboards.
             time_text = None
             for cell in reversed(cells):
                 t = cell.get_text(strip=True)
                 if TIME_RE.match(t):
                     time_text = t
                     break
-            if time_text is None:
-                continue
 
             cat = ''
             if cat_idx is not None and cat_idx < len(cells):
@@ -337,7 +338,7 @@ def build_races(session, wbt):
                 lanes.append({
                     "crew": crew,
                     "club": entry['club'],
-                    "time": fmt_time(t) if t else entry['time'],
+                    "time": fmt_time(t) if t else (entry['time'] or ''),
                     "pct":  pct,
                     "cat":  entry.get('cat', ''),
                 })
