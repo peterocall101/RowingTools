@@ -201,6 +201,15 @@ CLUBS = {
 FINAL_RE = re.compile(r'\bFinal\s+([A-Z])\b')
 TIME_RE  = re.compile(r'^\d+:\d{2}\.\d+$')
 
+# Composite crews that time-team enters under a single club code but are actually
+# composites (known from entry info, not derivable from the results page). Keyed by
+# (event display name, resolved club name) -> composite name. The "/" makes the rest
+# of the pipeline treat it as a composite: excluded from club profiles, hidden by
+# default in the club leaderboard, still shown in the results leaderboard.
+COMPOSITE_RENAMES = {
+    ("Ch 4x", "Globe"): "Globe/Lea",
+}
+
 
 def load_wbt():
     bm = json.loads(WBT_PATH.read_text())
@@ -329,15 +338,16 @@ def build_races(session, wbt):
             for entry in sorted(result_rows, key=lambda x: x['pos']):
                 t = parse_time(entry['time'])
                 pct = round(wbt_t / t * 100, 1) if (wbt_t and t) else None
+                club_name = COMPOSITE_RENAMES.get((display_name, entry['club']), entry['club'])
                 # Singles: show the sculler's name alongside the club (club field
                 # stays clean so leaderboard grouping/filtering is unaffected).
-                crew = entry['club']
+                crew = club_name
                 name = entry.get('name', '')
-                if boat_key == 'M1x' and name and name != entry['club']:
-                    crew = f"{entry['club']} ({name})"
+                if boat_key == 'M1x' and name and name != club_name:
+                    crew = f"{club_name} ({name})"
                 lanes.append({
                     "crew": crew,
-                    "club": entry['club'],
+                    "club": club_name,
                     "time": fmt_time(t) if t else (entry['time'] or ''),
                     "pct":  pct,
                     "cat":  entry.get('cat', ''),
