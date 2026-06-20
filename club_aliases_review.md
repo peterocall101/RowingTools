@@ -1,5 +1,5 @@
 # Club Alias Review
-# 308 canonical clubs  |  68 merged groups  |  240 singletons
+# 322 canonical clubs  |  68 merged groups  |  254 singletons
 
 ## Merged clubs (68 groups)
 
@@ -7,10 +7,10 @@
   = Aberdeen Schools Rowing Association
   ~ Aberdeen Schs RA
 
-### American School in London
+### American School In London
   ~ American School
-  ~ American School In London
-  = American School in London
+  = American School In London
+  ~ American School in London
 
 ### Auriol Kensington
   ~ Auriol Ken
@@ -247,10 +247,10 @@
   = St Peter's School
   ~ St. Peter`s School
 
-### Stratford-upon-Avon
+### Stratford-Upon-Avon
   ~ Stratford upon Avon
   ~ Stratford-u-Avon
-  ~ Stratford-Upon-Avon
+  = Stratford-Upon-Avon
 
 ### Sunderland, City of
   = Sunderland, City of
@@ -296,30 +296,31 @@
   ~ Wolfson College (Ox)
   = Wolfson College (Oxford)
 
-## Near-duplicate candidates (17 pairs)
+## Near-duplicate candidates (18 pairs)
 
 <!-- Score 1.0 = identical tokens. Review each pair: if they are the same club,
      tell Claude which is the canonical name and it will update club_aliases.json. -->
 
-- [0.76] **Dublin University Ladies (IRL)**  vs  **Dublin University (IRL)**
+- [0.76] **Dublin University (IRL)**  vs  **Dublin University Ladies (IRL)**
 - [0.73] **St Paul's School**  vs  **St Paul's Girls' School**
 - [0.67] **Oxford University**  vs  **Oxford Brookes University**
 - [0.67] **King's College School**  vs  **King's College**
-- [0.67] **Bedford Modern School**  vs  **Bedford School**
+- [0.67] **Bedford School**  vs  **Bedford Modern School**
 - [0.67] **Bedford Girls' School**  vs  **Bedford School**
-- [0.65] **University College Dublin Ladies (IRL)**  vs  **Dublin University Ladies (IRL)**
+- [0.65] **Dublin University Ladies (IRL)**  vs  **University College Dublin Ladies (IRL)**
 - [0.64] **St Leonard's School**  vs  **St Edward's School**
 - [0.63] **University of Birmingham**  vs  **University of Nottingham**
 - [0.63] **King's School Worcester**  vs  **King's School Chester**
-- [0.62] **University of Leeds**  vs  **University of London**
+- [0.62] **University of London**  vs  **University of Leeds**
+- [0.61] **Sydney University (AUS)**  vs  **Sydney (AUS)**
 - [0.61] **St Paul's School**  vs  **St Peter's School**
 - [0.60] **University of Warwick**  vs  **University of York**
 - [0.60] **Bedford Girls' School**  vs  **Windsor Girls' School**
 - [0.60] **University College London**  vs  **University of London**
-- [0.60] **University of York**  vs  **University of Surrey**
-- [0.60] **University of York**  vs  **University of London**
+- [0.60] **University of Surrey**  vs  **University of York**
+- [0.60] **University of London**  vs  **University of York**
 
-## Singleton clubs (240 clubs)
+## Singleton clubs (254 clubs)
 
 - 1863 Club, The
 - 1877 Club
@@ -327,9 +328,12 @@
 - AB Severn
 - Abingdon School
 - Agecroft
+- Aramoho Whanganui RC, NZL
 - Ardingly
 - Army
+- Avon County
 - Barn Elms
+- Bates College (USA)
 - Becket
 - Bedford
 - Bedford Modern School
@@ -358,6 +362,7 @@
 - Cork BC (IRL)
 - Crabtree
 - Curlew
+- Cygnet
 - Deben
 - Derby
 - Dublin University (IRL)
@@ -377,6 +382,7 @@
 - Evesham
 - Exeter
 - Falcon
+- Fordham Men, USA
 - Fulham Reach
 - George Watsons College
 - Globe
@@ -431,12 +437,14 @@
 - Manchester University
 - Marlow
 - Mediterranean
+- Melbourne University (AUS)
 - Mersey
 - Millfield School
 - Minerva Bath
 - Molesey
 - Monkton Combe School
 - Monmouth Comp School
+- Mortlake Anglian & Alpha
 - Neptune RC (IRL)
 - Newark
 - Newcastle University
@@ -456,6 +464,7 @@
 - Pembroke Camb
 - Peterborough City
 - Peterhouse
+- Phillips Exeter Academy (USA)
 - Phoenix
 - Pine Rivers (AUS)
 - Plymouth University
@@ -472,6 +481,7 @@
 - Reading Blue Coat School
 - Reading University
 - RGS Worcester
+- Ridley College (CAN)
 - Riverfront Recapture, USA
 - Rob Roy
 - Ross
@@ -479,6 +489,7 @@
 - Royal Grammar School Worcester
 - Royal Grammar School. High Wycombe
 - Royal Holloway
+- RUMS
 - S'hampton University
 - Sabrina
 - Shanklin Sandown
@@ -491,6 +502,7 @@
 - South African Schools Rowing Union
 - Southampton Coalporters
 - Southampton University
+- St Cuthbert's
 - St Edward's Martyrs
 - St Hilda's College
 - St Ives
@@ -511,7 +523,10 @@
 - Surrey University
 - Swansea University
 - Sydenham & Dulwich Girls
+- Sydney (AUS)
+- Sydney University (AUS)
 - Taunton
+- Taurus
 - Tees
 - Thames
 - Thames Scullers

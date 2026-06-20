@@ -20,6 +20,7 @@ RowingTools/
 ├── heatmap-poplar26.html                    # Poplar Regatta 2026
 ├── heatmap-nsr26.html                       # National Schools' Regatta 2026
 ├── heatmap-reading26.html                   # Reading Amateur Regatta 2026 (Saturday)
+├── heatmap-marlow26.html                    # Marlow Regatta 2026 (men's, combined-band events)
 ├── heatmap-bucs26.html                      # BUCS Regatta 2026 (not linked - multi-day, scores not comparable)
 ├── data/
 │   ├── benchmarks_v1.json                   # Frozen 2025-03-24
@@ -38,6 +39,7 @@ RowingTools/
 │   │   ├── generate_heatmap_poplar26.py     # Event-specific: beta.regatta.time-team.nl (Poplar 2026)
 │   │   ├── generate_heatmap_nsr26.py        # Event-specific: regatta.time-team.nl (NSR 2026)
 │   │   ├── generate_heatmap_marlow25.py     # Event-specific: regatta.time-team.nl (Marlow 2025, 2000m multi-lane)
+│   │   ├── generate_heatmap_marlow26.py     # Event-specific: regatta.time-team.nl (Marlow 2026, combined-band events + per-crew category labels)
 │   │   ├── generate_heatmap_reading26.py    # Event-specific: reading-amateur-regatta.org (Reading 2026, head-to-head 1500m)
 │   │   ├── generate_heatmap_bucs.py         # Event-specific: results.bucsrowing.org.uk (BUCS)
 │   │   ├── generate_carousel.py             # Stage 4: heatmap HTML in, carousel PNGs out
@@ -90,6 +92,7 @@ Pipeline from a live regatta results source to a published heatmap page.
 | `generate_heatmap_poplar26.py` | beta.regatta.time-team.nl (Poplar 2026) - events hardcoded |
 | `generate_heatmap_nsr26.py` | regatta.time-team.nl (NSR 2026) - events hardcoded |
 | `generate_heatmap_marlow25.py` | regatta.time-team.nl (Marlow 2025) - events hardcoded, 2000m multi-lane |
+| `generate_heatmap_marlow26.py` | regatta.time-team.nl (Marlow 2026) - combined-band events, per-crew category from the table's "event" column |
 | `generate_heatmap_reading26.py` | reading-amateur-regatta.org (Reading 2026) - head-to-head, winners-only over 1500m |
 | `generate_heatmap_bucs.py` | results.bucsrowing.org.uk (BUCS) |
 
