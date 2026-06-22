@@ -39,6 +39,9 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .club-card:hover{box-shadow:var(--shadow);border-color:var(--border2)}
 .club-card-name{font-weight:600;font-size:14px;margin-bottom:3px}
 .club-card-meta{font-size:12px;color:var(--text3)}
+.comp-badge{display:inline-block;font-size:9px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#c8472b;background:rgba(200,71,43,0.12);border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:middle}
+.comp-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);margin-bottom:1.5rem;cursor:pointer}
+.comp-toggle input{width:auto;margin:0}
 .profile-hdr{margin-bottom:1.75rem}
 .profile-name-row{display:flex;align-items:center;gap:12px;margin-top:6px}
 .share-btn{background:none;border:1px solid var(--border2);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--text3);cursor:pointer;font-family:inherit;transition:all .15s}
@@ -137,17 +140,16 @@ function renderSearch(data){
   var clubMap={};
   data.forEach(function(reg){
     reg.results.forEach(function(r){
-      if(r.club.includes('/'))return;
       var res=resolve(r.club);
       if(!res.key)return;
-      if(!clubMap[res.key])clubMap[res.key]={disp:res.disp,entries:0,bestPct:0,regattas:new Set()};
+      if(!clubMap[res.key])clubMap[res.key]={disp:res.disp,entries:0,bestPct:0,regattas:new Set(),comp:r.club.indexOf('/')>-1};
       clubMap[res.key].entries++;
       if(r.pct>clubMap[res.key].bestPct)clubMap[res.key].bestPct=r.pct;
       clubMap[res.key].regattas.add(reg.comp);
     });
   });
   var clubs=Object.entries(clubMap).map(function(kv){
-    return{name:kv[1].disp,key:kv[0],entries:kv[1].entries,bestPct:kv[1].bestPct,regattas:kv[1].regattas.size};
+    return{name:kv[1].disp,key:kv[0],entries:kv[1].entries,bestPct:kv[1].bestPct,regattas:kv[1].regattas.size,comp:kv[1].comp};
   }).sort(function(a,b){return a.name.localeCompare(b.name);});
   var years=[...new Set(data.map(function(r){return '20'+r.comp.slice(-2);}))].sort(function(a,b){return b-a;});
   window._searchData={data:data,clubs:clubs,years:years};
@@ -164,18 +166,23 @@ function renderSearch(data){
 
 function showBrowseView(){
   var d=window._searchData;
+  if(window._showComposites===undefined)window._showComposites=false;
   var cards='';
   d.clubs.forEach(function(c){
-    cards+='<a class="club-card" href="clubs.html?club='+encodeURIComponent(c.name)+'" data-n="'+esc(c.name.toLowerCase())+'">'
-      +'<div class="club-card-name">'+esc(c.name)+'</div>'
+    cards+='<a class="club-card'+(c.comp?' is-comp':'')+'" href="clubs.html?club='+encodeURIComponent(c.name)+'" data-n="'+esc(c.name.toLowerCase())+'" data-comp="'+(c.comp?1:0)+'">'
+      +'<div class="club-card-name">'+esc(c.name)+(c.comp?' <span class="comp-badge">composite</span>':'')+'</div>'
       +'<div class="club-card-meta">'+c.regattas+' '+(c.regattas===1?'regatta':'regattas')+' &nbsp;&middot;&nbsp; best '+c.bestPct.toFixed(1)+'%</div>'
       +'</a>';
   });
+  var nNon=d.clubs.filter(function(c){return !c.comp;}).length;
   document.getElementById('search-body').innerHTML=
-    '<div class="page-sub" style="margin-bottom:1rem">'+d.clubs.length+' clubs across all regattas on RowingTools.</div>'
+    '<div class="page-sub" style="margin-bottom:1rem">'+nNon+' clubs across all regattas on RowingTools.</div>'
     +'<input class="search-box" type="text" id="club-search" placeholder="Search clubs&#8230;" oninput="filterClubs()" autocomplete="off">'
+    +'<label class="comp-toggle"><input type="checkbox" id="show-comp" '+(window._showComposites?'checked':'')+' onchange="toggleComposites(this.checked)">Show composite crews</label>'
     +'<div class="club-grid" id="club-grid">'+cards+'</div>';
+  filterClubs();
 }
+window.toggleComposites=function(on){window._showComposites=on;filterClubs();};
 
 function showLeaderboardView(){
   var d=window._searchData;
@@ -184,19 +191,23 @@ function showLeaderboardView(){
   d.years.forEach(function(y){
     tabs+='<button class="year-tab" onclick="switchLbYear(\''+y+'\',this)">'+y+'</button>';
   });
-  tabs+='</div><div id="lb-body"></div>';
+  tabs+='</div>';
+  tabs+='<label class="comp-toggle" style="margin:0 0 1.25rem"><input type="checkbox" id="lb-show-comp" '+(window._lbShowComp?'checked':'')+' onchange="lbToggleComp(this.checked)">Include composite crews</label>';
+  tabs+='<div id="lb-body"></div>';
   document.getElementById('search-body').innerHTML=tabs;
-  renderLbYear('all');
+  renderLbYear(window._lbYear||'all');
 }
+window.lbToggleComp=function(on){window._lbShowComp=on;renderLbYear(window._lbYear||'all');};
 
 function renderLbYear(year){
+  window._lbYear=year;
   var d=window._searchData;
   var clubPcts={};
   d.data.forEach(function(reg){
     var regYear='20'+reg.comp.slice(-2);
     if(year!=='all'&&regYear!==year)return;
     reg.results.forEach(function(r){
-      if(r.club.includes('/'))return;
+      if(!window._lbShowComp&&r.club.indexOf('/')>-1)return;
       var res=resolve(r.club);
       if(!res.key)return;
       if(!clubPcts[res.key])clubPcts[res.key]={disp:res.disp,pcts:[]};
@@ -243,8 +254,11 @@ window.switchLbYear=function(year,btn){
 
 window.filterClubs=function(){
   var q=(document.getElementById('club-search').value||'').toLowerCase().trim();
+  var showC=window._showComposites;
   document.querySelectorAll('#club-grid .club-card').forEach(function(card){
-    card.style.display=(!q||card.dataset.n.includes(q))?'':'none';
+    var matchQ=!q||card.dataset.n.includes(q);
+    var allowComp=showC||!!q||card.dataset.comp!=='1';  // a search query reveals composites too
+    card.style.display=(matchQ&&allowComp)?'':'none';
   });
 };
 
@@ -256,7 +270,6 @@ function renderProfile(clubParam,data){
   var allRegs=[],mergedNames=new Set();
   data.forEach(function(reg){
     var results=reg.results.filter(function(r){
-      if(r.club.includes('/'))return false;
       var res=resolve(r.club);
       if(res.key===cnKey){if(res.disp!==cn)mergedNames.add(res.disp);return true;}
       return false;

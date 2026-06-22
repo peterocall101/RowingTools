@@ -954,7 +954,7 @@ function loadClubAnalysis(){
     var map={};
     regs.forEach(reg=>{
       reg.results.forEach(r=>{
-        if(r.club.includes('/'))return;
+        if(!window._lbcShowComp&&r.club.includes('/'))return;
         var {disp,key}=resolve(r.club);
         if(!key)return;
         if(!map[key])map[key]={disp,entries:0,sumPct:0,bestPct:0,regattas:new Set(),pcts:[]};
@@ -983,28 +983,39 @@ function loadClubAnalysis(){
         +'<button class="lbtab active" onclick="filterLbYear(\'all\',this)">All years</button>';
       years.forEach(y=>{tabHtml+='<button class="lbtab" onclick="filterLbYear(\''+y+'\',this)">'+y+'</button>';});
       tabHtml+='</div>';
-      var h=tabHtml+'<div style="margin-bottom:1.25rem"><input type="text" id="lb-clubs-search" placeholder="Search clubs&#8230;" oninput="filterLbClubs()" style="max-width:360px"></div>';
-      years.forEach(year=>{
-        var clubs=buildClubs(byYear[year]);
-        h+='<div data-year="'+year+'" style="margin-bottom:2rem"><div class="lb-year">'+year+'</div>'
-          +'<div class="tbl-wrap" style="margin-top:0.75rem"><table class="tbl"><thead><tr>'
-          +'<th>#</th><th>Club</th><th>Regattas</th><th>Entries</th><th>Top 10 Avg</th><th>Avg GMT%</th><th>Best</th>'
-          +'</tr></thead><tbody class="lb-clubs-tbody">';
-        clubs.forEach((c,i)=>{
-          var f=fgVal(c.top10avg);
-          h+='<tr data-n="'+c.name.toLowerCase()+'">'
-            +'<td data-label="#" style="color:var(--text3)">'+(i+1)+'</td>'
-            +'<td data-label="Club"><a href="clubs.html?club='+encodeURIComponent(c.name)+'" style="color:var(--text);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">'+c.name+'</a></td>'
-            +'<td data-label="Regattas" style="color:var(--text2)">'+c.regattas+'</td>'
-            +'<td data-label="Entries" style="color:var(--text2)">'+c.entries+'</td>'
-            +'<td data-label="Top 10 Avg"><strong style="color:'+f+'">'+c.top10avg.toFixed(1)+'%</strong></td>'
-            +'<td data-label="Avg GMT%" style="color:var(--text3)">'+c.avg.toFixed(1)+'%</td>'
-            +'<td data-label="Best" style="color:var(--text2)">'+c.best.toFixed(1)+'%</td>'
-            +'</tr>';
+      var controls='<div style="margin-bottom:1.25rem;display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
+        +'<input type="text" id="lb-clubs-search" placeholder="Search clubs&#8230;" oninput="filterLbClubs()" style="max-width:360px;margin:0">'
+        +'<label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);cursor:pointer"><input type="checkbox" id="lbc-show-comp" '+(window._lbcShowComp?'checked':'')+' onchange="lbcToggleComp(this.checked)" style="width:auto;margin:0">Include composite crews</label>'
+        +'</div>';
+      el.innerHTML=tabHtml+controls+'<div id="lbc-sections"></div>';
+      window._renderLbcSections=function(){
+        var h='';
+        years.forEach(year=>{
+          var clubs=buildClubs(byYear[year]);
+          h+='<div data-year="'+year+'" style="margin-bottom:2rem"><div class="lb-year">'+year+'</div>'
+            +'<div class="tbl-wrap" style="margin-top:0.75rem"><table class="tbl"><thead><tr>'
+            +'<th>#</th><th>Club</th><th>Regattas</th><th>Entries</th><th>Top 10 Avg</th><th>Avg GMT%</th><th>Best</th>'
+            +'</tr></thead><tbody class="lb-clubs-tbody">';
+          clubs.forEach((c,i)=>{
+            var f=fgVal(c.top10avg);
+            h+='<tr data-n="'+c.name.toLowerCase()+'">'
+              +'<td data-label="#" style="color:var(--text3)">'+(i+1)+'</td>'
+              +'<td data-label="Club"><a href="clubs.html?club='+encodeURIComponent(c.name)+'" style="color:var(--text);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">'+c.name+'</a></td>'
+              +'<td data-label="Regattas" style="color:var(--text2)">'+c.regattas+'</td>'
+              +'<td data-label="Entries" style="color:var(--text2)">'+c.entries+'</td>'
+              +'<td data-label="Top 10 Avg"><strong style="color:'+f+'">'+c.top10avg.toFixed(1)+'%</strong></td>'
+              +'<td data-label="Avg GMT%" style="color:var(--text3)">'+c.avg.toFixed(1)+'%</td>'
+              +'<td data-label="Best" style="color:var(--text2)">'+c.best.toFixed(1)+'%</td>'
+              +'</tr>';
+          });
+          h+='</tbody></table></div></div>';
         });
-        h+='</tbody></table></div></div>';
-      });
-      el.innerHTML=h;
+        document.getElementById('lbc-sections').innerHTML=h;
+        var y=window._lbcYear||'all';
+        document.querySelectorAll('#lbc-sections [data-year]').forEach(s=>{s.style.display=(y==='all'||s.dataset.year===y)?'':'none';});
+        filterLbClubs();
+      };
+      window._renderLbcSections();
     })
     .catch(()=>{el.innerHTML='<p style="color:var(--text3)">Failed to load data. <a href="#" onclick="this.parentElement.parentElement.innerHTML=\'Loading&#8230;\';_clubsLoaded=false;loadClubAnalysis();return false">Try again</a></p>';_clubsLoaded=false;});
 }
@@ -1013,9 +1024,11 @@ window.filterLbClubs=function(){
   document.querySelectorAll('.lb-clubs-tbody tr').forEach(r=>r.style.display=(!q||r.dataset.n.includes(q))?'':'none');
 };
 window.filterLbYear=function(year,btn){
+  window._lbcYear=year;
   document.querySelectorAll('#lb-clubs-content .lbtab').forEach(b=>b.classList.toggle('active',b===btn));
   document.querySelectorAll('#lb-clubs-content [data-year]').forEach(s=>s.style.display=(year==='all'||s.dataset.year===year)?'':'none');
 };
+window.lbcToggleComp=function(on){window._lbcShowComp=on;if(window._renderLbcSections)window._renderLbcSections();};
 var _clubsSectionLoaded=false;
 function loadClubsSection(){
   if(_clubsSectionLoaded)return;
