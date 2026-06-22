@@ -186,6 +186,15 @@ button.ghost:hover{color:var(--text);background:var(--bg3)}
   .tool-row button,.tool-row select{width:100%}
   .bench-row{gap:6px}
   .btog{font-size:12px;padding:5px 10px}
+  /* By-Club regatta leaderboard keeps real columns + horizontal scroll (not the card layout) */
+  #lb-clubs-content .tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--rl);background:var(--bg2);box-shadow:var(--shadow)}
+  #lb-clubs-content .tbl{min-width:560px;display:table}
+  #lb-clubs-content .tbl thead{display:table-header-group}
+  #lb-clubs-content .tbl tbody{display:table-row-group}
+  #lb-clubs-content .tbl tr{display:table-row;background:none;border:none;border-radius:0;box-shadow:none;padding:0;margin:0}
+  #lb-clubs-content .tbl tbody tr:hover td{background:var(--bg3)}
+  #lb-clubs-content .tbl td{display:table-cell;padding:6px 8px;border-bottom:1px solid var(--border);overflow:hidden}
+  #lb-clubs-content .tbl td::before{display:none}
 }
 .chart-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .2s ease;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .chart-overlay.open{opacity:1;pointer-events:auto}
