@@ -63,6 +63,11 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .reg-table td{padding:7px 12px;border-top:1px solid var(--border);vertical-align:middle;font-size:12px}
 .reg-table td.r{text-align:right;font-variant-numeric:tabular-nums}
 .reg-table tr:hover td{background:var(--bg3)}
+.reg-table tr.wx-row{cursor:pointer}
+.reg-table tr.wx-row:hover td{background:rgba(200,71,43,0.08)}
+.wx-ind{color:#ef8268;vertical-align:middle;margin-left:5px;opacity:.85}
+.wx-hint{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);margin-bottom:8px}
+.wx-hint svg{color:#ef8268;flex-shrink:0}
 .loading{text-align:center;color:var(--text3);padding:3rem;font-size:14px}
 .merged-note{font-size:12px;color:var(--text3);margin-top:6px;padding:6px 10px;background:var(--bg3);border-radius:6px;display:inline-block}
 .year-tabs{display:inline-flex;background:var(--bg3);border-radius:999px;padding:3px;gap:2px;margin-bottom:1.75rem}
@@ -123,6 +128,8 @@ function resolve(n){
 }
 function fgVal(p){return p>=87?'#34d399':p>=80?'#60a5fa':p>=72?'#fb923c':'#f87171';}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+var WIND_ICON='<svg class="wx-ind" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2"/><path d="M17.73 7.73A2.5 2.5 0 1 1 19.5 12H2"/><path d="M12.59 19.41A2 2 0 1 0 14 16H2"/></svg>';
+window.wxRow=function(el){var dd=el.dataset,v=window._wxVenues&&window._wxVenues[dd.comp];if(v&&window.wxOpen)window.wxOpen(dd.clock,dd.label,dd.boat,dd.date,v);};
 
 function getParam(name){return new URLSearchParams(window.location.search).get(name);}
 
@@ -256,7 +263,7 @@ function renderProfile(clubParam,data){
     });
     if(!results.length)return;
     results.sort(function(a,b){return b.pct-a.pct;});
-    allRegs.push({title:reg.title,url:reg.url,year:'20'+reg.comp.slice(-2),results:results});
+    allRegs.push({title:reg.title,url:reg.url,year:'20'+reg.comp.slice(-2),comp:reg.comp,venue:reg.venue,results:results});
   });
 
   if(!allRegs.length){
@@ -378,18 +385,26 @@ function renderProfileYear(year){
     +peekHtml
     +'</div>';
 
+  var venMap={};
   regs.forEach(function(reg){
+    if(reg.venue)venMap[reg.comp]=reg.venue;
+    var hasWx=reg.venue&&reg.results.some(function(r){return r.clock;});
     html+='<div class="reg-section">'
       +'<div class="reg-hdr">'
       +'<div class="reg-name">'+esc(reg.title)+'</div>'
       +'<a class="reg-link" href="'+reg.url+'?club='+encodeURIComponent(d.cn)+'">View full regatta &#x2197;</a>'
       +'</div>'
+      +(hasWx?'<div class="wx-hint">'+WIND_ICON+' Tap a row for the wind &amp; weather at race time</div>':'')
       +'<table class="reg-table">'
       +'<thead><tr><th>Event</th><th>Round</th><th class="r">Time</th><th class="r">GMT%</th></tr></thead>'
       +'<tbody>';
     reg.results.forEach(function(r){
-      html+='<tr>'
-        +'<td>'+esc(r.event)+'</td>'
+      var clickable=reg.venue&&r.clock;
+      var attrs=clickable
+        ?' class="wx-row" data-comp="'+esc(reg.comp)+'" data-clock="'+esc(r.clock)+'" data-date="'+esc(r.date||'')+'" data-boat="'+esc(r.boat||'')+'" data-label="'+esc(reg.title+' · '+r.event+' · '+r.round)+'" onclick="wxRow(this)"'
+        :'';
+      html+='<tr'+attrs+'>'
+        +'<td>'+esc(r.event)+(clickable?' '+WIND_ICON:'')+'</td>'
         +'<td style="color:var(--text3)">'+esc(r.round)+'</td>'
         +'<td class="r" style="color:var(--text2)">'+esc(r.time)+'</td>'
         +'<td class="r"><strong style="color:'+fgVal(r.pct)+'">'+r.pct.toFixed(1)+'%</strong></td>'
@@ -397,6 +412,7 @@ function renderProfileYear(year){
     });
     html+='</tbody></table></div>';
   });
+  window._wxVenues=venMap;
 
   document.getElementById('profile-body').innerHTML=html;
 }
@@ -471,5 +487,6 @@ Promise.all([
   document.getElementById('root').innerHTML='<p style="padding:3rem;text-align:center;color:#c8472b;font-size:14px">Failed to load data. <a href="" style="color:#c8472b">Try again</a></p>';
 });
 </script>
+<script src="conditions.js"></script>
 </body>
 </html>

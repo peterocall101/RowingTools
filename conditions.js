@@ -4,7 +4,9 @@
    page, and a button per race that calls wxOpen(...). Weather is fetched live from the
    Open-Meteo historical archive (no API key). */
 (function(){
-  if(!window.META||!window.META.venue) return;   // page didn't opt in
+  // Works on heatmap pages (page-level window.META) AND on clubs.html, where each
+  // row passes its own venue to wxOpen(). So we always init the modal + wxOpen, and
+  // only the heatmap button/banner auto-injection is gated on window.META below.
 
   /* ---- inject CSS ---- */
   const css=`
@@ -64,7 +66,7 @@
       <div class="wx-rail" id="wx-railbox" style="visibility:hidden">
         <div class="wx-temprow"><div class="wx-temp" id="wx-temp">--<span>&deg;C</span></div><div class="wx-icon" id="wx-iconel">&#9728;</div></div>
         <div class="wx-cond" id="wx-condel">&nbsp;</div>
-        <div class="wx-verdict" id="wx-verdict"><div class="lbl">Effect on the course</div><div class="big" id="wx-vbig">&mdash;</div><div class="desc" id="wx-vdesc"></div></div>
+        <div class="wx-verdict" id="wx-verdict"><div class="lbl">Wind relative to the course</div><div class="big" id="wx-vbig">&mdash;</div><div class="desc" id="wx-vdesc"></div></div>
         <div class="wx-stats">
           <div class="wx-stat"><div class="k">Wind speed</div><div class="v" id="wx-wspd">&mdash;</div></div>
           <div class="wx-stat"><div class="k">Gusts</div><div class="v" id="wx-wgust">&mdash;</div></div>
@@ -85,9 +87,11 @@
   function wmo(code){const m={0:["☀️","Clear"],1:["🌤️","Mainly clear"],2:["⛅","Partly cloudy"],3:["☁️","Overcast"],45:["🌫️","Fog"],48:["🌫️","Rime fog"],51:["🌦️","Light drizzle"],53:["🌦️","Drizzle"],55:["🌧️","Heavy drizzle"],61:["🌦️","Light rain"],63:["🌧️","Rain"],65:["🌧️","Heavy rain"],71:["🌨️","Light snow"],73:["🌨️","Snow"],75:["❄️","Heavy snow"],80:["🌦️","Showers"],81:["🌧️","Showers"],82:["⛈️","Violent showers"],95:["⛈️","Thunderstorm"],96:["⛈️","Thunderstorm"],99:["⛈️","Thunderstorm"]};return m[code]||["🌤️","Fair"];}
 
   let wxAnim=null,wxBoatClass='';
-  window.wxOpen=async function(clock,label,boat,date){
-    const v=window.META.venue;wxBoatClass=boat||'';
-    const d=date||window.META.date;   // per-race date (multi-day events) falls back to META.date
+  window.wxOpen=async function(clock,label,boat,date,venue){
+    const v=venue||(window.META&&window.META.venue);   // explicit venue (clubs.html) or page META
+    if(!v||!clock) return;
+    wxBoatClass=boat||'';
+    const d=date||(window.META&&window.META.date);   // per-race date falls back to META.date
     document.getElementById('wx-title').textContent=label;
     document.getElementById('wx-sub').textContent=`${v.name} · ${d} · ${clock}`;
     document.getElementById('wx-railbox').style.visibility='hidden';
@@ -115,10 +119,10 @@
   function wxVsCourse(windFrom,bearing){
     const windTo=(windFrom+180)%360;let delta=((windTo-bearing+540)%360)-180;const a=Math.abs(delta);
     let label,desc;
-    if(a<=25){label="Tailwind";desc="Blowing down the course toward the finish – expect fast times.";}
-    else if(a>=155){label="Headwind";desc="Blowing straight into the boats – times will run slow.";}
-    else if(a<90){label="Cross-tail wind";desc="Angled down the course – a mild helping effect, with some push across the lanes.";}
-    else{label="Cross-head wind";desc="Angled into the boats – a mild slowing effect, with some push across the lanes.";}
+    if(a<=25){label="Tailwind";desc="Blowing down the course, toward the finish.";}
+    else if(a>=155){label="Headwind";desc="Blowing up the course, toward the start.";}
+    else if(a<90){label="Cross-tail wind";desc="Blowing across the course, angled toward the finish.";}
+    else{label="Cross-head wind";desc="Blowing across the course, angled toward the start.";}
     return {delta,label,desc};
   }
   function wxTone(k){return k<8?"rgba(78,232,176,.10)":k<18?"rgba(123,191,255,.10)":k<30?"rgba(240,176,48,.12)":"rgba(200,71,43,.14)";}
@@ -209,25 +213,59 @@
   }
   function wxClose(){document.getElementById('wx-overlay').classList.remove('show');if(wxAnim)cancelAnimationFrame(wxAnim);}
 
+  /* ---- shared helpers for the auto-injected buttons ---- */
+  const WIND_SVG='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2"/><path d="M17.73 7.73A2.5 2.5 0 1 1 19.5 12H2"/><path d="M12.59 19.41A2 2 0 1 0 14 16H2"/></svg>';
+  function raceMap(){
+    const m={};
+    if(window.ROWS) for(const r of window.ROWS) if(r.clock) m[r.event+'||'+r.round]={clock:r.clock,boat:r.boat||'',date:r.date||''};
+    return m;
+  }
+  function mkBtn(hit,label){
+    const b=document.createElement('button');
+    b.className='wx-mini';b.title='Weather & wind at race time';
+    b.dataset.clock=hit.clock;b.dataset.label=label;b.dataset.boat=hit.boat;b.dataset.date=hit.date;
+    b.innerHTML=WIND_SVG+hit.clock;
+    return b;
+  }
+
   /* ---- auto-inject a conditions button into every heatmap round cell ----
      Matches each rendered round cell (event from the table caption + round label)
      back to window.ROWS to find the race's clock time and boat class. Re-runs on
      re-render (filter/tab switch) via a MutationObserver. No template edits needed. */
   function injectButtons(){
-    if(!window.ROWS) return;
-    const map={};
-    for(const r of window.ROWS) if(r.clock) map[r.event+'||'+r.round]={clock:r.clock,boat:r.boat||'',date:r.date||''};
+    const map=raceMap();
     document.querySelectorAll('#heatmap-out td.rnd').forEach(cell=>{
       if(cell.querySelector('.wx-mini')) return;
       const round=cell.textContent.trim();
       const tbl=cell.closest('table');if(!tbl) return;
       const cap=tbl.querySelector('caption');const event=cap?cap.textContent.trim():'';
       const hit=map[event+'||'+round];if(!hit) return;
-      const b=document.createElement('button');
-      b.className='wx-mini';b.title='Weather & wind at race time';
-      b.dataset.clock=hit.clock;b.dataset.label=event+' · '+round;b.dataset.boat=hit.boat;b.dataset.date=hit.date;
-      b.innerHTML='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2"/><path d="M17.73 7.73A2.5 2.5 0 1 1 19.5 12H2"/><path d="M12.59 19.41A2 2 0 1 0 14 16H2"/></svg>'+hit.clock;
-      cell.appendChild(b);
+      cell.appendChild(mkBtn(hit,event+' · '+round));
+    });
+  }
+
+  /* ---- enhance the Result Leaderboard table (#lb-table) ----
+     1. Link the Crew column to the same club page as the Club column.
+     2. Add a conditions button to each row, matched by event + round/band.
+     Columns are located by header text so it works across template variants. */
+  function colIndex(ths,names){for(let i=0;i<ths.length;i++)if(names.indexOf(ths[i])>-1)return i;return -1;}
+  function enhanceLeaderboard(){
+    const tbl=document.getElementById('lb-table');if(!tbl) return;
+    const ths=[...tbl.querySelectorAll('thead th')].map(t=>t.textContent.trim().toLowerCase());
+    const evI=colIndex(ths,['event']),rdI=colIndex(ths,['round','band']),
+          crI=colIndex(ths,['crew']),clI=colIndex(ths,['club']);
+    const map=raceMap();
+    tbl.querySelectorAll('tbody tr').forEach(tr=>{
+      const cells=tr.children;if(cells.length<2) return;
+      if(crI>-1&&clI>-1&&cells[crI]&&cells[clI]&&!cells[crI].querySelector('a')){
+        const clubA=cells[clI].querySelector('a');
+        if(clubA)cells[crI].innerHTML='<a href="'+clubA.getAttribute('href')+'" style="color:inherit;text-decoration:none" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">'+cells[crI].innerHTML+'</a>';
+      }
+      if(evI>-1&&rdI>-1&&cells[evI]&&cells[rdI]&&!cells[rdI].querySelector('.wx-mini')){
+        const ev=cells[evI].textContent.trim(),rd=cells[rdI].textContent.trim();
+        const hit=map[ev+'||'+rd];
+        if(hit){const b=mkBtn(hit,ev+' · '+rd);b.style.marginLeft='6px';cells[rdI].appendChild(b);}
+      }
     });
   }
   document.addEventListener('click',e=>{const b=e.target.closest('.wx-mini');if(b)window.wxOpen(b.dataset.clock,b.dataset.label,b.dataset.boat,b.dataset.date);});
@@ -241,6 +279,10 @@
     const o=document.getElementById('heatmap-out');if(!o){setTimeout(startObserve,200);return;}
     ensureBanner(o);injectButtons();
     new MutationObserver(()=>injectButtons()).observe(o,{childList:true,subtree:true});
+    const lb=document.getElementById('lb-body');
+    if(lb){enhanceLeaderboard();new MutationObserver(()=>enhanceLeaderboard()).observe(lb,{childList:true,subtree:true});}
   }
-  if(document.readyState!=='loading')startObserve();else document.addEventListener('DOMContentLoaded',startObserve);
+  if(window.META&&window.META.venue){   // heatmap pages only
+    if(document.readyState!=='loading')startObserve();else document.addEventListener('DOMContentLoaded',startObserve);
+  }
 })();

@@ -2,6 +2,9 @@
 """Extract ROWS data from all linked heatmap HTML files and write data/all_results.json."""
 import json, os, re, sys
 
+sys.path.insert(0, os.path.dirname(__file__))
+from courses import venue_for
+
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 HEATMAPS = [
@@ -67,10 +70,13 @@ def main():
                         'time': lane['time'],
                         'pct': lane['pct'],
                         'boat': r.get('boat', ''),
+                        'clock': r.get('clock'),            # race start "HH:MM" (None if unknown)
+                        'date': r.get('date') or h['date'],  # per-race date (multi-day) else comp date
                     })
         results.sort(key=lambda x: -x['pct'])
         print(f'  {h["comp"]}: {title} - {len(results)} results')
-        out.append({'comp': h['comp'], 'title': title, 'date': h['date'], 'url': h['file'], 'results': results})
+        out.append({'comp': h['comp'], 'title': title, 'date': h['date'], 'url': h['file'],
+                    'venue': venue_for(h['comp']), 'results': results})
 
     dest = os.path.join(ROOT, 'data', 'all_results.json')
     with open(dest, 'w', encoding='utf-8') as f:

@@ -535,10 +535,12 @@ if __name__ == "__main__":
                         help="rowresults.co.uk competition code (default: metsat25)")
     parser.add_argument("--out",  default=None,
                         help="Output filename (default: ../../heatmap-<comp>.html)")
+    parser.add_argument("--title", default=None,
+                        help="Page title (default: auto from comp code)")
     args = parser.parse_args()
 
     bm_path = Path(__file__).parent.parent.parent / "data" / "benchmarks_v3.json"
-    title   = make_title(args.comp)
+    title   = args.title or make_title(args.comp)
     out_name = args.out or f"../../heatmap-{args.comp}.html"
 
     rows = build_data(args.comp, bm_path)
