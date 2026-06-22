@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=0.85">
 <title>RowingTools - GMT% Calculator for UK Rowing</title>
 <meta name="description" content="Free GMT% calculator for UK club rowing. Browse regatta heatmaps, ranked individual results leaderboards, and club performance rankings across the season.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -984,13 +984,13 @@ function loadClubAnalysis(){
         clubs.forEach((c,i)=>{
           var f=fgVal(c.top10avg);
           h+='<tr data-n="'+c.name.toLowerCase()+'">'
-            +'<td style="color:var(--text3)">'+(i+1)+'</td>'
-            +'<td><a href="clubs.html?club='+encodeURIComponent(c.name)+'" style="color:var(--text);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">'+c.name+'</a></td>'
-            +'<td style="color:var(--text2)">'+c.regattas+'</td>'
-            +'<td style="color:var(--text2)">'+c.entries+'</td>'
-            +'<td><strong style="color:'+f+'">'+c.top10avg.toFixed(1)+'%</strong></td>'
-            +'<td style="color:var(--text3)">'+c.avg.toFixed(1)+'%</td>'
-            +'<td style="color:var(--text2)">'+c.best.toFixed(1)+'%</td>'
+            +'<td data-label="#" style="color:var(--text3)">'+(i+1)+'</td>'
+            +'<td data-label="Club"><a href="clubs.html?club='+encodeURIComponent(c.name)+'" style="color:var(--text);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">'+c.name+'</a></td>'
+            +'<td data-label="Regattas" style="color:var(--text2)">'+c.regattas+'</td>'
+            +'<td data-label="Entries" style="color:var(--text2)">'+c.entries+'</td>'
+            +'<td data-label="Top 10 Avg"><strong style="color:'+f+'">'+c.top10avg.toFixed(1)+'%</strong></td>'
+            +'<td data-label="Avg GMT%" style="color:var(--text3)">'+c.avg.toFixed(1)+'%</td>'
+            +'<td data-label="Best" style="color:var(--text2)">'+c.best.toFixed(1)+'%</td>'
             +'</tr>';
         });
         h+='</tbody></table></div></div>';

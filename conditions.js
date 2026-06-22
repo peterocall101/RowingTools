@@ -66,7 +66,7 @@
       <div class="wx-rail" id="wx-railbox" style="visibility:hidden">
         <div class="wx-temprow"><div class="wx-temp" id="wx-temp">--<span>&deg;C</span></div><div class="wx-icon" id="wx-iconel">&#9728;</div></div>
         <div class="wx-cond" id="wx-condel">&nbsp;</div>
-        <div class="wx-verdict" id="wx-verdict"><div class="lbl">Wind relative to the course</div><div class="big" id="wx-vbig">&mdash;</div><div class="desc" id="wx-vdesc"></div></div>
+        <div class="wx-verdict" id="wx-verdict"><div class="lbl">Wind relative to the course</div><div class="big" id="wx-vbig">&mdash;</div></div>
         <div class="wx-stats">
           <div class="wx-stat"><div class="k">Wind speed</div><div class="v" id="wx-wspd">&mdash;</div></div>
           <div class="wx-stat"><div class="k">Gusts</div><div class="v" id="wx-wgust">&mdash;</div></div>
@@ -118,12 +118,15 @@
   }
   function wxVsCourse(windFrom,bearing){
     const windTo=(windFrom+180)%360;let delta=((windTo-bearing+540)%360)-180;const a=Math.abs(delta);
-    let label,desc;
-    if(a<=25){label="Tailwind";desc="Blowing down the course, toward the finish.";}
-    else if(a>=155){label="Headwind";desc="Blowing up the course, toward the start.";}
-    else if(a<90){label="Cross-tail wind";desc="Blowing across the course, angled toward the finish.";}
-    else{label="Cross-head wind";desc="Blowing across the course, angled toward the start.";}
-    return {delta,label,desc};
+    // Closest of five canonical winds, each a 45deg band: tail 0, cross-tail 45,
+    // cross 90, cross-head 135, head 180 (boundaries at 22.5/67.5/112.5/157.5).
+    let label;
+    if(a<=22.5)label="Tailwind";
+    else if(a>=157.5)label="Headwind";
+    else if(a<67.5)label="Cross-tail wind";
+    else if(a>112.5)label="Cross-head wind";
+    else label="Crosswind";
+    return {delta,label};
   }
   function wxTone(k){return k<8?"rgba(78,232,176,.10)":k<18?"rgba(123,191,255,.10)":k<30?"rgba(240,176,48,.12)":"rgba(200,71,43,.14)";}
   function wxRender(v,wx){
@@ -139,7 +142,6 @@
     const vc=wxVsCourse(wx.wdir,v.bearing);
     document.getElementById('wx-verdict').style.background=wxTone(wx.wspd);
     document.getElementById('wx-vbig').textContent=vc.label;
-    document.getElementById('wx-vdesc').textContent=vc.desc;
     document.getElementById('wx-srcel').innerHTML='Source: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> historical archive.';
     document.getElementById('wx-railbox').style.visibility='visible';
     wxDrawCourse(v,wx);wxStartWind(v.bearing,wx.wdir,wx.wspd);

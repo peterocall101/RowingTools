@@ -120,6 +120,31 @@ site-wide club pages break silently without them):
 5. **Refresh club aliases** - run `python scripts/gen_alias_review.py`, read the "Near-duplicate candidates" in `club_aliases_review.md`, and add any genuine same-club duplicates to `data/club_aliases.json` (keyed by the lowercased canonical form). Event-specific scrapers that pull abbreviated club names (e.g. time-team.nl: "Bath Univ", "Kingston GS") often need a few. Re-run the review to confirm they merged.
 6. **Review locally and push.** Optionally run Stage 4 for carousel slides.
 
+### Race conditions (weather feature)
+
+Each heatmap row has a clickable time chip that opens the wind/water/weather for that
+race (live from the Open-Meteo historical archive); club profiles and the Result
+Leaderboard reuse the same popup. To make this work for a new regatta:
+
+- **Map the comp to its course** in `gmt_processor/inputs/courses.py`: add an entry to
+  `COMP_VENUE` (`"<comp>": "<course-key>"`). If it is a new venue, add it to `COURSES`
+  with `lat`, `lon`, `bearing` (compass heading the boats travel start->finish, measured
+  in Google Earth - draw start->finish), and `lanes`. The four courses are already
+  defined: `dorney`, `reading`, `holme`, `albert`.
+- **The scrapers do the rest automatically:** each generator captures the per-race start
+  `clock` ("HH:MM"), emits `window.ROWS`/`window.META`, and includes
+  `conditions.js` (the shared widget). Nothing else to wire on the page.
+- **Multi-day events** (e.g. BRCC, NSR): each race also carries its own `date`. For
+  rowresults (`generate_heatmap.py`) the weekday->date map lives in `COMP_DATES`; for
+  time-team scrapers it is derived from the `Fri/Sat/Sun` prefix in the race header. If a
+  source omits the time for some races, those rows simply have no chip (graceful).
+- **Sources without a clock time-of-day** (Wallingford via wallingford-regatta.org /
+  didwewin) get no chip - everything else still works.
+- **build_all_results.py** also reads `clock`/`date` from each heatmap and `venue` from
+  `courses.py`, so re-running it (step 3) is what powers the popup on club profiles.
+- **BRCC has no auto-title** - regenerate it with
+  `--title "British Rowing Club Championships 2025"` (rowresults `make_title` only knows Met).
+
 Result sources by path:
 
 - **Path A - rowresults.co.uk:** Stage 3a with the comp code
