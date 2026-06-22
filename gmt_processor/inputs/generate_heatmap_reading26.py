@@ -23,11 +23,17 @@ Usage:
     python gmt_processor/inputs/generate_heatmap_reading26.py --out heatmap-reading26.html
 """
 
-import argparse, json, re
+import argparse, json, re, sys
 from html import unescape
 from urllib.parse import unquote
 from collections import defaultdict
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from courses import COURSES
+
+VENUE = COURSES["reading"]
+RACE_DATE = "2026-06-13"   # Reading Amateur Regatta 2026, single day (13 June)
 
 WBT_PATH = Path(__file__).parent.parent.parent / "data" / "benchmarks_v3.json"
 RESULTS_URL = "https://www.reading-amateur-regatta.org/RESULTS/regatta.php?id=26119&day=1"
@@ -194,18 +200,30 @@ def build_rows(html, wbt):
 
         winners = {}        # entry -> {'crew','club','best_secs'}
         final_winner = None
+        final_clock = ''        # clock time of this category's final (decider)
+        latest_rn = None        # fallback: clock of the latest race by race number
+        latest_clock = ''
         for rn, tds in races:
+            clock = normalise_clock(tds[1])
+            if latest_rn is None or rn > latest_rn:
+                latest_rn, latest_clock = rn, clock
+            is_final = not re.search(r'#R\d+', tds[3])  # final has no Next Race link
+            if is_final and clock:
+                final_clock = clock
             cell = winner_cell(tds)
             if not cell:
                 continue
             entry, crew, club = crew_from_cell(cell)
             secs = parse_race_time(re.sub(r'<[^>]+>', '', tds[6]).strip())
-            is_final = not re.search(r'#R\d+', tds[3])  # final has no Next Race link
             if is_final:
                 final_winner = entry
             w = winners.setdefault(entry, {'crew': crew, 'club': club, 'best': None})
             if secs is not None and (w['best'] is None or secs < w['best']):
                 w['best'] = secs
+
+        # If no detected final carried a clock, fall back to the latest race's clock.
+        if not final_clock:
+            final_clock = latest_clock
 
         lanes = []
         for entry, w in winners.items():
@@ -230,7 +248,7 @@ def build_rows(html, wbt):
             "boat": wbt_key,
             "rows": [],
         })
-        ev["rows"].append({"band": band, "round": band_label(band), "lanes": lanes})
+        ev["rows"].append({"band": band, "round": band_label(band), "lanes": lanes, "clock": final_clock})
 
     # Flatten, events ordered Senior -> School -> J18 -> J16, bands B1..B4 then Open.
     rows_out = []
@@ -240,6 +258,7 @@ def build_rows(html, wbt):
             rows_out.append({
                 "event": display,
                 "round": br['round'],
+                "clock": br['clock'],
                 "lanes": br['lanes'],
                 "boat": ev["boat"],
             })
@@ -251,8 +270,27 @@ def fmt_secs(s):
     return f"{s // 60}:{s % 60:02d}"
 
 
+def normalise_clock(raw):
+    """Strip tags and normalise a clock string to 24h 'HH:MM'.
+
+    Handles '13:45', '1:45 PM', '1.45pm' etc. Returns 'HH:MM' or '' if no time found.
+    """
+    txt = unescape(re.sub(r'<[^>]+>', '', raw or '')).strip()
+    m = re.search(r'(\d{1,2})[:.](\d{2})\s*([AaPp][Mm])?', txt)
+    if not m:
+        return ''
+    hh, mm = int(m.group(1)), int(m.group(2))
+    ap = (m.group(3) or '').lower()
+    if ap == 'pm' and hh != 12:
+        hh += 12
+    elif ap == 'am' and hh == 12:
+        hh = 0
+    return f"{hh:02d}:{mm:02d}"
+
+
 def generate_html(rows, comp, title):
     data_json = json.dumps(rows)
+    meta_json = json.dumps({"venue": VENUE, "date": RACE_DATE})
     js_title = title.replace("'", "\\'")
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -295,7 +333,7 @@ td.rnd{{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space
 </head>
 <body>
 <h1>{title}</h1>
-<p class="sub">GMT% vs 2000m WBT. Reading is a head-to-head knockout regatta over ~1500m, and only race winners are timed - so each band lists the crews that won at least one race (fastest of their rounds), sorted fastest to slowest. 1500m times are scaled to 2000m, with an adjustment made in the GMT calc to allow for the fact the race is over 1.5k (approx 7.5 seconds added to the time when calculating GMT, since crews fade more over the longer 2k). <span style="color:#f5c518">&#x1F3C6;</span> marks the crew that actually won the band final (usually, but not always, the fastest). J14 and J15 events are excluded. Results via reading-amateur-regatta.org.</p>
+<p class="sub">GMT% vs 2000m WBT. Reading is a head-to-head knockout regatta over ~1500m, and only race winners are timed - so each band lists the crews that won at least one race (fastest of their rounds), sorted fastest to slowest. 1500m times are scaled to 2000m, with an adjustment made in the GMT calc to allow for the fact the race is over 1.5k (approx 7.5 seconds added to the time when calculating GMT, since crews fade more over the longer 2k). <span style="color:#f5c518">&#x1F3C6;</span> marks the crew that actually won the band final (usually, but not always, the fastest). J14 and J15 events are excluded. Tap a band to see the race conditions; the conditions shown are for the final (decider) of each category. Results via reading-amateur-regatta.org.</p>
 <div class="tabs">
   <button class="tab active" onclick="showTab('heatmap',this)">Heatmap</button>
   <button class="tab" onclick="showTab('top100',this)">Result Leaderboard</button>
@@ -352,6 +390,8 @@ td.rnd{{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space
 </div>
 <script>
 const ROWS={data_json};
+window.ROWS=ROWS;
+window.META={meta_json};
 for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null&&l.pct<50)l.pct=null;
 function bg(p){{return p===null?'#2a2a2a':p>=87?'#1a4d3e':p>=80?'#1a3a5c':p>=72?'#4a3200':'#4a1a0a'}}
 function fg(p){{return p===null?'#555':p>=87?'#4ee8b0':p>=80?'#7bbfff':p>=72?'#f0b030':'#ff7050'}}
@@ -541,6 +581,7 @@ function downloadCompare(){{
 renderClubInputs();
 renderHeatmap(ROWS,'');
 </script>
+<script src="conditions.js"></script>
 </body>
 </html>"""
 

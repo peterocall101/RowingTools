@@ -10,8 +10,11 @@ Usage:
     python gmt_processor/inputs/generate_heatmap_nsr26.py --out heatmap-nsr26.html
 """
 
-import argparse, json, re
+import argparse, json, re, sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from courses import COURSES
 
 WBT_PATH = Path(__file__).parent.parent.parent / "data" / "benchmarks_v3.json"
 BASE_URL = "https://regatta.time-team.nl/nsr/2026/results"
@@ -209,6 +212,19 @@ CLUBS = {
 
 FINAL_RE = re.compile(r'\bFinal\s+([A-Z])\b')
 TIME_RE   = re.compile(r'^\d+:\d{2}\.\d+$')
+CLOCK_RE  = re.compile(r'\b(\d{1,2}:\d{2})\b')      # race start clock time in the h2 header
+DAY_RE    = re.compile(r'^\s*([A-Za-z]{3,9}),')     # weekday at start of h2 text
+
+# Course / venue config for the "race conditions" feature (see courses.py).
+# NSR 2026 is at Dorney Lake; this event spans three days (Fri 22 - Sun 24 May 2026).
+VENUE = COURSES["dorney"]
+
+# Multi-day: map the weekday (as it appears in each h2 header) to its date.
+DAY_DATES = {
+    "Fri": "2026-05-22", "Sat": "2026-05-23", "Sun": "2026-05-24",
+    "Friday": "2026-05-22", "Saturday": "2026-05-23", "Sunday": "2026-05-24",
+}
+RACE_DATE = "2026-05-22"   # META fallback = first day; per-race date overrides this
 
 
 def load_wbt():
@@ -258,6 +274,12 @@ def scrape_event(session, uuid, display_name):
         if letter in seen_finals:
             continue
 
+        cm = CLOCK_RE.search(text)
+        clock = cm.group(1) if cm else None
+        dm = DAY_RE.match(text)
+        day = dm.group(1) if dm else None
+        date = DAY_DATES.get(day)
+
         table = tag.find_next('table')
         if not table:
             continue
@@ -295,7 +317,7 @@ def scrape_event(session, uuid, display_name):
             rows.append({'pos': pos, 'club': club, 'time': time_text})
 
         if rows:
-            finals.append((letter, rows))
+            finals.append((letter, rows, clock, date))
             seen_finals.add(letter)
 
     finals.sort(key=lambda x: x[0])  # A before B before C ...
@@ -316,7 +338,7 @@ def build_races(session, wbt):
             continue
 
         event_lanes = []
-        for letter, result_rows in finals:
+        for letter, result_rows, clock, date in finals:
             round_label = f"Final {letter}"
             lanes = []
             for entry in sorted(result_rows, key=lambda x: x['pos']):
@@ -333,6 +355,8 @@ def build_races(session, wbt):
                 "round": round_label,
                 "lanes": lanes,
                 "boat":  boat_key,
+                "clock": clock,
+                "date":  date,
             })
             print(f"  {display_name} {round_label}: {len(lanes)} crews")
 
@@ -343,6 +367,7 @@ def build_races(session, wbt):
 
 def generate_html(rows, comp, title):
     data_json = json.dumps(rows)
+    meta_json = json.dumps({"venue": VENUE, "date": RACE_DATE})
     js_title = title.replace("'", "\\'")
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -439,6 +464,8 @@ td.rnd{{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space
 </div>
 <script>
 const ROWS={data_json};
+window.ROWS=ROWS;
+window.META={meta_json};
 for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null&&l.pct<50)l.pct=null;
 function bg(p){{return p===null?'#2a2a2a':p>=87?'#1a4d3e':p>=80?'#1a3a5c':p>=72?'#4a3200':'#4a1a0a'}}
 function fg(p){{return p===null?'#555':p>=87?'#4ee8b0':p>=80?'#7bbfff':p>=72?'#f0b030':'#ff7050'}}
@@ -626,6 +653,7 @@ function downloadCompare(){{
 renderClubInputs();
 renderHeatmap(ROWS,'');
 </script>
+<script src="conditions.js"></script>
 </body>
 </html>"""
 

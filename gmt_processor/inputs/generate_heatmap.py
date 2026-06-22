@@ -16,6 +16,22 @@ except ImportError:
 BASE    = "https://rowresults.co.uk"
 HEADERS = {"User-Agent": "Mozilla/5.0", "Referer": BASE}
 
+sys.path.insert(0, str(Path(__file__).parent))
+from courses import venue_for
+
+# Race dates per comp for the conditions feature. Single-day -> ISO date;
+# multi-day -> {Weekday: ISO} (rowresults gives each race a "Day" weekday).
+COMP_DATES = {
+    "metsat25": "2025-05-31", "metsun25": "2025-06-01",
+    "metsat26": "2026-05-30", "metsun26": "2026-05-31",
+    "brcc25": {"Friday": "2025-07-18", "Saturday": "2025-07-19",
+               "Sunday": "2025-07-20", "Monday": "2025-07-21"},
+}
+
+def race_date(comp, day):
+    d = COMP_DATES.get(comp)
+    return d.get(day) if isinstance(d, dict) else d
+
 # ── DATA FETCH ────────────────────────────────────────────────────────────────
 
 def fetch_races(comp):
@@ -119,7 +135,8 @@ def build_data(comp, bm_path):
 
         ev_clean = re.sub(r'\s*(Championship|Academic|Club|Sch/Jun)\s*$', '', ev, flags=re.I).strip()
         ev_clean = normalize_event(ev_clean)
-        rows.append({"event": ev_clean, "round": round_, "lanes": finishers, "boat": boat or ""})
+        rows.append({"event": ev_clean, "round": round_, "lanes": finishers, "boat": boat or "",
+                     "clock": race.get("Time"), "date": race_date(comp, race.get("Day"))})
         print(f"— {len(finishers)} finishers" + ("" if wbt_t else " (no WBT)"))
 
     # Sort: men before women, then by event name, then final type A→B→C
@@ -133,6 +150,9 @@ def build_data(comp, bm_path):
 def generate_html(rows, comp, title):
     data_json = json.dumps(rows)
     js_title  = title.replace("'", "\\'")
+    venue     = venue_for(comp)
+    _dates    = [r["date"] for r in rows if r.get("date")]
+    meta_json = json.dumps({"venue": venue, "date": _dates[0] if _dates else ""}) if venue else "null"
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -269,6 +289,8 @@ td:not(.rnd):hover .cell{{transform:scale(1.04)}}
 </footer>
 <script>
 const ROWS={data_json};
+window.ROWS=ROWS;
+window.META={meta_json};
 for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null&&l.pct<50)l.pct=null;
 function normClub(n){{return(n||'').replace(/\s*\([A-Za-z]\)\s*$/,'').trim();}}
 function bg(p){{return p===null?'#252523':p>=87?'#0a3d2a':p>=80?'#0d2d4a':p>=72?'#3d2200':'#3d0e0a'}}
@@ -486,6 +508,7 @@ renderClubInputs();
 }})();
 renderHeatmap(ROWS,'');
 </script>
+<script src="conditions.js"></script>
 </body>
 </html>"""
 def make_title(comp):

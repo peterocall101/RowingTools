@@ -16,8 +16,11 @@ Usage:
     python generate_heatmap_nottm26.py --comp nottm26 --title "Nottingham City Regatta 2026" --out ../../heatmap-nottm26.html
 """
 
-import argparse, json, re, time
+import argparse, json, re, sys, time
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from courses import COURSES
 
 try:
     import requests
@@ -29,6 +32,12 @@ BASE_URL  = "https://regatta.time-team.nl/nottingham-city-regatta/2026/results"
 RACES_URL = f"{BASE_URL}/races.php"
 WBT_PATH  = Path(__file__).parent.parent.parent / "data" / "benchmarks_v3.json"
 HREF_RE   = re.compile(r'^r[0-9a-f\-]+\.php$', re.I)
+FINAL_RE  = re.compile(r'\bFinal\s+([A-Z])\b')
+CLOCK_RE  = re.compile(r'\b(\d{1,2}:\d{2})\s*([AaPp][Mm])?')   # race start clock time in the h2 header
+
+# Course / venue config for the "race conditions" feature (see courses.py).
+VENUE = COURSES["holme"]
+RACE_DATE = "2026-05-09"   # Nottingham City Regatta 2026, Saturday
 
 
 def load_wbt():
@@ -54,6 +63,25 @@ def fmt_time(s):
     mins = int(s // 60)
     secs = s - mins * 60
     return f"{mins}:{secs:04.1f}"
+
+
+def parse_clock(text):
+    """Extract the race start clock from an h2 header and return 24h 'HH:MM'.
+
+    time-team headers look like 'Sat, 11:00 AM - Race 15A - ...' (12h with AM/PM,
+    sometimes using a narrow no-break space). Returns None if no clock is present.
+    """
+    m = CLOCK_RE.search(text)
+    if not m:
+        return None
+    hh, mm = m.group(1).split(":")
+    hh = int(hh)
+    ampm = (m.group(2) or "").lower()
+    if ampm == "pm" and hh != 12:
+        hh += 12
+    elif ampm == "am" and hh == 12:
+        hh = 0
+    return f"{hh:02d}:{mm}"
 
 
 EXCLUDE_ROW_RE = re.compile(r'\bJ(?!18)\d{2}\b|\bU23\b|\bAR\b|\bBeg\b', re.I)
@@ -149,7 +177,10 @@ def scrape_races(session):
 
 
 def scrape_result(session, href):
-    """Fetch a race result page and return list of row dicts: {pos, crew_raw, event_col, time_raw, supp_raw}.
+    """Fetch a race result page and return (rows, clock).
+
+    rows is a list of row dicts: {pos, crew_raw, event_col, time_raw, supp_raw}.
+    clock is the 24h 'HH:MM' race start time parsed from the page h2, or None.
 
     The site uses two rows per entry: a main row (with position and time) and a supplementary row
     (empty position cell) that holds either the stroke name (crew boats) or the club name (scullers).
@@ -159,6 +190,12 @@ def scrape_result(session, href):
     resp = session.get(url, timeout=30)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, 'html.parser')
+
+    clock = None
+    for h2 in soup.find_all('h2'):
+        clock = parse_clock(h2.get_text(' ', strip=True))
+        if clock:
+            break
 
     for table in soup.find_all('table'):
         header_tr = table.find('tr')
@@ -212,9 +249,9 @@ def scrape_result(session, href):
             rows.append(pending)
 
         if rows:
-            return rows
+            return rows, clock
 
-    return []
+    return [], clock
 
 
 def build_races(wbt):
@@ -232,7 +269,7 @@ def build_races(wbt):
         print(f"  [{i+1}/{len(race_list)}] {title}", end=' ', flush=True)
 
         try:
-            results = scrape_result(session, href)
+            results, clock = scrape_result(session, href)
             time.sleep(0.1)
         except Exception as e:
             print(f"- ERROR: {e}")
@@ -271,6 +308,7 @@ def build_races(wbt):
                 'round': round_label,
                 'lanes': lanes,
                 'boat':  boat_fallback or '',
+                'clock': clock,
             })
             print(f"- {len(lanes)} entries")
         else:
@@ -281,6 +319,7 @@ def build_races(wbt):
 
 def generate_html(rows, comp, title):
     data_json = json.dumps(rows)
+    meta_json = json.dumps({"venue": VENUE, "date": RACE_DATE})
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -378,6 +417,8 @@ td.rnd{{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space
 </div>
 <script>
 const ROWS={data_json};
+window.ROWS=ROWS;
+window.META={meta_json};
 for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null&&l.pct<50)l.pct=null;
 function normClub(n){{return(n||'').replace(/\\s*\\([A-Za-z]\\)\\s*$/,'').trim();}}
 function bg(p){{return p===null?'#2a2a2a':p>=87?'#1a4d3e':p>=80?'#1a3a5c':p>=72?'#4a3200':'#4a1a0a'}}
@@ -613,6 +654,7 @@ function downloadCompare(){{
 renderClubInputs();
 renderHeatmap(ROWS,'');
 </script>
+<script src="conditions.js"></script>
 </body>
 </html>"""
 

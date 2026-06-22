@@ -16,7 +16,7 @@ Usage:
     python generate_heatmap_poplar26.py --comp poplar26 --title "Poplar Regatta 2026" --out ../../heatmap-poplar26.html
 """
 
-import argparse, json, re, time
+import argparse, json, re, sys, time
 from pathlib import Path
 
 try:
@@ -25,8 +25,18 @@ try:
 except ImportError:
     raise SystemExit("Install dependencies: pip install requests beautifulsoup4")
 
+sys.path.insert(0, str(Path(__file__).parent))
+from courses import COURSES
+
 BASE_URL = "https://beta.regatta.time-team.nl/poplar/2026/races"
 WBT_PATH = Path(__file__).parent.parent.parent / "data" / "benchmarks_v3.json"
+
+# Course / venue config for the "race conditions" feature (see courses.py).
+# Poplar Regatta 2026 is at Royal Albert Dock, London, single day.
+VENUE = COURSES["albert"]
+RACE_DATE = "2026-05-17"   # Poplar Regatta 2026, Sunday
+
+CLOCK_RE = re.compile(r'\b(\d{1,2}:\d{2})\b')   # race start clock time "HH:MM"
 
 # All Final A races from Poplar Regatta 2026.
 # J14 and J15 events omitted (Op J14 4x+, W J14 4x+, Op J14 8x+, W J14 8x+,
@@ -129,6 +139,17 @@ def scrape_result(session, uuid, event_name):
     q0 = data['props']['pageProps']['dehydratedState']['queries'][0]['state']['data']
     race_crew = q0.get('race_crew', {})
 
+    # Race start clock time "HH:MM" for the "race conditions" feature. The race
+    # dict carries start_time directly; fall back to parsing the "Sun, HH:MM - ..."
+    # string with CLOCK_RE if needed.
+    clock = None
+    for race in (q0.get('race') or {}).values():
+        clock = race.get('start_time')
+        if not clock:
+            cm = CLOCK_RE.search(race.get('string') or '')
+            clock = cm.group(1) if cm else None
+        break
+
     is_sculler = bool(re.search(r'\b1x\b', event_name))
 
     results = []
@@ -160,7 +181,7 @@ def scrape_result(session, uuid, event_name):
             'time_str': time_str,
         })
 
-    return sorted(results, key=lambda x: x['pos'])
+    return sorted(results, key=lambda x: x['pos']), clock
 
 
 def build_races(wbt):
@@ -175,7 +196,7 @@ def build_races(wbt):
         boat = to_boat_class(event_name)
 
         try:
-            results = scrape_result(session, uuid, event_name)
+            results, clock = scrape_result(session, uuid, event_name)
             time.sleep(0.15)
         except Exception as e:
             print(f"- ERROR: {e}")
@@ -206,6 +227,7 @@ def build_races(wbt):
                 'round': round_label,
                 'lanes': lanes,
                 'boat':  boat or '',
+                'clock': clock,
             })
             print(f"- {len(lanes)} entries")
         else:
@@ -216,6 +238,7 @@ def build_races(wbt):
 
 def generate_html(rows, comp, title):
     data_json = json.dumps(rows)
+    meta_json = json.dumps({"venue": VENUE, "date": RACE_DATE})
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -313,6 +336,8 @@ td.rnd{{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space
 </div>
 <script>
 const ROWS={data_json};
+window.ROWS=ROWS;
+window.META={meta_json};
 for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null&&l.pct<50)l.pct=null;
 function normClub(n){{return(n||'').replace(/\\s*\\([A-Za-z]\\)\\s*$/,'').trim();}}
 function bg(p){{return p===null?'#2a2a2a':p>=87?'#1a4d3e':p>=80?'#1a3a5c':p>=72?'#4a3200':'#4a1a0a'}}
@@ -548,6 +573,7 @@ function downloadCompare(){{
 renderClubInputs();
 renderHeatmap(ROWS,'');
 </script>
+<script src="conditions.js"></script>
 </body>
 </html>"""
 

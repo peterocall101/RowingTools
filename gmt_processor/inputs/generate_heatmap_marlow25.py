@@ -17,8 +17,11 @@ Usage:
     python gmt_processor/inputs/generate_heatmap_marlow25.py --out heatmap-marlow25.html
 """
 
-import argparse, json, re
+import argparse, json, re, sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from courses import COURSES
 
 WBT_PATH = Path(__file__).parent.parent.parent / "data" / "benchmarks_v3.json"
 BASE_URL = "https://regatta.time-team.nl/marlow/2025/results"
@@ -198,6 +201,12 @@ CLUBS = {
 
 FINAL_RE = re.compile(r'\bFinal\s+([A-Z])\b')
 TIME_RE  = re.compile(r'^\d+:\d{2}\.\d+$')
+CLOCK_RE = re.compile(r'\b(\d{1,2}:\d{2})\b')   # race start clock time in the h2 header
+
+# Course / venue config for the "race conditions" feature (see courses.py).
+# Marlow is at Dorney Lake; bearing 127 deg measured start->finish in Google Earth.
+VENUE = COURSES["dorney"]
+RACE_DATE = "2025-06-21"   # Marlow Regatta 2025, Saturday
 
 
 def load_wbt():
@@ -245,6 +254,9 @@ def scrape_event(session, uuid, display_name):
         if letter in seen_finals:
             continue
 
+        cm = CLOCK_RE.search(text)
+        clock = cm.group(1) if cm else None
+
         table = tag.find_next('table')
         if not table:
             continue
@@ -280,7 +292,7 @@ def scrape_event(session, uuid, display_name):
             rows.append({'pos': pos, 'club': club, 'time': time_text})
 
         if rows:
-            finals.append((letter, rows))
+            finals.append((letter, rows, clock))
             seen_finals.add(letter)
 
     finals.sort(key=lambda x: x[0])  # A before B before C ...
@@ -301,7 +313,7 @@ def build_races(session, wbt):
             continue
 
         event_lanes = []
-        for letter, result_rows in finals:
+        for letter, result_rows, clock in finals:
             round_label = f"Final {letter}"
             lanes = []
             for entry in sorted(result_rows, key=lambda x: x['pos']):
@@ -318,6 +330,7 @@ def build_races(session, wbt):
                 "round": round_label,
                 "lanes": lanes,
                 "boat":  boat_key,
+                "clock": clock,
             })
             print(f"  {display_name} {round_label}: {len(lanes)} crews")
 
@@ -459,6 +472,8 @@ td:not(.rnd):hover .cell{transform:scale(1.04)}
 </div>
 <script>
 const ROWS=__DATA__;
+window.ROWS=ROWS;
+window.META=__META__;
 for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null&&l.pct<50)l.pct=null;
 function bg(p){return p===null?'#252523':p>=87?'#0a3d2a':p>=80?'#0d2d4a':p>=72?'#3d2200':'#3d0e0a'}
 function fg(p){return p===null?'#555':p>=87?'#34d399':p>=80?'#60a5fa':p>=72?'#fb923c':'#f87171'}
@@ -645,12 +660,14 @@ function downloadCompare(){
   img.onload=()=>{const c=document.createElement('canvas');c.width=TW*2;c.height=TH*2;const ctx=c.getContext('2d');ctx.scale(2,2);ctx.drawImage(img,0,0);c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='heatmap-__COMP__-compare.png';a.click();},'image/png');URL.revokeObjectURL(url);};
   img.src=url;
 }
+
 renderClubInputs();
 renderHeatmap(ROWS,'');
 </script>
 
 <div class="footer"><a href="/">← rowingtools.co.uk</a></div>
 <script src="rowingtools-share.js"></script>
+<script src="conditions.js"></script>
 </body>
 </html>"""
 
@@ -668,6 +685,7 @@ def generate_html(rows, comp, title):
             .replace("__SUB__", sub)
             .replace("__JS_TITLE__", title.replace("'", "\\'"))
             .replace("__COMP__", comp)
+            .replace("__META__", json.dumps({"venue": VENUE, "date": RACE_DATE}))
             .replace("__DATA__", json.dumps(rows)))
 
 
