@@ -237,7 +237,7 @@ def generate_html(rows, comp, title):
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=0.85">
+<meta name="viewport" content="width=device-width, initial-scale=0.55">
 <title>{title}</title>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}

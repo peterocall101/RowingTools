@@ -346,7 +346,7 @@ TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=0.85">
+<meta name="viewport" content="width=device-width, initial-scale=0.55">
 <title>__SEO_TITLE__</title>
 <meta name="description" content="__DESC__">
 <link rel="preconnect" href="https://fonts.googleapis.com">
