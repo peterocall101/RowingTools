@@ -37,6 +37,7 @@ const ClubData = (function () {
         event: r.event,
         round: r.round,
         time: r.time,
+        clock: r.clock,
         pct: r.pct,
         boat: r.boat,
         date: r.date || c.date,

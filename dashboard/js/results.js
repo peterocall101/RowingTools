@@ -3,6 +3,15 @@
 (async function () {
   const app = document.getElementById('app');
   const COMMON_DISTANCES = [2000, 5000, 6000, 500, 1000, 1500];
+  const WIND_SVG = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2"/><path d="M17.73 7.73A2.5 2.5 0 1 1 19.5 12H2"/><path d="M12.59 19.41A2 2 0 1 0 14 16H2"/></svg>';
+
+  // Conditions chip for a race row with a venue + clock time; opens the shared
+  // conditions.js modal (live weather + wind-vs-course), same as the main site.
+  function conditionsChip(r) {
+    if (!r.clock || !r.venue) return '';
+    const sum = r.weather ? ' &middot; ' + escapeHtml(weatherSummary(r.weather)) : '';
+    return `<button class="rt-wx" data-wx="${r.id}">${WIND_SVG}<span>${escapeHtml(r.clock)}${sum}</span></button>`;
+  }
 
   const session = await requireAuth();
   if (!session) return;
@@ -78,6 +87,12 @@
       });
     app.querySelectorAll('[data-del]').forEach(b =>
       b.onclick = () => removeResult(rows.find(r => r.id === b.dataset.del)));
+    app.querySelectorAll('[data-wx]').forEach(b =>
+      b.onclick = () => {
+        const r = rows.find(x => x.id === b.dataset.wx);
+        const label = [r.crew_label, r.event].filter(Boolean).join(' - ') || 'Race';
+        window.wxOpen(r.clock, label, r.boat_class, r.performed_at, r.venue);
+      });
   }
 
   function tableHtml(rows) {
@@ -95,9 +110,11 @@
     let who;
     if (isPublic) {
       const sub = [r.event, r.regatta].filter(Boolean).map(escapeHtml).join(' &middot; ');
+      const chip = conditionsChip(r);
       who = `<strong>${escapeHtml(r.crew_label || r.crew?.name || '-')}</strong>`
           + (sub ? `<div class="muted">${sub}</div>` : '')
-          + (tagged.length ? `<div class="muted">with: ${escapeHtml(tagged.join(', '))}</div>` : '');
+          + (tagged.length ? `<div class="muted">with: ${escapeHtml(tagged.join(', '))}</div>` : '')
+          + (chip ? `<div>${chip}</div>` : '');
     } else if (r.crew?.name) {
       who = `<strong>${escapeHtml(r.crew.name)}</strong>`
           + (tagged.length ? `<div class="muted">${escapeHtml(tagged.join(', '))}</div>` : '');
@@ -162,23 +179,34 @@
         const picks = [...form.querySelectorAll('input[name="imp"]:checked')].map(c => currentEntries[parseInt(c.value, 10)]);
         if (!picks.length) throw new Error('Select at least one result.');
 
-        const payload = picks.map(e => ({
-          group_id: RT.activeGroupId,
-          created_by: session.user.id,
-          source: 'public',
-          piece_type: 'water',
-          performed_at: e.date,
-          time_ms: safeParse(e.time),
-          distance_m: null,
-          rate: null,
-          pct: e.pct ?? null,
-          event: e.event || null,
-          regatta: e.regatta || null,
-          boat_class: e.boat || null,
-          crew_label: e.crew || null,
-          crew_id: null,
-          public_ref: e.ref,
-        })).filter(p => p.time_ms != null);
+        // Fetch race-time weather for each (best-effort) so it's cached on import,
+        // exactly the conditions the main site shows.
+        const payload = (await Promise.all(picks.map(async e => {
+          const time_ms = safeParse(e.time);
+          if (time_ms == null) return null;
+          const weather = await fetchRaceWeather(e.venue, e.date, e.clock);
+          return {
+            group_id: RT.activeGroupId,
+            created_by: session.user.id,
+            source: 'public',
+            piece_type: 'water',
+            performed_at: e.date,
+            time_ms,
+            distance_m: null,
+            rate: null,
+            pct: e.pct ?? null,
+            event: e.event || null,
+            regatta: e.regatta || null,
+            round: e.round || null,
+            clock: e.clock || null,
+            boat_class: e.boat || null,
+            crew_label: e.crew || null,
+            venue: e.venue || null,
+            weather,
+            crew_id: null,
+            public_ref: e.ref,
+          };
+        }))).filter(Boolean);
 
         const { error } = await sb.from('results')
           .upsert(payload, { onConflict: 'group_id,public_ref', ignoreDuplicates: true });
