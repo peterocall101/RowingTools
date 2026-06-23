@@ -137,9 +137,12 @@ create table public.results (
 );
 create index results_group_idx on public.results (group_id, performed_at);
 create index results_crew_idx  on public.results (crew_id);
--- A given public result can be imported into a squad at most once.
+-- A given public result can be imported into a squad at most once. Plain
+-- (non-partial) unique index so upsert ON CONFLICT (group_id, public_ref)
+-- can use it. Manual rows have public_ref = null, and NULLs are distinct, so
+-- they never collide here.
 create unique index results_public_ref_uniq
-  on public.results (group_id, public_ref) where public_ref is not null;
+  on public.results (group_id, public_ref);
 
 -- Individuals tagged on a result (enables the per-athlete progress view).
 create table public.result_athletes (
