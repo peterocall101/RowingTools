@@ -72,8 +72,8 @@ function renderHeader(activePage) {
   const links = [
     { href: 'index.html',   label: 'Home' },
     { href: 'results.html', label: 'Results', soon: true },
-    { href: 'roster.html',  label: 'Roster',  soon: true },
-    { href: 'crews.html',   label: 'Crews',   soon: true },
+    { href: 'roster.html',  label: 'Roster' },
+    { href: 'crews.html',   label: 'Crews' },
     { href: 'members.html', label: 'Members', soon: true, adminOnly: true },
   ];
 
