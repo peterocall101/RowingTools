@@ -1,29 +1,62 @@
-// benchmarks.js - load and manage benchmark sets for GMT% calculations
-// Benchmarks: WBT, Metropolitan A/B/C, Henley, Harvard, or custom per-squad
+// benchmarks.js - simplified: WBT as base + adjustments per benchmark
 
-// Cache of benchmark data (loaded on demand)
-const _benchmarkCache = {};
+let _wbtCache = null;
 
-// Fetch the active benchmark for a group (and its times).
+// Load WBT (World Best Time) reference from static data
+async function loadWBT() {
+  if (_wbtCache) return _wbtCache;
+  try {
+    const res = await fetch('../data/benchmarks_v3.json');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const wbt = data.wbt || {};
+
+    // Convert to {boat_class: time_ms}
+    _wbtCache = {};
+    Object.entries(wbt).forEach(([bc, entry]) => {
+      if (entry.time) {
+        const ms = timeStringToMs(entry.time);
+        if (!isNaN(ms)) _wbtCache[bc] = ms;
+      }
+    });
+
+    if (Object.keys(_wbtCache).length === 0) {
+      throw new Error('No valid WBT times found in benchmarks_v3.json');
+    }
+    return _wbtCache;
+  } catch (e) {
+    console.error('Failed to load WBT:', e);
+    throw e;
+  }
+}
+
+// Get active benchmark (with adjustments applied)
 async function getActiveBenchmark(groupId) {
+  const activeId = activeGroup()?.active_benchmark_id;
+  if (!activeId) return null;
+
   const { data, error } = await sb
     .from('benchmarks')
-    .select('*, benchmark_times(*)')
-    .eq('id', activeGroup().active_benchmark_id)
+    .select('*, benchmark_adjustments(*)')
+    .eq('id', activeId)
     .single();
 
   if (error || !data) return null;
 
-  const times = {};
-  data.benchmark_times.forEach(t => { times[t.boat_class] = t.time_ms; });
-  return { ...data, times };
+  const wbt = await loadWBT();
+  const adjustments = {};
+  (data.benchmark_adjustments || []).forEach(a => {
+    adjustments[a.boat_class] = a.offset_ms || 0;
+  });
+
+  return { ...data, wbt, adjustments };
 }
 
-// List all benchmarks for a group.
+// List all benchmarks for a group
 async function listBenchmarks(groupId) {
   const { data, error } = await sb
     .from('benchmarks')
-    .select('id, name, source, created_at, deleted_at')
+    .select('id, name, created_at, deleted_at')
     .eq('group_id', groupId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
@@ -31,82 +64,19 @@ async function listBenchmarks(groupId) {
   return error ? [] : data;
 }
 
-// Load preset benchmark times from the data files (WBT, Met, etc).
-async function loadPresetBenchmark(source) {
-  if (_benchmarkCache[source]) return _benchmarkCache[source];
-
-  try {
-    const res = await fetch('../data/benchmarks_v3.json');
-    if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to fetch benchmark data from ../data/benchmarks_v3.json`);
-    const data = await res.json();
-    if (!data[source]) throw new Error(`Source "${source}" not found in benchmarks_v3.json. Available: ${Object.keys(data).join(', ')}`);
-    _benchmarkCache[source] = data[source];
-    return _benchmarkCache[source];
-  } catch (e) {
-    console.error(`Could not load preset benchmark ${source}:`, e);
-    throw e;
-  }
-}
-
-// Convert preset benchmark (object of {boat_class: {label, time}} or similar)
-// to the jsonb format expected by create_benchmark (object of {boat_class: time_ms}).
-async function convertPresetToTimes(source) {
-  const preset = await loadPresetBenchmark(source);
-  const times = {};
-
-  if (!preset || typeof preset !== 'object') {
-    console.error('Preset is not an object:', preset);
-    throw new Error(`Could not load preset benchmark "${source}". Check that benchmarks_v3.json exists and is valid.`);
-  }
-
-  console.log(`Converting preset "${source}":`, preset);
-
-  Object.entries(preset).forEach(([boatClass, entry]) => {
-    if (entry && entry.time) {
-      const ms = timeStringToMs(entry.time);
-      console.log(`${boatClass}: "${entry.time}" -> ${ms}ms`);
-      if (!isNaN(ms)) times[boatClass] = ms;
-    }
-  });
-
-  console.log(`Total valid times for "${source}":`, Object.keys(times).length);
-
-  if (Object.keys(times).length === 0) {
-    const keys = Object.keys(preset).slice(0, 3);
-    const sample = keys.map(k => `${k}: ${JSON.stringify(preset[k])}`).join(', ');
-    console.error('No valid times found in preset. Sample entries:', sample);
-    throw new Error(`No benchmark times found for "${source}". Expected structure: {boat_class: {time: "m:ss.ss", ...}, ...}`);
-  }
-
-  return times;
-}
-
-// Create a new benchmark in the group (from preset or custom).
-async function createBenchmarkFromPreset(source, customName = null) {
-  const name = customName || {
-    wbt: 'World Best Time',
-    met_raw: 'Metropolitan (raw)',
-    met_a_slowest: 'Metropolitan A (slowest)',
-    met_b_slowest: 'Metropolitan B (slowest)',
-    met_c_slowest: 'Metropolitan C (slowest)',
-    hrr_raw: 'Harvard (raw)',
-    hwr_raw: 'Henley (raw)',
-  }[source] || 'Custom benchmark';
-
-  const times = await convertPresetToTimes(source);
-
+// Create benchmark with adjustments
+async function createBenchmark(name, adjustments = {}) {
   const { data, error } = await sb.rpc('create_benchmark', {
     p_group_id: RT.activeGroupId,
     p_name: name,
-    p_source: source,
-    p_times: times,
+    p_adjustments: adjustments,
   });
 
   if (error) throw error;
   return data;
 }
 
-// Set a benchmark as active for the group.
+// Set benchmark as active
 async function setActiveBenchmark(benchmarkId) {
   const { error } = await sb.rpc('set_active_benchmark', {
     p_group_id: RT.activeGroupId,
@@ -117,16 +87,19 @@ async function setActiveBenchmark(benchmarkId) {
   activeGroup().active_benchmark_id = benchmarkId;
 }
 
-// Calculate GMT% given a time and boat class using the active benchmark.
+// Calculate GMT% using active benchmark
 async function calculateGmt(timeMs, boatClass) {
-  const benchmark = await getActiveBenchmark(RT.activeGroupId);
-  if (!benchmark || !benchmark.times[boatClass]) return null;
+  const bench = await getActiveBenchmark(RT.activeGroupId);
+  if (!bench || !bench.wbt[boatClass]) return null;
 
-  const refTime = benchmark.times[boatClass];
+  const baseTime = bench.wbt[boatClass];
+  const adjustment = bench.adjustments[boatClass] || 0;
+  const refTime = baseTime + adjustment;
+
   return (timeMs / refTime) * 100;
 }
 
-// Helper: convert "m:ss.ss" format to milliseconds (returns integer)
+// Helper: convert "m:ss.ss" to milliseconds
 function timeStringToMs(timeStr) {
   if (typeof timeStr !== 'string') return NaN;
   const [min, sec] = timeStr.split(':');
