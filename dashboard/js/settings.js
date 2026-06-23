@@ -44,9 +44,10 @@
 
         <div style="display:flex; gap:10px; flex-wrap:wrap">
           <button class="btn btn-ghost" id="import-wbt">+ WBT</button>
-          <button class="btn btn-ghost" id="import-met-a">+ Met A</button>
-          <button class="btn btn-ghost" id="import-met-b">+ Met B</button>
-          <button class="btn btn-ghost" id="import-met-c">+ Met C</button>
+          <button class="btn btn-ghost" id="import-met_a_slowest">+ Met A (slowest)</button>
+          <button class="btn btn-ghost" id="import-met_b_slowest">+ Met B (slowest)</button>
+          <button class="btn btn-ghost" id="import-met_c_slowest">+ Met C (slowest)</button>
+          <button class="btn btn-ghost" id="import-met_raw">+ Met (raw)</button>
           <button class="btn btn-ghost" id="import-custom">+ Custom</button>
         </div>
       </div>
@@ -67,9 +68,12 @@
       const isActive = activeBench && activeBench.id === b.id;
       const sourceLabel = {
         wbt: 'Watts Boat Table',
-        met_a: 'Metropolitan A',
-        met_b: 'Metropolitan B',
-        met_c: 'Metropolitan C',
+        met_raw: 'Metropolitan (raw)',
+        met_a_slowest: 'Metropolitan A (slowest)',
+        met_b_slowest: 'Metropolitan B (slowest)',
+        met_c_slowest: 'Metropolitan C (slowest)',
+        hrr_raw: 'Harvard (raw)',
+        hwr_raw: 'Henley (raw)',
         custom: 'Custom',
       }[b.source] || b.source;
 
@@ -91,10 +95,10 @@
   }
 
   function bind() {
-    ['wbt', 'met-a', 'met-b', 'met-c'].forEach(source => {
+    ['wbt', 'met_a_slowest', 'met_b_slowest', 'met_c_slowest', 'met_raw'].forEach(source => {
       const btn = document.getElementById(`import-${source}`);
       if (btn) {
-        btn.onclick = () => importPreset(source === 'met-a' ? 'met_a' : source === 'met-b' ? 'met_b' : source === 'met-c' ? 'met_c' : source);
+        btn.onclick = () => importPreset(source);
       }
     });
 
