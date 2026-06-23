@@ -116,12 +116,12 @@ async function calculateGmt(timeMs, boatClass) {
   return (timeMs / refTime) * 100;
 }
 
-// Helper: convert "m:ss.ss" format to milliseconds
+// Helper: convert "m:ss.ss" format to milliseconds (returns integer)
 function timeStringToMs(timeStr) {
   if (typeof timeStr !== 'string') return NaN;
   const [min, sec] = timeStr.split(':');
   const m = parseInt(min, 10);
   const s = parseFloat(sec);
   if (isNaN(m) || isNaN(s)) return NaN;
-  return (m * 60 + s) * 1000;
+  return Math.round((m * 60 + s) * 1000);
 }
