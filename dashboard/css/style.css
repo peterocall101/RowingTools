@@ -247,6 +247,13 @@ table.data tbody tr:hover { background: #fafbfc; }
 
 .pill { font-size: 11px; font-weight: 600; color: var(--ink-2); background: var(--bg); border: 1px solid var(--line); border-radius: 20px; padding: 2px 9px; }
 
+/* Result grouping */
+.result-section { margin-bottom: 28px; }
+.result-section-head {
+  font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 12px;
+  padding-bottom: 8px; border-bottom: 2px solid var(--line);
+}
+
 /* Race conditions chip (opens the shared conditions.js modal) */
 .rt-wx {
   display: inline-flex; align-items: center; gap: 5px; margin-top: 4px;

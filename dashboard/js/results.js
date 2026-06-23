@@ -121,10 +121,51 @@
   }
 
   function tableHtml(rows) {
-    return `<div class="table-wrap"><table class="data">
-      <thead><tr><th>Date</th><th>Type</th><th>Crew / athletes</th><th>Dist</th><th>Time</th><th>Split / GMT%</th><th></th></tr></thead>
-      <tbody>${rows.map(rowHtml).join('')}</tbody>
-    </table></div>`;
+    // Separate public (imports) from manual
+    const publicRows = rows.filter(r => r.source === 'public');
+    const manualRows = rows.filter(r => r.source !== 'public');
+
+    // Group public by regatta
+    const byRegatta = {};
+    publicRows.forEach(r => {
+      const key = r.regatta || 'Other';
+      if (!byRegatta[key]) byRegatta[key] = [];
+      byRegatta[key].push(r);
+    });
+
+    // Group manual by date
+    const byDate = {};
+    manualRows.forEach(r => {
+      const key = r.performed_at;
+      if (!byDate[key]) byDate[key] = [];
+      byDate[key].push(r);
+    });
+
+    const html = [];
+
+    // Render regatta sections
+    Object.entries(byRegatta).forEach(([regatta, rows]) => {
+      html.push(`<div class="result-section">
+        <h3 class="result-section-head">${escapeHtml(regatta)}</h3>
+        <div class="table-wrap"><table class="data">
+          <thead><tr><th>Date</th><th>Type</th><th>Crew / athletes</th><th>Dist</th><th>Time</th><th>Split / GMT%</th><th></th></tr></thead>
+          <tbody>${rows.map(rowHtml).join('')}</tbody>
+        </table></div>
+      </div>`);
+    });
+
+    // Render date sections
+    Object.entries(byDate).sort().reverse().forEach(([date, rows]) => {
+      html.push(`<div class="result-section">
+        <h3 class="result-section-head">${fmtDate(date)}</h3>
+        <div class="table-wrap"><table class="data">
+          <thead><tr><th>Date</th><th>Type</th><th>Crew / athletes</th><th>Dist</th><th>Time</th><th>Split / GMT%</th><th></th></tr></thead>
+          <tbody>${rows.map(rowHtml).join('')}</tbody>
+        </table></div>
+      </div>`);
+    });
+
+    return html.join('');
   }
 
   function rowHtml(r) {
