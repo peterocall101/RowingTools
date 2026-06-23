@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>RowingTools - Sign in</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { display: grid; place-items: center; padding: 24px; }
+    .auth-card { width: 100%; max-width: 380px; }
+    .brand { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px; }
+    .brand span { color: var(--brand); }
+    .tagline { color: var(--ink-2); font-size: 14px; margin-bottom: 32px; }
+    h1 { font-size: 19px; font-weight: 600; margin-bottom: 22px; }
+    .success-note { font-size: 14px; line-height: 1.6; color: var(--ink-2); display: none; }
+    .toggle { text-align: center; margin-top: 20px; font-size: 13.5px; color: var(--ink-2); }
+    .toggle a { color: var(--brand); cursor: pointer; text-decoration: none; }
+    .toggle a:hover { text-decoration: underline; }
+    .consent { display: flex; align-items: flex-start; gap: 9px; margin: 6px 0; font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+    .consent input { width: auto; margin-top: 2px; accent-color: var(--brand); }
+  </style>
+</head>
+<body>
+  <div class="auth-card">
+    <div class="brand">Rowing<span>Tools</span></div>
+    <p class="tagline">Squad dashboard</p>
+
+    <h1 id="heading">Sign in</h1>
+    <div class="error-box" id="error" style="display:none"></div>
+    <p class="success-note" id="success-note"></p>
+
+    <form id="form">
+      <div class="field" id="email-wrap">
+        <label for="email">Email</label>
+        <input class="input" type="email" id="email" placeholder="you@club.com" required autocomplete="email">
+      </div>
+      <div class="field" id="name-wrap" style="display:none">
+        <label for="full-name">Your name</label>
+        <input class="input" type="text" id="full-name" placeholder="Jane Smith" autocomplete="name">
+      </div>
+      <div class="field" id="password-wrap">
+        <label for="password">Password</label>
+        <input class="input" type="password" id="password" autocomplete="current-password" minlength="8">
+      </div>
+      <div class="field" id="password-confirm-wrap" style="display:none">
+        <label for="password-confirm">Confirm password</label>
+        <input class="input" type="password" id="password-confirm" autocomplete="new-password" minlength="8">
+      </div>
+      <label class="consent" id="consent-wrap" style="display:none">
+        <input type="checkbox" id="consent">
+        <span>I agree to the Terms of Service and Privacy Policy.</span>
+      </label>
+      <button type="submit" class="btn btn-primary" id="submit" style="width:100%">Sign in</button>
+    </form>
+
+    <div class="toggle" id="toggle-signup">
+      <span id="toggle-text">New here?</span> <a id="toggle-link">Create an account</a>
+    </div>
+    <div class="toggle"><a id="forgot">Forgot password?</a></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script>
+  (function () {
+    if (!SUPABASE_ENABLED) {
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('error').textContent = 'Supabase not configured. Fill in js/config.js.';
+      return;
+    }
+
+    const urlHash  = new URLSearchParams(window.location.hash.slice(1));
+    const hashType = urlHash.get('type'); // 'invite' | 'recovery' | null
+    const hasCode  = !!new URLSearchParams(window.location.search).get('code');
+    const appHome  = new URL('index.html', window.location.href).href;
+    const loginUrl = new URL('login.html', window.location.href).href;
+
+    const $ = id => document.getElementById(id);
+    const form = $('form'), heading = $('heading'), submitBtn = $('submit');
+    const emailEl = $('email'), passEl = $('password'), passWrap = $('password-wrap');
+    const passConfirmEl = $('password-confirm'), passConfirmWrap = $('password-confirm-wrap');
+    const nameEl = $('full-name'), nameWrap = $('name-wrap');
+    const consentEl = $('consent'), consentWrap = $('consent-wrap');
+    const errorEl = $('error'), successEl = $('success-note');
+    const toggleSignup = $('toggle-signup'), toggleText = $('toggle-text'), toggleLink = $('toggle-link');
+    const forgotBtn = $('forgot');
+
+    function showError(m) { errorEl.textContent = m; errorEl.style.display = 'block'; }
+    function clearError() { errorEl.style.display = 'none'; }
+
+    let mode = 'signin'; // signin | signup | forgot
+    let setPasswordMode = hashType === 'invite' || hashType === 'recovery' || hasCode;
+
+    let pendingKind = null;
+    try { pendingKind = sessionStorage.getItem('rt_setpw'); } catch (e) {}
+
+    sb.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY' && !setPasswordMode) {
+        setPasswordMode = true; enterSetPasswordUI(hashType === 'invite' ? 'invite' : 'recovery');
+      }
+    });
+
+    if (setPasswordMode) {
+      enterSetPasswordUI(hashType === 'invite' ? 'invite' : 'recovery');
+    } else if (pendingKind) {
+      sb.auth.getSession().then(({ data: { session } }) => {
+        if (session) { setPasswordMode = true; enterSetPasswordUI(pendingKind); }
+        else { try { sessionStorage.removeItem('rt_setpw'); } catch (e) {} }
+      });
+    } else {
+      sb.auth.getSession().then(({ data: { session } }) => { if (session) window.location.replace(appHome); });
+    }
+
+    function enterSetPasswordUI(kind) {
+      const isInvite = kind === 'invite';
+      heading.textContent = isInvite ? 'Set your password' : 'Reset password';
+      submitBtn.textContent = isInvite ? 'Set password' : 'Reset password';
+      $('email-wrap').style.display = 'none'; emailEl.required = false;
+      toggleSignup.style.display = 'none'; forgotBtn.parentElement.style.display = 'none';
+      if (isInvite) { nameWrap.style.display = ''; consentWrap.style.display = 'flex'; }
+      passWrap.style.display = ''; passConfirmWrap.style.display = '';
+      passEl.placeholder = 'Choose a password (min 8 characters)';
+      passEl.autocomplete = 'new-password';
+      passEl.required = true; passConfirmEl.required = true;
+      try { sessionStorage.setItem('rt_setpw', kind); } catch (e) {}
+    }
+
+    // signin <-> signup
+    toggleLink.addEventListener('click', () => {
+      mode = mode === 'signup' ? 'signin' : 'signup';
+      const up = mode === 'signup';
+      clearError(); successEl.style.display = 'none';
+      heading.textContent = up ? 'Create your account' : 'Sign in';
+      submitBtn.textContent = up ? 'Create account' : 'Sign in';
+      nameWrap.style.display = up ? '' : 'none';
+      consentWrap.style.display = up ? 'flex' : 'none';
+      passEl.autocomplete = up ? 'new-password' : 'current-password';
+      toggleText.textContent = up ? 'Already have an account?' : 'New here?';
+      toggleLink.textContent = up ? 'Sign in' : 'Create an account';
+    });
+
+    // forgot toggle
+    forgotBtn.addEventListener('click', () => {
+      mode = mode === 'forgot' ? 'signin' : 'forgot';
+      const fg = mode === 'forgot';
+      clearError(); successEl.style.display = 'none';
+      heading.textContent = fg ? 'Reset password' : 'Sign in';
+      submitBtn.textContent = fg ? 'Send reset link' : 'Sign in';
+      forgotBtn.textContent = fg ? 'Back to sign in' : 'Forgot password?';
+      passWrap.style.display = fg ? 'none' : '';
+      passEl.required = !fg;
+      nameWrap.style.display = 'none'; consentWrap.style.display = 'none';
+      toggleSignup.style.display = fg ? 'none' : '';
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearError();
+
+      // ---- set password (invite/recovery) ----
+      if (setPasswordMode) {
+        const wantsName = nameWrap.style.display !== 'none';
+        const fullName = nameEl.value.trim();
+        if (wantsName && !fullName) return showError('Enter your name.');
+        if (consentWrap.style.display !== 'none' && !consentEl.checked)
+          return showError('Please agree to the Terms and Privacy Policy.');
+        if (passEl.value.length < 8) return showError('Password must be at least 8 characters.');
+        if (passEl.value !== passConfirmEl.value) return showError('Passwords do not match.');
+
+        submitBtn.disabled = true; submitBtn.textContent = 'Saving...';
+        try {
+          const { data: { session } } = await sb.auth.getSession();
+          if (!session) throw new Error('Your link has expired or was already used. Request a new one.');
+          const { error } = await sb.auth.updateUser({ password: passEl.value });
+          if (error) throw error;
+          if (wantsName && session.user) {
+            await sb.from('profiles').update({
+              display_name: fullName, terms_accepted_at: new Date().toISOString(),
+            }).eq('id', session.user.id);
+          }
+          try { sessionStorage.removeItem('rt_setpw'); } catch (e) {}
+          window.location.replace(appHome);
+        } catch (err) {
+          showError(err.message || 'Could not set your password.');
+          submitBtn.disabled = false; submitBtn.textContent = 'Set password';
+        }
+        return;
+      }
+
+      // ---- forgot ----
+      if (mode === 'forgot') {
+        submitBtn.disabled = true; submitBtn.textContent = 'Sending...';
+        try {
+          const { error } = await sb.auth.resetPasswordForEmail(emailEl.value.trim(), { redirectTo: loginUrl });
+          if (error) throw error;
+          form.style.display = 'none'; toggleSignup.style.display = 'none';
+          forgotBtn.parentElement.style.display = 'none';
+          heading.textContent = 'Check your email';
+          successEl.style.display = 'block';
+          successEl.textContent = 'A password reset link has been sent to ' + emailEl.value.trim() + '.';
+        } catch (err) {
+          showError(err.message || 'Could not send reset email.');
+          submitBtn.disabled = false; submitBtn.textContent = 'Send reset link';
+        }
+        return;
+      }
+
+      // ---- sign up ----
+      if (mode === 'signup') {
+        const fullName = nameEl.value.trim();
+        if (!fullName) return showError('Enter your name.');
+        if (!consentEl.checked) return showError('Please agree to the Terms and Privacy Policy.');
+        if (passEl.value.length < 8) return showError('Password must be at least 8 characters.');
+        submitBtn.disabled = true; submitBtn.textContent = 'Creating...';
+        try {
+          const { data, error } = await sb.auth.signUp({
+            email: emailEl.value.trim(),
+            password: passEl.value,
+            options: { data: { display_name: fullName }, emailRedirectTo: loginUrl },
+          });
+          if (error) throw error;
+          // Record consent if a session exists immediately (email confirmation off).
+          if (data.session) {
+            await sb.from('profiles').update({ terms_accepted_at: new Date().toISOString() })
+              .eq('id', data.user.id);
+            window.location.replace(appHome);
+          } else {
+            form.style.display = 'none'; toggleSignup.style.display = 'none';
+            forgotBtn.parentElement.style.display = 'none';
+            heading.textContent = 'Confirm your email';
+            successEl.style.display = 'block';
+            successEl.textContent = 'We sent a confirmation link to ' + emailEl.value.trim() +
+              '. Click it, then come back and sign in.';
+          }
+        } catch (err) {
+          showError(err.message || 'Could not create your account.');
+          submitBtn.disabled = false; submitBtn.textContent = 'Create account';
+        }
+        return;
+      }
+
+      // ---- sign in ----
+      submitBtn.disabled = true; submitBtn.textContent = 'Signing in...';
+      try {
+        const { error } = await sb.auth.signInWithPassword({
+          email: emailEl.value.trim(), password: passEl.value,
+        });
+        if (error) throw error;
+        window.location.replace(appHome);
+      } catch (err) {
+        showError(err.message || 'Something went wrong.');
+        submitBtn.disabled = false; submitBtn.textContent = 'Sign in';
+      }
+    });
+  })();
+  </script>
+</body>
+</html>

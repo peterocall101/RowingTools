@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>RowingTools - Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="header-left">
+        <a href="../index.html" class="logo">Rowing<span>Tools</span></a>
+        <nav class="header-nav" id="header-nav"></nav>
+      </div>
+      <div class="header-right" id="header-right"></div>
+    </div>
+  </header>
+
+  <main id="app">
+    <p class="muted">Loading...</p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+  (async function () {
+    const app = document.getElementById('app');
+
+    const session = await requireAuth();
+    if (!session) return;
+    await loadContext();
+    renderHeader('index.html');
+
+    const forceNew = new URLSearchParams(location.search).get('new') === '1';
+
+    if (!RT.memberships.length || forceNew) {
+      renderCreateSquad(!RT.memberships.length);
+      return;
+    }
+    await renderHome();
+
+    // ---- views ----
+
+    function renderCreateSquad(isFirst) {
+      app.innerHTML = `
+        <div class="empty">
+          <h2>${isFirst ? 'Create your first squad' : 'Create a new squad'}</h2>
+          <p>A squad is your training group, e.g. <em>Vesta Senior Men's Squad</em>.
+             You'll be its admin and can invite coaches and athletes later.</p>
+          <div class="card" style="text-align:left">
+            <div class="error-box" id="cs-error" style="display:none"></div>
+            <div class="field">
+              <label for="cs-name">Squad name</label>
+              <input class="input" id="cs-name" placeholder="Vesta Senior Men's Squad" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="cs-club">Club (optional)</label>
+              <input class="input" id="cs-club" placeholder="Vesta Rowing Club">
+            </div>
+            <button class="btn btn-primary" id="cs-submit" style="width:100%">Create squad</button>
+            ${isFirst ? '' : '<div class="toggle" style="margin-top:14px"><a href="index.html">Cancel</a></div>'}
+          </div>
+        </div>`;
+
+      const nameEl = document.getElementById('cs-name');
+      const clubEl = document.getElementById('cs-club');
+      const btn = document.getElementById('cs-submit');
+      const err = document.getElementById('cs-error');
+
+      btn.addEventListener('click', async () => {
+        const name = nameEl.value.trim();
+        if (!name) { err.style.display = 'block'; err.textContent = 'Enter a squad name.'; return; }
+        btn.disabled = true; btn.textContent = 'Creating...';
+        const { data, error } = await sb.rpc('create_group', {
+          p_name: name,
+          p_club_name: clubEl.value.trim() || null,
+        });
+        if (error) {
+          err.style.display = 'block'; err.textContent = error.message;
+          btn.disabled = false; btn.textContent = 'Create squad';
+          return;
+        }
+        try { localStorage.setItem(ACTIVE_GROUP_KEY, data); } catch (e) {}
+        window.location.replace('index.html');
+      });
+    }
+
+    async function renderHome() {
+      const g = activeGroup();
+      const gid = RT.activeGroupId;
+
+      // Counts (head:true returns only the count, no rows).
+      const [athletes, crews, results] = await Promise.all([
+        sb.from('athletes').select('id', { count: 'exact', head: true }).eq('group_id', gid).is('deleted_at', null),
+        sb.from('crews').select('id', { count: 'exact', head: true }).eq('group_id', gid).is('deleted_at', null),
+        sb.from('results').select('id', { count: 'exact', head: true }).eq('group_id', gid).is('deleted_at', null),
+      ]);
+
+      app.innerHTML = `
+        <div class="page-title">${escapeHtml(g.name)}</div>
+        <p class="page-sub">${g.club_name ? escapeHtml(g.club_name) + ' &middot; ' : ''}You are ${isActiveAdmin() ? 'an admin' : 'a member'} of this squad.</p>
+
+        <div class="grid grid-3" style="margin-bottom:26px">
+          <div class="card stat"><div class="stat-value">${results.count ?? 0}</div><div class="stat-label">Results logged</div></div>
+          <div class="card stat"><div class="stat-value">${athletes.count ?? 0}</div><div class="stat-label">Athletes</div></div>
+          <div class="card stat"><div class="stat-value">${crews.count ?? 0}</div><div class="stat-label">Crews</div></div>
+        </div>
+
+        <div class="grid grid-2">
+          <div class="tile soon"><div class="tile-title">Results <span class="badge-soon">soon</span></div>
+            <div class="tile-desc">Log erg and on-water pieces, tag crews and athletes, benchmark vs world records.</div></div>
+          <div class="tile soon"><div class="tile-title">Roster <span class="badge-soon">soon</span></div>
+            <div class="tile-desc">Add the athletes in your squad and track each one's progress over the season.</div></div>
+          <div class="tile soon"><div class="tile-title">Crews <span class="badge-soon">soon</span></div>
+            <div class="tile-desc">Name line-ups and follow a crew's results across the year.</div></div>
+          <div class="tile soon"><div class="tile-title">Members <span class="badge-soon">soon</span></div>
+            <div class="tile-desc">Invite coaches as admins and athletes as members.</div></div>
+        </div>`;
+    }
+  })();
+  </script>
+</body>
+</html>
