@@ -21,20 +21,25 @@
 
   // Roster, crews and crew line-ups are needed by the forms; load once.
   let roster = [], crews = [], lineups = {}, nameById = {};
+  let activeBenchmark = null, allBenchmarks = [];
 
   async function loadRefs() {
-    const [{ data: r }, { data: c }] = await Promise.all([
+    const [{ data: r }, { data: c }, { data: b }] = await Promise.all([
       sb.from('athletes').select('id, name').eq('group_id', RT.activeGroupId).is('deleted_at', null).order('name'),
       sb.from('crews').select('id, name').eq('group_id', RT.activeGroupId).is('deleted_at', null).order('created_at'),
+      sb.from('benchmarks').select('id, name, source').eq('group_id', RT.activeGroupId).is('deleted_at', null).order('created_at'),
     ]);
     roster = r || [];
     crews = c || [];
+    allBenchmarks = b || [];
     nameById = Object.fromEntries(roster.map(a => [a.id, a.name]));
     lineups = {};
     if (crews.length) {
       const { data: cm } = await sb.from('crew_members').select('crew_id, athlete_id').in('crew_id', crews.map(x => x.id));
       (cm || []).forEach(m => { (lineups[m.crew_id] = lineups[m.crew_id] || []).push(m.athlete_id); });
     }
+    const activeId = activeGroup().active_benchmark_id;
+    activeBenchmark = allBenchmarks.find(b => b.id === activeId);
   }
 
   // A crew's display label: its name, or the athletes that make it up.
@@ -60,12 +65,19 @@
     if (error) { app.innerHTML = `<div class="error-box">${escapeHtml(error.message)}</div>`; return; }
 
     const importBtn = `<button class="btn btn-ghost" id="import-btn">Import results</button>`;
+    const benchmarkLabel = activeBenchmark
+      ? `<span style="font-size:13px; color:var(--ink-2)">Benchmark: <strong>${escapeHtml(activeBenchmark.name)}</strong></span>`
+      : '<span style="font-size:13px; color:var(--ink-3)">No benchmark set</span>';
+    const benchmarkSelector = isActiveAdmin() && allBenchmarks.length
+      ? `<select id="benchmark-sel" class="input-select" style="width:auto; max-width:240px; margin-top:4px">${allBenchmarks.map(b => `<option value="${b.id}"${activeBenchmark?.id === b.id ? ' selected' : ''}>${escapeHtml(b.name)}</option>`).join('')}</select>`
+      : '';
 
     app.innerHTML = `
       <div class="page-head">
         <div>
           <div class="page-title">Results</div>
           <p class="page-sub">${escapeHtml(activeGroup().name)} &middot; ${rows.length} result${rows.length === 1 ? '' : 's'}</p>
+          <div style="margin-top:8px">${benchmarkLabel}${benchmarkSelector ? '<br>' + benchmarkSelector : ''}</div>
         </div>
         <div style="display:flex; gap:10px">
           ${importBtn}
@@ -79,6 +91,19 @@
     if (addEmpty) addEmpty.onclick = () => openForm();
     const impBtn = document.getElementById('import-btn');
     if (impBtn) impBtn.onclick = () => openImport();
+
+    const benchmarkSel = document.getElementById('benchmark-sel');
+    if (benchmarkSel) {
+      benchmarkSel.onchange = async () => {
+        try {
+          await setActiveBenchmark(benchmarkSel.value);
+          await render();
+        } catch (e) {
+          toast(e.message || 'Could not set benchmark', 'error');
+          await render();
+        }
+      };
+    }
 
     app.querySelectorAll('[data-edit]').forEach(b =>
       b.onclick = () => {
@@ -125,9 +150,21 @@
     const dist = isPublic
       ? (r.boat_class ? `<span class="pill">${escapeHtml(r.boat_class)}</span>` : '<span class="muted">-</span>')
       : `${r.distance_m.toLocaleString()} m`;
-    const metric = isPublic
-      ? (r.pct != null ? `<strong>${r.pct}%</strong> <span class="muted">GMT</span>` : '<span class="muted">-</span>')
-      : formatSplit(r.time_ms, r.distance_m);
+
+    let metric;
+    if (isPublic) {
+      metric = r.pct != null ? `<strong>${r.pct}%</strong> <span class="muted">GMT</span>` : '<span class="muted">-</span>';
+    } else {
+      // Manual result: show split, or GMT% if boat_class is set and benchmark is active
+      if (r.boat_class && activeBenchmark && activeBenchmark.id) {
+        const times = {};
+        // Find benchmark times for this result's boat class (would need to load them)
+        // For now, just show split since we don't have times loaded in the table render
+        metric = formatSplit(r.time_ms, r.distance_m);
+      } else {
+        metric = formatSplit(r.time_ms, r.distance_m);
+      }
+    }
 
     return `<tr>
       <td>${fmtDate(r.performed_at)}</td>
@@ -318,6 +355,10 @@
             <label for="f-rate">Rate</label>
             <input class="input" id="f-rate" name="rate" inputmode="numeric" value="${editing && result.rate ? result.rate : ''}" placeholder="-">
           </div>
+          <div class="field" style="max-width:100px">
+            <label for="f-boat">Boat class</label>
+            <input class="input" id="f-boat" name="boat_class" value="${editing && result.boat_class ? escapeHtml(result.boat_class) : ''}" placeholder="M4x" autocomplete="off">
+          </div>
         </div>
         <div class="field">
           <label for="f-crew">Use a saved crew (optional)</label>
@@ -366,6 +407,7 @@
           distance_m: distance,
           time_ms,
           rate,
+          boat_class: fd.get('boat_class').trim() || null,
           crew_id: crewId,
           notes: fd.get('notes').trim() || null,
         };

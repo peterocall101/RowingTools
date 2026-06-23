@@ -135,14 +135,14 @@
     document.querySelectorAll('.tp-add-session').forEach(btn => btn.onclick = () => {
       const w = +btn.dataset.w, d = +btn.dataset.d;
       plan.weeks[w].days[d].sessions.push({ type: '', text: '', notes: '' });
-      syncFromDom(); render();
+      render();
     });
 
     // Delete session from a cell
     document.querySelectorAll('.tp-session-del').forEach(btn => btn.onclick = () => {
       const w = +btn.dataset.w, d = +btn.dataset.d, s = +btn.dataset.s;
       plan.weeks[w].days[d].sessions.splice(s, 1);
-      syncFromDom(); render();
+      render();
     });
 
     // Live session colour when type changes
