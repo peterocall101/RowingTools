@@ -48,7 +48,11 @@
       (cm || []).forEach(m => { (lineups[m.crew_id] = lineups[m.crew_id] || []).push(m.athlete_id); });
     }
     const activeId = activeGroup().active_benchmark_id;
-    activeBenchmark = allBenchmarks.find(b => b.id === activeId);
+    if (activeId) {
+      activeBenchmark = await getActiveBenchmark(RT.activeGroupId);
+    } else {
+      activeBenchmark = null;
+    }
   }
 
   // A crew's display label: its name, or the athletes that make it up.
@@ -297,12 +301,17 @@
     if (isPublic) {
       metric = r.pct != null ? `<strong>${r.pct}%</strong> <span class="muted">GMT</span>` : '<span class="muted">-</span>';
     } else {
-      // Manual result: show split, or GMT% if boat_class is set and benchmark is active
-      if (r.boat_class && activeBenchmark && activeBenchmark.id) {
-        const times = {};
-        // Find benchmark times for this result's boat class (would need to load them)
-        // For now, just show split since we don't have times loaded in the table render
-        metric = formatSplit(r.time_ms, r.distance_m);
+      // Manual result: show GMT% if boat_class is set and benchmark is active, else show split
+      if (r.boat_class && activeBenchmark?.wbt) {
+        const baseTime = activeBenchmark.wbt[r.boat_class];
+        const adjustment = activeBenchmark.adjustments?.[r.boat_class] || 0;
+        if (baseTime) {
+          const refTime = baseTime + adjustment;
+          const gmt = Math.round((r.time_ms / refTime) * 100 * 10) / 10;  // one decimal
+          metric = `<strong>${gmt}%</strong> <span class="muted">GMT</span>`;
+        } else {
+          metric = formatSplit(r.time_ms, r.distance_m);
+        }
       } else {
         metric = formatSplit(r.time_ms, r.distance_m);
       }
