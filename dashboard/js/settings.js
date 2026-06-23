@@ -1,4 +1,4 @@
-// settings.js - group settings page for admins (benchmarks, etc)
+// settings.js - group settings (benchmarks)
 (async function () {
   const app = document.getElementById('app');
 
@@ -16,14 +16,15 @@
   const group = activeGroup();
   let benchmarks = [];
   let activeBench = null;
+  let wbtData = null;
 
-  render();
   await load();
 
   async function load() {
     benchmarks = await listBenchmarks(RT.activeGroupId);
     const activeId = group.active_benchmark_id;
     activeBench = benchmarks.find(b => b.id === activeId);
+    wbtData = await loadWBT();
     render();
   }
 
@@ -38,18 +39,11 @@
 
       <div class="card" style="margin-bottom:20px">
         <h2 style="font-size:18px; font-weight:600; margin-bottom:12px">Benchmarks</h2>
-        <p style="color:var(--ink-2); font-size:14px; margin-bottom:16px">Select the reference times to use when calculating GMT% on results.</p>
+        <p style="color:var(--ink-2); font-size:14px; margin-bottom:16px">All benchmarks are based on World Best Time (WBT). Create custom versions by applying adjustments to specific boat classes.</p>
 
         <div id="benchmarks-list" style="margin-bottom:16px"></div>
 
-        <div style="display:flex; gap:10px; flex-wrap:wrap">
-          <button class="btn btn-ghost" id="import-wbt">+ WBT</button>
-          <button class="btn btn-ghost" id="import-met_a_slowest">+ Met A (slowest)</button>
-          <button class="btn btn-ghost" id="import-met_b_slowest">+ Met B (slowest)</button>
-          <button class="btn btn-ghost" id="import-met_c_slowest">+ Met C (slowest)</button>
-          <button class="btn btn-ghost" id="import-met_raw">+ Met (raw)</button>
-          <button class="btn btn-ghost" id="import-custom">+ Custom</button>
-        </div>
+        <button class="btn btn-ghost" id="create-btn">+ Create benchmark</button>
       </div>
     `;
 
@@ -60,28 +54,17 @@
   function renderBenchmarksList() {
     const list = document.getElementById('benchmarks-list');
     if (!benchmarks.length) {
-      list.innerHTML = '<p style="color:var(--ink-2)">No benchmarks yet. Import one below.</p>';
+      list.innerHTML = '<p style="color:var(--ink-2)">No benchmarks yet. Create one below.</p>';
       return;
     }
 
     const html = benchmarks.map(b => {
       const isActive = activeBench && activeBench.id === b.id;
-      const sourceLabel = {
-        wbt: 'World Best Time',
-        met_raw: 'Metropolitan (raw)',
-        met_a_slowest: 'Metropolitan A (slowest)',
-        met_b_slowest: 'Metropolitan B (slowest)',
-        met_c_slowest: 'Metropolitan C (slowest)',
-        hrr_raw: 'Harvard (raw)',
-        hwr_raw: 'Henley (raw)',
-        custom: 'Custom',
-      }[b.source] || b.source;
-
       return `
         <div style="display:flex; align-items:center; justify-content:space-between; padding:10px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px">
           <div style="flex:1">
             <div style="font-weight:600; color:var(--ink)">${escapeHtml(b.name)}</div>
-            <div style="font-size:12px; color:var(--ink-2)">${sourceLabel}</div>
+            <div style="font-size:12px; color:var(--ink-2)">Based on WBT</div>
           </div>
           <div style="display:flex; gap:8px; align-items:center">
             ${!isActive ? `<button class="btn btn-ghost" id="set-active-${b.id}" style="padding:7px 12px; font-size:13px">Set active</button>` : '<span style="font-weight:600; color:var(--brand)">Active</span>'}
@@ -95,15 +78,7 @@
   }
 
   function bind() {
-    ['wbt', 'met_a_slowest', 'met_b_slowest', 'met_c_slowest', 'met_raw'].forEach(source => {
-      const btn = document.getElementById(`import-${source}`);
-      if (btn) {
-        btn.onclick = () => importPreset(source);
-      }
-    });
-
-    const customBtn = document.getElementById('import-custom');
-    if (customBtn) customBtn.onclick = importCustom;
+    document.getElementById('create-btn').onclick = openCreateForm;
 
     benchmarks.forEach(b => {
       const setBtn = document.getElementById(`set-active-${b.id}`);
@@ -114,7 +89,7 @@
             toast('Benchmark activated');
             await load();
           } catch (e) {
-            toast(e.message || 'Could not activate benchmark', 'error');
+            toast(e.message || 'Could not activate', 'error');
           }
         };
       }
@@ -122,64 +97,63 @@
       const delBtn = document.getElementById(`del-${b.id}`);
       if (delBtn) {
         delBtn.onclick = async () => {
-          if (!confirm(`Delete "${b.name}"? This cannot be undone.`)) return;
+          if (!confirm(`Delete "${b.name}"?`)) return;
           try {
             const { error } = await sb.from('benchmarks').update({ deleted_at: new Date().toISOString() }).eq('id', b.id);
             if (error) throw error;
             toast('Benchmark deleted');
             await load();
           } catch (e) {
-            toast(e.message || 'Could not delete benchmark', 'error');
+            toast(e.message || 'Could not delete', 'error');
           }
         };
       }
     });
   }
 
-  async function importPreset(source) {
-    const btn = document.getElementById(`import-${source.replace(/_/g, '-')}`);
-    if (btn) btn.disabled = true;
-    try {
-      await createBenchmarkFromPreset(source);
-      toast('Benchmark imported');
-      await load();
-    } catch (e) {
-      toast(e.message || 'Could not import benchmark', 'error');
-    } finally {
-      if (btn) btn.disabled = false;
-    }
-  }
+  function openCreateForm() {
+    const boatClasses = Object.keys(wbtData || {}).sort();
+    const adjHtml = boatClasses.slice(0, 10).map(bc => `
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px">
+        <label style="min-width:60px; font-size:13px; font-weight:500">${escapeHtml(bc)}</label>
+        <input type="number" class="input" style="width:80px" data-bc="${bc}" placeholder="0" value="0">
+        <span style="font-size:12px; color:var(--ink-2)">seconds</span>
+      </div>
+    `).join('');
 
-  async function importCustom() {
-    const name = prompt('Benchmark name (e.g. "Spring 2026")');
-    if (!name) return;
-
-    const result = await openModal({
-      title: 'Import custom benchmark',
+    openModal({
+      title: 'Create benchmark',
       bodyHtml: `
         <div class="field">
-          <label>Times (JSON format)</label>
-          <textarea id="custom-times" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:8px; font-family:monospace; font-size:12px; min-height:200px" placeholder='{"M4x": 1280000, "W4x": 1380000, ...}'></textarea>
-          <p style="font-size:12px; color:var(--ink-2); margin-top:6px">Times in milliseconds. 2000m times for each boat class.</p>
+          <label for="bench-name">Name</label>
+          <input class="input" id="bench-name" placeholder="e.g., Spring 2026" required>
+        </div>
+        <div class="field">
+          <label>Adjustments (optional)</label>
+          <p style="font-size:12px; color:var(--ink-2); margin-bottom:10px">Enter positive/negative seconds to adjust WBT for each boat class. Leave blank for no adjustment.</p>
+          <div style="max-height:300px; overflow-y:auto">${adjHtml}</div>
         </div>
       `,
-      submitLabel: 'Import',
-      onSubmit: async () => {
+      submitLabel: 'Create',
+      onSubmit: async (form, close) => {
+        const name = document.getElementById('bench-name').value.trim();
+        if (!name) throw new Error('Name required');
+
+        const adjustments = {};
+        form.querySelectorAll('input[data-bc]').forEach(inp => {
+          const val = parseInt(inp.value, 10);
+          if (!isNaN(val) && val !== 0) {
+            adjustments[inp.dataset.bc] = val * 1000; // convert seconds to ms
+          }
+        });
+
         try {
-          const json = JSON.parse(document.getElementById('custom-times').value);
-          const { error } = await sb.rpc('create_benchmark', {
-            p_group_id: RT.activeGroupId,
-            p_name: name,
-            p_source: 'custom',
-            p_times: json,
-          });
-          if (error) throw error;
-          toast('Benchmark imported');
+          await createBenchmark(name, adjustments);
+          toast('Benchmark created');
+          close();
           await load();
-          return true;
         } catch (e) {
-          toast(e.message || 'Invalid JSON', 'error');
-          return false;
+          throw new Error(e.message || 'Failed to create');
         }
       },
     });
