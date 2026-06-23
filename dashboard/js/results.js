@@ -136,29 +136,42 @@
       </div>
 
       <div class="filter-panel">
-        <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end">
-          <div class="field" style="margin-bottom:0; min-width:150px">
-            <label for="filter-athlete" style="display:block; margin-bottom:6px; font-size:12px; font-weight:600">Athletes</label>
-            <select id="filter-athlete" class="input-select" multiple style="height:32px">${allAthletes.map(a => `<option value="${a}">${escapeHtml(a)}</option>`).join('')}</select>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:20px; align-items:start">
+          ${allAthletes.length ? `
+            <div>
+              <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:var(--ink-2)">ATHLETES</div>
+              <div style="display:flex; flex-direction:column; gap:4px">${allAthletes.map(a => `
+                <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer">
+                  <input type="checkbox" class="filter-athlete-cb" value="${a}"> ${escapeHtml(a)}
+                </label>`).join('')}</div>
+            </div>
+          ` : ''}
+          ${allCrews.length ? `
+            <div>
+              <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:var(--ink-2)">CREWS</div>
+              <div style="display:flex; flex-direction:column; gap:4px">${allCrews.map(c => `
+                <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer">
+                  <input type="checkbox" class="filter-crew-cb" value="${c}"> ${escapeHtml(c)}
+                </label>`).join('')}</div>
+            </div>
+          ` : ''}
+          <div>
+            <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:var(--ink-2)">TYPE</div>
+            <div style="display:flex; flex-direction:column; gap:4px">${allTypes.map(t => `
+              <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer">
+                <input type="checkbox" class="filter-type-cb" value="${t}"> ${escapeHtml(t)}
+              </label>`).join('')}</div>
           </div>
-          <div class="field" style="margin-bottom:0; min-width:150px">
-            <label for="filter-crew" style="display:block; margin-bottom:6px; font-size:12px; font-weight:600">Crews</label>
-            <select id="filter-crew" class="input-select" multiple style="height:32px">${allCrews.map(c => `<option value="${c}">${escapeHtml(c)}</option>`).join('')}</select>
-          </div>
-          <div class="field" style="margin-bottom:0; min-width:150px">
-            <label for="filter-type" style="display:block; margin-bottom:6px; font-size:12px; font-weight:600">Type</label>
-            <select id="filter-type" class="input-select" multiple style="height:32px">${allTypes.map(t => `<option value="${t}">${escapeHtml(t)}</option>`).join('')}</select>
-          </div>
-          <div class="field" style="margin-bottom:0; min-width:120px">
-            <label for="filter-sort" style="display:block; margin-bottom:6px; font-size:12px; font-weight:600">Sort by</label>
-            <select id="filter-sort" class="input-select">
+          <div>
+            <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:var(--ink-2)">SORT</div>
+            <select id="filter-sort" class="input-select" style="width:100%">
               <option value="date-desc">Newest first</option>
               <option value="date-asc">Oldest first</option>
               <option value="time-fast">Fastest</option>
               <option value="time-slow">Slowest</option>
             </select>
+            <button class="btn btn-ghost" id="clear-filters" style="width:100%; margin-top:8px; padding:7px 12px; font-size:12px">Clear all</button>
           </div>
-          <button class="btn btn-ghost" id="clear-filters" style="padding:7px 12px; font-size:13px">Clear filters</button>
         </div>
       </div>
 
@@ -171,29 +184,19 @@
     if (impBtn) impBtn.onclick = () => openImport();
 
     // Filter bindings
-    const athleteSel = document.getElementById('filter-athlete');
-    const crewSel = document.getElementById('filter-crew');
-    const typeSel = document.getElementById('filter-type');
-    const sortSel = document.getElementById('filter-sort');
-    const clearBtn = document.getElementById('clear-filters');
-
     const updateFilters = () => {
-      filters.athletes = new Set([...athleteSel.selectedOptions].map(o => o.value));
-      filters.crews = new Set([...crewSel.selectedOptions].map(o => o.value));
-      filters.types = new Set([...typeSel.selectedOptions].map(o => o.value));
-      filters.sort = sortSel.value;
+      filters.athletes = new Set([...document.querySelectorAll('.filter-athlete-cb:checked')].map(c => c.value));
+      filters.crews = new Set([...document.querySelectorAll('.filter-crew-cb:checked')].map(c => c.value));
+      filters.types = new Set([...document.querySelectorAll('.filter-type-cb:checked')].map(c => c.value));
+      filters.sort = document.getElementById('filter-sort').value;
       render();
     };
 
-    athleteSel.onchange = updateFilters;
-    crewSel.onchange = updateFilters;
-    typeSel.onchange = updateFilters;
-    sortSel.onchange = updateFilters;
-    clearBtn.onclick = () => {
-      athleteSel.selectedIndex = -1;
-      crewSel.selectedIndex = -1;
-      typeSel.selectedIndex = -1;
-      sortSel.value = 'date-desc';
+    document.querySelectorAll('.filter-athlete-cb, .filter-crew-cb, .filter-type-cb').forEach(cb => cb.onchange = updateFilters);
+    document.getElementById('filter-sort').onchange = updateFilters;
+    document.getElementById('clear-filters').onclick = () => {
+      document.querySelectorAll('.filter-athlete-cb, .filter-crew-cb, .filter-type-cb').forEach(cb => cb.checked = false);
+      document.getElementById('filter-sort').value = 'date-desc';
       updateFilters();
     };
 
