@@ -127,8 +127,11 @@ create table public.results (
   pct          numeric,                             -- GMT %
   event        text,                                -- e.g. "Ch 4+"
   regatta      text,                                -- e.g. "Marlow Regatta 2026"
+  round        text,                                -- e.g. "Final A"
+  clock        text,                                -- race time of day "HH:MM" (for weather lookup)
   boat_class   text,                                -- e.g. "M4+"
   crew_label   text,                                -- public crew name as shown on the site
+  venue        jsonb,                               -- { name, lat, lon, bearing, lanes } - for the conditions modal
   public_ref   text,                                -- stable id of the source row (dedupe imports)
   -- Geo + weather (reuses the conditions.js / courses.py weather logic on the
   -- client; the fetched result is cached here so it never needs refetching).
