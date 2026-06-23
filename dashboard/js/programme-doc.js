@@ -4,16 +4,26 @@
 
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-// Google-Sheets-style pastel palette for day cells.
-const TP_COLORS = {
-  '':       '#ffffff',
-  green:    '#d9ead3',
-  yellow:   '#fff2cc',
-  grey:     '#efefef',
-  blue:     '#cfe2f3',
-  red:      '#f4cccc',
-};
-const TP_COLOR_OPTIONS = [['', 'None'], ['green', 'Green'], ['yellow', 'Yellow'], ['grey', 'Grey'], ['blue', 'Blue'], ['red', 'Red']];
+// Session types with auto-assigned colours (same type = same colour across the programme).
+const TP_SESSION_TYPES = [
+  { type: 'Rest',           color: '#efefef' },    // grey
+  { type: 'Water UT3',      color: '#e8f5e9' },    // very light green
+  { type: 'Water UT2',      color: '#d9ead3' },    // green (easy steady)
+  { type: 'Water UT1',      color: '#a4c2f4' },    // light blue
+  { type: 'Water AT',       color: '#f9cb9c' },    // orange (threshold)
+  { type: 'Water TR',       color: '#ef9a9a' },    // light red (tempo)
+  { type: 'Water AC',       color: '#f48fb1' },    // pink (race pace)
+  { type: 'Erg UT3',        color: '#f1f8e9' },    // pale green
+  { type: 'Erg UT2',        color: '#c5e1a5' },    // pale green
+  { type: 'Erg UT1',        color: '#aed581' },    // softer green-yellow
+  { type: 'Erg AT',         color: '#ffcc80' },    // soft orange
+  { type: 'Erg TR',         color: '#ffab91' },    // soft red-orange
+  { type: 'Erg AC',         color: '#ff8a80' },    // red
+  { type: 'Weights',        color: '#f8cbad' },    // tan
+  { type: 'Cross-train',    color: '#d5a6bd' },    // mauve
+  { type: 'Race',           color: '#fff2cc' },    // yellow
+];
+const TP_TYPE_TO_COLOR = Object.fromEntries(TP_SESSION_TYPES.map(t => [t.type, t.color]));
 
 function tpFmtDate(dt) {
   return String(dt.getDate()).padStart(2, '0') + '/' + String(dt.getMonth() + 1).padStart(2, '0');
@@ -36,8 +46,8 @@ function tpWeekDates(startDate, weekIndex) {
   return out;
 }
 
-// Normalise any saved plan to the current shape: weeks[].days = 7 x {text,color}.
-// Converts the earlier {dow,sessions:[...]} day shape so old programmes still open.
+// Normalise any saved plan to the current shape: weeks[].days = 7 x {sessions: [{type,text,notes}, ...]}.
+// Converts the earlier single {type,text,notes} and {text,color} shapes so old programmes still open.
 function tpNormalisePlan(p) {
   p = p ? JSON.parse(JSON.stringify(p)) : {};
   p.meta = p.meta || {};
@@ -45,18 +55,18 @@ function tpNormalisePlan(p) {
   p.weeks.forEach(w => {
     let days = w.days || [];
     days = days.map(d => {
-      if (d && Array.isArray(d.sessions)) {
-        const text = d.sessions
-          .map(s => [s.type, s.distance, s.duration, s.rate ? 'r' + s.rate : '', s.notes].filter(Boolean).join(' '))
-          .join('\n');
-        return { text, color: d.color || '' };
+      if (d && d.sessions && Array.isArray(d.sessions)) {
+        return { sessions: d.sessions.map(s => ({ type: s.type || '', text: s.text || '', notes: s.notes || '' })) };
       }
-      return { text: (d && d.text) || '', color: (d && d.color) || '' };
+      if (d && (d.type || d.text || d.notes)) {
+        return { sessions: [{ type: d.type || '', text: d.text || '', notes: d.notes || '' }] };
+      }
+      return { sessions: [] };
     });
-    while (days.length < 7) days.push({ text: '', color: '' });
+    while (days.length < 7) days.push({ sessions: [] });
     w.days = days.slice(0, 7);
   });
-  if (!p.weeks.length) p.weeks.push({ name: 'Week 1', days: DOW.map(() => ({ text: '', color: '' })) });
+  if (!p.weeks.length) p.weeks.push({ name: 'Week 1', days: DOW.map(() => ({ sessions: [] })) });
   return p;
 }
 
@@ -86,8 +96,17 @@ function weekDocHtml(week, wi, startDate) {
   const dates = tpWeekDates(startDate, wi);
   const head = DOW.map((d, i) =>
     `<th>${d}${dates ? `<div class="tp-doc-date">${dates[i]}</div>` : ''}</th>`).join('');
-  const cells = week.days.map(day =>
-    `<td style="background:${TP_COLORS[day.color] || '#fff'}">${escapeHtml(day.text || '').replace(/\n/g, '<br>')}</td>`).join('');
+  const cells = week.days.map(day => {
+    const sessions = (day.sessions && day.sessions.length) ? day.sessions : [];
+    const html = sessions.map(s => {
+      const color = TP_TYPE_TO_COLOR[s.type] || '#fff';
+      const typeHeading = s.type ? `<div class="tp-doc-type">${escapeHtml(s.type)}</div>` : '';
+      const text = s.text ? escapeHtml(s.text).replace(/\n/g, '<br>') : '';
+      const notes = s.notes ? `<div class="tp-doc-notes">${escapeHtml(s.notes).replace(/\n/g, '<br>')}</div>` : '';
+      return `<div class="tp-doc-session" style="background:${color}">${typeHeading}${text}${notes}</div>`;
+    }).join('');
+    return `<td>${html || '<div class="tp-doc-empty"></div>'}</td>`;
+  }).join('');
   return `<div class="tp-doc-week">
     <h2>${escapeHtml(week.name || 'Week')}</h2>
     <table class="tp-doc-grid"><thead><tr>${head}</tr></thead><tbody><tr>${cells}</tr></tbody></table>
