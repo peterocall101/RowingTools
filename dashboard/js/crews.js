@@ -1,7 +1,8 @@
-// crews.js - crew CRUD + line-up editor for the active group.
+// crews.js - crews are DISTINCT ATHLETE-SETS. They appear automatically when a
+// combination of athletes is tagged on a result, and can be created/named
+// manually here. Membership = identity, so you rename (not re-line-up).
 (async function () {
   const app = document.getElementById('app');
-  const BOAT_CLASSES = ['1x', '2x', '2-', '2+', '4x', '4-', '4+', '8+'];
 
   const session = await requireAuth();
   if (!session) return;
@@ -9,23 +10,29 @@
   if (!RT.memberships.length) { window.location.replace('index.html'); return; }
   renderHeader('crews.html');
 
+  let roster = [];
+
   await render();
 
   async function render() {
-    // Crews + their line-up counts in two queries.
-    const { data: crews, error } = await sb
-      .from('crews')
-      .select('*')
-      .eq('group_id', RT.activeGroupId)
-      .is('deleted_at', null)
-      .order('name');
+    const [{ data: crews, error }, { data: rosterRows }] = await Promise.all([
+      sb.from('crews').select('*').eq('group_id', RT.activeGroupId).is('deleted_at', null).order('created_at'),
+      sb.from('athletes').select('id, name').eq('group_id', RT.activeGroupId).is('deleted_at', null).order('name'),
+    ]);
     if (error) { app.innerHTML = `<div class="error-box">${escapeHtml(error.message)}</div>`; return; }
+    roster = rosterRows || [];
+    const nameById = Object.fromEntries(roster.map(a => [a.id, a.name]));
 
-    let counts = {};
+    // Members + result counts for the listed crews.
+    let membersByCrew = {}, countByCrew = {};
     if (crews.length) {
-      const { data: cm } = await sb.from('crew_members')
-        .select('crew_id').in('crew_id', crews.map(c => c.id));
-      (cm || []).forEach(r => { counts[r.crew_id] = (counts[r.crew_id] || 0) + 1; });
+      const ids = crews.map(c => c.id);
+      const [{ data: cm }, { data: res }] = await Promise.all([
+        sb.from('crew_members').select('crew_id, athlete_id').in('crew_id', ids),
+        sb.from('results').select('crew_id').in('crew_id', ids).is('deleted_at', null),
+      ]);
+      (cm || []).forEach(m => { (membersByCrew[m.crew_id] = membersByCrew[m.crew_id] || []).push(nameById[m.athlete_id] || '?'); });
+      (res || []).forEach(r => { countByCrew[r.crew_id] = (countByCrew[r.crew_id] || 0) + 1; });
     }
 
     app.innerHTML = `
@@ -34,134 +41,109 @@
           <div class="page-title">Crews</div>
           <p class="page-sub">${escapeHtml(activeGroup().name)} &middot; ${crews.length} crew${crews.length === 1 ? '' : 's'}</p>
         </div>
-        <button class="btn btn-primary" id="add-btn">+ Add crew</button>
+        <button class="btn btn-primary" id="add-btn">+ New crew</button>
       </div>
-      ${crews.length ? tableHtml(crews, counts) : emptyHtml()}`;
+      <p class="muted" style="margin:-10px 0 18px">A crew is a set of athletes. They form automatically when you tag the same athletes on a result, or you can create and name one here.</p>
+      ${crews.length ? tableHtml(crews, membersByCrew, countByCrew) : emptyHtml()}`;
 
     document.getElementById('add-btn').onclick = () => openCrewForm();
     const addEmpty = document.getElementById('add-empty');
     if (addEmpty) addEmpty.onclick = () => openCrewForm();
-    app.querySelectorAll('[data-edit]').forEach(b =>
-      b.onclick = () => openCrewForm(crews.find(c => c.id === b.dataset.edit)));
-    app.querySelectorAll('[data-lineup]').forEach(b =>
-      b.onclick = () => openLineup(crews.find(c => c.id === b.dataset.lineup)));
+    app.querySelectorAll('[data-rename]').forEach(b =>
+      b.onclick = () => openRename(crews.find(c => c.id === b.dataset.rename), (membersByCrew[b.dataset.rename] || [])));
     app.querySelectorAll('[data-del]').forEach(b =>
-      b.onclick = () => removeCrew(crews.find(c => c.id === b.dataset.del)));
+      b.onclick = () => removeCrew(crews.find(c => c.id === b.dataset.del), membersByCrew[b.dataset.del] || []));
   }
 
-  function tableHtml(crews, counts) {
+  function label(crew, members) {
+    return crew.name || members.join(', ') || 'Empty crew';
+  }
+
+  function tableHtml(crews, membersByCrew, countByCrew) {
     return `<div class="table-wrap"><table class="data">
-      <thead><tr><th>Crew</th><th>Boat</th><th>Line-up</th><th></th></tr></thead>
-      <tbody>${crews.map(c => `
-        <tr>
-          <td><strong>${escapeHtml(c.name)}</strong></td>
-          <td>${c.boat_class ? `<span class="pill">${escapeHtml(c.boat_class)}</span>` : '<span class="muted">-</span>'}</td>
-          <td>${(counts[c.id] || 0)} rower${(counts[c.id] || 0) === 1 ? '' : 's'}</td>
+      <thead><tr><th>Crew</th><th>Athletes</th><th>Results</th><th></th></tr></thead>
+      <tbody>${crews.map(c => {
+        const members = membersByCrew[c.id] || [];
+        return `<tr>
+          <td><strong>${escapeHtml(c.name || '-')}</strong>${c.name ? '' : '<span class="muted">unnamed</span>'}</td>
+          <td>${members.length ? escapeHtml(members.join(', ')) : '<span class="muted">-</span>'}</td>
+          <td>${countByCrew[c.id] || 0}</td>
           <td><div class="row-actions">
-            <button class="icon-btn" data-lineup="${c.id}">Line-up</button>
-            <button class="icon-btn" data-edit="${c.id}">Edit</button>
+            <button class="icon-btn" data-rename="${c.id}">Rename</button>
             <button class="icon-btn danger" data-del="${c.id}">Remove</button>
           </div></td>
-        </tr>`).join('')}</tbody>
+        </tr>`;
+      }).join('')}</tbody>
     </table></div>`;
   }
 
   function emptyHtml() {
     return `<div class="empty">
       <h2>No crews yet</h2>
-      <p>Name a line-up, e.g. <em>Senior 8+ A</em>, then add the athletes who sit in it. You'll be able to tag results to a crew and track it across the season.</p>
-      <button class="btn btn-primary" id="add-empty">+ Add your first crew</button>
+      <p>Tag a set of athletes on a result and they'll appear here as a crew. Or create one now and give it a name.</p>
+      <button class="btn btn-primary" id="add-empty">+ New crew</button>
     </div>`;
   }
 
-  function openCrewForm(crew) {
-    const editing = !!crew;
-    openModal({
-      title: editing ? 'Edit crew' : 'Add crew',
-      submitLabel: editing ? 'Save changes' : 'Add crew',
-      bodyHtml: `
-        <div class="field">
-          <label for="f-name">Crew name</label>
-          <input class="input" id="f-name" name="name" required value="${editing ? escapeHtml(crew.name) : ''}" placeholder="Senior 8+ A">
-        </div>
-        <div class="field">
-          <label for="f-boat">Boat class</label>
-          <select class="input-select" id="f-boat" name="boat_class">
-            <option value="">-</option>
-            ${BOAT_CLASSES.map(b => `<option value="${b}"${editing && crew.boat_class === b ? ' selected' : ''}>${b}</option>`).join('')}
-          </select>
-        </div>`,
-      onSubmit: async (form, close) => {
-        const fd = new FormData(form);
-        const payload = { name: fd.get('name').trim(), boat_class: fd.get('boat_class') || null };
-        if (!payload.name) throw new Error('Enter a crew name.');
-
-        if (editing) {
-          const { error } = await sb.from('crews').update(payload).eq('id', crew.id);
-          if (error) throw error;
-          toast('Crew updated');
-        } else {
-          const { error } = await sb.from('crews').insert({
-            ...payload, group_id: RT.activeGroupId, created_by: session.user.id,
-          });
-          if (error) throw error;
-          toast('Crew added');
-        }
-        close();
-        await render();
-      },
-    });
-  }
-
-  async function openLineup(crew) {
-    // Need the roster and the current line-up.
-    const [{ data: roster }, { data: current }] = await Promise.all([
-      sb.from('athletes').select('id, name').eq('group_id', RT.activeGroupId).is('deleted_at', null).order('name'),
-      sb.from('crew_members').select('athlete_id').eq('crew_id', crew.id),
-    ]);
-
-    if (!roster || !roster.length) {
-      openModal({
-        title: `Line-up - ${crew.name}`,
-        submitLabel: 'Go to Roster',
-        bodyHtml: `<p class="muted" style="margin-bottom:4px">There are no athletes in this squad yet. Add some on the Roster page first, then come back to pick the line-up.</p>`,
-        onSubmit: async () => { window.location.href = 'roster.html'; },
-      });
+  // Manual create: pick athletes (+ optional name) -> find-or-create the set.
+  function openCrewForm() {
+    if (!roster.length) {
+      openModal({ title: 'New crew', submitLabel: 'Go to Roster',
+        bodyHtml: `<p class="muted">Add athletes on the Roster page first, then come back to form a crew.</p>`,
+        onSubmit: async () => { window.location.href = 'roster.html'; } });
       return;
     }
-
-    const inCrew = new Set((current || []).map(r => r.athlete_id));
     openModal({
-      title: `Line-up - ${crew.name}`,
-      submitLabel: 'Save line-up',
+      title: 'New crew',
+      submitLabel: 'Create crew',
       bodyHtml: `
-        <p class="muted" style="margin-bottom:10px">Tick the athletes who sit in this crew.</p>
-        <div class="check-list">
-          ${roster.map(a => `
-            <label class="check-row">
-              <input type="checkbox" name="athlete" value="${a.id}"${inCrew.has(a.id) ? ' checked' : ''}>
-              <span>${escapeHtml(a.name)}</span>
-            </label>`).join('')}
+        <div class="field">
+          <label for="c-name">Name (optional)</label>
+          <input class="input" id="c-name" name="name" placeholder="e.g. Senior 8+ A">
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Athletes</label>
+          <div class="check-list">
+            ${roster.map(a => `<label class="check-row">
+              <input type="checkbox" name="athlete" value="${a.id}"><span>${escapeHtml(a.name)}</span></label>`).join('')}
+          </div>
         </div>`,
       onSubmit: async (form, close) => {
-        const selected = [...form.querySelectorAll('input[name="athlete"]:checked')].map(c => c.value);
-        // Replace the line-up: clear then insert the selected set.
-        const { error: delErr } = await sb.from('crew_members').delete().eq('crew_id', crew.id);
-        if (delErr) throw delErr;
-        if (selected.length) {
-          const { error: insErr } = await sb.from('crew_members')
-            .insert(selected.map(aid => ({ crew_id: crew.id, athlete_id: aid })));
-          if (insErr) throw insErr;
-        }
-        toast('Line-up saved');
+        const ids = [...form.querySelectorAll('input[name="athlete"]:checked')].map(c => c.value);
+        if (!ids.length) throw new Error('Pick at least one athlete.');
+        const name = form.querySelector('#c-name').value.trim() || null;
+        const { error } = await sb.rpc('upsert_crew', { p_group_id: RT.activeGroupId, p_athlete_ids: ids, p_name: name });
+        if (error) throw error;
+        toast('Crew saved');
         close();
         await render();
       },
     });
   }
 
-  async function removeCrew(c) {
-    if (!confirm(`Remove the crew "${c.name}"? Results already tagged to it keep their data.`)) return;
+  function openRename(crew, members) {
+    openModal({
+      title: 'Rename crew',
+      submitLabel: 'Save',
+      bodyHtml: `
+        <p class="muted" style="margin-bottom:10px">${escapeHtml(members.join(', ') || 'No athletes')}</p>
+        <div class="field" style="margin-bottom:0">
+          <label for="r-name">Name</label>
+          <input class="input" id="r-name" value="${escapeHtml(crew.name || '')}" placeholder="Crew name">
+        </div>`,
+      onSubmit: async (form, close) => {
+        const name = form.querySelector('#r-name').value.trim() || null;
+        const { error } = await sb.from('crews').update({ name }).eq('id', crew.id);
+        if (error) throw error;
+        toast('Renamed');
+        close();
+        await render();
+      },
+    });
+  }
+
+  async function removeCrew(c, members) {
+    if (!confirm(`Remove the crew "${label(c, members)}"? Results stay; the athletes remain tagged, so this combination can reappear if tagged again.`)) return;
     const { error } = await sb.from('crews').update({ deleted_at: new Date().toISOString() }).eq('id', c.id);
     if (error) { toast(error.message, 'error'); return; }
     toast('Crew removed');

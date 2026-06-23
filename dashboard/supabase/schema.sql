@@ -81,19 +81,26 @@ create table public.athletes (
 );
 create index athletes_group_idx on public.athletes (group_id);
 
--- Named crews, e.g. "Senior 8+ A".
+-- A crew = a DISTINCT SET OF ATHLETES within a squad. It is identified by its
+-- membership (the `signature` = sorted athlete ids), not by a name. Crews are
+-- found-or-created from the athletes tagged on a result (see upsert_crew), or
+-- created manually. `name` is an optional convenience label for a combination.
 create table public.crews (
   id          uuid        primary key default gen_random_uuid(),
   group_id    uuid        not null references public.groups on delete cascade,
-  name        text        not null,
-  boat_class  text,                                -- '8+', '4-', '2x', '1x', etc.
+  name        text,                                -- optional label for this athlete-set
+  signature   text,                                -- sorted athlete ids, '<id>,<id>,...'
+  boat_class  text,                                -- '8+', '4-', '2x', '1x', etc. (optional)
   created_by  uuid        not null references public.profiles on delete cascade,
   created_at  timestamptz not null default now(),
   deleted_at  timestamptz
 );
 create index crews_group_idx on public.crews (group_id);
+-- One crew per distinct athlete-set per squad (partial: ignores soft-deleted).
+create unique index crews_signature_uniq on public.crews (group_id, signature)
+  where deleted_at is null and signature is not null;
 
--- Who sat in a crew (the line-up).
+-- The athletes that make up a crew (its identity).
 create table public.crew_members (
   crew_id    uuid not null references public.crews on delete cascade,
   athlete_id uuid not null references public.athletes on delete cascade,
@@ -342,6 +349,42 @@ begin
 end; $$;
 grant execute on function public.admin_set_member_role(uuid, uuid, text) to authenticated;
 
+-- Find-or-create the crew for an exact set of athletes. Used when tagging a
+-- result (name null) and when a coach names a combination manually. Dedupes on
+-- the sorted-id signature so the same athlete-set always resolves to one crew.
+create or replace function public.upsert_crew(p_group_id uuid, p_athlete_ids uuid[], p_name text default null)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  v_sig text;
+  v_id  uuid;
+begin
+  if not public.is_group_member(p_group_id) then
+    raise exception 'Not a member of this group.';
+  end if;
+  if p_athlete_ids is null or array_length(p_athlete_ids, 1) is null then
+    raise exception 'A crew needs at least one athlete.';
+  end if;
+
+  -- Canonical signature: distinct, sorted ids joined with commas.
+  v_sig := array_to_string(array(select distinct a from unnest(p_athlete_ids) a order by a), ',');
+
+  select id into v_id from public.crews
+   where group_id = p_group_id and signature = v_sig and deleted_at is null;
+
+  if v_id is null then
+    insert into public.crews (group_id, name, signature, created_by)
+    values (p_group_id, nullif(trim(coalesce(p_name, '')), ''), v_sig, auth.uid())
+    returning id into v_id;
+    insert into public.crew_members (crew_id, athlete_id)
+    select v_id, a from (select distinct a from unnest(p_athlete_ids) a) s;
+  elsif p_name is not null and trim(p_name) <> '' then
+    update public.crews set name = trim(p_name) where id = v_id;
+  end if;
+
+  return v_id;
+end; $$;
+grant execute on function public.upsert_crew(uuid, uuid[], text) to authenticated;
+
 -- ================================================================
 -- Auto-create profile + consume invites on signup
 -- ================================================================
@@ -376,6 +419,36 @@ create or replace trigger on_auth_user_created
 -- Port of Condit's invite-member, adapted to per-group invites: the caller
 -- must be an admin OF THE TARGET GROUP, and pending_members is keyed by
 -- (email, group_id). No seat cap in the MVP (billing comes later).
+
+-- ================================================================
+-- Training programmes (week/day/session plans, shared within a squad)
+-- ================================================================
+-- The whole plan lives in `plan` jsonb:
+--   { meta: { phase, start_date, notes },
+--     weeks: [ { name, focus, days: [ { dow, sessions: [
+--       { type, distance, rate, duration, notes } ] } ] } ] }
+create table public.training_programmes (
+  id          uuid        primary key default gen_random_uuid(),
+  group_id    uuid        not null references public.groups on delete cascade,
+  title       text        not null,
+  plan        jsonb       not null default '{}',
+  created_by  uuid        not null references public.profiles on delete cascade,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  deleted_at  timestamptz
+);
+create index training_programmes_group_idx on public.training_programmes (group_id, updated_at desc);
+
+alter table public.training_programmes enable row level security;
+
+create policy "tp_select" on public.training_programmes
+  for select using (public.is_group_member(group_id));
+create policy "tp_insert" on public.training_programmes
+  for insert with check (public.is_group_member(group_id) and created_by = auth.uid());
+create policy "tp_update" on public.training_programmes
+  for update using (public.is_group_member(group_id)) with check (public.is_group_member(group_id));
+create policy "tp_delete" on public.training_programmes
+  for delete using (public.is_group_admin(group_id) or created_by = auth.uid());
 
 -- ================================================================
 -- Scheduled jobs (pg_cron) - hard-delete soft-deleted rows after 48h

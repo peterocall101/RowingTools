@@ -286,3 +286,48 @@ table.data tbody tr:hover { background: #fafbfc; }
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast.toast-error { background: var(--danger); }
+
+/* ---- Training programme builder ---- */
+.tp-title { font-size: 22px; font-weight: 700; padding: 8px 12px; }
+.tp-week { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px; }
+.tp-week-head { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+.tp-week-name { max-width: 200px; font-weight: 600; }
+.tp-week-focus { flex: 1; }
+.tp-days { display: flex; flex-direction: column; gap: 8px; }
+.tp-day { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); }
+.tp-day:first-child { border-top: none; }
+.tp-day-label { width: 42px; flex-shrink: 0; font-weight: 600; color: var(--ink-2); padding-top: 8px; font-size: 13px; }
+.tp-day-sessions { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.tp-session { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.tp-session .input, .tp-session .input-select { padding: 8px 10px; font-size: 14px; }
+.tp-session .tp-sess-type { width: 130px; flex-shrink: 0; }
+.tp-session .tp-sess-rate { width: 60px; flex-shrink: 0; }
+.tp-session .tp-sess-notes { flex: 1; min-width: 120px; }
+.tp-add-session {
+  align-self: flex-start; border: 1px dashed var(--line); background: none; border-radius: 7px;
+  padding: 6px 12px; font: inherit; font-size: 13px; color: var(--brand); cursor: pointer;
+}
+.tp-add-session:hover { background: var(--bg); }
+
+/* ---- Workspace cards ---- */
+.tp-card { display: flex; flex-direction: column; gap: 4px; }
+.tp-card-title { font-size: 16px; font-weight: 600; color: var(--ink); text-decoration: none; }
+.tp-card-title:hover { color: var(--brand); }
+.tp-card-meta { font-size: 13px; color: var(--ink-2); }
+.tp-card-date { font-size: 12px; }
+.tp-card-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+
+/* ---- Programme PDF document ---- */
+.tp-doc { font-family: 'Inter', system-ui, sans-serif; color: #0d1b2a; padding: 8px; }
+.tp-doc-head { border-bottom: 2px solid #1d5b8a; padding-bottom: 10px; margin-bottom: 16px; }
+.tp-doc-head h1 { font-size: 22px; margin: 0 0 4px; }
+.tp-doc-meta { font-size: 13px; color: #4a5a6a; }
+.tp-doc-notes { font-size: 13px; color: #4a5a6a; margin-top: 6px; }
+.tp-doc-week { margin-bottom: 14px; }
+.tp-doc-week h2 { font-size: 15px; color: #1d5b8a; margin: 0 0 6px; }
+.tp-doc-focus { font-weight: 400; color: #4a5a6a; font-size: 13px; }
+.tp-doc-table { width: 100%; border-collapse: collapse; }
+.tp-doc-table th { width: 50px; text-align: left; vertical-align: top; padding: 6px 8px; font-size: 13px; color: #4a5a6a; border-bottom: 1px solid #e2e8f0; }
+.tp-doc-table td { padding: 6px 8px; font-size: 13px; border-bottom: 1px solid #e2e8f0; }
+.tp-doc-session { margin-bottom: 4px; }
+.tp-doc-note { color: #4a5a6a; font-size: 12px; }
