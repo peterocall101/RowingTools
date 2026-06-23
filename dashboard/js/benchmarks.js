@@ -37,13 +37,14 @@ async function loadPresetBenchmark(source) {
 
   try {
     const res = await fetch('../data/benchmarks_v3.json');
-    if (!res.ok) throw new Error('Failed to fetch benchmark data');
+    if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to fetch benchmark data from ../data/benchmarks_v3.json`);
     const data = await res.json();
-    _benchmarkCache[source] = data[source] || {};
+    if (!data[source]) throw new Error(`Source "${source}" not found in benchmarks_v3.json. Available: ${Object.keys(data).join(', ')}`);
+    _benchmarkCache[source] = data[source];
     return _benchmarkCache[source];
   } catch (e) {
     console.error(`Could not load preset benchmark ${source}:`, e);
-    return {};
+    throw e;
   }
 }
 
@@ -53,12 +54,22 @@ async function convertPresetToTimes(source) {
   const preset = await loadPresetBenchmark(source);
   const times = {};
 
+  if (!preset || typeof preset !== 'object') {
+    console.error('Preset is not an object:', preset);
+    throw new Error(`Could not load preset benchmark "${source}". Check that benchmarks_v3.json exists and is valid.`);
+  }
+
   Object.entries(preset).forEach(([boatClass, entry]) => {
-    if (entry.time) {
+    if (entry && entry.time) {
       const ms = timeStringToMs(entry.time);
       if (!isNaN(ms)) times[boatClass] = ms;
     }
   });
+
+  if (Object.keys(times).length === 0) {
+    console.error('No valid times found in preset:', preset);
+    throw new Error(`No benchmark times found for "${source}". Preset data may be malformed.`);
+  }
 
   return times;
 }
