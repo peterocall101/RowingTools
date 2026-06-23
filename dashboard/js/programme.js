@@ -23,7 +23,7 @@
   render();
 
   function blankWeek(n) {
-    return { name: `Week ${n}`, days: DOW.map(() => ({ text: '', color: '' })) };
+    return { name: `Week ${n}`, days: DOW.map(() => ({ sessions: [] })) };
   }
 
   function render() {
@@ -77,11 +77,24 @@
   }
 
   function cellHtml(wi, di, day) {
-    return `<td class="tp-cell" data-cell="${wi}.${di}" style="background:${TP_COLORS[day.color] || '#fff'}">
-      <textarea class="tp-cell-text" data-w="${wi}" data-d="${di}" data-k="text" rows="4" placeholder="Session...">${escapeHtml(day.text || '')}</textarea>
-      <select class="tp-cell-color" data-w="${wi}" data-d="${di}" data-k="color">
-        ${TP_COLOR_OPTIONS.map(([v, l]) => `<option value="${v}"${day.color === v ? ' selected' : ''}>${l}</option>`).join('')}
-      </select>
+    const sessions = day.sessions || [];
+    const typeOpts = ['', ...TP_SESSION_TYPES.map(t => t.type)];
+    const sessionBlocks = sessions.map((s, si) => {
+      const color = TP_TYPE_TO_COLOR[s.type] || '#fff';
+      return `<div class="tp-session" style="background:${color}">
+        <div class="tp-session-head">
+          <select class="tp-session-type" data-w="${wi}" data-d="${di}" data-s="${si}" data-k="type">
+            ${typeOpts.map(t => `<option value="${escapeHtml(t)}"${s.type === t ? ' selected' : ''}>${escapeHtml(t || '—')}</option>`).join('')}
+          </select>
+          <button class="tp-session-del" data-w="${wi}" data-d="${di}" data-s="${si}" type="button">×</button>
+        </div>
+        <textarea class="tp-session-text" data-w="${wi}" data-d="${di}" data-s="${si}" data-k="text" rows="2" placeholder="Details...">${escapeHtml(s.text || '')}</textarea>
+        <textarea class="tp-session-notes" data-w="${wi}" data-d="${di}" data-s="${si}" data-k="notes" rows="1" placeholder="Notes...">${escapeHtml(s.notes || '')}</textarea>
+      </div>`;
+    }).join('');
+    return `<td class="tp-cell" data-cell="${wi}.${di}">
+      <div class="tp-cell-content">${sessionBlocks}</div>
+      <button class="tp-add-session" data-w="${wi}" data-d="${di}" type="button">+ Add session</button>
     </td>`;
   }
 
@@ -92,13 +105,19 @@
     plan.meta.start_date = document.getElementById('m-start').value;
     plan.meta.notes = document.getElementById('m-notes').value;
 
-    document.querySelectorAll('[data-k]').forEach(inp => {
-      const k = inp.dataset.k;
-      if (inp.dataset.d !== undefined) {
-        plan.weeks[+inp.dataset.w].days[+inp.dataset.d][k] = inp.value;
-      } else if (inp.dataset.w !== undefined) {
-        plan.weeks[+inp.dataset.w][k] = inp.value;
+    // Sync week names
+    document.querySelectorAll('[data-w][data-k="name"]').forEach(inp => {
+      plan.weeks[+inp.dataset.w].name = inp.value;
+    });
+
+    // Sync sessions: collect all session inputs by week/day/session index
+    plan.weeks.forEach(w => w.days.forEach(d => d.sessions = []));
+    document.querySelectorAll('[data-s]').forEach(inp => {
+      const w = +inp.dataset.w, d = +inp.dataset.d, s = +inp.dataset.s, k = inp.dataset.k;
+      while (plan.weeks[w].days[d].sessions.length <= s) {
+        plan.weeks[w].days[d].sessions.push({ type: '', text: '', notes: '' });
       }
+      plan.weeks[w].days[d].sessions[s][k] = inp.value;
     });
   }
 
@@ -112,12 +131,27 @@
       render();
     });
 
-    // Live cell colour; also re-render week headers when the start date changes
-    // so the column dates update.
-    document.querySelectorAll('.tp-cell-color').forEach(sel => sel.onchange = () => {
-      const td = sel.closest('.tp-cell');
-      if (td) td.style.background = TP_COLORS[sel.value] || '#fff';
+    // Add session to a cell
+    document.querySelectorAll('.tp-add-session').forEach(btn => btn.onclick = () => {
+      const w = +btn.dataset.w, d = +btn.dataset.d;
+      plan.weeks[w].days[d].sessions.push({ type: '', text: '', notes: '' });
+      syncFromDom(); render();
     });
+
+    // Delete session from a cell
+    document.querySelectorAll('.tp-session-del').forEach(btn => btn.onclick = () => {
+      const w = +btn.dataset.w, d = +btn.dataset.d, s = +btn.dataset.s;
+      plan.weeks[w].days[d].sessions.splice(s, 1);
+      syncFromDom(); render();
+    });
+
+    // Live session colour when type changes
+    document.querySelectorAll('.tp-session-type').forEach(sel => sel.onchange = () => {
+      const session = sel.closest('.tp-session');
+      if (session) session.style.background = TP_TYPE_TO_COLOR[sel.value] || '#fff';
+    });
+
+    // Re-render when start date changes so column dates update
     document.getElementById('m-start').onchange = () => { syncFromDom(); render(); };
 
     document.getElementById('save-btn').onclick = save;
