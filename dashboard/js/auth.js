@@ -74,8 +74,8 @@ function renderHeader(activePage) {
     { href: 'results.html',   label: 'Results' },
     { href: 'roster.html',    label: 'Roster' },
     { href: 'crews.html',     label: 'Crews' },
-    { href: 'programme.html', label: 'New Programme' },
     { href: 'workspace.html', label: 'Workspace' },
+    { href: 'tools.html',     label: 'Tools' },
     { href: 'members.html',   label: 'Members', soon: true, adminOnly: true },
   ];
 
