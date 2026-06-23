@@ -173,7 +173,7 @@ create table public.benchmarks (
   id          uuid        primary key default gen_random_uuid(),
   group_id    uuid        not null references public.groups on delete cascade,
   name        text        not null,       -- e.g. "Watts Boat Table", "Harvard", "Custom 2026"
-  source      text        not null check (source in ('wbt', 'met_a', 'met_b', 'met_c', 'custom')),
+  source      text        not null check (source in ('wbt', 'met_raw', 'hrr_raw', 'hwr_raw', 'met_a_slowest', 'met_b_slowest', 'met_c_slowest', 'custom')),
   created_by  uuid        not null references public.profiles on delete cascade,
   created_at  timestamptz not null default now(),
   deleted_at  timestamptz
@@ -461,7 +461,7 @@ begin
   if not public.is_group_admin(p_group_id) then
     raise exception 'Only a group admin can create benchmarks.';
   end if;
-  if p_source not in ('wbt', 'met_a', 'met_b', 'met_c', 'custom') then
+  if p_source not in ('wbt', 'met_raw', 'hrr_raw', 'hwr_raw', 'met_a_slowest', 'met_b_slowest', 'met_c_slowest', 'custom') then
     raise exception 'Invalid benchmark source.';
   end if;
   if coalesce(trim(p_name), '') = '' then

@@ -78,9 +78,12 @@ async function convertPresetToTimes(source) {
 async function createBenchmarkFromPreset(source, customName = null) {
   const name = customName || {
     wbt: 'Watts Boat Table',
-    met_a: 'Metropolitan A',
-    met_b: 'Metropolitan B',
-    met_c: 'Metropolitan C',
+    met_raw: 'Metropolitan (raw)',
+    met_a_slowest: 'Metropolitan A (slowest)',
+    met_b_slowest: 'Metropolitan B (slowest)',
+    met_c_slowest: 'Metropolitan C (slowest)',
+    hrr_raw: 'Harvard (raw)',
+    hwr_raw: 'Henley (raw)',
   }[source] || 'Custom benchmark';
 
   const times = await convertPresetToTimes(source);
