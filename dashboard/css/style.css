@@ -296,27 +296,25 @@ table.data tbody tr:hover { background: #fafbfc; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast.toast-error { background: var(--danger); }
 
-/* ---- Training programme builder ---- */
+/* ---- Training programme builder (weekly grid) ---- */
 .tp-title { font-size: 22px; font-weight: 700; padding: 8px 12px; }
 .tp-week { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px; }
 .tp-week-head { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
-.tp-week-name { max-width: 200px; font-weight: 600; }
-.tp-week-focus { flex: 1; }
-.tp-days { display: flex; flex-direction: column; gap: 8px; }
-.tp-day { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); }
-.tp-day:first-child { border-top: none; }
-.tp-day-label { width: 42px; flex-shrink: 0; font-weight: 600; color: var(--ink-2); padding-top: 8px; font-size: 13px; }
-.tp-day-sessions { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-.tp-session { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.tp-session .input, .tp-session .input-select { padding: 8px 10px; font-size: 14px; }
-.tp-session .tp-sess-type { width: 130px; flex-shrink: 0; }
-.tp-session .tp-sess-rate { width: 60px; flex-shrink: 0; }
-.tp-session .tp-sess-notes { flex: 1; min-width: 120px; }
-.tp-add-session {
-  align-self: flex-start; border: 1px dashed var(--line); background: none; border-radius: 7px;
-  padding: 6px 12px; font: inherit; font-size: 13px; color: var(--brand); cursor: pointer;
+.tp-week-name { max-width: 220px; font-weight: 600; }
+.tp-grid-scroll { overflow-x: auto; }
+.tp-grid { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 760px; }
+.tp-grid th {
+  border: 1px solid var(--line); padding: 6px 4px; font-size: 12px; color: var(--ink-2);
+  background: var(--bg); text-align: center; font-weight: 500;
 }
-.tp-add-session:hover { background: var(--bg); }
+.tp-grid .tp-date { font-weight: 700; color: var(--ink); font-size: 12.5px; margin-top: 1px; }
+.tp-cell { border: 1px solid var(--line); padding: 4px; vertical-align: top; width: 14.28%; }
+.tp-cell-text {
+  width: 100%; border: none; background: transparent; resize: vertical; font: inherit;
+  font-size: 12px; line-height: 1.4; min-height: 72px; color: var(--ink);
+}
+.tp-cell-text:focus { outline: 1px solid var(--brand); border-radius: 4px; }
+.tp-cell-color { width: 100%; margin-top: 4px; font-size: 11px; border: 1px solid var(--line); border-radius: 5px; padding: 3px; background: rgba(255,255,255,0.6); }
 
 /* ---- Workspace cards ---- */
 .tp-card { display: flex; flex-direction: column; gap: 4px; }
@@ -332,11 +330,9 @@ table.data tbody tr:hover { background: #fafbfc; }
 .tp-doc-head h1 { font-size: 22px; margin: 0 0 4px; }
 .tp-doc-meta { font-size: 13px; color: #4a5a6a; }
 .tp-doc-notes { font-size: 13px; color: #4a5a6a; margin-top: 6px; }
-.tp-doc-week { margin-bottom: 14px; }
-.tp-doc-week h2 { font-size: 15px; color: #1d5b8a; margin: 0 0 6px; }
-.tp-doc-focus { font-weight: 400; color: #4a5a6a; font-size: 13px; }
-.tp-doc-table { width: 100%; border-collapse: collapse; }
-.tp-doc-table th { width: 50px; text-align: left; vertical-align: top; padding: 6px 8px; font-size: 13px; color: #4a5a6a; border-bottom: 1px solid #e2e8f0; }
-.tp-doc-table td { padding: 6px 8px; font-size: 13px; border-bottom: 1px solid #e2e8f0; }
-.tp-doc-session { margin-bottom: 4px; }
-.tp-doc-note { color: #4a5a6a; font-size: 12px; }
+.tp-doc-week { margin-bottom: 14px; page-break-inside: avoid; }
+.tp-doc-week h2 { font-size: 14px; color: #1d5b8a; margin: 0 0 5px; }
+.tp-doc-grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.tp-doc-grid th { border: 1px solid #cbd5e1; padding: 3px 4px; font-size: 10px; color: #4a5a6a; text-align: center; font-weight: 500; }
+.tp-doc-date { font-weight: 700; color: #0d1b2a; font-size: 11px; }
+.tp-doc-grid td { border: 1px solid #cbd5e1; padding: 5px; font-size: 10px; line-height: 1.35; vertical-align: top; height: 72px; }
