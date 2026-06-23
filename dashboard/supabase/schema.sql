@@ -452,13 +452,11 @@ create or replace function public.create_benchmark(
   p_group_id uuid,
   p_name text,
   p_source text,
-  p_times jsonb default null
+  p_times jsonb
 )
 returns uuid language plpgsql security definer set search_path = public as $$
 declare
   v_id uuid;
-  v_boat_class text;
-  v_time_ms integer;
 begin
   if not public.is_group_admin(p_group_id) then
     raise exception 'Only a group admin can create benchmarks.';
@@ -469,21 +467,17 @@ begin
   if coalesce(trim(p_name), '') = '' then
     raise exception 'Benchmark name is required.';
   end if;
+  if p_times is null or p_times = '{}' then
+    raise exception 'At least one benchmark time is required.';
+  end if;
 
   insert into public.benchmarks (group_id, name, source, created_by)
   values (p_group_id, trim(p_name), p_source, auth.uid())
   returning id into v_id;
 
-  if p_times is not null then
-    for v_boat_class, v_time_ms in
-      select key, value::integer from jsonb_each_text(p_times)
-    loop
-      insert into public.benchmark_times (benchmark_id, boat_class, time_ms)
-      values (v_id, v_boat_class, v_time_ms)
-      on conflict (benchmark_id, boat_class) do update
-      set time_ms = excluded.time_ms;
-    end loop;
-  end if;
+  insert into public.benchmark_times (benchmark_id, boat_class, time_ms)
+  select v_id, key, (value)::integer
+  from jsonb_each_text(p_times);
 
   return v_id;
 end; $$;
