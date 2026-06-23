@@ -113,7 +113,7 @@
 
   function openCreateForm() {
     const boatClasses = Object.keys(wbtData || {}).sort();
-    const adjHtml = boatClasses.slice(0, 10).map(bc => `
+    const adjHtml = boatClasses.map(bc => `
       <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px">
         <label style="min-width:60px; font-size:13px; font-weight:500">${escapeHtml(bc)}</label>
         <input type="number" class="input" style="width:80px" data-bc="${bc}" placeholder="0" value="0">
