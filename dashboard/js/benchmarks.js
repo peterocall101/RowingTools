@@ -9,7 +9,7 @@ async function getActiveBenchmark(groupId) {
   const { data, error } = await sb
     .from('benchmarks')
     .select('*, benchmark_times(*)')
-    .eq('id', RT.activeGroup().active_benchmark_id)
+    .eq('id', activeGroup().active_benchmark_id)
     .single();
 
   if (error || !data) return null;
@@ -104,7 +104,7 @@ async function setActiveBenchmark(benchmarkId) {
   });
 
   if (error) throw error;
-  RT.activeGroup().active_benchmark_id = benchmarkId;
+  activeGroup().active_benchmark_id = benchmarkId;
 }
 
 // Calculate GMT% given a time and boat class using the active benchmark.
