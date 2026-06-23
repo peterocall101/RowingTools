@@ -41,10 +41,7 @@
 
     if (error) { app.innerHTML = `<div class="error-box">${escapeHtml(error.message)}</div>`; return; }
 
-    const club = activeGroup().club_name;
-    const importBtn = club
-      ? `<button class="btn btn-ghost" id="import-btn">Import from ${escapeHtml(club)}</button>`
-      : (isActiveAdmin() ? `<button class="btn btn-ghost" id="attach-btn">Attach a club</button>` : '');
+    const importBtn = `<button class="btn btn-ghost" id="import-btn">Import results</button>`;
 
     app.innerHTML = `
       <div class="page-head">
@@ -63,9 +60,7 @@
     const addEmpty = document.getElementById('add-empty');
     if (addEmpty) addEmpty.onclick = () => openForm();
     const impBtn = document.getElementById('import-btn');
-    if (impBtn) impBtn.onclick = () => openImport(club);
-    const attBtn = document.getElementById('attach-btn');
-    if (attBtn) attBtn.onclick = () => openAttachClub();
+    if (impBtn) impBtn.onclick = () => openImport();
 
     app.querySelectorAll('[data-edit]').forEach(b =>
       b.onclick = () => {
@@ -123,79 +118,39 @@
   }
 
   function emptyHtml() {
-    const club = activeGroup().club_name;
     return `<div class="empty">
       <h2>No results yet</h2>
-      <p>Log your first piece - an erg test or an on-water row${club ? `, or import ${escapeHtml(club)}'s regatta results from the main site` : ''}. Tag it to a crew and the athletes who did it, and the split is worked out for you.</p>
+      <p>Log your first piece - an erg test or an on-water row - or use <strong>Import results</strong> to pull a club's regatta results in from the main site. Tag it to a crew and the athletes who did it, and the split is worked out for you.</p>
       <button class="btn btn-primary" id="add-empty">+ Log your first result</button>
     </div>`;
   }
 
-  // ---- Attach a club to the squad (admin) ----
-  async function openAttachClub() {
-    const list = await ClubData.clubs().catch(() => []);
-    openModal({
-      title: 'Attach a club',
-      submitLabel: 'Attach club',
-      bodyHtml: `
-        <p class="muted" style="margin-bottom:12px">Link this squad to a club so you can import its regatta results from the main RowingTools site.</p>
-        <div class="field">
-          <label for="ac-club">Club</label>
-          <input class="input" id="ac-club" list="ac-club-list" placeholder="Start typing to find your club">
-          <datalist id="ac-club-list">${list.map(c => `<option value="${escapeHtml(c)}">`).join('')}</datalist>
-        </div>`,
-      onSubmit: async (form, close) => {
-        const club = form.querySelector('#ac-club').value.trim();
-        if (!club) throw new Error('Pick a club.');
-        const { error } = await sb.from('groups').update({ club_name: club, club_id: club }).eq('id', RT.activeGroupId);
-        if (error) throw error;
-        // Refresh the cached membership so the page reflects the new club.
-        const m = activeMembership();
-        if (m) m.group.club_name = club;
-        toast('Club attached');
-        close();
-        await render();
-      },
-    });
-  }
-
-  // ---- Import public results for the attached club ----
-  async function openImport(club) {
-    const [entries, { data: imported }] = await Promise.all([
-      ClubData.resultsForClub(club),
+  // ---- Import public results: pick any club, then choose results ----
+  async function openImport() {
+    const [allClubs, { data: imported }] = await Promise.all([
+      ClubData.clubs().catch(() => []),
       sb.from('results').select('public_ref').eq('group_id', RT.activeGroupId).not('public_ref', 'is', null),
     ]);
     const have = new Set((imported || []).map(r => r.public_ref));
-    const fresh = entries.filter(e => !have.has(e.ref));
+    // Default the picker to the squad's attached club if it's a real match - but
+    // you can type any club; nothing is auto-matched.
+    const attached = activeGroup().club_name;
+    const def = attached && allClubs.includes(attached) ? attached : '';
 
-    if (!entries.length) {
-      openModal({ title: `Import from ${club}`, submitLabel: 'Close',
-        bodyHtml: `<p class="muted">No public results found for ${escapeHtml(club)} on the main site yet.</p>`,
-        onSubmit: async (f, close) => close() });
-      return;
-    }
-    if (!fresh.length) {
-      openModal({ title: `Import from ${club}`, submitLabel: 'Close',
-        bodyHtml: `<p class="muted">All ${entries.length} of ${escapeHtml(club)}'s public results are already imported.</p>`,
-        onSubmit: async (f, close) => close() });
-      return;
-    }
+    let currentEntries = [];
 
-    openModal({
-      title: `Import from ${club}`,
-      submitLabel: `Import selected`,
+    const { form } = openModal({
+      title: 'Import club results',
+      submitLabel: 'Import selected',
       bodyHtml: `
-        <p class="muted" style="margin-bottom:10px">${fresh.length} result${fresh.length === 1 ? '' : 's'} not yet imported. Tick the ones to bring in - you can tag your athletes onto them afterwards.</p>
-        <label class="check-row" style="border:none; padding-left:2px"><input type="checkbox" id="imp-all"><span><strong>Select all</strong></span></label>
-        <div class="check-list">
-          ${fresh.map((e, i) => `<label class="check-row">
-            <input type="checkbox" name="imp" value="${i}">
-            <span>${escapeHtml(e.event)} - <strong>${escapeHtml(e.crew)}</strong> &middot; ${escapeHtml(e.time)}${e.pct != null ? ` (${e.pct}%)` : ''}
-              <div class="muted">${escapeHtml(e.regatta)} &middot; ${fmtDate(e.date)}</div></span>
-          </label>`).join('')}
-        </div>`,
+        <div class="field">
+          <label for="im-club">Club</label>
+          <input class="input" id="im-club" list="im-club-list" value="${escapeHtml(def)}" placeholder="Start typing to find a club" autocomplete="off">
+          <datalist id="im-club-list">${allClubs.map(c => `<option value="${escapeHtml(c)}">`).join('')}</datalist>
+        </div>
+        <div id="im-results"><p class="muted">Pick a club to see its results.</p></div>`,
       onSubmit: async (form, close) => {
-        const picks = [...form.querySelectorAll('input[name="imp"]:checked')].map(c => fresh[parseInt(c.value, 10)]);
+        const picks = [...form.querySelectorAll('input[name="imp"]:checked')].map(c => currentEntries[parseInt(c.value, 10)]);
         if (!picks.length) throw new Error('Select at least one result.');
 
         const payload = picks.map(e => ({
@@ -225,11 +180,39 @@
       },
     });
 
-    // Select-all wiring (set up after the modal mounts).
-    setTimeout(() => {
-      const all = document.getElementById('imp-all');
-      if (all) all.onclick = () => document.querySelectorAll('input[name="imp"]').forEach(cb => { cb.checked = all.checked; });
-    }, 0);
+    const clubInput = form.querySelector('#im-club');
+    const box = form.querySelector('#im-results');
+
+    async function loadClub(clubName) {
+      currentEntries = [];
+      if (!clubName) { box.innerHTML = '<p class="muted">Pick a club to see its results.</p>'; return; }
+      box.innerHTML = '<p class="muted">Loading...</p>';
+      const entries = await ClubData.resultsForClub(clubName);
+      const fresh = entries.filter(e => !have.has(e.ref));
+      currentEntries = fresh;
+
+      if (!entries.length) { box.innerHTML = `<p class="muted">No public results found for ${escapeHtml(clubName)}.</p>`; return; }
+      if (!fresh.length) { box.innerHTML = `<p class="muted">All ${entries.length} of ${escapeHtml(clubName)}'s results are already imported.</p>`; return; }
+
+      box.innerHTML = `
+        <p class="muted" style="margin:4px 0 10px">${fresh.length} result${fresh.length === 1 ? '' : 's'} not yet imported.</p>
+        <label class="check-row" style="border:none; padding-left:2px"><input type="checkbox" id="imp-all"><span><strong>Select all</strong></span></label>
+        <div class="check-list">
+          ${fresh.map((e, i) => `<label class="check-row">
+            <input type="checkbox" name="imp" value="${i}">
+            <span>${escapeHtml(e.event)} - <strong>${escapeHtml(e.crew)}</strong> &middot; ${escapeHtml(e.time)}${e.pct != null ? ` (${e.pct}%)` : ''}
+              <div class="muted">${escapeHtml(e.regatta)} &middot; ${fmtDate(e.date)}</div></span>
+          </label>`).join('')}
+        </div>`;
+      const all = box.querySelector('#imp-all');
+      if (all) all.onclick = () => box.querySelectorAll('input[name="imp"]').forEach(cb => { cb.checked = all.checked; });
+    }
+
+    // Load when a full club name is entered (datalist pick fires 'input';
+    // 'change' covers blur/enter).
+    clubInput.addEventListener('change', () => loadClub(clubInput.value.trim()));
+    clubInput.addEventListener('input', () => { if (allClubs.includes(clubInput.value.trim())) loadClub(clubInput.value.trim()); });
+    if (def) loadClub(def);
   }
 
   // ---- Tag athletes onto an imported (public) result ----
