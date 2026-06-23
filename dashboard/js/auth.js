@@ -70,11 +70,13 @@ function renderHeader(activePage) {
   // Nav: only show admin-only links when admin of the active group. Stubbed
   // pages are marked soon:true and rendered as disabled until built.
   const links = [
-    { href: 'index.html',   label: 'Home' },
-    { href: 'results.html', label: 'Results' },
-    { href: 'roster.html',  label: 'Roster' },
-    { href: 'crews.html',   label: 'Crews' },
-    { href: 'members.html', label: 'Members', soon: true, adminOnly: true },
+    { href: 'index.html',     label: 'Home' },
+    { href: 'results.html',   label: 'Results' },
+    { href: 'roster.html',    label: 'Roster' },
+    { href: 'crews.html',     label: 'Crews' },
+    { href: 'programme.html', label: 'New Programme' },
+    { href: 'workspace.html', label: 'Workspace' },
+    { href: 'members.html',   label: 'Members', soon: true, adminOnly: true },
   ];
 
   if (nav && activeGroup()) {

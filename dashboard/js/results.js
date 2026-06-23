@@ -11,20 +11,29 @@
   renderHeader('results.html');
 
   // Roster, crews and crew line-ups are needed by the forms; load once.
-  let roster = [], crews = [], lineups = {};
+  let roster = [], crews = [], lineups = {}, nameById = {};
 
   async function loadRefs() {
     const [{ data: r }, { data: c }] = await Promise.all([
       sb.from('athletes').select('id, name').eq('group_id', RT.activeGroupId).is('deleted_at', null).order('name'),
-      sb.from('crews').select('id, name, boat_class').eq('group_id', RT.activeGroupId).is('deleted_at', null).order('name'),
+      sb.from('crews').select('id, name').eq('group_id', RT.activeGroupId).is('deleted_at', null).order('created_at'),
     ]);
     roster = r || [];
     crews = c || [];
+    nameById = Object.fromEntries(roster.map(a => [a.id, a.name]));
     lineups = {};
     if (crews.length) {
       const { data: cm } = await sb.from('crew_members').select('crew_id, athlete_id').in('crew_id', crews.map(x => x.id));
       (cm || []).forEach(m => { (lineups[m.crew_id] = lineups[m.crew_id] || []).push(m.athlete_id); });
     }
+  }
+
+  // A crew's display label: its name, or the athletes that make it up.
+  function crewLabel(crewId) {
+    const c = crews.find(x => x.id === crewId);
+    if (!c) return '';
+    if (c.name) return c.name;
+    return (lineups[crewId] || []).map(id => nameById[id] || '?').join(', ') || 'Empty crew';
   }
 
   await loadRefs();
@@ -283,15 +292,15 @@
           </div>
         </div>
         <div class="field">
-          <label for="f-crew">Crew (optional)</label>
+          <label for="f-crew">Use a saved crew (optional)</label>
           <select class="input-select" id="f-crew" name="crew_id">
             <option value="">-</option>
-            ${crews.map(c => `<option value="${c.id}"${editing && result.crew_id === c.id ? ' selected' : ''}>${escapeHtml(c.name)}${c.boat_class ? ' (' + c.boat_class + ')' : ''}</option>`).join('')}
+            ${crews.map(c => `<option value="${c.id}"${editing && result.crew_id === c.id ? ' selected' : ''}>${escapeHtml(crewLabel(c.id))}</option>`).join('')}
           </select>
-          ${crews.length ? '<p class="muted" style="margin-top:6px">Picking a crew ticks its line-up below.</p>' : ''}
+          ${crews.length ? '<p class="muted" style="margin-top:6px">Picking a crew ticks its athletes below. Otherwise just tick athletes - the combination becomes a crew.</p>' : ''}
         </div>
         <div class="field">
-          <label>Athletes (optional)</label>
+          <label>Athletes</label>
           ${roster.length ? `<div class="check-list" id="athlete-list">
             ${roster.map(a => `<label class="check-row">
               <input type="checkbox" name="athlete" value="${a.id}"${preAthletes.has(a.id) ? ' checked' : ''}>
@@ -311,16 +320,27 @@
         const rate = rateRaw ? parseInt(rateRaw, 10) : null;
         if (rateRaw && (!Number.isFinite(rate) || rate <= 0)) throw new Error('Rate must be a number.');
 
+        const athleteIds = [...form.querySelectorAll('input[name="athlete"]:checked')].map(c => c.value);
+
+        // The crew is DERIVED from the tagged athlete-set (find-or-create).
+        let crewId = null;
+        if (athleteIds.length) {
+          const { data: cid, error: cErr } = await sb.rpc('upsert_crew', {
+            p_group_id: RT.activeGroupId, p_athlete_ids: athleteIds,
+          });
+          if (cErr) throw cErr;
+          crewId = cid;
+        }
+
         const payload = {
           performed_at: fd.get('performed_at'),
           piece_type: fd.get('piece_type'),
           distance_m: distance,
           time_ms,
           rate,
-          crew_id: fd.get('crew_id') || null,
+          crew_id: crewId,
           notes: fd.get('notes').trim() || null,
         };
-        const athleteIds = [...form.querySelectorAll('input[name="athlete"]:checked')].map(c => c.value);
 
         let resultId;
         if (editing) {
@@ -349,12 +369,14 @@
       },
     });
 
+    // Picking a saved crew sets the athlete ticks to exactly that crew's set.
     const crewSel = document.getElementById('f-crew');
     if (crewSel) {
       crewSel.addEventListener('change', () => {
+        if (!crewSel.value) return;
         const ids = lineups[crewSel.value] || [];
         document.querySelectorAll('#athlete-list input[name="athlete"]').forEach(cb => {
-          if (ids.includes(cb.value)) cb.checked = true;
+          cb.checked = ids.includes(cb.value);
         });
       });
     }
