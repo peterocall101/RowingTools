@@ -101,17 +101,28 @@ create table public.crew_members (
   primary key (crew_id, athlete_id)
 );
 
--- A recorded piece: erg or on-water. Optionally tagged to a crew, optionally
+-- A recorded piece. Either a manual training/test piece (source='manual') or a
+-- public regatta result imported from the main site (source='public'). Manual
+-- pieces have a distance and yield a /500m split; public race results carry a
+-- GMT % and boat class instead. Optionally tagged to a crew, optionally
 -- geo-tagged with start/finish pins whose weather is cached into weather (jsonb).
 create table public.results (
   id           uuid        primary key default gen_random_uuid(),
   group_id     uuid        not null references public.groups on delete cascade,
   crew_id      uuid        references public.crews on delete set null,
+  source       text        not null default 'manual' check (source in ('manual', 'public')),
   piece_type   text        not null default 'water' check (piece_type in ('erg', 'water')),
-  distance_m   integer     not null,
+  distance_m   integer,                             -- null for imported public race results
   time_ms      integer     not null,               -- elapsed time in milliseconds
   rate         integer,                             -- stroke rate (spm), optional
   performed_at date        not null,
+  -- Public-result fields (from data/all_results.json on the main site):
+  pct          numeric,                             -- GMT %
+  event        text,                                -- e.g. "Ch 4+"
+  regatta      text,                                -- e.g. "Marlow Regatta 2026"
+  boat_class   text,                                -- e.g. "M4+"
+  crew_label   text,                                -- public crew name as shown on the site
+  public_ref   text,                                -- stable id of the source row (dedupe imports)
   -- Geo + weather (reuses the conditions.js / courses.py weather logic on the
   -- client; the fetched result is cached here so it never needs refetching).
   start_lat    double precision,
@@ -126,6 +137,9 @@ create table public.results (
 );
 create index results_group_idx on public.results (group_id, performed_at);
 create index results_crew_idx  on public.results (crew_id);
+-- A given public result can be imported into a squad at most once.
+create unique index results_public_ref_uniq
+  on public.results (group_id, public_ref) where public_ref is not null;
 
 -- Individuals tagged on a result (enables the per-athlete progress view).
 create table public.result_athletes (

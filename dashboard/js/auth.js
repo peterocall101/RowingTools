@@ -71,7 +71,7 @@ function renderHeader(activePage) {
   // pages are marked soon:true and rendered as disabled until built.
   const links = [
     { href: 'index.html',   label: 'Home' },
-    { href: 'results.html', label: 'Results', soon: true },
+    { href: 'results.html', label: 'Results' },
     { href: 'roster.html',  label: 'Roster' },
     { href: 'crews.html',   label: 'Crews' },
     { href: 'members.html', label: 'Members', soon: true, adminOnly: true },
