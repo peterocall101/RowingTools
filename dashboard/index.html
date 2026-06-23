@@ -27,6 +27,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/clubdata.js"></script>
   <script>
   (async function () {
     const app = document.getElementById('app');
@@ -60,7 +61,9 @@
             </div>
             <div class="field">
               <label for="cs-club">Club (optional)</label>
-              <input class="input" id="cs-club" placeholder="Vesta Rowing Club">
+              <input class="input" id="cs-club" list="cs-club-list" placeholder="Start typing to find your club">
+              <datalist id="cs-club-list"></datalist>
+              <p class="muted" style="margin-top:6px">Pick from the list to pull in your club's regatta results later.</p>
             </div>
             <button class="btn btn-primary" id="cs-submit" style="width:100%">Create squad</button>
             ${isFirst ? '' : '<div class="toggle" style="margin-top:14px"><a href="index.html">Cancel</a></div>'}
@@ -71,6 +74,12 @@
       const clubEl = document.getElementById('cs-club');
       const btn = document.getElementById('cs-submit');
       const err = document.getElementById('cs-error');
+
+      // Populate the club picker from the public site's data.
+      ClubData.clubs().then(list => {
+        const dl = document.getElementById('cs-club-list');
+        if (dl) dl.innerHTML = list.map(c => `<option value="${escapeHtml(c)}">`).join('');
+      }).catch(() => {});
 
       btn.addEventListener('click', async () => {
         const name = nameEl.value.trim();
@@ -112,12 +121,12 @@
         </div>
 
         <div class="grid grid-2">
+          <a class="tile" href="results.html"><div class="tile-title">Results</div>
+            <div class="tile-desc">Log erg and on-water pieces, tag crews and athletes, see the /500m split.</div></a>
           <a class="tile" href="roster.html"><div class="tile-title">Roster</div>
             <div class="tile-desc">Add the athletes in your squad and track each one's progress over the season.</div></a>
           <a class="tile" href="crews.html"><div class="tile-title">Crews</div>
             <div class="tile-desc">Name line-ups and follow a crew's results across the year.</div></a>
-          <div class="tile soon"><div class="tile-title">Results <span class="badge-soon">soon</span></div>
-            <div class="tile-desc">Log erg and on-water pieces, tag crews and athletes, benchmark vs world records.</div></div>
           <div class="tile soon"><div class="tile-title">Members <span class="badge-soon">soon</span></div>
             <div class="tile-desc">Invite coaches as admins and athletes as members.</div></div>
         </div>`;
