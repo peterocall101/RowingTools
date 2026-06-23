@@ -22,6 +22,15 @@
   // Roster, crews and crew line-ups are needed by the forms; load once.
   let roster = [], crews = [], lineups = {}, nameById = {};
   let activeBenchmark = null, allBenchmarks = [];
+  let allResults = [];
+  let filters = {
+    athletes: new Set(),
+    crews: new Set(),
+    types: new Set(),
+    dateFrom: null,
+    dateTo: null,
+    sort: 'date-desc',
+  };
 
   async function loadRefs() {
     const [{ data: r }, { data: c }, { data: b }] = await Promise.all([
@@ -50,6 +59,36 @@
     return (lineups[crewId] || []).map(id => nameById[id] || '?').join(', ') || 'Empty crew';
   }
 
+  function applyFilters(rows) {
+    let result = rows;
+
+    if (filters.athletes.size) {
+      result = result.filter(r => (r.result_athletes || []).some(a => filters.athletes.has(a.athletes?.name)));
+    }
+    if (filters.crews.size) {
+      result = result.filter(r => filters.crews.has(r.crew?.name));
+    }
+    if (filters.types.size) {
+      result = result.filter(r => {
+        const type = r.source === 'public' ? 'Race' : r.piece_type === 'erg' ? 'Erg' : 'Water';
+        return filters.types.has(type);
+      });
+    }
+
+    // Sort
+    if (filters.sort === 'date-asc') {
+      result.sort((a, b) => new Date(a.performed_at) - new Date(b.performed_at));
+    } else if (filters.sort === 'time-fast') {
+      result.sort((a, b) => a.time_ms - b.time_ms);
+    } else if (filters.sort === 'time-slow') {
+      result.sort((a, b) => b.time_ms - a.time_ms);
+    } else {
+      result.sort((a, b) => new Date(b.performed_at) - new Date(a.performed_at));
+    }
+
+    return result;
+  }
+
   await loadRefs();
   await render();
 
@@ -64,6 +103,9 @@
 
     if (error) { app.innerHTML = `<div class="error-box">${escapeHtml(error.message)}</div>`; return; }
 
+    allResults = rows || [];
+    const filtered = applyFilters(allResults);
+
     const importBtn = `<button class="btn btn-ghost" id="import-btn">Import results</button>`;
     const benchmarkLabel = activeBenchmark
       ? `<span style="font-size:13px; color:var(--ink-2)">Benchmark: <strong>${escapeHtml(activeBenchmark.name)}</strong></span>`
@@ -72,11 +114,15 @@
       ? `<select id="benchmark-sel" class="input-select" style="width:auto; max-width:240px; margin-top:4px">${allBenchmarks.map(b => `<option value="${b.id}"${activeBenchmark?.id === b.id ? ' selected' : ''}>${escapeHtml(b.name)}</option>`).join('')}</select>`
       : '';
 
+    const allAthletes = [...new Set(allResults.flatMap(r => (r.result_athletes || []).map(a => a.athletes?.name).filter(Boolean)))].sort();
+    const allCrews = [...new Set(allResults.map(r => r.crew?.name).filter(Boolean))].sort();
+    const allTypes = [...new Set(allResults.map(r => r.source === 'public' ? 'Race' : r.piece_type === 'erg' ? 'Erg' : 'Water'))].sort();
+
     app.innerHTML = `
       <div class="page-head">
         <div>
           <div class="page-title">Results</div>
-          <p class="page-sub">${escapeHtml(activeGroup().name)} &middot; ${rows.length} result${rows.length === 1 ? '' : 's'}</p>
+          <p class="page-sub">${escapeHtml(activeGroup().name)} &middot; ${filtered.length} of ${allResults.length} result${allResults.length === 1 ? '' : 's'}</p>
           <div style="margin-top:8px">${benchmarkLabel}${benchmarkSelector ? '<br>' + benchmarkSelector : ''}</div>
         </div>
         <div style="display:flex; gap:10px">
@@ -84,13 +130,68 @@
           <button class="btn btn-primary" id="add-btn">+ Log result</button>
         </div>
       </div>
-      ${rows.length ? tableHtml(rows) : emptyHtml()}`;
+
+      <div class="filter-panel">
+        <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end">
+          <div class="field" style="margin-bottom:0; min-width:150px">
+            <label for="filter-athlete" style="display:block; margin-bottom:6px; font-size:12px; font-weight:600">Athletes</label>
+            <select id="filter-athlete" class="input-select" multiple style="height:32px">${allAthletes.map(a => `<option value="${a}">${escapeHtml(a)}</option>`).join('')}</select>
+          </div>
+          <div class="field" style="margin-bottom:0; min-width:150px">
+            <label for="filter-crew" style="display:block; margin-bottom:6px; font-size:12px; font-weight:600">Crews</label>
+            <select id="filter-crew" class="input-select" multiple style="height:32px">${allCrews.map(c => `<option value="${c}">${escapeHtml(c)}</option>`).join('')}</select>
+          </div>
+          <div class="field" style="margin-bottom:0; min-width:150px">
+            <label for="filter-type" style="display:block; margin-bottom:6px; font-size:12px; font-weight:600">Type</label>
+            <select id="filter-type" class="input-select" multiple style="height:32px">${allTypes.map(t => `<option value="${t}">${escapeHtml(t)}</option>`).join('')}</select>
+          </div>
+          <div class="field" style="margin-bottom:0; min-width:120px">
+            <label for="filter-sort" style="display:block; margin-bottom:6px; font-size:12px; font-weight:600">Sort by</label>
+            <select id="filter-sort" class="input-select">
+              <option value="date-desc">Newest first</option>
+              <option value="date-asc">Oldest first</option>
+              <option value="time-fast">Fastest</option>
+              <option value="time-slow">Slowest</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost" id="clear-filters" style="padding:7px 12px; font-size:13px">Clear filters</button>
+        </div>
+      </div>
+
+      ${filtered.length ? tableHtml(filtered) : emptyHtml()}`;
 
     document.getElementById('add-btn').onclick = () => openForm();
     const addEmpty = document.getElementById('add-empty');
     if (addEmpty) addEmpty.onclick = () => openForm();
     const impBtn = document.getElementById('import-btn');
     if (impBtn) impBtn.onclick = () => openImport();
+
+    // Filter bindings
+    const athleteSel = document.getElementById('filter-athlete');
+    const crewSel = document.getElementById('filter-crew');
+    const typeSel = document.getElementById('filter-type');
+    const sortSel = document.getElementById('filter-sort');
+    const clearBtn = document.getElementById('clear-filters');
+
+    const updateFilters = () => {
+      filters.athletes = new Set([...athleteSel.selectedOptions].map(o => o.value));
+      filters.crews = new Set([...crewSel.selectedOptions].map(o => o.value));
+      filters.types = new Set([...typeSel.selectedOptions].map(o => o.value));
+      filters.sort = sortSel.value;
+      render();
+    };
+
+    athleteSel.onchange = updateFilters;
+    crewSel.onchange = updateFilters;
+    typeSel.onchange = updateFilters;
+    sortSel.onchange = updateFilters;
+    clearBtn.onclick = () => {
+      athleteSel.selectedIndex = -1;
+      crewSel.selectedIndex = -1;
+      typeSel.selectedIndex = -1;
+      sortSel.value = 'date-desc';
+      updateFilters();
+    };
 
     const benchmarkSel = document.getElementById('benchmark-sel');
     if (benchmarkSel) {

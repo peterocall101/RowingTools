@@ -247,6 +247,16 @@ table.data tbody tr:hover { background: #fafbfc; }
 
 .pill { font-size: 11px; font-weight: 600; color: var(--ink-2); background: var(--bg); border: 1px solid var(--line); border-radius: 20px; padding: 2px 9px; }
 
+/* Result filtering */
+.filter-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+
 /* Result grouping */
 .result-section { margin-bottom: 28px; }
 .result-section-head {
