@@ -20,12 +20,14 @@
 -- club_id/club_name optionally link a group to a public RowingTools club
 -- identity (the name used in data/all_results.json). Kept as plain text +
 -- optional id so a group can attach to a club without a hard FK into the
--- static dataset.
+-- static dataset. active_benchmark_id points to the benchmark set used for GMT%
+-- (set after benchmarks table is created via alter table).
 create table public.groups (
   id          uuid        primary key default gen_random_uuid(),
   name        text        not null,
   club_id     text,                       -- optional: public club slug/key
   club_name   text,                       -- optional: display name of attached club
+  active_benchmark_id uuid,               -- optional: benchmark set to use for GMT%
   created_by  uuid        not null references auth.users on delete restrict,
   created_at  timestamptz not null default now()
 );
@@ -162,6 +164,37 @@ create table public.result_athletes (
 );
 
 -- ================================================================
+-- Benchmark sets and times
+-- ================================================================
+-- A benchmark set = a reference time standard per squad (WBT, Metropolitan,
+-- Harvard, Henley, or custom). Coaches switch active benchmarks to change how
+-- GMT% is calculated on results. Each benchmark_times row is a boat class → time.
+create table public.benchmarks (
+  id          uuid        primary key default gen_random_uuid(),
+  group_id    uuid        not null references public.groups on delete cascade,
+  name        text        not null,       -- e.g. "Watts Boat Table", "Harvard", "Custom 2026"
+  source      text        not null check (source in ('wbt', 'met_a', 'met_b', 'met_c', 'custom')),
+  created_by  uuid        not null references public.profiles on delete cascade,
+  created_at  timestamptz not null default now(),
+  deleted_at  timestamptz
+);
+create index benchmarks_group_idx on public.benchmarks (group_id);
+
+-- Times for each boat class within a benchmark.
+create table public.benchmark_times (
+  benchmark_id uuid        not null references public.benchmarks on delete cascade,
+  boat_class   text        not null,      -- e.g. 'M4x', 'W2-', 'LM1x'
+  time_ms      integer     not null,      -- 2000m time in milliseconds
+  created_at   timestamptz not null default now(),
+  primary key (benchmark_id, boat_class)
+);
+
+-- Add foreign key from groups to benchmarks (must happen after benchmarks table created).
+alter table public.groups
+add constraint fk_groups_active_benchmark
+foreign key (active_benchmark_id) references public.benchmarks (id) on delete set null;
+
+-- ================================================================
 -- Row-level security
 -- ================================================================
 
@@ -174,6 +207,8 @@ alter table public.crews           enable row level security;
 alter table public.crew_members    enable row level security;
 alter table public.results         enable row level security;
 alter table public.result_athletes enable row level security;
+alter table public.benchmarks      enable row level security;
+alter table public.benchmark_times enable row level security;
 
 -- Helper functions. SECURITY DEFINER so they bypass RLS when reading
 -- group_members - this is what prevents infinite recursion in the
@@ -300,6 +335,30 @@ create policy "result_athletes_write" on public.result_athletes
   using  (public.is_group_member(public.group_of_result(result_id)))
   with check (public.is_group_member(public.group_of_result(result_id)));
 
+-- benchmarks
+create policy "benchmarks_select" on public.benchmarks
+  for select using (public.is_group_member(group_id));
+create policy "benchmarks_insert" on public.benchmarks
+  for insert with check (public.is_group_admin(group_id) and created_by = auth.uid());
+create policy "benchmarks_update" on public.benchmarks
+  for update using (public.is_group_admin(group_id)) with check (public.is_group_admin(group_id));
+create policy "benchmarks_delete" on public.benchmarks
+  for delete using (public.is_group_admin(group_id));
+
+-- benchmark_times (scoped through parent benchmark's group)
+create policy "benchmark_times_select" on public.benchmark_times
+  for select using (public.is_group_member(
+    (select group_id from public.benchmarks where id = benchmark_id)
+  ));
+create policy "benchmark_times_write" on public.benchmark_times
+  for all
+  using (public.is_group_admin(
+    (select group_id from public.benchmarks where id = benchmark_id)
+  ))
+  with check (public.is_group_admin(
+    (select group_id from public.benchmarks where id = benchmark_id)
+  ));
+
 -- ================================================================
 -- RPCs
 -- ================================================================
@@ -387,6 +446,65 @@ begin
   return v_id;
 end; $$;
 grant execute on function public.upsert_crew(uuid, uuid[], text) to authenticated;
+
+-- Create a new benchmark set with initial times. The caller must be a group admin.
+create or replace function public.create_benchmark(
+  p_group_id uuid,
+  p_name text,
+  p_source text,
+  p_times jsonb default null
+)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  v_id uuid;
+  v_boat_class text;
+  v_time_ms integer;
+begin
+  if not public.is_group_admin(p_group_id) then
+    raise exception 'Only a group admin can create benchmarks.';
+  end if;
+  if p_source not in ('wbt', 'met_a', 'met_b', 'met_c', 'custom') then
+    raise exception 'Invalid benchmark source.';
+  end if;
+  if coalesce(trim(p_name), '') = '' then
+    raise exception 'Benchmark name is required.';
+  end if;
+
+  insert into public.benchmarks (group_id, name, source, created_by)
+  values (p_group_id, trim(p_name), p_source, auth.uid())
+  returning id into v_id;
+
+  if p_times is not null then
+    for v_boat_class, v_time_ms in
+      select key, value::integer from jsonb_each_text(p_times)
+    loop
+      insert into public.benchmark_times (benchmark_id, boat_class, time_ms)
+      values (v_id, v_boat_class, v_time_ms)
+      on conflict (benchmark_id, boat_class) do update
+      set time_ms = excluded.time_ms;
+    end loop;
+  end if;
+
+  return v_id;
+end; $$;
+grant execute on function public.create_benchmark(uuid, text, text, jsonb) to authenticated;
+
+-- Set a benchmark as the active one for a group (admins only).
+create or replace function public.set_active_benchmark(p_group_id uuid, p_benchmark_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_group_admin(p_group_id) then
+    raise exception 'Only a group admin can set benchmarks.';
+  end if;
+  if p_benchmark_id is not null then
+    if not exists (select 1 from public.benchmarks where id = p_benchmark_id and group_id = p_group_id) then
+      raise exception 'Benchmark not found in this group.';
+    end if;
+  end if;
+
+  update public.groups set active_benchmark_id = p_benchmark_id where id = p_group_id;
+end; $$;
+grant execute on function public.set_active_benchmark(uuid, uuid) to authenticated;
 
 -- ================================================================
 -- Auto-create profile + consume invites on signup

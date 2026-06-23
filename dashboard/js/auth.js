@@ -161,6 +161,14 @@ function buildUserMenu() {
   who.textContent = name;
   menu.appendChild(who);
 
+  if (isActiveAdmin()) {
+    const settings = document.createElement('a');
+    settings.href = 'settings.html';
+    settings.className = 'usermenu-item';
+    settings.textContent = 'Settings';
+    menu.appendChild(settings);
+  }
+
   const out = document.createElement('button');
   out.type = 'button';
   out.className = 'usermenu-item';
