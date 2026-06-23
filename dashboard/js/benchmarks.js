@@ -59,16 +59,23 @@ async function convertPresetToTimes(source) {
     throw new Error(`Could not load preset benchmark "${source}". Check that benchmarks_v3.json exists and is valid.`);
   }
 
+  console.log(`Converting preset "${source}":`, preset);
+
   Object.entries(preset).forEach(([boatClass, entry]) => {
     if (entry && entry.time) {
       const ms = timeStringToMs(entry.time);
+      console.log(`${boatClass}: "${entry.time}" -> ${ms}ms`);
       if (!isNaN(ms)) times[boatClass] = ms;
     }
   });
 
+  console.log(`Total valid times for "${source}":`, Object.keys(times).length);
+
   if (Object.keys(times).length === 0) {
-    console.error('No valid times found in preset:', preset);
-    throw new Error(`No benchmark times found for "${source}". Preset data may be malformed.`);
+    const keys = Object.keys(preset).slice(0, 3);
+    const sample = keys.map(k => `${k}: ${JSON.stringify(preset[k])}`).join(', ');
+    console.error('No valid times found in preset. Sample entries:', sample);
+    throw new Error(`No benchmark times found for "${source}". Expected structure: {boat_class: {time: "m:ss.ss", ...}, ...}`);
   }
 
   return times;
@@ -77,7 +84,7 @@ async function convertPresetToTimes(source) {
 // Create a new benchmark in the group (from preset or custom).
 async function createBenchmarkFromPreset(source, customName = null) {
   const name = customName || {
-    wbt: 'Watts Boat Table',
+    wbt: 'World Best Time',
     met_raw: 'Metropolitan (raw)',
     met_a_slowest: 'Metropolitan A (slowest)',
     met_b_slowest: 'Metropolitan B (slowest)',

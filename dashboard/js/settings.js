@@ -67,7 +67,7 @@
     const html = benchmarks.map(b => {
       const isActive = activeBench && activeBench.id === b.id;
       const sourceLabel = {
-        wbt: 'Watts Boat Table',
+        wbt: 'World Best Time',
         met_raw: 'Metropolitan (raw)',
         met_a_slowest: 'Metropolitan A (slowest)',
         met_b_slowest: 'Metropolitan B (slowest)',
