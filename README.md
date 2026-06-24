@@ -8,20 +8,15 @@
 
 ```text
 RowingTools/
-├── index.html                               # Public website (GitHub Pages)
-├── heatmap-metsat25.html                    # Met 2025 Saturday
-├── heatmap-metsun25.html                    # Met 2025 Sunday
-├── heatmap-brcc25.html                      # British Rowing Club Championships 2025
-├── heatmap-marlow25.html                    # Marlow Regatta 2025
-├── heatmap-wallingford25.html               # Wallingford Regatta 2025
-├── heatmap-nottm25.html                     # Nottingham City Regatta 2025 (not linked - suspect data)
-├── heatmap-wallingford26.html               # Wallingford Regatta 2026
-├── heatmap-nottm26.html                     # Nottingham City Regatta 2026
-├── heatmap-poplar26.html                    # Poplar Regatta 2026
-├── heatmap-nsr26.html                       # National Schools' Regatta 2026
-├── heatmap-reading26.html                   # Reading Amateur Regatta 2026 (Saturday)
-├── heatmap-marlow26.html                    # Marlow Regatta 2026 (men's, combined-band events)
-├── heatmap-bucs26.html                      # BUCS Regatta 2026 (not linked - multi-day, scores not comparable)
+├── index.html                               # Landing page (cards -> the three tools)
+├── assets/
+│   ├── app.css                              # Shared styles for /, /gmt/, /leaderboards/
+│   └── app.js                               # Shared script (GMT calc, leaderboard club analysis, subscribe)
+├── gmt/index.html                           # GMT% Calculator  (/gmt/)
+├── leaderboards/index.html                  # Regatta index (cards) + cross-regatta club ranking  (/leaderboards/)
+├── leaderboards/<comp>/index.html           # Individual regatta pages  (/leaderboards/<comp>/), e.g. marlow26, brcc25
+├── clubs/index.html                         # Club Profiles directory + detail  (/clubs/, ?club=<name>)
+├── heatmap-*.html, clubs.html               # Redirect stubs -> new URLs (kept so old/indexed links don't 404)
 ├── data/
 │   ├── benchmarks_v1.json                   # Frozen 2025-03-24
 │   ├── benchmarks_v2.json                   # Frozen - adds HWR benchmark
@@ -54,7 +49,9 @@ RowingTools/
 
 ## Architecture
 
-All benchmark data lives in `data/benchmarks_vN.json`. Both the website and Python tools load from it - `index.html` via `fetch()` at load time, `benchmarks.py` from disk at runtime. Never edit benchmark numbers directly in either file.
+The public site is a static multi-page app: a landing page at `/` linking to three tools - `/gmt/` (calculator), `/leaderboards/` (regattas + club ranking) and `/clubs/` (club profiles). `/` , `/gmt/` and `/leaderboards/` share `assets/app.css` + `assets/app.js`; individual regatta pages under `/leaderboards/<comp>/` are self-contained. Clean URLs are served via folder + `index.html` (GitHub Pages); old `heatmap-*.html` / `clubs.html` paths are redirect stubs.
+
+All benchmark data lives in `data/benchmarks_vN.json`. Both the website and Python tools load from it - `/gmt/` via `fetch('/data/benchmarks_v3.json')` at load time, `benchmarks.py` from disk at runtime. Never edit benchmark numbers directly in either file.
 
 When benchmark data needs updating, create `data/benchmarks_v4.json` - never edit the current version.
 
@@ -66,7 +63,7 @@ When benchmark data needs updating, create `data/benchmarks_v4.json` - never edi
 
 ---
 
-## Tool 1 - index.html (public website)
+## Tool 1 - GMT% calculator (`/gmt/`)
 
 Hosted on GitHub Pages at rowingtools.co.uk. Static, no backend. Features: GMT% calculator against WBT, Met, HRR, and HWR benchmarks; sort by any metric; CSV download; benchmark reference tabs; mobile responsive; dark mode. Deploy by pushing to main - GitHub Pages redeploys in ~30s.
 
@@ -113,10 +110,10 @@ Scrapes Met A/B/C final results from rowresults.co.uk across multiple years and 
 Full publish checklist (do all of these - steps 3-5 are easy to forget and the
 site-wide club pages break silently without them):
 
-1. **Generate the heatmap** - run the appropriate Stage 3 script, writing `heatmap-<comp>.html`.
-2. **Add a card** to the `#sec-leaderboards` grid in `index.html` (newest on top within its year section).
-3. **Rebuild the club dataset** - add the comp to the `HEATMAPS` list in `gmt_processor/inputs/build_all_results.py` (`file`, `comp`, `date`), then run it. This regenerates `data/all_results.json`, which powers the site-wide club analysis in `clubs.html`. Without this the new regatta never appears under any club.
-4. **Add the page to `sitemap.xml`**.
+1. **Generate the regatta page** - run the appropriate Stage 3 script. It now writes `leaderboards/<comp>/index.html` (served at the clean URL `/leaderboards/<comp>/`), creating the folder if needed.
+2. **Add a card** to the `.lb-grid` in `leaderboards/index.html` (newest on top within its year section). The card link is `/leaderboards/<comp>/`.
+3. **Rebuild the club dataset** - add the comp to the `HEATMAPS` list in `gmt_processor/inputs/build_all_results.py` (`comp`, `date`; the script reads `leaderboards/<comp>/index.html` and derives the link `/leaderboards/<comp>/`), then run it. This regenerates `data/all_results.json`, which powers the site-wide club analysis at `/clubs/`. Without this the new regatta never appears under any club.
+4. **Add the page to `sitemap.xml`** as `https://rowingtools.co.uk/leaderboards/<comp>/`.
 5. **Refresh club aliases** - run `python scripts/gen_alias_review.py`, read the "Near-duplicate candidates" in `club_aliases_review.md`, and add any genuine same-club duplicates to `data/club_aliases.json` (keyed by the lowercased canonical form). Event-specific scrapers that pull abbreviated club names (e.g. time-team.nl: "Bath Univ", "Kingston GS") often need a few. Re-run the review to confirm they merged.
 6. **Review locally and push.** Optionally run Stage 4 for carousel slides.
 

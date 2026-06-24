@@ -47,10 +47,16 @@ def rows_from_html(html_path):
     return json.loads(m.group(1))
 
 def comp_from_html(html_path):
-    """Derive comp code from a filename like heatmap-brcc25.html -> brcc25."""
-    stem = Path(html_path).stem  # e.g. "heatmap-brcc25"
-    m = re.search(r'heatmap-(.+)$', stem, re.I)
-    return m.group(1) if m else stem
+    """Derive comp code from a regatta page path.
+
+    Handles both the new layout `leaderboards/<comp>/index.html` and the
+    legacy `heatmap-<comp>.html` filename.
+    """
+    p = Path(html_path)
+    if p.stem == 'index' and p.parent.name and p.parent.name != 'leaderboards':
+        return p.parent.name  # leaderboards/<comp>/index.html -> <comp>
+    m = re.search(r'heatmap-(.+)$', p.stem, re.I)
+    return m.group(1) if m else p.stem
 
 
 # ── TITLE HELPERS ─────────────────────────────────────────────────────────────

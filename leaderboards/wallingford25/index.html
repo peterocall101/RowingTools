@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=0.55">
+<title>Wallingford Regatta 2025 Results - GMT% Analysis | RowingTools</title>
+<link rel="canonical" href="https://rowingtools.co.uk/leaderboards/wallingford25/">
+<meta name="description" content="Wallingford Regatta 2025 results with GMT% analysis, club rankings, and top performers. Compare every crew's time against world benchmarks.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f0f0e;--bg2:#1a1a18;--bg3:#252523;--text:#f0f0ee;--text2:#9ca3af;--text3:#6b7280;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14)}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:13px;padding:0 20px 2.5rem;max-width:1200px;margin:0 auto;line-height:1.6}
+.topbar{position:fixed;top:0;left:0;width:100%;height:3px;background:#c8472b;z-index:9999;pointer-events:none}
+.page-hdr{padding:2rem 0 1.25rem;border-bottom:1px solid var(--border);margin-bottom:1.5rem}
+.back-nav{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);text-decoration:none;margin-bottom:10px;transition:color .15s;font-weight:500}
+.back-nav:hover{color:var(--text2)}
+.back-brand{font-family:'Fraunces',serif;font-weight:900;font-size:17px;letter-spacing:-0.03em;line-height:1}
+.back-dot{color:#c8472b}
+h1{font-size:20px;font-weight:700;letter-spacing:-0.4px;margin-bottom:4px}
+.sub{color:var(--text3);font-size:12px;line-height:1.6;margin-bottom:0}
+input{background:var(--bg2);border:1.5px solid var(--border2);color:var(--text);padding:6px 11px;border-radius:8px;font-size:12px;margin-bottom:18px;width:220px;font-family:inherit;outline:none;transition:border-color .15s}
+input:focus{border-color:#60a5fa}
+table{border-collapse:collapse;font-size:11px;margin-bottom:28px}
+caption{text-align:left;font-size:11px;font-weight:600;color:var(--text2);padding:0 0 6px;letter-spacing:.05em;text-transform:uppercase}
+th{background:var(--bg2);color:var(--text3);font-weight:500;padding:5px 8px;border:1px solid rgba(255,255,255,0.05);text-align:center;white-space:nowrap;font-size:10px;letter-spacing:.04em;text-transform:uppercase}
+th.rh{text-align:left;width:80px}
+td{border:1px solid rgba(255,255,255,0.04);padding:0;vertical-align:top;min-width:80px;max-width:120px}
+td.rnd{background:var(--bg2);color:var(--text3);font-size:11px;padding:5px 7px;white-space:nowrap;vertical-align:middle;font-weight:500}
+.cell{padding:5px 6px;display:flex;flex-direction:column;align-items:center;gap:1px;transition:transform .15s}
+td:not(.rnd):hover .cell{transform:scale(1.04)}
+.cn{font-weight:600;font-size:10px;color:rgba(255,255,255,.85);white-space:normal;text-align:center;max-width:110px;word-break:break-word;line-height:1.3}
+.cp{font-size:12px;font-weight:700}
+.ct{font-size:10px;color:rgba(255,255,255,.4)}
+.legend{display:flex;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.li{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3)}
+.ls{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.tabs{display:inline-flex;background:var(--bg3);border-radius:999px;padding:3px;gap:2px;margin-bottom:20px}
+.tab{background:transparent;border:none;color:var(--text3);padding:7px 18px;border-radius:999px;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:500;transition:all .18s ease;white-space:nowrap}
+.tab.active{background:var(--bg2);color:var(--text);box-shadow:0 1px 5px rgba(0,0,0,0.3)}
+.tab:hover:not(.active){color:var(--text2)}
+#lb-table,#clublb-table{width:100%;border-collapse:collapse;font-size:12px}
+#lb-table th,#clublb-table th{background:var(--bg2);color:var(--text3);font-weight:500;padding:8px 10px;border-bottom:2px solid var(--border);text-align:left;white-space:nowrap;font-size:11px;letter-spacing:.04em;text-transform:uppercase;border-left:none;border-right:none;border-top:none}
+#lb-table th.num,#clublb-table th.num{text-align:right}
+#lb-table td,#clublb-table td{border:none;border-bottom:1px solid var(--border);padding:7px 10px;vertical-align:middle}
+#lb-table td.num,#clublb-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+#lb-table tr:last-child td,#clublb-table tr:last-child td{border-bottom:none}
+#lb-table tbody tr:hover td,#clublb-table tbody tr:hover td{background:var(--bg2)}
+.rank-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:11px;font-weight:700}
+.rank-badge.gold{background:#3d2e00;color:#f0b030}
+.rank-badge.silver{background:#1e2226;color:#a0aab4}
+.rank-badge.bronze{background:#2d1800;color:#c87030}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 18px;min-width:170px}
+.stat-card-name{font-weight:700;font-size:13px;margin-bottom:10px}
+.stat-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:11px}
+.stat-card-lbl{color:var(--text3)}
+.stat-card-val{color:var(--text);font-weight:500}
+.footer{margin-top:3rem;padding-top:1.25rem;border-top:1px solid var(--border);font-size:12px;color:var(--text3)}
+.footer a{color:var(--text3);text-decoration:none;transition:color .15s}
+.footer a:hover{color:var(--text2)}
+@keyframes viewIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.view-in{animation:viewIn .35s ease}
+@keyframes dotIn{from{fill-opacity:0}to{fill-opacity:0.75}}
+</style>
+</head>
+<body>
+<div class="topbar"></div>
+<header class="page-hdr">
+  <a href="/#leaderboards" class="back-nav"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="back-brand">Rowing<span class="back-dot">.</span>Tools</span></a>
+  <h1>Wallingford Regatta 2025</h1>
+  <p class="sub">GMT% vs WBT. Challenge, Club and Schools categories. U16/U15 excluded. Heats excluded.</p>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('heatmap',this)">Heatmap</button>
+  <button class="tab" onclick="showTab('top100',this)">Result Leaderboard</button>
+  <button class="tab" onclick="showTab('clublb',this)">Club Leaderboard</button>
+  <button class="tab" onclick="showTab('compare',this)">Club Compare</button>
+</div>
+<div id="view-heatmap">
+  <div class="legend">
+    <div class="li"><div class="ls" style="background:#1a4d3e"></div>&#x2265;87% elite</div>
+    <div class="li"><div class="ls" style="background:#1a3a5c"></div>80&#8211;87% high club</div>
+    <div class="li"><div class="ls" style="background:#4a3200"></div>72&#8211;80% competitive</div>
+    <div class="li"><div class="ls" style="background:#4a1a0a"></div>&lt;72% developing</div>
+    <div class="li"><div class="ls" style="background:#2a2a2a"></div>no data</div>
+  </div>
+  <input type="text" id="ev-filter" placeholder="Filter events&#8230;" oninput="filterHeatmap(this.value)" style="margin-right:8px">
+  <input type="text" id="club-filter-hm" list="cmp-clubs-list" placeholder="Filter by club&#8230;" oninput="filterClubHm(this.value)">
+  <div id="heatmap-out"></div>
+</div>
+<div id="view-compare" style="display:none">
+  <div style="margin-bottom:14px">
+    <div id="cmp-inputs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+    <button onclick="addCmpClub()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">+ Add club</button>
+    <button onclick="downloadCompare()" style="background:#c8472b;border:1px solid #c8472b;color:#fff;padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;margin-left:8px">&#x2193; Save image</button>
+  </div>
+  <div id="cmp-stats" style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap"></div>
+  <div id="cmp-chart"></div>
+</div>
+<datalist id="cmp-clubs-list"></datalist>
+<div id="view-top100" style="display:none">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+    <input type="text" id="lb-club-filter" list="cmp-clubs-list" placeholder="Filter by club&#8230;" oninput="renderTop100()" style="margin-bottom:0">
+    <button onclick="downloadTop100CSV()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap">&#x2193; CSV</button>
+  </div>
+  <table id="lb-table">
+    <thead><tr>
+      <th class="num">#</th><th>Crew</th><th>Club</th><th>Event</th><th>Round</th>
+      <th class="num">Time</th><th class="num">GMT%</th><th style="color:var(--text3);font-size:10px;text-align:center;text-transform:none;letter-spacing:0">share</th>
+    </tr></thead>
+    <tbody id="lb-body"></tbody>
+  </table>
+</div>
+<div id="view-clublb" style="display:none">
+  <label style="font-size:12px;color:#666;display:inline-block;margin-bottom:10px">Min entries: <input type="number" id="min-entries" value="2" min="1" style="width:52px;margin-left:4px" oninput="renderClubLB()"></label>
+  <label style="font-size:12px;color:#666;display:inline-flex;align-items:center;gap:4px;margin-bottom:10px;margin-left:16px"><input type="checkbox" id="incl-composites" onchange="renderClubLB()" style="width:auto;margin-bottom:0;padding:0">Include composites</label>
+  <button onclick="downloadClubLBCSV()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;margin-left:10px;margin-bottom:10px">&#x2193; CSV</button>
+  <table id="clublb-table">
+    <thead><tr>
+      <th class="num">#</th><th>Club</th>
+      <th class="num">Entries</th><th class="num">Events</th>
+      <th class="num">Top 3 Avg</th><th class="num">Avg GMT%</th><th class="num">Best</th><th style="color:var(--text3);font-size:10px;text-transform:none;letter-spacing:0">share</th>
+    </tr></thead>
+    <tbody id="clublb-body"></tbody>
+  </table>
+</div>
+<script>
+const ROWS=[{"event": "W Challenge 1x", "round": "Final", "lanes": [{"crew": "University of London  \u2013 G Robinson Ranger", "club": "University of London", "time": "8:11.6", "pct": 87.0}, {"crew": "Leander  \u2013 D Price-Hughes", "club": "Leander", "time": "8:20.0", "pct": 85.5}, {"crew": "Nottingham  \u2013 J Titterington", "club": "Nottingham", "time": "8:26.4", "pct": 84.5}, {"crew": "Vesta  \u2013 I Maxwell", "club": "Vesta", "time": "8:31.9", "pct": 83.6}, {"crew": "Worcester  \u2013 C Jackson", "club": "Worcester", "time": "8:37.1", "pct": 82.7}, {"crew": "Cantabrigian  \u2013 C Chen", "club": "Cantabrigian", "time": "9:20.5", "pct": 76.3}, {"crew": "Dart-Totnes Amateur  \u2013 A Hallett", "club": "Dart-Totnes Amateur", "time": "9:26.5", "pct": 75.5}], "boat": "W1x"}, {"event": "W Challenge 2-", "round": "Final", "lanes": [{"crew": "Headington School", "club": "Headington School", "time": "8:42.2", "pct": 78.3}, {"crew": "Thames", "club": "Thames", "time": "8:47.3", "pct": 77.6}, {"crew": "Lea  \u2013 L/E", "club": "Lea", "time": "8:54.3", "pct": 76.6}, {"crew": "The King`s School, Worcester", "club": "The King`s School, Worcester", "time": "8:59.9", "pct": 75.8}, {"crew": "Westminster School", "club": "Westminster School", "time": "9:01.9", "pct": 75.5}, {"crew": "Maidstone Invicta", "club": "Maidstone Invicta", "time": "9:10.2", "pct": 74.4}, {"crew": "Warwick", "club": "Warwick", "time": "9:57.4", "pct": 68.5}], "boat": "W2-"}, {"event": "W Challenge 2x", "round": "Final", "lanes": [{"crew": "Oxford Brookes University", "club": "Oxford Brookes University", "time": "7:37.5", "pct": 86.8}, {"crew": "Nottingham", "club": "Nottingham", "time": "7:42.3", "pct": 85.9}, {"crew": "Walbrook", "club": "Walbrook", "time": "7:48.1", "pct": 84.9}, {"crew": "Upper Thames", "club": "Upper Thames", "time": "7:52.8", "pct": 84.0}, {"crew": "Warwick", "club": "Warwick", "time": "7:55.5", "pct": 83.6}, {"crew": "Leander", "club": "Leander", "time": "8:00.8", "pct": 82.6}], "boat": "W2x"}, {"event": "W Challenge 4-", "round": "Final", "lanes": [{"crew": "Thames  \u2013 C", "club": "Thames", "time": "7:00.3", "pct": 89.1}, {"crew": "Leander  \u2013 A", "club": "Leander", "time": "7:02.3", "pct": 88.6}, {"crew": "Thames  \u2013 B", "club": "Thames", "time": "7:07.1", "pct": 87.6}, {"crew": "Leander  \u2013 B", "club": "Leander", "time": "7:11.2", "pct": 86.8}, {"crew": "Thames  \u2013 A", "club": "Thames", "time": "7:14.3", "pct": 86.2}, {"crew": "Leander  \u2013 C", "club": "Leander", "time": "7:14.6", "pct": 86.1}], "boat": "W4-"}, {"event": "W Challenge 4x-", "round": "Final", "lanes": [{"crew": "Leander", "club": "Leander", "time": "6:52.9", "pct": 88.8}, {"crew": "Maidenhead", "club": "Maidenhead", "time": "7:03.5", "pct": 86.6}, {"crew": "Headington School", "club": "Headington School", "time": "7:08.4", "pct": 85.6}, {"crew": "Thames  \u2013 A", "club": "Thames", "time": "7:11.9", "pct": 84.9}, {"crew": "Lea", "club": "Lea", "time": "7:23.0", "pct": 82.8}, {"crew": "Thames  \u2013 B", "club": "Thames", "time": "7:28.7", "pct": 81.8}], "boat": "W4x"}, {"event": "W Challenge 8+", "round": "Final", "lanes": [{"crew": "Molesey", "club": "Molesey", "time": "6:24.4", "pct": 92.1}, {"crew": "Thames  \u2013 A", "club": "Thames", "time": "6:29.4", "pct": 91.0}, {"crew": "Leander", "club": "Leander", "time": "6:31.6", "pct": 90.4}, {"crew": "Thames  \u2013 B", "club": "Thames", "time": "6:34.5", "pct": 89.8}, {"crew": "Thames  \u2013 C", "club": "Thames", "time": "6:38.4", "pct": 88.9}, {"crew": "London  \u2013 A", "club": "London", "time": "6:39.4", "pct": 88.7}], "boat": "W8+"}, {"event": "W Club 4+", "round": "Final", "lanes": [{"crew": "Worcester", "club": "Worcester", "time": "7:47.4", "pct": 82.4}, {"crew": "Derby", "club": "Derby", "time": "7:53.4", "pct": 81.4}, {"crew": "Cantabrigian", "club": "Cantabrigian", "time": "7:54.4", "pct": 81.2}, {"crew": "Upper Thames", "club": "Upper Thames", "time": "7:55.2", "pct": 81.1}, {"crew": "Shannon, Ireland", "club": "Shannon, Ireland", "time": "7:56.4", "pct": 80.9}, {"crew": "Llandaff", "club": "Llandaff", "time": "8:08.2", "pct": 78.9}], "boat": "W4+"}, {"event": "W Club 4-", "round": "Final", "lanes": [{"crew": "Upper Thames", "club": "Upper Thames", "time": "7:31.0", "pct": 83.0}, {"crew": "London  \u2013 A", "club": "London", "time": "7:35.8", "pct": 82.1}, {"crew": "Cantabrigian", "club": "Cantabrigian", "time": "7:38.8", "pct": 81.6}, {"crew": "City of Bristol  \u2013 A", "club": "City of Bristol", "time": "7:39.1", "pct": 81.5}, {"crew": "Marlow", "club": "Marlow", "time": "7:39.4", "pct": 81.5}, {"crew": "Worcester", "club": "Worcester", "time": "7:52.4", "pct": 79.2}], "boat": "W4-"}, {"event": "W Club 8+", "round": "Final", "lanes": [{"crew": "Molesey", "club": "Molesey", "time": "6:53.7", "pct": 85.6}, {"crew": "Upper Thames  \u2013 A", "club": "Upper Thames", "time": "7:07.1", "pct": 82.9}, {"crew": "City of Cambridge", "club": "City of Cambridge", "time": "7:09.0", "pct": 82.6}, {"crew": "London  \u2013 A", "club": "London", "time": "7:11.8", "pct": 82.0}, {"crew": "Marlow  \u2013 A", "club": "Marlow", "time": "7:12.7", "pct": 81.8}, {"crew": "Worcester", "club": "Worcester", "time": "7:14.8", "pct": 81.5}], "boat": "W8+"}, {"event": "W J18 1x", "round": "Final", "lanes": [{"crew": "Barn Elms  \u2013 E McDougall", "club": "Barn Elms", "time": "8:40.6", "pct": 82.2}, {"crew": "The King`s School, Ely  \u2013 M Garrod", "club": "The King`s School, Ely", "time": "8:53.9", "pct": 80.1}, {"crew": "St. Peter`s School  \u2013 A Glyn-Mills", "club": "St. Peter`s School", "time": "8:54.9", "pct": 80.0}, {"crew": "Millfield School  \u2013 Z Barnett", "club": "Millfield School", "time": "9:27.1", "pct": 75.4}, {"crew": "Westminster School  \u2013 I Murphy", "club": "Westminster School", "time": "10:04.4", "pct": 70.8}], "boat": "W1x"}, {"event": "W Schools 2x", "round": "Final", "lanes": [{"crew": "Kew House School  \u2013 L/E", "club": "Kew House School", "time": "8:02.9", "pct": 82.3}, {"crew": "Shannon, Ireland", "club": "Shannon, Ireland", "time": "8:18.2", "pct": 79.7}, {"crew": "Claires Court School", "club": "Claires Court School", "time": "8:45.2", "pct": 75.7}, {"crew": "St. George`s College", "club": "St. George`s College", "time": "8:53.5", "pct": 74.5}, {"crew": "Pangbourne College", "club": "Pangbourne College", "time": "8:54.9", "pct": 74.3}, {"crew": "Haberdashers` Monmouth School", "club": "Haberdashers` Monmouth School", "time": "9:10.0", "pct": 72.2}], "boat": "W2x"}, {"event": "W Schools 4+", "round": "Final", "lanes": [{"crew": "Headington School", "club": "Headington School", "time": "7:27.6", "pct": 86.1}, {"crew": "Marlow  \u2013 A", "club": "Marlow", "time": "7:29.5", "pct": 85.7}, {"crew": "Kingston Grammar School", "club": "Kingston Grammar School", "time": "7:35.3", "pct": 84.6}, {"crew": "Wimbledon High School", "club": "Wimbledon High School", "time": "7:43.8", "pct": 83.1}, {"crew": "Marlow  \u2013 B", "club": "Marlow", "time": "7:54.4", "pct": 81.2}, {"crew": "Henley", "club": "Henley", "time": "8:06.3", "pct": 79.2}], "boat": "W4+"}, {"event": "W Schools 4-", "round": "Final", "lanes": [{"crew": "Surbiton High School  \u2013 A", "club": "Surbiton High School", "time": "7:20.2", "pct": 85.0}, {"crew": "Tideway Scullers School", "club": "Tideway Scullers School", "time": "7:26.1", "pct": 83.9}, {"crew": "Shiplake College  \u2013 A", "club": "Shiplake College", "time": "7:27.5", "pct": 83.7}, {"crew": "Pangbourne College", "club": "Pangbourne College", "time": "7:33.5", "pct": 82.6}, {"crew": "Hinksey Sculling School", "club": "Hinksey Sculling School", "time": "7:39.5", "pct": 81.5}, {"crew": "Wimbledon High School", "club": "Wimbledon High School", "time": "7:40.0", "pct": 81.4}], "boat": "W4-"}, {"event": "W Schools 4x-", "round": "Final", "lanes": [{"crew": "Tideway Scullers School", "club": "Tideway Scullers School", "time": "6:57.6", "pct": 87.8}, {"crew": "Marlow", "club": "Marlow", "time": "7:00.6", "pct": 87.2}, {"crew": "Claires Court School", "club": "Claires Court School", "time": "7:04.3", "pct": 86.5}, {"crew": "Shrewsbury School", "club": "Shrewsbury School", "time": "7:17.2", "pct": 83.9}, {"crew": "The Grange School, Hartford", "club": "The Grange School, Hartford", "time": "7:18.4", "pct": 83.7}, {"crew": "Stratford-Upon-Avon", "club": "Stratford-Upon-Avon", "time": "7:23.8", "pct": 82.7}], "boat": "W4x"}, {"event": "W Schools 8+", "round": "Final", "lanes": [{"crew": "St. Edward`s School", "club": "St. Edward`s School", "time": "6:53.6", "pct": 85.6}, {"crew": "Henley", "club": "Henley", "time": "6:57.0", "pct": 84.9}, {"crew": "Shiplake College  \u2013 A", "club": "Shiplake College", "time": "6:58.1", "pct": 84.7}, {"crew": "Lady Eleanor Holles School", "club": "Lady Eleanor Holles School", "time": "6:58.5", "pct": 84.6}, {"crew": "Wallingford  \u2013 A", "club": "Wallingford", "time": "7:04.2", "pct": 83.5}, {"crew": "Latymer Upper School", "club": "Latymer Upper School", "time": "7:04.9", "pct": 83.4}], "boat": "W8+"}, {"event": "Challenge 1x", "round": "Final", "lanes": [{"crew": "Minerva Bath  \u2013 J Knight", "club": "Minerva Bath", "time": "7:21.5", "pct": 88.5}, {"crew": "Leander  \u2013 C Tarczy", "club": "Leander", "time": "7:27.9", "pct": 87.2}, {"crew": "Hinksey Sculling School  \u2013 H Austin-Baker", "club": "Hinksey Sculling School", "time": "7:28.1", "pct": 87.2}, {"crew": "The Windsor Boys` School  \u2013 R Taylor", "club": "The Windsor Boys` School", "time": "7:28.9", "pct": 87.0}, {"crew": "Greenbank Falmouth  \u2013 T Wilkinson", "club": "Greenbank Falmouth", "time": "7:33.2", "pct": 86.2}, {"crew": "Tideway Scullers School  \u2013 H Wilkinson", "club": "Tideway Scullers School", "time": "7:37.7", "pct": 85.4}], "boat": "M1x"}, {"event": "Challenge 2-", "round": "Final", "lanes": [{"crew": "Oxford Brookes University", "club": "Oxford Brookes University", "time": "6:54.4", "pct": 88.9}, {"crew": "St. Paul`s School", "club": "St. Paul`s School", "time": "7:02.0", "pct": 87.3}, {"crew": "Upper Thames", "club": "Upper Thames", "time": "7:18.4", "pct": 84.1}, {"crew": "Tideway Scullers School", "club": "Tideway Scullers School", "time": "7:23.4", "pct": 83.1}, {"crew": "Shannon, Ireland", "club": "Shannon, Ireland", "time": "7:34.1", "pct": 81.1}, {"crew": "St. Peter`s School", "club": "St. Peter`s School", "time": "7:34.6", "pct": 81.1}], "boat": "M2-"}, {"event": "Challenge 2x", "round": "Final", "lanes": [{"crew": "Marlow", "club": "Marlow", "time": "6:45.7", "pct": 88.7}, {"crew": "Hinksey Sculling School", "club": "Hinksey Sculling School", "time": "6:46.3", "pct": 88.5}, {"crew": "Greenbank Falmouth", "club": "Greenbank Falmouth", "time": "6:59.4", "pct": 85.8}, {"crew": "Upper Thames", "club": "Upper Thames", "time": "7:02.1", "pct": 85.2}, {"crew": "Southampton Coalporters", "club": "Southampton Coalporters", "time": "7:10.3", "pct": 83.6}, {"crew": "Wimbleball", "club": "Wimbleball", "time": "7:42.4", "pct": 77.8}, {"crew": "South African Schools Rowing Union", "club": "South African Schools Rowing Union", "time": "7:51.9", "pct": 76.2}], "boat": "M2x"}, {"event": "Challenge 4+", "round": "Final", "lanes": [{"crew": "Oxford Brookes University", "club": "Oxford Brookes University", "time": "6:30.9", "pct": 91.8}, {"crew": "Thames  \u2013 A", "club": "Thames", "time": "6:34.6", "pct": 91.0}, {"crew": "St. Paul`s School", "club": "St. Paul`s School", "time": "6:36.1", "pct": 90.6}, {"crew": "Thames  \u2013 B", "club": "Thames", "time": "6:36.7", "pct": 90.5}, {"crew": "Molesey", "club": "Molesey", "time": "6:37.5", "pct": 90.3}], "boat": "M4+"}, {"event": "Challenge 4-", "round": "Final", "lanes": [{"crew": "London  \u2013 A", "club": "London", "time": "6:14.6", "pct": 90.2}, {"crew": "Oxford Brookes University", "club": "Oxford Brookes University", "time": "6:15.1", "pct": 90.1}, {"crew": "Thames  \u2013 A", "club": "Thames", "time": "6:16.1", "pct": 89.8}, {"crew": "Thames  \u2013 D", "club": "Thames", "time": "6:22.2", "pct": 88.4}, {"crew": "London  \u2013 B", "club": "London", "time": "6:24.5", "pct": 87.9}, {"crew": "Thames  \u2013 B", "club": "Thames", "time": "6:27.6", "pct": 87.2}], "boat": "M4-"}, {"event": "Challenge 8+", "round": "Final", "lanes": [{"crew": "London  \u2013 A", "club": "London", "time": "5:53.7", "pct": 90.1}, {"crew": "Thames  \u2013 A", "club": "Thames", "time": "5:56.3", "pct": 89.4}, {"crew": "Thames  \u2013 B", "club": "Thames", "time": "5:56.6", "pct": 89.4}, {"crew": "St. Paul`s School", "club": "St. Paul`s School", "time": "5:57.2", "pct": 89.2}, {"crew": "London  \u2013 B", "club": "London", "time": "6:00.9", "pct": 88.3}, {"crew": "St. Edward`s School", "club": "St. Edward`s School", "time": "6:05.0", "pct": 87.3}], "boat": "M8+"}, {"event": "Club 4+", "round": "Final", "lanes": [{"crew": "Molesey", "club": "Molesey", "time": "6:33.4", "pct": 91.3}, {"crew": "Nottingham", "club": "Nottingham", "time": "6:34.7", "pct": 91.0}, {"crew": "London", "club": "London", "time": "6:43.7", "pct": 88.9}, {"crew": "City of Bristol", "club": "City of Bristol", "time": "7:01.1", "pct": 85.2}, {"crew": "Marlow", "club": "Marlow", "time": "7:11.5", "pct": 83.2}, {"crew": "Putney Town", "club": "Putney Town", "time": "7:23.7", "pct": 80.9}], "boat": "M4+"}, {"event": "Club 4-", "round": "Final", "lanes": [{"crew": "Derby", "club": "Derby", "time": "6:25.2", "pct": 87.7}, {"crew": "Upper Thames", "club": "Upper Thames", "time": "6:26.5", "pct": 87.4}, {"crew": "Royal Chester  \u2013 A", "club": "Royal Chester", "time": "6:26.9", "pct": 87.3}, {"crew": "Hereford", "club": "Hereford", "time": "6:31.3", "pct": 86.3}, {"crew": "Molesey  \u2013 A", "club": "Molesey", "time": "6:32.9", "pct": 86.0}, {"crew": "Northwich", "club": "Northwich", "time": "6:34.1", "pct": 85.7}], "boat": "M4-"}, {"event": "Club 8+", "round": "Final", "lanes": [{"crew": "Molesey", "club": "Molesey", "time": "6:05.7", "pct": 87.2}, {"crew": "Vesta  \u2013 A", "club": "Vesta", "time": "6:08.1", "pct": 86.6}, {"crew": "London", "club": "London", "time": "6:11.7", "pct": 85.7}, {"crew": "Derby", "club": "Derby", "time": "6:12.8", "pct": 85.5}, {"crew": "City of Cambridge", "club": "City of Cambridge", "time": "6:14.3", "pct": 85.1}, {"crew": "Hereford", "club": "Hereford", "time": "6:23.4", "pct": 83.1}], "boat": "M8+"}, {"event": "Op J18 1x", "round": "Final", "lanes": [{"crew": "South African Schools Rowing Union  \u2013 M Rohrbeck", "club": "South African Schools Rowing Union", "time": "7:57.8", "pct": 81.8}, {"crew": "South African Schools Rowing Union  \u2013 B Redfern", "club": "South African Schools Rowing Union", "time": "8:01.9", "pct": 81.1}, {"crew": "Hinksey Sculling School  \u2013 I Kuzmin", "club": "Hinksey Sculling School", "time": "8:13.6", "pct": 79.2}, {"crew": "Wallingford  \u2013 J Gunn", "club": "Wallingford", "time": "8:17.8", "pct": 78.5}, {"crew": "The Windsor Boys` School  \u2013 M Downie", "club": "The Windsor Boys` School", "time": "8:28.1", "pct": 76.9}, {"crew": "Royal Chester  \u2013 H Ellison", "club": "Royal Chester", "time": "8:47.6", "pct": 74.1}, {"crew": "Pangbourne College  \u2013 T Gwinnell", "club": "Pangbourne College", "time": "9:06.0", "pct": 71.6}], "boat": "M1x"}, {"event": "Op Schools 2x", "round": "Final", "lanes": [{"crew": "The Windsor Boys` School", "club": "The Windsor Boys` School", "time": "6:59.4", "pct": 85.8}, {"crew": "Hinksey Sculling School", "club": "Hinksey Sculling School", "time": "7:05.2", "pct": 84.6}, {"crew": "Sir William Borlase`s Grammar School  \u2013 B", "club": "Sir William Borlase`s Grammar School", "time": "7:06.4", "pct": 84.4}, {"crew": "St. George`s College", "club": "St. George`s College", "time": "7:11.1", "pct": 83.4}, {"crew": "Sir William Borlase`s Grammar School  \u2013 A", "club": "Sir William Borlase`s Grammar School", "time": "7:15.5", "pct": 82.6}, {"crew": "St. Paul`s School", "club": "St. Paul`s School", "time": "7:38.9", "pct": 78.4}, {"crew": "Emanuel School", "club": "Emanuel School", "time": "7:46.5", "pct": 77.1}], "boat": "M2x"}, {"event": "Op Schools 4+", "round": "Final", "lanes": [{"crew": "Dulwich College", "club": "Dulwich College", "time": "6:44.7", "pct": 88.7}, {"crew": "Shrewsbury School  \u2013 B", "club": "Shrewsbury School", "time": "6:47.1", "pct": 88.2}, {"crew": "Kew House School  \u2013 L/E", "club": "Kew House School", "time": "6:49.2", "pct": 87.7}, {"crew": "Shrewsbury School  \u2013 A", "club": "Shrewsbury School", "time": "6:49.5", "pct": 87.7}, {"crew": "The Windsor Boys` School", "club": "The Windsor Boys` School", "time": "6:54.6", "pct": 86.6}, {"crew": "St. Paul`s School", "club": "St. Paul`s School", "time": "6:59.8", "pct": 85.5}], "boat": "M4+"}, {"event": "Op Schools 4-", "round": "Final", "lanes": [{"crew": "Shiplake College", "club": "Shiplake College", "time": "6:31.2", "pct": 86.4}, {"crew": "Kew House School  \u2013 L/E", "club": "Kew House School", "time": "6:46.4", "pct": 83.1}, {"crew": "St. George`s College", "club": "St. George`s College", "time": "6:49.3", "pct": 82.5}, {"crew": "Wallingford", "club": "Wallingford", "time": "6:51.4", "pct": 82.1}, {"crew": "Dulwich College", "club": "Dulwich College", "time": "6:51.7", "pct": 82.1}, {"crew": "St. Paul`s School", "club": "St. Paul`s School", "time": "7:01.2", "pct": 80.2}], "boat": "M4-"}, {"event": "Op Schools 4x-", "round": "Final", "lanes": [{"crew": "The Windsor Boys` School  \u2013 A", "club": "The Windsor Boys` School", "time": "6:21.4", "pct": 87.1}, {"crew": "The Grange School, Hartford", "club": "The Grange School, Hartford", "time": "6:26.6", "pct": 85.9}, {"crew": "Great Marlow School", "club": "Great Marlow School", "time": "6:26.8", "pct": 85.9}, {"crew": "Claires Court School", "club": "Claires Court School", "time": "6:28.4", "pct": 85.5}, {"crew": "Marlow  \u2013 A", "club": "Marlow", "time": "6:28.8", "pct": 85.5}, {"crew": "Bewl Bridge", "club": "Bewl Bridge", "time": "6:38.7", "pct": 83.3}], "boat": "M4x"}, {"event": "Op Schools 8+", "round": "Final", "lanes": [{"crew": "Radley College  \u2013 A", "club": "Radley College", "time": "6:00.9", "pct": 88.3}, {"crew": "Latymer Upper School  \u2013 A", "club": "Latymer Upper School", "time": "6:03.7", "pct": 87.6}, {"crew": "King`s College School  \u2013 A", "club": "King`s College School", "time": "6:07.7", "pct": 86.7}, {"crew": "Bedford School", "club": "Bedford School", "time": "6:09.4", "pct": 86.3}, {"crew": "Radley College  \u2013 B", "club": "Radley College", "time": "6:14.8", "pct": 85.0}], "boat": "M8+"}];
+for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null&&l.pct<50)l.pct=null;
+function normClub(n){return(n||'').replace(/\s*\([A-Za-z]\)\s*$/,'').replace(/\s+(Rowing Club|Boat Club|RC|BC|ARC)\s*$/i,'').trim();}
+function bg(p){return p===null?'#252523':p>=87?'#0a3d2a':p>=80?'#0d2d4a':p>=72?'#3d2200':'#3d0e0a'}
+function fg(p){return p===null?'#555':p>=87?'#34d399':p>=80?'#60a5fa':p>=72?'#fb923c':'#f87171'}
+function rankBadge(r){return r===1?'<span class="rank-badge gold">1</span>':r===2?'<span class="rank-badge silver">2</span>':r===3?'<span class="rank-badge bronze">3</span>':'<span style="color:var(--text3)">'+r+'</span>';}
+function showTab(name,btn){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['heatmap','top100','compare','clublb'].forEach(v=>{
+    const el=document.getElementById('view-'+v);
+    el.style.display=v===name?'':'none';
+    if(v===name){el.classList.remove('view-in');void el.offsetWidth;el.classList.add('view-in');}
+  });
+  if(name==='heatmap')renderHeatmap(ROWS,document.getElementById('club-filter-hm').value);
+  if(name==='top100') renderTop100();
+  if(name==='clublb') renderClubLB();
+}
+function renderHeatmap(rows,clubQ){
+  clubQ=(clubQ||'').toLowerCase().trim();
+  const groups=new Map();
+  for(const r of rows){if(!groups.has(r.event))groups.set(r.event,[]);groups.get(r.event).push(r);}
+  let h='',tIdx=0;
+  for(const[ev,races] of groups){
+    const maxP=Math.min(Math.max(...races.map(r=>r.lanes.length)),8);
+    let th='<th class="rh">Round</th>';
+    for(let i=1;i<=maxP;i++)th+=`<th>P${i}</th>`;
+    let tb='';
+    for(const r of races){
+      let cells=`<td class="rnd">${r.round}</td>`;
+      for(let i=0;i<maxP;i++){
+        const l=r.lanes[i];
+        if(!l){cells+='<td></td>';continue;}
+        const b=bg(l.pct),f=fg(l.pct);
+        const pDisp=l.pct!==null?'0.0%':'&#x2014;',pData=l.pct!==null?' data-p="'+l.pct+'"':'';
+        const dim=clubQ&&l.club.toLowerCase()!==clubQ?'opacity:0.12;':'';
+        cells+=`<td style="background:${b};${dim}"><div class="cell"><span class="cn">${l.crew}</span><span class="cp" style="color:${f}"${pData}>${pDisp}</span><span class="ct">${l.time}</span></div></td>`;
+      }
+      tb+=`<tr>${cells}</tr>`;
+    }
+    h+=`<table style="animation:viewIn .55s ease ${Math.min(tIdx,25)*0.08}s both"><caption>${ev}</caption><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table>`;tIdx++;
+  }
+  document.getElementById('heatmap-out').innerHTML=h||'<p style="color:#555">No results.</p>';
+  if(!hmInited){hmInited=true;setTimeout(animateCells,80);}
+}
+let hmInited=false;
+function animateCells(){
+  const cells=document.querySelectorAll('#heatmap-out .cp[data-p]');
+  if(!cells.length)return;
+  const dur=900,start=performance.now();
+  function step(now){
+    const p=Math.min((now-start)/dur,1),ease=1-Math.pow(1-p,3);
+    cells.forEach(el=>{el.textContent=(parseFloat(el.dataset.p)*ease).toFixed(1)+'%';});
+    if(p<1)requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+function filterHeatmap(q){
+  q=q.toLowerCase().trim();
+  const rows=q?ROWS.filter(r=>r.event.toLowerCase().includes(q)||r.boat.toLowerCase().includes(q)):ROWS;
+  renderHeatmap(rows,document.getElementById('club-filter-hm').value);
+}
+function filterClubHm(q){
+  const evQ=(document.getElementById('ev-filter').value||'').toLowerCase().trim();
+  const rows=evQ?ROWS.filter(r=>r.event.toLowerCase().includes(evQ)||r.boat.toLowerCase().includes(evQ)):ROWS;
+  renderHeatmap(rows,q);
+}
+function renderTop100(){
+  const clubQ=(document.getElementById('lb-club-filter').value||'').toLowerCase().trim();
+  const entries=[];
+  for(const r of ROWS)for(const l of r.lanes)
+    if(l.pct!==null)entries.push({crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct});
+  entries.sort((a,b)=>b.pct-a.pct);
+  entries.forEach((e,i)=>e.rank=i+1);
+  const filtered=clubQ?entries.filter(e=>e.club.toLowerCase()===clubQ):entries;
+  let h='';
+  filtered.forEach(e=>{
+    const f=fg(e.pct);
+    h+=`<tr><td class="num">${rankBadge(e.rank)}</td><td><strong>${e.crew}</strong></td><td style="color:var(--text2)"><a href="/clubs/?club=${encodeURIComponent(normClub(e.club))}" style="color:inherit;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${e.club}</a></td><td style="color:var(--text3)">${e.event}</td><td style="color:var(--text3)">${e.round}</td><td class="num" style="color:var(--text2)">${e.time}</td><td class="num"><strong style="color:${f}">${e.pct.toFixed(1)}%</strong></td><td class="num"><button onclick="shareResult(this)" data-club="${e.club.replace(/"/g,'&quot;')}" data-event="${e.event.replace(/"/g,'&quot;')}" data-round="${e.round}" data-time="${e.time}" data-pct="${e.pct.toFixed(1)}" data-rank="${e.rank}" data-total="${entries.length}" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 6px;border-radius:4px" title="Download result card">&#x2197;</button></td></tr>`;
+  });
+  document.getElementById('lb-body').innerHTML=h||'<tr><td colspan="7" style="color:#555;text-align:center;padding:20px">No results.</td></tr>';
+}
+const ALL_CLUBS=[...new Set(ROWS.flatMap(r=>r.lanes.map(l=>l.club).filter(c=>c&&!c.includes('/'))))].sort((a,b)=>a.localeCompare(b));
+document.getElementById('cmp-clubs-list').innerHTML=ALL_CLUBS.map(c=>'<option value="'+c.replace(/"/g,'&quot;')+'">').join('');
+let cmpClubs=['',''];
+const CMP_COLS=['#7bbfff','#f0b030','#4ee8b0','#ff7050','#c084fc','#fb923c'];
+function renderClubInputs(){
+  let h='';
+  cmpClubs.forEach((q,i)=>{
+    const col=CMP_COLS[i%CMP_COLS.length];
+    const rm=cmpClubs.length>1?'<button onclick="removeCmpClub('+i+')" style="background:none;border:1px solid #2a2a2a;color:#555;cursor:pointer;font-size:13px;padding:1px 6px;border-radius:4px">&#x2715;</button>':'';
+    h+='<div style="display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:'+col+';flex-shrink:0"></div><input type="text" list="cmp-clubs-list" value="'+q.replace(/"/g,'&quot;')+'" placeholder="Club name&#8230;" oninput="updateCmpClub('+i+',this.value)" style="margin-bottom:0;width:200px">'+rm+'</div>';
+  });
+  document.getElementById('cmp-inputs').innerHTML=h;
+}
+function addCmpClub(){if(cmpClubs.length>=6)return;cmpClubs.push('');renderClubInputs();}
+function removeCmpClub(i){cmpClubs.splice(i,1);renderClubInputs();renderCompare();}
+function updateCmpClub(i,v){cmpClubs[i]=v;renderCompare();}
+function renderCompare(){
+  const active=cmpClubs.map((q,i)=>{return{q:q.trim(),col:CMP_COLS[i%CMP_COLS.length]}}).filter(c=>c.q);
+  if(!active.length){
+    document.getElementById('cmp-stats').innerHTML='';
+    document.getElementById('cmp-chart').innerHTML='<p style="color:#555;margin-top:8px">Enter one or more club names above.</p>';
+    return;
+  }
+  const all=[];
+  for(const r of ROWS)for(const l of r.lanes)
+    if(l.pct!==null)all.push({crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct});
+  const clubs=active.map(c=>{return{...c,entries:all.filter(e=>!e.club.includes('/')&&e.club.toLowerCase()===c.q.toLowerCase())}});
+  function mkStat(c){
+    if(!c.entries.length)return'<div class="stat-card"><div class="stat-card-name" style="color:'+c.col+'">'+c.q+'</div><div class="stat-card-lbl" style="margin-top:6px">No results found</div></div>';
+    const pcts=c.entries.map(e=>e.pct);
+    const avg=pcts.reduce((a,b)=>a+b,0)/pcts.length;
+    const best=Math.max(...pcts);
+    const top3=pcts.slice().sort((a,b)=>b-a).slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,pcts.length);
+    const evts=new Set(c.entries.map(e=>e.event)).size;
+    return'<div class="stat-card"><div class="stat-card-name" style="color:'+c.col+'">'+c.q+'</div><div class="stat-card-grid"><span class="stat-card-lbl">Entries</span><span class="stat-card-val">'+c.entries.length+'</span><span class="stat-card-lbl">Events</span><span class="stat-card-val">'+evts+'</span><span class="stat-card-lbl">Avg GMT%</span><span class="stat-card-val" style="color:'+c.col+'">'+avg.toFixed(1)+'%</span><span class="stat-card-lbl">Top 3 avg</span><span class="stat-card-val" style="color:'+c.col+'">'+top3.toFixed(1)+'%</span><span class="stat-card-lbl">Best</span><span class="stat-card-val" style="font-weight:700">'+best.toFixed(1)+'%</span></div></div>';
+  }
+  document.getElementById('cmp-stats').innerHTML=clubs.map(mkStat).join('');
+  const allPcts=clubs.flatMap(c=>c.entries.map(e=>e.pct));
+  if(!allPcts.length){document.getElementById('cmp-chart').innerHTML='';return;}
+  const minP=Math.max(50,Math.floor(Math.min(...allPcts))-3);
+  const maxP=Math.min(100,Math.ceil(Math.max(...allPcts))+2);
+  const n=clubs.length;
+  const BAND_H=Math.max(44,Math.min(70,Math.floor(280/n)));
+  const PL=96,PR=20,PT=14,PB=36,W=720;
+  const H=PT+n*BAND_H+PB;
+  const cW=W-PL-PR;
+  function xOf(p){return PL+(p-minP)/(maxP-minP)*cW;}
+  let s='';
+  for(let p=Math.ceil(minP/5)*5;p<=maxP;p+=5){const x=xOf(p).toFixed(1);s+='<line x1="'+x+'" y1="'+PT+'" x2="'+x+'" y2="'+(PT+n*BAND_H)+'" stroke="#1e1e1e" stroke-width="1"/>';}
+  const axY=PT+n*BAND_H;
+  s+='<line x1="'+PL+'" y1="'+axY+'" x2="'+(W-PR)+'" y2="'+axY+'" stroke="#2a2a2a" stroke-width="1"/>';
+  for(let p=Math.ceil(minP/5)*5;p<=maxP;p+=5){const x=xOf(p).toFixed(1);s+='<line x1="'+x+'" y1="'+axY+'" x2="'+x+'" y2="'+(axY+5)+'" stroke="#333" stroke-width="1"/><text x="'+x+'" y="'+(axY+16)+'" text-anchor="middle" fill="#444" font-size="10">'+p+'%</text>';}
+  clubs.forEach((c,bi)=>{
+    const bY=PT+bi*BAND_H;
+    if(bi%2===0)s+='<rect x="'+PL+'" y="'+bY+'" width="'+cW+'" height="'+BAND_H+'" fill="#161616"/>';
+    s+='<text x="'+(PL-8)+'" y="'+(bY+BAND_H/2+4)+'" text-anchor="end" fill="'+c.col+'" font-size="11" font-weight="600">'+c.q.substring(0,16)+'</text>';
+    if(c.entries.length){const avg=c.entries.map(e=>e.pct).reduce((a,b)=>a+b,0)/c.entries.length;const ax=xOf(avg).toFixed(1);s+='<line x1="'+ax+'" y1="'+bY+'" x2="'+ax+'" y2="'+(bY+BAND_H)+'" stroke="'+c.col+'" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/><text x="'+ax+'" y="'+(bY+10)+'" text-anchor="middle" fill="'+c.col+'" font-size="9" opacity="0.7">'+avg.toFixed(1)+'%</text>';}
+    const sorted=[...c.entries].sort((a,b)=>a.pct-b.pct);
+    sorted.forEach((e,j)=>{
+      const jy=(bY+BAND_H/2-BAND_H*0.3+((j*7+3)%11)/10*BAND_H*0.6).toFixed(1);
+      const tip=e.crew+' ('+e.club+')&#10;'+e.event+'&#10;'+e.time+' ('+e.pct.toFixed(1)+'%)';
+      s+='<circle cx="'+xOf(e.pct).toFixed(1)+'" cy="'+jy+'" r="4" fill="'+c.col+'" fill-opacity="0" stroke="#111" stroke-width="0.5" style="animation:dotIn 1.0s ease '+(j*0.06).toFixed(2)+'s forwards"><title>'+tip+'</title></circle>';
+    });
+  });
+  document.getElementById('cmp-chart').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:'+W+'px;height:'+H+'px;display:block;overflow:visible">'+s+'</svg>';
+}
+function buildClubMap(){
+  const inclComp=document.getElementById('incl-composites').checked;
+  const minN=Math.max(1,parseInt(document.getElementById('min-entries').value)||1);
+  const map={};
+  for(const r of ROWS)for(const l of r.lanes){
+    if(l.pct===null||(!inclComp&&l.club.includes('/')))continue;
+    const cn=l.club;if(!cn)continue;
+    if(!map[cn])map[cn]={pcts:[],events:new Set()};
+    map[cn].pcts.push(l.pct);map[cn].events.add(r.event);
+  }
+  return Object.entries(map).map(([name,c])=>{
+    const s=c.pcts.slice().sort((a,b)=>b-a);
+    return{name,count:c.pcts.length,events:c.events.size,avg:c.pcts.reduce((a,b)=>a+b,0)/c.pcts.length,top3avg:s.slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,s.length),best:s[0]};
+  }).filter(c=>c.count>=minN).sort((a,b)=>b.top3avg-a.top3avg);
+}
+function renderClubLB(){
+  const ranked=buildClubMap();
+  let h='';
+  ranked.forEach((c,i)=>{
+    const f=fg(c.avg),ft=fg(c.top3avg);
+    h+='<tr><td class="num">'+rankBadge(i+1)+'</td><td><a href="/clubs/?club='+encodeURIComponent(c.name)+'" style="color:inherit;text-decoration:none;font-weight:700" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">'+c.name+'</a></td><td class="num" style="color:var(--text2)">'+c.count+'</td><td class="num" style="color:var(--text2)">'+c.events+'</td><td class="num"><strong style="color:'+ft+'">'+c.top3avg.toFixed(1)+'%</strong></td><td class="num" style="color:var(--text3)">'+c.avg.toFixed(1)+'%</td><td class="num" style="color:var(--text2)">'+c.best.toFixed(1)+'%</td><td class="num"><button onclick="shareClub(this)" data-club="'+c.name.replace(/"/g,'&quot;')+'" data-rank="'+(i+1)+'" data-total="'+ranked.length+'" data-top3="'+c.top3avg.toFixed(1)+'" data-avg="'+c.avg.toFixed(1)+'" data-best="'+c.best.toFixed(1)+'" data-entries="'+c.count+'" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 6px;border-radius:4px" title="Download club card">&#x2197;</button></td></tr>';
+  });
+  document.getElementById('clublb-body').innerHTML=h||'<tr><td colspan="7" style="color:#555;text-align:center;padding:20px">No data.</td></tr>';
+}
+function dlCSV(rows,fn){
+  const blob=new Blob([rows.map(r=>r.map(c=>(typeof c==='string'&&(c.includes(',')||c.includes('"')))?'"'+c.replace(/"/g,'""')+'"':c).join(',')).join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;a.click();
+}
+function downloadTop100CSV(){
+  const clubQ=(document.getElementById('lb-club-filter').value||'').toLowerCase().trim();
+  const entries=[];
+  for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null)entries.push({crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct});
+  entries.sort((a,b)=>b.pct-a.pct);
+  const filtered=clubQ?entries.filter(e=>e.club.toLowerCase()===clubQ):entries;
+  dlCSV([['Crew','Club','Event','Round','Time','GMT%'],...filtered.map(e=>[e.crew,e.club,e.event,e.round,e.time,e.pct.toFixed(1)])],'heatmap-wallingford25-top250.csv');
+}
+function downloadClubLBCSV(){
+  const ranked=buildClubMap();
+  dlCSV([['#','Club','Entries','Events','Top 3 Avg %','Avg GMT%','Best %'],...ranked.map((c,i)=>[i+1,c.name,c.count,c.events,c.top3avg.toFixed(1),c.avg.toFixed(1),c.best.toFixed(1)])],'heatmap-wallingford25-clubs.csv');
+}
+function downloadCompare(){
+  const svg=document.querySelector('#cmp-chart svg');
+  if(!svg){alert('Nothing to download.');return;}
+  const vb=svg.getAttribute('viewBox').split(' ').map(Number);
+  const W=vb[2]||720,H=vb[3]||400,PL=20,HEADER=54,PB=44;
+  const TW=W+PL*2,TH=H+HEADER+PB;
+  const full='<svg xmlns="http://www.w3.org/2000/svg" width="'+TW+'" height="'+TH+'"><rect width="'+TW+'" height="'+TH+'" fill="#111"/><text x="'+PL+'" y="28" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="15" font-weight="700" fill="#e8e8e6">Wallingford Regatta 2025</text><text x="'+PL+'" y="46" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#c8472b" font-weight="600">rowingtools.co.uk</text><g transform="translate('+PL+','+HEADER+')">'+svg.innerHTML+'</g></svg>';
+  const blob=new Blob([full],{type:'image/svg+xml'});
+  const url=URL.createObjectURL(blob);
+  const img=new Image();
+  img.onload=()=>{const c=document.createElement('canvas');c.width=TW*2;c.height=TH*2;const ctx=c.getContext('2d');ctx.scale(2,2);ctx.drawImage(img,0,0);c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='heatmap-wallingford25-compare.png';a.click();},'image/png');URL.revokeObjectURL(url);};
+  img.src=url;
+}
+renderClubInputs();
+renderHeatmap(ROWS,'');
+</script>
+
+<div class="footer"><a href="/">← rowingtools.co.uk</a></div>
+<script src="/rowingtools-share.js"></script>
+</body>
+</html>

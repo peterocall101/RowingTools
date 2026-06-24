@@ -25,6 +25,7 @@ HEATMAPS = [
 
 def norm_club(name):
     name = re.sub(r'\s*\([A-Za-z]\)\s*$', '', name or '').strip()
+    name = re.sub(r'\s*/\s*', '/', name)  # composite spacing: "Globe/ Lea" -> "Globe/Lea"
     return name
 
 def canon_display(name):
@@ -50,9 +51,10 @@ def extract_rows(content):
 def main():
     out = []
     for h in HEATMAPS:
-        path = os.path.join(ROOT, h['file'])
+        # Regatta pages now live at /leaderboards/<comp>/index.html (clean URLs).
+        path = os.path.join(ROOT, 'leaderboards', h['comp'], 'index.html')
         if not os.path.exists(path):
-            print(f'  skip {h["file"]} (not found)', file=sys.stderr)
+            print(f'  skip {h["comp"]} (not found at {path})', file=sys.stderr)
             continue
         with open(path, encoding='utf-8') as f:
             content = f.read()
@@ -75,7 +77,8 @@ def main():
                     })
         results.sort(key=lambda x: -x['pct'])
         print(f'  {h["comp"]}: {title} - {len(results)} results')
-        out.append({'comp': h['comp'], 'title': title, 'date': h['date'], 'url': h['file'],
+        out.append({'comp': h['comp'], 'title': title, 'date': h['date'],
+                    'url': f'/leaderboards/{h["comp"]}/',
                     'venue': venue_for(h['comp']), 'results': results})
 
     dest = os.path.join(ROOT, 'data', 'all_results.json')

@@ -5,59 +5,67 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://rowingtools.co.uk/clubs.html</loc>
+    <loc>https://rowingtools.co.uk/gmt/</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://rowingtools.co.uk/heatmap-marlow26.html</loc>
+    <loc>https://rowingtools.co.uk/leaderboards/</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://rowingtools.co.uk/heatmap-reading26.html</loc>
+    <loc>https://rowingtools.co.uk/clubs/</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://rowingtools.co.uk/heatmap-metsun26.html</loc>
+    <loc>https://rowingtools.co.uk/leaderboards/marlow26/</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://rowingtools.co.uk/heatmap-metsat26.html</loc>
+    <loc>https://rowingtools.co.uk/leaderboards/reading26/</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://rowingtools.co.uk/heatmap-nsr26.html</loc>
+    <loc>https://rowingtools.co.uk/leaderboards/metsun26/</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://rowingtools.co.uk/heatmap-poplar26.html</loc>
+    <loc>https://rowingtools.co.uk/leaderboards/metsat26/</loc>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://rowingtools.co.uk/leaderboards/nsr26/</loc>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://rowingtools.co.uk/leaderboards/poplar26/</loc>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://rowingtools.co.uk/heatmap-nottm26.html</loc>
+    <loc>https://rowingtools.co.uk/leaderboards/nottm26/</loc>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://rowingtools.co.uk/heatmap-wallingford26.html</loc>
+    <loc>https://rowingtools.co.uk/leaderboards/wallingford26/</loc>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://rowingtools.co.uk/heatmap-brcc25.html</loc>
+    <loc>https://rowingtools.co.uk/leaderboards/brcc25/</loc>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://rowingtools.co.uk/heatmap-marlow25.html</loc>
+    <loc>https://rowingtools.co.uk/leaderboards/marlow25/</loc>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://rowingtools.co.uk/heatmap-metsun25.html</loc>
+    <loc>https://rowingtools.co.uk/leaderboards/metsun25/</loc>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://rowingtools.co.uk/heatmap-metsat25.html</loc>
+    <loc>https://rowingtools.co.uk/leaderboards/metsat25/</loc>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://rowingtools.co.uk/heatmap-wallingford25.html</loc>
+    <loc>https://rowingtools.co.uk/leaderboards/wallingford25/</loc>
     <priority>0.7</priority>
   </url>
 </urlset>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=0.55">
+<title>RowingTools - GMT% Calculator for UK Rowing</title>
+<meta name="description" content="Free GMT% calculator for UK club rowing. Score 2000m times against World Best, Met Regatta winning, Henley qualification and HWR benchmarks.">
+<link rel="canonical" href="https://rowingtools.co.uk/gmt/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a2744">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RowingTools">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta property="og:title" content="RowingTools - GMT% Calculator for UK Rowing">
+<meta property="og:description" content="Free GMT% calculator for UK club rowing. Score 2000m times against World Best, Met Regatta winning, Henley qualification and HWR benchmarks.">
+<meta property="og:url" content="https://rowingtools.co.uk/gmt/">
+<meta property="og:type" content="website">
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  });
+}
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-876ELQ9529"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-876ELQ9529');
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<div class="topbar"></div>
+<header class="site-hdr">
+  <div class="brand"><a href="/"><div class="brand-mark">Rowing<span class="brand-dot">.</span>Tools</div></a></div>
+  <p class="sub">GMT% Calculator - winning benchmarks (WBT, Met Regatta, HWR) &amp; Henley qualification benchmark</p>
+</header>
+
+<div class="sec-tabs">
+  <a class="sec-tab active" href="/gmt/">GMT% Calculator</a>
+  <a class="sec-tab" href="/leaderboards/">Regatta Leaderboards</a>
+  <a class="sec-tab" href="/clubs/">Club Profiles</a>
+</div>
+<div id="sec-calc" class="sec active">
+<div class="tabs">
+  <button class="tab active" onclick="go('calc')">Results Table</button>
+  <button class="tab" onclick="go('benchmarks')">Benchmarks</button>
+  <button class="tab" onclick="go('about')">What is GMT?</button>
+</div>
+
+<!-- ── CALCULATOR ─────────────────────────────────────────────────────────── -->
+<div id="panel-calc" class="panel active">
+
+  <div class="bench-row">
+    <span style="font-size:13px;color:var(--text2);margin-right:2px">Show:</span>
+    <button class="btog" id="tog-wbt" onclick="toggleBench('wbt')"><span class="dot" style="background:var(--c-wbt)"></span>WBT % <span style="font-size:11px;opacity:.7">(winning)</span></button>
+    <button class="btog" id="tog-met" onclick="toggleBench('met')"><span class="dot" style="background:var(--c-met)"></span>Met % <span style="font-size:11px;opacity:.7">(winning)</span></button>
+    <button class="btog" id="tog-hrr" onclick="toggleBench('hrr')"><span class="dot" style="background:var(--c-hrr)"></span>HRR qual. %</button>
+    <button class="btog" id="tog-hwr" onclick="toggleBench('hwr')"><span class="dot" style="background:var(--c-hwr)"></span>HWR % <span style="font-size:11px;opacity:.7">(winning, W only)</span></button>
+  </div>
+
+  <p style="font-size:14px;color:var(--text2);margin-bottom:14px">Enter times below over 2000m to get comparative GMT scores against each benchmark.</p>
+
+  <div class="tbl-wrap">
+    <table class="tbl"><thead id="tbl-head"></thead><tbody id="results-body"></tbody></table>
+  </div>
+  <div class="empty" id="empty-msg">No rows yet</div>
+
+  <div class="tool-row" style="margin-top:12px">
+    <button onclick="addRow()">+ Add row</button>
+    <span class="sep">|</span>
+    <select id="sort-by" style="height:32px;font-size:13px;min-width:160px">
+      <option value="wbt">Sort by WBT %</option>
+      <option value="met">Sort by Met avg winning %</option>
+      <option value="hrr">Sort by HRR qual. %</option>
+      <option value="hwr">Sort by HWR avg winning %</option>
+      <option value="time">Sort by time</option>
+    </select>
+    <button onclick="sortRows()">↕ Reorder</button>
+    <span class="sep">|</span>
+    <button onclick="downloadCSV()">↓ Download CSV</button>
+  </div>
+</div>
+
+<!-- ── BENCHMARKS ─────────────────────────────────────────────────────────── -->
+<div id="panel-benchmarks" class="panel">
+  <div class="btabs">
+    <button class="btab active" onclick="gob('wbt')">World best times</button>
+    <button class="btab" onclick="gob('met')">Met Regatta averages</button>
+    <button class="btab" onclick="gob('hrr')">Henley qualification benchmarks</button>
+    <button class="btab" onclick="gob('hwr')">Henley Women's Regatta</button>
+  </div>
+  <div id="bpanel-wbt" class="bpanel active">
+    <p class="info">Official World Best Times over 2000m as recognised by World Rowing.</p>
+    <input type="text" class="srch" placeholder="Search…" oninput="renderWBT(this.value)">
+    <div id="wbt-wrap"></div>
+  </div>
+  <div id="bpanel-met" class="bpanel">
+    <p class="info">Championship A-final winning times at the Metropolitan Regatta at Dorney Lake, averaged across 2021, 2022, 2023 and 2025. Saturday and Sunday events both included. 2024 not available as a published summary.</p>
+    <input type="text" class="srch" placeholder="Search…" oninput="renderMET(this.value)">
+    <div id="met-wrap"></div>
+  </div>
+  <div id="bpanel-hrr" class="bpanel">
+    <p class="info">Unlike the WBT and Met benchmarks which represent <strong>winning</strong> times, these are the fastest <strong>non-qualifying</strong> times at Henley Royal Regatta - i.e. the slowest time that failed to make it into the draw. A score at or above 100% suggests a crew would likely have qualified. Times averaged across available years (2021-2025) and adjusted from Henley course (2112m) to 2000m equivalent (x 2000/2112). Select the event your crew would actually enter - eligibility rules differ significantly between events.</p>
+    <input type="text" class="srch" placeholder="Search…" oninput="renderHRR(this.value)">
+    <div id="hrr-wrap"></div>
+  </div>
+  <div id="bpanel-hwr" class="bpanel">
+    <p class="info"><strong>Winning</strong> times at Henley Women's Regatta across all event categories (Championship, Aspirational, Development, Junior, J16, Para), averaged across 2022-2025. The HWR course is 1500m, so times are adjusted to 2000m equivalent (x 2000/1500). Women's events only. Select the event your crew would actually enter. Times can vary significantly year to year due to river stream conditions. 2021 excluded: course was shortened due to pandemic construction.</p>
+    <div id="hwr-wrap"></div>
+  </div>
+</div>
+
+<!-- ── ABOUT ──────────────────────────────────────────────────────────────── -->
+<div id="panel-about" class="panel">
+  <div class="card">
+    <h2>What is GMT%?</h2>
+    <p>GMT stands for <strong>Gold Medal Time</strong> - a percentage score expressing how fast a crew's time is relative to a known benchmark. The higher the percentage, the closer the crew is to that standard.</p>
+    <p>The formula is: <strong>GMT% = benchmark time ÷ your time × 100</strong>. Because rowing is a timed sport where faster is better, your time will generally be slower than the benchmark, so scores are typically below 100%.</p>
+    <p>For example, a men's eight rowing 5:45 against a WBT of 5:18.68 scores 92.7% - meaning they rowed at 92.7% of the world's best pace.</p>
+    <div class="score-grid">
+      <div class="score-box" style="background:#E1F5EE"><span class="sp" style="color:#0F6E56">≥ 87%</span><span class="sl">Elite / international standard</span></div>
+      <div class="score-box" style="background:#E6F1FB"><span class="sp" style="color:#185FA5">80–87%</span><span class="sl">High club / top domestic</span></div>
+      <div class="score-box" style="background:#FAEEDA"><span class="sp" style="color:#BA7517">72–80%</span><span class="sl">Competitive club</span></div>
+      <div class="score-box" style="background:#FCEBEB"><span class="sp" style="color:#993C1D">&lt; 72%</span><span class="sl">Developing / recreational</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Which benchmark should I use?</h2>
+    <p><span class="pill pill-wbt">WBT</span> <strong>World Best Time - winning benchmark.</strong> The fastest ever recorded time for each boat class over 2000m, officially recognised by World Rowing. The gold standard. Competitive domestic club crews typically score 72-85%.</p>
+    <p><span class="pill pill-met">Met avg</span> <strong>Metropolitan Regatta average - winning benchmark.</strong> The average championship A-final winning time at the Metropolitan Regatta at Dorney Lake, across 2021-2025. A score above 100% means you'd have won on average. Useful for gauging competitiveness within the UK club scene.</p>
+    <p><span class="pill pill-hrr">HRR qual.</span> <strong>Henley Royal Regatta qualification benchmark - not a winning benchmark.</strong> This is the fastest time that <em>failed</em> to qualify at Henley Royal Regatta qualifying races, averaged across available years and adjusted to 2000m. A score at or above 100% means you'd likely have made it into the draw - not that you'd win. Because eligibility rules differ significantly between events, make sure to select the specific Henley event your crew would enter.</p>
+    <p><span class="pill pill-hwr">HWR</span> <strong>Henley Women's Regatta - winning benchmark, women's events only.</strong> Winning times across all HWR event categories (Championship, Aspirational, Development, Junior, J16, Para) averaged across 2022-2025, adjusted from 1500m to 2000m equivalent. Select the event your crew would enter — like HRR, different events have different eligibility. Not available for men's or open boat classes.</p>
+  </div>
+  <div class="card">
+    <h2>Henley distance adjustment</h2>
+    <p>The Henley course is 1 mile and 550 yards - approximately 2112m, which is 5.6% longer than the standard 2000m international distance. To convert a Henley time to its 2000m equivalent, the time is multiplied by 2000 / 2112 = 0.9470. This assumes a crew can sustain the same average speed over both 2000m and 2112m, which is a reasonable approximation for comparison purposes.</p>
+  </div>
+</div>
+</div><!-- /sec-calc -->
+
+<div id="chart-overlay" class="chart-overlay" onclick="closeChart(event)">
+  <div class="chart-card">
+    <div class="chart-hdr">
+      <div><div class="chart-ttl" id="chart-ttl"></div><div class="chart-sub" id="chart-sub"></div></div>
+      <button class="chart-x" onclick="closeChart()">×</button>
+    </div>
+    <div id="chart-svg-wrap"></div>
+    <div class="chart-next" id="chart-next"></div>
+  </div>
+</div>
+
+<div class="subscribe">
+  <h3>Get notified when new regatta results are added</h3>
+  <div id="error-message" class="sub-msg">Your subscription could not be saved. Please try again.</div>
+  <div id="success-message" class="sub-msg">You&#39;re subscribed! We&#39;ll email you when new results are added.</div>
+  <div id="sib-container">
+    <form id="sib-form" class="subscribe-form" method="POST" action="https://3f21ad40.sibforms.com/serve/MUIFAIyRcuQ6bCKzKFZT2wgiKD0LFDzAyRvYqC0G9gH2H6m_9Uic0dqNTo3ZKEED_7O5cWwppL4l6V6SsRwNH1yQzgxePOjED63GWYWzDIocBYOxNvnGM32rnRnLlOcXicoIGdBc37uTEoVidPd39BYTPRE0XEQJesWgpy9G8t7M8TcDuO46Tu1W-G80rN5G1Dgwn50A1_fCqZdQkQ==" data-type="subscription">
+      <input type="email" name="EMAIL" id="EMAIL" placeholder="your@email.com" autocomplete="off" required>
+      <button type="submit">Notify me</button>
+      <input type="text" name="email_address_check" value="" class="input--hidden">
+      <input type="hidden" name="locale" value="en">
+    </form>
+  </div>
+</div>
+<div class="footer">
+  <a href="mailto:feedback@rowingtools.co.uk">Contact Us - Suggestions &amp; Feedback</a>
+</div>
+<script src="/assets/app.js"></script>
+<script>bootGmt();</script>
+</body>
+</html>
