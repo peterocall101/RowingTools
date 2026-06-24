@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=0.55">
+<title>Marlow Regatta 2025 Results - GMT% Analysis | RowingTools</title>
+<link rel="canonical" href="https://rowingtools.co.uk/leaderboards/marlow25/">
+<meta name="description" content="Marlow Regatta 2025 results with GMT% analysis, club and crew rankings, and top performers. Compare every crew's time against world benchmarks.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f0f0e;--bg2:#1a1a18;--bg3:#252523;--text:#f0f0ee;--text2:#9ca3af;--text3:#6b7280;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14)}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:13px;padding:0 20px 2.5rem;max-width:1200px;margin:0 auto;line-height:1.6}
+.topbar{position:fixed;top:0;left:0;width:100%;height:3px;background:#c8472b;z-index:9999;pointer-events:none}
+.page-hdr{padding:2rem 0 1.25rem;border-bottom:1px solid var(--border);margin-bottom:1.5rem}
+.back-nav{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);text-decoration:none;margin-bottom:10px;transition:color .15s;font-weight:500}
+.back-nav:hover{color:var(--text2)}
+.back-brand{font-family:'Fraunces',serif;font-weight:900;font-size:17px;letter-spacing:-0.03em;line-height:1}
+.back-dot{color:#c8472b}
+h1{font-size:20px;font-weight:700;letter-spacing:-0.4px;margin-bottom:4px}
+.sub{color:var(--text3);font-size:12px;line-height:1.6;margin-bottom:0;max-width:820px}
+input{background:var(--bg2);border:1.5px solid var(--border2);color:var(--text);padding:6px 11px;border-radius:8px;font-size:12px;margin-bottom:18px;width:220px;font-family:inherit;outline:none;transition:border-color .15s}
+input:focus{border-color:#60a5fa}
+table{border-collapse:collapse;font-size:11px;margin-bottom:28px}
+caption{text-align:left;font-size:11px;font-weight:600;color:var(--text2);padding:0 0 6px;letter-spacing:.05em;text-transform:uppercase}
+th{background:var(--bg2);color:var(--text3);font-weight:500;padding:5px 8px;border:1px solid rgba(255,255,255,0.05);text-align:center;white-space:nowrap;font-size:10px;letter-spacing:.04em;text-transform:uppercase}
+th.rh{text-align:left;width:80px}
+td{border:1px solid rgba(255,255,255,0.04);padding:0;vertical-align:top;min-width:80px;max-width:120px}
+td.rnd{background:var(--bg2);color:var(--text3);font-size:11px;padding:5px 7px;white-space:nowrap;vertical-align:middle;font-weight:500}
+.cell{padding:5px 6px;display:flex;flex-direction:column;align-items:center;gap:1px;transition:transform .15s}
+td:not(.rnd):hover .cell{transform:scale(1.04)}
+.cn{font-weight:600;font-size:10px;color:rgba(255,255,255,.85);white-space:normal;text-align:center;max-width:110px;word-break:break-word;line-height:1.3}
+.cp{font-size:12px;font-weight:700}
+.ct{font-size:10px;color:rgba(255,255,255,.4)}
+.legend{display:flex;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.li{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3)}
+.ls{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.tabs{display:inline-flex;background:var(--bg3);border-radius:999px;padding:3px;gap:2px;margin-bottom:20px}
+.tab{background:transparent;border:none;color:var(--text3);padding:7px 18px;border-radius:999px;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:500;transition:all .18s ease;white-space:nowrap}
+.tab.active{background:var(--bg2);color:var(--text);box-shadow:0 1px 5px rgba(0,0,0,0.3)}
+.tab:hover:not(.active){color:var(--text2)}
+#lb-table,#clublb-table{width:100%;border-collapse:collapse;font-size:12px}
+#lb-table th,#clublb-table th{background:var(--bg2);color:var(--text3);font-weight:500;padding:8px 10px;border-bottom:2px solid var(--border);text-align:left;white-space:nowrap;font-size:11px;letter-spacing:.04em;text-transform:uppercase;border-left:none;border-right:none;border-top:none}
+#lb-table th.num,#clublb-table th.num{text-align:right}
+#lb-table td,#clublb-table td{border:none;border-bottom:1px solid var(--border);padding:7px 10px;vertical-align:middle}
+#lb-table td.num,#clublb-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+#lb-table tr:last-child td,#clublb-table tr:last-child td{border-bottom:none}
+#lb-table tbody tr:hover td,#clublb-table tbody tr:hover td{background:var(--bg2)}
+.rank-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:11px;font-weight:700}
+.rank-badge.gold{background:#3d2e00;color:#f0b030}
+.rank-badge.silver{background:#1e2226;color:#a0aab4}
+.rank-badge.bronze{background:#2d1800;color:#c87030}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 18px;min-width:170px}
+.stat-card-name{font-weight:700;font-size:13px;margin-bottom:10px}
+.stat-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:11px}
+.stat-card-lbl{color:var(--text3)}
+.stat-card-val{color:var(--text);font-weight:500}
+.footer{margin-top:3rem;padding-top:1.25rem;border-top:1px solid var(--border);font-size:12px;color:var(--text3)}
+.footer a{color:var(--text3);text-decoration:none;transition:color .15s}
+.footer a:hover{color:var(--text2)}
+@keyframes viewIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.view-in{animation:viewIn .35s ease}
+@keyframes dotIn{from{fill-opacity:0}to{fill-opacity:0.75}}
+</style>
+</head>
+<body>
+<div class="topbar"></div>
+<header class="page-hdr">
+  <a href="/#leaderboards" class="back-nav"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="back-brand">Rowing<span class="back-dot">.</span>Tools</span></a>
+  <h1>Marlow Regatta 2025</h1>
+  <p class="sub">GMT% vs WBT. Championship, Tier, University and Junior (J16-J18) finals over 2000m at Dorney Lake; each final (A, B, C ...) is shown as a row. J14 and J15 events are excluded. Results via regatta.time-team.nl.</p>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('heatmap',this)">Heatmap</button>
+  <button class="tab" onclick="showTab('top100',this)">Result Leaderboard</button>
+  <button class="tab" onclick="showTab('clublb',this)">Club Leaderboard</button>
+  <button class="tab" onclick="showTab('compare',this)">Club Compare</button>
+</div>
+<div id="view-heatmap">
+  <div class="legend">
+    <div class="li"><div class="ls" style="background:#0a3d2a"></div>&#x2265;87% elite</div>
+    <div class="li"><div class="ls" style="background:#0d2d4a"></div>80&#8211;87% high club</div>
+    <div class="li"><div class="ls" style="background:#3d2200"></div>72&#8211;80% competitive</div>
+    <div class="li"><div class="ls" style="background:#3d0e0a"></div>&lt;72% developing</div>
+    <div class="li"><div class="ls" style="background:#252523"></div>no data</div>
+  </div>
+  <input type="text" id="ev-filter" placeholder="Filter events&#8230;" oninput="filterHeatmap(this.value)" style="margin-right:8px">
+  <input type="text" id="club-filter-hm" list="cmp-clubs-list" placeholder="Filter by club&#8230;" oninput="filterClubHm(this.value)">
+  <div id="heatmap-out"></div>
+</div>
+<div id="view-compare" style="display:none">
+  <div style="margin-bottom:14px">
+    <div id="cmp-inputs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+    <button onclick="addCmpClub()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">+ Add club</button>
+    <button onclick="downloadCompare()" style="background:#c8472b;border:1px solid #c8472b;color:#fff;padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;margin-left:8px">&#x2193; Save image</button>
+  </div>
+  <div id="cmp-stats" style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap"></div>
+  <div id="cmp-chart"></div>
+</div>
+<datalist id="cmp-clubs-list"></datalist>
+<div id="view-top100" style="display:none">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+    <input type="text" id="lb-club-filter" list="cmp-clubs-list" placeholder="Filter by club&#8230;" oninput="renderTop100()" style="margin-bottom:0">
+    <button onclick="downloadTop100CSV()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap">&#x2193; CSV</button>
+  </div>
+  <table id="lb-table">
+    <thead><tr>
+      <th class="num">#</th><th>Crew</th><th>Club</th><th>Event</th><th>Round</th>
+      <th class="num">Time</th><th class="num">GMT%</th><th style="color:var(--text3);font-size:10px;text-align:center;text-transform:none;letter-spacing:0">share</th>
+    </tr></thead>
+    <tbody id="lb-body"></tbody>
+  </table>
+</div>
+<div id="view-clublb" style="display:none">
+  <label style="font-size:12px;color:#666;display:inline-block;margin-bottom:10px">Min entries: <input type="number" id="min-entries" value="2" min="1" style="width:52px;margin-left:4px" oninput="renderClubLB()"></label>
+  <label style="font-size:12px;color:#666;display:inline-flex;align-items:center;gap:4px;margin-bottom:10px;margin-left:16px"><input type="checkbox" id="incl-composites" onchange="renderClubLB()" style="width:auto;margin-bottom:0;padding:0">Include composites</label>
+  <button onclick="downloadClubLBCSV()" style="background:#1e1e1e;border:1px solid #333;color:#888;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;margin-left:10px;margin-bottom:10px">&#x2193; CSV</button>
+  <table id="clublb-table">
+    <thead><tr>
+      <th class="num">#</th><th>Club</th>
+      <th class="num">Entries</th><th class="num">Events</th>
+      <th class="num">Top 3 Avg</th><th class="num">Avg GMT%</th><th class="num">Best</th><th style="color:var(--text3);font-size:10px;text-transform:none;letter-spacing:0">share</th>
+    </tr></thead>
+    <tbody id="clublb-body"></tbody>
+  </table>
+</div>
+<script>
+const ROWS=[{"event": "Ch, T2, T3 8+", "round": "Final A", "lanes": [{"crew": "London", "club": "London", "time": "5:54.5", "pct": 89.9}, {"crew": "Oxford Brookes Univ", "club": "Oxford Brookes Univ", "time": "5:55.4", "pct": 89.7}, {"crew": "Oxford Brookes Univ", "club": "Oxford Brookes Univ", "time": "6:01.1", "pct": 88.3}, {"crew": "Thames", "club": "Thames", "time": "6:01.3", "pct": 88.2}, {"crew": "Leander", "club": "Leander", "time": "6:03.9", "pct": 87.6}, {"crew": "Durham Univ", "club": "Durham Univ", "time": "6:04.2", "pct": 87.5}, {"crew": "Oxford Brookes Univ", "club": "Oxford Brookes Univ", "time": "6:07.8", "pct": 86.6}, {"crew": "Oxford Brookes Univ", "club": "Oxford Brookes Univ", "time": "6:09.1", "pct": 86.3}], "boat": "M8+", "clock": "16:27"}, {"event": "Ch, T2, T3 8+", "round": "Final B", "lanes": [{"crew": "St Paul's Sch", "club": "St Paul's Sch", "time": "6:08.9", "pct": 86.4}, {"crew": "Oxford Brookes Univ", "club": "Oxford Brookes Univ", "time": "6:16.1", "pct": 84.7}, {"crew": "Oxford Brookes Univ", "club": "Oxford Brookes Univ", "time": "6:18.2", "pct": 84.3}, {"crew": "Univ of Bristol", "club": "Univ of Bristol", "time": "6:18.6", "pct": 84.2}, {"crew": "Bedford Sch", "club": "Bedford Sch", "time": "6:20.8", "pct": 83.7}, {"crew": "Thames", "club": "Thames", "time": "6:21.1", "pct": 83.6}, {"crew": "Marlow", "club": "Marlow", "time": "6:21.4", "pct": 83.5}, {"crew": "Univ of Nottingham", "club": "Univ of Nottingham", "time": "6:25.6", "pct": 82.7}], "boat": "M8+", "clock": "16:33"}, {"event": "Ch, T2, T3 8+", "round": "Final C", "lanes": [{"crew": "Radley Coll", "club": "Radley Coll", "time": "6:11.9", "pct": 85.7}, {"crew": "Thames", "club": "Thames", "time": "6:12.7", "pct": 85.5}, {"crew": "Edinburgh Univ", "club": "Edinburgh Univ", "time": "6:18.1", "pct": 84.3}, {"crew": "London", "club": "London", "time": "6:18.3", "pct": 84.2}, {"crew": "Univ of London", "club": "Univ of London", "time": "6:18.6", "pct": 84.2}, {"crew": "Latymer Upper Sch", "club": "Latymer Upper Sch", "time": "6:20.5", "pct": 83.8}, {"crew": "St Edward's Sch", "club": "St Edward's Sch", "time": "6:24.7", "pct": 82.8}, {"crew": "Bath Univ", "club": "Bath Univ", "time": "6:28.0", "pct": 82.1}], "boat": "M8+", "clock": "16:39"}, {"event": "Ch, T2, T3 8+", "round": "Final D", "lanes": [{"crew": "Eton Coll", "club": "Eton Coll", "time": "6:16.4", "pct": 84.7}, {"crew": "Thames", "club": "Thames", "time": "6:24.3", "pct": 82.9}, {"crew": "Dulwich Coll", "club": "Dulwich Coll", "time": "6:26.7", "pct": 82.4}, {"crew": "Royal Shrewsbury Sch", "club": "Royal Shrewsbury Sch", "time": "6:29.9", "pct": 81.7}, {"crew": "Reading Blue Coat Sch", "club": "Reading Blue Coat Sch", "time": "6:30.2", "pct": 81.7}, {"crew": "City of Bristol", "club": "City of Bristol", "time": "6:30.5", "pct": 81.6}, {"crew": "Molesey", "club": "Molesey", "time": "6:30.7", "pct": 81.6}, {"crew": "Univ of Exeter", "club": "Univ of Exeter", "time": "6:35.6", "pct": 80.6}], "boat": "M8+", "clock": "16:45"}, {"event": "Ch, T2, T3 8+", "round": "Final E", "lanes": [{"crew": "Imperial Coll", "club": "Imperial Coll", "time": "6:26.1", "pct": 82.5}, {"crew": "Oxford Brookes Univ", "club": "Oxford Brookes Univ", "time": "6:31.6", "pct": 81.4}, {"crew": "Durham Univ", "club": "Durham Univ", "time": "6:31.7", "pct": 81.4}, {"crew": "Tyne", "club": "Tyne", "time": "6:33.4", "pct": 81.0}, {"crew": "Derby", "club": "Derby", "time": "6:33.6", "pct": 81.0}, {"crew": "Tideway Scullers", "club": "Tideway Scullers", "time": "6:35.0", "pct": 80.7}, {"crew": "Hampton Sch", "club": "Hampton Sch", "time": "6:37.2", "pct": 80.2}, {"crew": "City of Cambridge", "club": "City of Cambridge", "time": "6:39.7", "pct": 79.7}], "boat": "M8+", "clock": "16:51"}, {"event": "Ch, T2, T3 8+", "round": "Final F", "lanes": [{"crew": "Abingdon Sch", "club": "Abingdon Sch", "time": "6:32.4", "pct": 81.2}, {"crew": "Marlow", "club": "Marlow", "time": "6:34.3", "pct": 80.8}, {"crew": "Univ of Birmingham", "club": "Univ of Birmingham", "time": "6:36.9", "pct": 80.3}, {"crew": "Sheffield Univ", "club": "Sheffield Univ", "time": "6:37.3", "pct": 80.2}, {"crew": "Molesey", "club": "Molesey", "time": "6:37.8", "pct": 80.1}, {"crew": "Norwich Sch", "club": "Norwich Sch", "time": "6:39.1", "pct": 79.9}, {"crew": "Univ of Surrey", "club": "Univ of Surrey", "time": "6:39.8", "pct": 79.7}, {"crew": "Hereford", "club": "Hereford", "time": "6:45.4", "pct": 78.6}], "boat": "M8+", "clock": "16:57"}, {"event": "Ch, T2, T3 8+", "round": "Final G", "lanes": [{"crew": "King's Coll Sch", "club": "King's Coll Sch", "time": "6:23.6", "pct": 83.1}, {"crew": "Wallingford", "club": "Wallingford", "time": "6:29.9", "pct": 81.7}, {"crew": "Westminster Sch", "club": "Westminster Sch", "time": "6:32.2", "pct": 81.3}, {"crew": "City of Bristol", "club": "City of Bristol", "time": "6:38.1", "pct": 80.0}, {"crew": "Vesta", "club": "Vesta", "time": "6:40.6", "pct": 79.6}, {"crew": "Windsor Boys' Sch", "club": "Windsor Boys' Sch", "time": "6:40.8", "pct": 79.5}, {"crew": "Kew House Sch", "club": "Kew House Sch", "time": "6:43.0", "pct": 79.1}, {"crew": "King's Sch Chester", "club": "King's Sch Chester", "time": "6:46.7", "pct": 78.4}], "boat": "M8+", "clock": "17:03"}, {"event": "Ch, T2, T3 8+", "round": "Final H", "lanes": [{"crew": "Vesta", "club": "Vesta", "time": "6:34.4", "pct": 80.8}, {"crew": "St George's Coll", "club": "St George's Coll", "time": "6:37.6", "pct": 80.2}, {"crew": "Putney Town", "club": "Putney Town", "time": "6:42.9", "pct": 79.1}, {"crew": "Univ of Nottingham", "club": "Univ of Nottingham", "time": "6:43.1", "pct": 79.1}, {"crew": "Dart Totnes", "club": "Dart Totnes", "time": "6:45.0", "pct": 78.7}, {"crew": "Univ of Nottingham", "club": "Univ of Nottingham", "time": "6:45.0", "pct": 78.7}, {"crew": "Vesta", "club": "Vesta", "time": "6:48.1", "pct": 78.1}, {"crew": "St Paul's Sch", "club": "St Paul's Sch", "time": "6:48.4", "pct": 78.0}], "boat": "M8+", "clock": "17:09"}, {"event": "Ch, T2, T3 8+", "round": "Final I", "lanes": [{"crew": "Twickenham", "club": "Twickenham", "time": "6:30.6", "pct": 81.6}, {"crew": "Kingston", "club": "Kingston", "time": "6:35.5", "pct": 80.6}, {"crew": "Star", "club": "Star", "time": "6:40.1", "pct": 79.7}, {"crew": "Wolfson Coll (Ox)", "club": "Wolfson Coll (Ox)", "time": "6:41.1", "pct": 79.5}, {"crew": "Royal Chester", "club": "Royal Chester", "time": "6:44.6", "pct": 78.8}, {"crew": "Emanuel Sch", "club": "Emanuel Sch", "time": "6:46.9", "pct": 78.3}, {"crew": "Univ of Exeter", "club": "Univ of Exeter", "time": "6:49.0", "pct": 77.9}, {"crew": "Canford Sch", "club": "Canford Sch", "time": "6:50.2", "pct": 77.7}], "boat": "M8+", "clock": "17:15"}, {"event": "Ch, T2, T3 8+", "round": "Final J", "lanes": [{"crew": "King's Coll, Univ of Queensland (AUS)", "club": "King's Coll, Univ of Queensland (AUS)", "time": "6:39.3", "pct": 79.8}, {"crew": "London", "club": "London", "time": "6:43.5", "pct": 79.0}, {"crew": "Lea", "club": "Lea", "time": "6:45.2", "pct": 78.6}, {"crew": "Winchester Coll", "club": "Winchester Coll", "time": "6:45.9", "pct": 78.5}, {"crew": "Univ of St Andrews", "club": "Univ of St Andrews", "time": "6:47.7", "pct": 78.2}, {"crew": "City of Oxford", "club": "City of Oxford", "time": "6:47.9", "pct": 78.1}, {"crew": "Univ Coll Lon", "club": "Univ Coll Lon", "time": "6:53.0", "pct": 77.2}, {"crew": "Univ of Warwick", "club": "Univ of Warwick", "time": "6:59.9", "pct": 75.9}], "boat": "M8+", "clock": "17:21"}, {"event": "Ch, T2, T3 8+", "round": "Final K", "lanes": [{"crew": "Quintin", "club": "Quintin", "time": "6:50.5", "pct": 77.6}, {"crew": "Claires Court Sch", "club": "Claires Court Sch", "time": "6:50.7", "pct": 77.6}, {"crew": "Bryanston Sch", "club": "Bryanston Sch", "time": "6:55.7", "pct": 76.7}, {"crew": "Reading", "club": "Reading", "time": "6:57.7", "pct": 76.3}, {"crew": "Tyne United", "club": "Tyne United", "time": "7:00.8", "pct": 75.7}, {"crew": "Curlew", "club": "Curlew", "time": "7:00.9", "pct": 75.7}, {"crew": "St Peter's Sch", "club": "St Peter's Sch", "time": "7:01.1", "pct": 75.7}, {"crew": "Southampton Univ", "club": "Southampton Univ", "time": "7:01.4", "pct": 75.6}], "boat": "M8+", "clock": "17:27"}, {"event": "Ch, T2, T3 8+", "round": "Final L", "lanes": [{"crew": "Minerva Bath", "club": "Minerva Bath", "time": "6:50.4", "pct": 77.6}, {"crew": "Haberdashers Monmouth Sch", "club": "Haberdashers Monmouth Sch", "time": "6:55.1", "pct": 76.8}, {"crew": "Bedford", "club": "Bedford", "time": "6:57.2", "pct": 76.4}, {"crew": "Green Lake (USA)", "club": "Green Lake (USA)", "time": "7:00.1", "pct": 75.9}, {"crew": "Auriol Kensington", "club": "Auriol Kensington", "time": "7:00.4", "pct": 75.8}, {"crew": "Peterborough City", "club": "Peterborough City", "time": "7:02.0", "pct": 75.5}, {"crew": "Gt Marlow Sch", "club": "Gt Marlow Sch", "time": "7:02.4", "pct": 75.4}, {"crew": "City of Cambridge", "club": "City of Cambridge", "time": "7:12.4", "pct": 73.7}], "boat": "M8+", "clock": "17:33"}, {"event": "Ch, T2, T3 8+", "round": "Final M", "lanes": [{"crew": "Kingston GS", "club": "Kingston GS", "time": "6:55.9", "pct": 76.6}, {"crew": "Green Lake (USA)", "club": "Green Lake (USA)", "time": "6:59.7", "pct": 75.9}, {"crew": "King's Sch Worcester", "club": "King's Sch Worcester", "time": "7:04.1", "pct": 75.1}, {"crew": "Maidenhead", "club": "Maidenhead", "time": "7:08.9", "pct": 74.3}, {"crew": "Thames", "club": "Thames", "time": "7:10.5", "pct": 74.0}, {"crew": "Pangbourne Coll", "club": "Pangbourne Coll", "time": "7:11.4", "pct": 73.9}, {"crew": "Southampton Univ", "club": "Southampton Univ", "time": "7:11.8", "pct": 73.8}, {"crew": "City of Cambridge", "club": "City of Cambridge", "time": "7:18.6", "pct": 72.7}], "boat": "M8+", "clock": "17:39"}, {"event": "Ch, T2, T3 8+", "round": "Final N", "lanes": [{"crew": "Liverpool Univ", "club": "Liverpool Univ", "time": "7:11.2", "pct": 73.9}, {"crew": "King's Sch Canterbury", "club": "King's Sch Canterbury", "time": "7:11.5", "pct": 73.9}, {"crew": "Univ of Birmingham", "club": "Univ of Birmingham", "time": "7:19.9", "pct": 72.4}, {"crew": "Univ of York", "club": "Univ of York", "time": "7:20.1", "pct": 72.4}], "boat": "M8+", "clock": "17:45"}, {"event": "J 2nd 8+", "round": "Final A", "lanes": [{"crew": "St Edward's Sch", "club": "St Edward's Sch", "time": "6:23.6", "pct": 83.1}, {"crew": "King's Coll Sch", "club": "King's Coll Sch", "time": "6:29.8", "pct": 81.8}, {"crew": "Bedford Sch", "club": "Bedford Sch", "time": "6:30.5", "pct": 81.6}, {"crew": "Dulwich Coll", "club": "Dulwich Coll", "time": "6:32.8", "pct": 81.1}, {"crew": "Eton Coll", "club": "Eton Coll", "time": "6:34.2", "pct": 80.8}, {"crew": "Hampton Sch", "club": "Hampton Sch", "time": "6:37.6", "pct": 80.1}, {"crew": "Royal Shrewsbury Sch", "club": "Royal Shrewsbury Sch", "time": "6:47.8", "pct": 78.1}, {"crew": "Bedford Sch", "club": "Bedford Sch", "time": "6:50.0", "pct": 77.7}], "boat": "M8+", "clock": "10:26"}, {"event": "J 2nd 8+", "round": "Final B", "lanes": [{"crew": "Dulwich Coll", "club": "Dulwich Coll", "time": "6:58.0", "pct": 76.2}, {"crew": "Kew House Sch", "club": "Kew House Sch", "time": "7:29.5", "pct": 70.9}], "boat": "M8+", "clock": "10:32"}, {"event": "J16 8+", "round": "Final A", "lanes": [{"crew": "Abingdon Sch", "club": "Abingdon Sch", "time": "6:42.4", "pct": 79.2}, {"crew": "Eton Coll", "club": "Eton Coll", "time": "6:45.6", "pct": 78.6}, {"crew": "Reading Blue Coat Sch", "club": "Reading Blue Coat Sch", "time": "6:48.4", "pct": 78.0}, {"crew": "Shiplake Coll", "club": "Shiplake Coll", "time": "7:05.6", "pct": 74.9}], "boat": "M8+", "clock": "10:38"}, {"event": "Ch & T2 4x", "round": "Final A", "lanes": [{"crew": "Reading Univ", "club": "Reading Univ", "time": "6:14.9", "pct": 88.6}, {"crew": "Marlow", "club": "Marlow", "time": "6:17.6", "pct": 88.0}, {"crew": "Leander", "club": "Leander", "time": "6:18.9", "pct": 87.7}, {"crew": "Edinburgh Univ", "club": "Edinburgh Univ", "time": "6:27.2", "pct": 85.8}, {"crew": "Windsor Boys' Sch", "club": "Windsor Boys' Sch", "time": "6:30.2", "pct": 85.2}, {"crew": "Reading Univ", "club": "Reading Univ", "time": "6:30.4", "pct": 85.1}, {"crew": "Reading Univ", "club": "Reading Univ", "time": "6:37.1", "pct": 83.7}, {"crew": "Bath Univ", "club": "Bath Univ", "time": "6:38.1", "pct": 83.5}], "boat": "M4x", "clock": "18:03"}, {"event": "Ch & T2 4x", "round": "Final B", "lanes": [{"crew": "Hinksey", "club": "Hinksey", "time": "6:43.5", "pct": 82.3}, {"crew": "Nottingham", "club": "Nottingham", "time": "6:44.6", "pct": 82.1}, {"crew": "Loughborough Students", "club": "Loughborough Students", "time": "6:45.0", "pct": 82.0}, {"crew": "Reading Univ", "club": "Reading Univ", "time": "6:45.4", "pct": 82.0}, {"crew": "Strathclyde Park", "club": "Strathclyde Park", "time": "6:49.9", "pct": 81.1}, {"crew": "Reading Univ", "club": "Reading Univ", "time": "6:51.4", "pct": 80.8}, {"crew": "Clydesdale ARC", "club": "Clydesdale ARC", "time": "6:55.4", "pct": 80.0}, {"crew": "Hartpury Univ & Coll", "club": "Hartpury Univ & Coll", "time": "6:57.4", "pct": 79.6}], "boat": "M4x", "clock": "18:09"}, {"event": "Ch & T2 4x", "round": "Final C", "lanes": [{"crew": "Bath Univ", "club": "Bath Univ", "time": "6:58.9", "pct": 79.3}, {"crew": "Reading Univ", "club": "Reading Univ", "time": "7:00.6", "pct": 79.0}, {"crew": "Hartpury Univ & Coll", "club": "Hartpury Univ & Coll", "time": "7:02.1", "pct": 78.7}, {"crew": "Northwich", "club": "Northwich", "time": "7:04.3", "pct": 78.3}, {"crew": "Hinksey", "club": "Hinksey", "time": "7:10.9", "pct": 77.1}, {"crew": "Univ of Leeds", "club": "Univ of Leeds", "time": "7:14.4", "pct": 76.5}, {"crew": "Windsor Boys' Sch", "club": "Windsor Boys' Sch", "time": "7:15.4", "pct": 76.3}], "boat": "M4x", "clock": "18:15"}, {"event": "Ch & T2 4x", "round": "Final D", "lanes": [{"crew": "Aberdeen Schs RA", "club": "Aberdeen Schs RA", "time": "7:23.3", "pct": 74.9}, {"crew": "Haberdashers Monmouth Sch", "club": "Haberdashers Monmouth Sch", "time": "7:41.6", "pct": 72.0}], "boat": "M4x", "clock": "18:21"}, {"event": "J18 & J16 4x", "round": "Final A", "lanes": [{"crew": "Windsor Boys' Sch", "club": "Windsor Boys' Sch", "time": "6:41.8", "pct": 82.7}, {"crew": "Molesey", "club": "Molesey", "time": "6:43.1", "pct": 82.4}, {"crew": "Windsor Boys' Sch", "club": "Windsor Boys' Sch", "time": "6:44.9", "pct": 82.1}, {"crew": "Claires Court Sch", "club": "Claires Court Sch", "time": "6:48.9", "pct": 81.3}, {"crew": "Sir W Borlase's GS", "club": "Sir W Borlase's GS", "time": "6:49.9", "pct": 81.1}, {"crew": "Hartpury Univ & Coll", "club": "Hartpury Univ & Coll", "time": "6:53.0", "pct": 80.5}, {"crew": "Marlow", "club": "Marlow", "time": "6:55.5", "pct": 80.0}], "boat": "M4x", "clock": "11:14"}, {"event": "J18 & J16 4x", "round": "Final B", "lanes": [{"crew": "Hinksey", "club": "Hinksey", "time": "6:46.5", "pct": 81.7}, {"crew": "George Watsons Coll", "club": "George Watsons Coll", "time": "6:54.9", "pct": 80.1}, {"crew": "Lea", "club": "Lea", "time": "6:57.0", "pct": 79.7}, {"crew": "Star", "club": "Star", "time": "6:58.5", "pct": 79.4}, {"crew": "Hereford Cathedral Sch", "club": "Hereford Cathedral Sch", "time": "6:58.8", "pct": 79.3}, {"crew": "Maidenhead", "club": "Maidenhead", "time": "6:59.0", "pct": 79.3}, {"crew": "Kingston", "club": "Kingston", "time": "6:60.0", "pct": 79.1}, {"crew": "Shiplake Coll", "club": "Shiplake Coll", "time": "7:00.6", "pct": 79.0}], "boat": "M4x", "clock": "11:20"}, {"event": "J18 & J16 4x", "round": "Final C", "lanes": [{"crew": "St Paul's Sch", "club": "St Paul's Sch", "time": "6:57.0", "pct": 79.7}, {"crew": "Leander", "club": "Leander", "time": "6:58.5", "pct": 79.4}, {"crew": "RGS High Wycombe", "club": "RGS High Wycombe", "time": "6:59.4", "pct": 79.2}, {"crew": "King's Sch Worcester", "club": "King's Sch Worcester", "time": "7:00.2", "pct": 79.1}, {"crew": "Marlow", "club": "Marlow", "time": "7:01.1", "pct": 78.9}, {"crew": "Oundle Sch", "club": "Oundle Sch", "time": "7:01.8", "pct": 78.8}, {"crew": "Marlow", "club": "Marlow", "time": "7:02.8", "pct": 78.6}, {"crew": "Grange Sch", "club": "Grange Sch", "time": "7:04.8", "pct": 78.2}], "boat": "M4x", "clock": "11:26"}, {"event": "J18 & J16 4x", "round": "Final D", "lanes": [{"crew": "Hinksey", "club": "Hinksey", "time": "6:57.2", "pct": 79.6}, {"crew": "Tiffin Sch", "club": "Tiffin Sch", "time": "6:59.8", "pct": 79.2}, {"crew": "Walbrook", "club": "Walbrook", "time": "7:01.1", "pct": 78.9}, {"crew": "Windsor Boys' Sch", "club": "Windsor Boys' Sch", "time": "7:04.1", "pct": 78.4}, {"crew": "Shiplake Coll", "club": "Shiplake Coll", "time": "7:04.4", "pct": 78.3}, {"crew": "American Sch", "club": "American Sch", "time": "7:04.8", "pct": 78.2}, {"crew": "Cambridge '99", "club": "Cambridge '99", "time": "7:09.3", "pct": 77.4}, {"crew": "Leeds", "club": "Leeds", "time": "7:16.9", "pct": 76.0}], "boat": "M4x", "clock": "11:32"}, {"event": "J18 & J16 4x", "round": "Final E", "lanes": [{"crew": "Wallingford", "club": "Wallingford", "time": "7:05.2", "pct": 78.1}, {"crew": "Molesey", "club": "Molesey", "time": "7:06.2", "pct": 78.0}, {"crew": "Henley", "club": "Henley", "time": "7:06.7", "pct": 77.9}, {"crew": "Sir W Borlase's GS", "club": "Sir W Borlase's GS", "time": "7:10.9", "pct": 77.1}, {"crew": "Westminster Sch", "club": "Westminster Sch", "time": "7:11.7", "pct": 77.0}, {"crew": "Molesey", "club": "Molesey", "time": "7:13.8", "pct": 76.6}, {"crew": "Agecroft", "club": "Agecroft", "time": "7:20.0", "pct": 75.5}, {"crew": "Monkton Combe Sch", "club": "Monkton Combe Sch", "time": "7:20.6", "pct": 75.4}], "boat": "M4x", "clock": "11:38"}, {"event": "J18 & J16 4x", "round": "Final F", "lanes": [{"crew": "George Heriots Sch", "club": "George Heriots Sch", "time": "7:12.2", "pct": 76.9}, {"crew": "King's Coll Sch", "club": "King's Coll Sch", "time": "7:12.6", "pct": 76.8}, {"crew": "King's Sch Worcester", "club": "King's Sch Worcester", "time": "7:14.9", "pct": 76.4}, {"crew": "Windsor Boys' Sch", "club": "Windsor Boys' Sch", "time": "7:18.3", "pct": 75.8}, {"crew": "St Paul's Sch", "club": "St Paul's Sch", "time": "7:20.1", "pct": 75.5}, {"crew": "Maidenhead", "club": "Maidenhead", "time": "7:23.5", "pct": 74.9}, {"crew": "City of Cambridge", "club": "City of Cambridge", "time": "7:23.8", "pct": 74.9}, {"crew": "Reading Blue Coat Sch", "club": "Reading Blue Coat Sch", "time": "7:24.0", "pct": 74.8}], "boat": "M4x", "clock": "11:44"}, {"event": "J18 & J16 4x", "round": "Final G", "lanes": [{"crew": "King's Sch Chester", "club": "King's Sch Chester", "time": "7:14.4", "pct": 76.5}, {"crew": "Claires Court Sch", "club": "Claires Court Sch", "time": "7:18.1", "pct": 75.8}, {"crew": "Tideway Scullers", "club": "Tideway Scullers", "time": "7:18.6", "pct": 75.8}, {"crew": "Grange Sch", "club": "Grange Sch", "time": "7:19.4", "pct": 75.6}, {"crew": "Norwich Sch", "club": "Norwich Sch", "time": "7:22.7", "pct": 75.0}, {"crew": "Hartpury Univ & Coll", "club": "Hartpury Univ & Coll", "time": "7:23.7", "pct": 74.9}, {"crew": "Aberdeen Schs RA", "club": "Aberdeen Schs RA", "time": "7:24.6", "pct": 74.7}, {"crew": "Marlow", "club": "Marlow", "time": "7:27.8", "pct": 74.2}], "boat": "M4x", "clock": "11:50"}, {"event": "J18 & J16 4x", "round": "Final H", "lanes": [{"crew": "American Sch", "club": "American Sch", "time": "7:34.4", "pct": 73.1}, {"crew": "Walbrook", "club": "Walbrook", "time": "7:41.2", "pct": 72.0}, {"crew": "Sir W Borlase's GS", "club": "Sir W Borlase's GS", "time": "7:46.4", "pct": 71.2}, {"crew": "King's Sch Worcester", "club": "King's Sch Worcester", "time": "7:53.6", "pct": 70.2}, {"crew": "Tiffin Sch", "club": "Tiffin Sch", "time": "8:00.3", "pct": 69.2}, {"crew": "King's Sch Canterbury", "club": "King's Sch Canterbury", "time": "8:20.8", "pct": 66.3}, {"crew": "Fulham Reach", "club": "Fulham Reach", "time": "8:45.3", "pct": 63.3}], "boat": "M4x", "clock": "11:56"}, {"event": "Ch, T2, T3, Univ & J 4+", "round": "Final A", "lanes": [{"crew": "Univ of London", "club": "Univ of London", "time": "6:37.0", "pct": 90.4}, {"crew": "Edinburgh Univ", "club": "Edinburgh Univ", "time": "6:40.2", "pct": 89.7}, {"crew": "Thames", "club": "Thames", "time": "6:41.1", "pct": 89.5}, {"crew": "Marlow", "club": "Marlow", "time": "6:44.8", "pct": 88.7}, {"crew": "Molesey", "club": "Molesey", "time": "6:45.6", "pct": 88.5}, {"crew": "London", "club": "London", "time": "6:47.7", "pct": 88.0}, {"crew": "Univ of Bristol", "club": "Univ of Bristol", "time": "6:48.1", "pct": 88.0}, {"crew": "Riverfront Recapture, USA", "club": "Riverfront Recapture, USA", "time": "6:51.2", "pct": 87.3}], "boat": "M4+", "clock": "18:27"}, {"event": "Ch, T2, T3, Univ & J 4+", "round": "Final B", "lanes": [{"crew": "Royal Chester", "club": "Royal Chester", "time": "6:48.3", "pct": 87.9}, {"crew": "Oxford Brookes Univ", "club": "Oxford Brookes Univ", "time": "6:49.2", "pct": 87.7}, {"crew": "Imperial Coll", "club": "Imperial Coll", "time": "6:52.3", "pct": 87.1}, {"crew": "Thames", "club": "Thames", "time": "6:52.9", "pct": 86.9}, {"crew": "Nottingham", "club": "Nottingham", "time": "6:57.3", "pct": 86.0}, {"crew": "Agecroft", "club": "Agecroft", "time": "6:58.8", "pct": 85.7}, {"crew": "Radley Coll", "club": "Radley Coll", "time": "7:03.5", "pct": 84.8}, {"crew": "Univ of Warwick", "club": "Univ of Warwick", "time": "7:07.9", "pct": 83.9}], "boat": "M4+", "clock": "18:33"}, {"event": "Ch, T2, T3, Univ & J 4+", "round": "Final C", "lanes": [{"crew": "Univ of Glasgow, The", "club": "Univ of Glasgow, The", "time": "7:05.5", "pct": 84.4}, {"crew": "Oxford Univ", "club": "Oxford Univ", "time": "7:08.9", "pct": 83.7}, {"crew": "Univ of London", "club": "Univ of London", "time": "7:13.0", "pct": 82.9}, {"crew": "Durham Univ", "club": "Durham Univ", "time": "7:16.4", "pct": 82.3}, {"crew": "Univ of Bristol", "club": "Univ of Bristol", "time": "7:17.1", "pct": 82.1}, {"crew": "King's Coll Sch", "club": "King's Coll Sch", "time": "7:20.3", "pct": 81.5}, {"crew": "Tideway Scullers", "club": "Tideway Scullers", "time": "7:20.9", "pct": 81.4}, {"crew": "Imperial Coll", "club": "Imperial Coll", "time": "7:23.9", "pct": 80.9}], "boat": "M4+", "clock": "18:39"}, {"event": "Ch, T2, T3, Univ & J 4+", "round": "Final D", "lanes": [{"crew": "Latymer Upper Sch", "club": "Latymer Upper Sch", "time": "7:17.8", "pct": 82.0}, {"crew": "Univ of Surrey", "club": "Univ of Surrey", "time": "7:18.9", "pct": 81.8}, {"crew": "Cambridge '99", "club": "Cambridge '99", "time": "7:22.2", "pct": 81.2}, {"crew": "City of Oxford", "club": "City of Oxford", "time": "7:23.2", "pct": 81.0}, {"crew": "Jesus Coll (O)", "club": "Jesus Coll (O)", "time": "7:26.6", "pct": 80.4}, {"crew": "Reading Blue Coat Sch", "club": "Reading Blue Coat Sch", "time": "7:27.2", "pct": 80.3}, {"crew": "West of England, Univ of", "club": "West of England, Univ of", "time": "7:28.1", "pct": 80.1}, {"crew": "Abingdon Sch", "club": "Abingdon Sch", "time": "7:28.8", "pct": 80.0}], "boat": "M4+", "clock": "18:45"}, {"event": "Ch, T2, T3, Univ & J 4+", "round": "Final E", "lanes": [{"crew": "Windsor Boys' Sch", "club": "Windsor Boys' Sch", "time": "7:20.2", "pct": 81.5}, {"crew": "Kew House Sch", "club": "Kew House Sch", "time": "7:22.3", "pct": 81.2}, {"crew": "Radley Coll", "club": "Radley Coll", "time": "7:27.7", "pct": 80.2}, {"crew": "Sheffield Univ", "club": "Sheffield Univ", "time": "7:30.0", "pct": 79.8}, {"crew": "St Paul's Sch", "club": "St Paul's Sch", "time": "7:32.7", "pct": 79.3}, {"crew": "Rob Roy", "club": "Rob Roy", "time": "7:33.1", "pct": 79.2}, {"crew": "Manchester Univ", "club": "Manchester Univ", "time": "7:33.7", "pct": 79.1}, {"crew": "Latymer Upper Sch", "club": "Latymer Upper Sch", "time": "7:36.8", "pct": 78.6}], "boat": "M4+", "clock": "18:51"}, {"event": "Ch, T2, T3, Univ & J 4+", "round": "Final F", "lanes": [{"crew": "Furnivall", "club": "Furnivall", "time": "7:43.4", "pct": 77.5}, {"crew": "Winchester Coll", "club": "Winchester Coll", "time": "7:48.6", "pct": 76.6}, {"crew": "King's Coll Sch", "club": "King's Coll Sch", "time": "7:51.3", "pct": 76.2}, {"crew": "Univ Coll Lon", "club": "Univ Coll Lon", "time": "7:52.9", "pct": 75.9}, {"crew": "United Hospitals", "club": "United Hospitals", "time": "7:54.1", "pct": 75.7}], "boat": "M4+", "clock": "18:57"}, {"event": "Ch & T2 4-", "round": "Final A", "lanes": [{"crew": "Oxford Univ", "club": "Oxford Univ", "time": "6:36.0", "pct": 85.3}, {"crew": "Thames", "club": "Thames", "time": "6:37.8", "pct": 84.9}, {"crew": "Oxford Brookes Univ", "club": "Oxford Brookes Univ", "time": "6:39.1", "pct": 84.7}, {"crew": "Thames", "club": "Thames", "time": "6:39.5", "pct": 84.6}, {"crew": "Univ of British Columbia (CAN)", "club": "Univ of British Columbia (CAN)", "time": "6:39.8", "pct": 84.5}, {"crew": "London", "club": "London", "time": "6:41.5", "pct": 84.2}, {"crew": "Vesta", "club": "Vesta", "time": "6:55.2", "pct": 81.4}, {"crew": "Tyne", "club": "Tyne", "time": "7:00.0", "pct": 80.4}], "boat": "M4-", "clock": "12:08"}, {"event": "Ch & T2 4-", "round": "Final B", "lanes": [{"crew": "St Andrew", "club": "St Andrew", "time": "6:54.7", "pct": 81.5}, {"crew": "Globe", "club": "Globe", "time": "6:56.4", "pct": 81.1}, {"crew": "Thames", "club": "Thames", "time": "6:57.4", "pct": 80.9}, {"crew": "Upper Thames", "club": "Upper Thames", "time": "6:57.8", "pct": 80.9}, {"crew": "Northwich", "club": "Northwich", "time": "6:59.1", "pct": 80.6}, {"crew": "Royal Chester", "club": "Royal Chester", "time": "6:59.4", "pct": 80.6}, {"crew": "London", "club": "London", "time": "7:00.7", "pct": 80.3}, {"crew": "City of Cambridge", "club": "City of Cambridge", "time": "7:07.2", "pct": 79.1}], "boat": "M4-", "clock": "12:14"}, {"event": "Ch & T2 4-", "round": "Final C", "lanes": [{"crew": "Eton Vikings", "club": "Eton Vikings", "time": "6:57.3", "pct": 81.0}, {"crew": "Univ of Glasgow, The", "club": "Univ of Glasgow, The", "time": "6:58.6", "pct": 80.7}, {"crew": "Lea", "club": "Lea", "time": "6:59.9", "pct": 80.5}, {"crew": "Minerva Bath", "club": "Minerva Bath", "time": "7:00.5", "pct": 80.4}, {"crew": "Thames", "club": "Thames", "time": "7:01.5", "pct": 80.1}, {"crew": "Nottingham", "club": "Nottingham", "time": "7:04.4", "pct": 79.6}, {"crew": "Crabtree", "club": "Crabtree", "time": "7:10.3", "pct": 78.5}, {"crew": "Clydesdale ARC", "club": "Clydesdale ARC", "time": "7:11.0", "pct": 78.4}], "boat": "M4-", "clock": "12:20"}, {"event": "Ch & T2 4-", "round": "Final D", "lanes": [{"crew": "Tideway Scullers", "club": "Tideway Scullers", "time": "6:56.1", "pct": 81.2}, {"crew": "Black Sheep", "club": "Black Sheep", "time": "7:04.3", "pct": 79.6}, {"crew": "Cambridge '99", "club": "Cambridge '99", "time": "7:05.0", "pct": 79.5}, {"crew": "Agecroft", "club": "Agecroft", "time": "7:07.3", "pct": 79.1}, {"crew": "York City", "club": "York City", "time": "7:08.4", "pct": 78.9}, {"crew": "Kingston", "club": "Kingston", "time": "7:08.7", "pct": 78.8}, {"crew": "St Edward's Martyrs", "club": "St Edward's Martyrs", "time": "7:10.0", "pct": 78.6}, {"crew": "UK Armed Forces", "club": "UK Armed Forces", "time": "7:11.1", "pct": 78.4}], "boat": "M4-", "clock": "12:26"}, {"event": "Ch & T2 4-", "round": "Final E", "lanes": [{"crew": "Upper Thames", "club": "Upper Thames", "time": "7:11.9", "pct": 78.2}, {"crew": "Nottingham", "club": "Nottingham", "time": "7:15.5", "pct": 77.6}, {"crew": "Durham", "club": "Durham", "time": "7:15.9", "pct": 77.5}, {"crew": "City of Sheffield", "club": "City of Sheffield", "time": "7:16.3", "pct": 77.4}, {"crew": "Evesham", "club": "Evesham", "time": "7:17.5", "pct": 77.2}, {"crew": "Agecroft", "club": "Agecroft", "time": "7:19.1", "pct": 76.9}, {"crew": "Radley Coll", "club": "Radley Coll", "time": "7:23.4", "pct": 76.2}, {"crew": "Cantabrigian", "club": "Cantabrigian", "time": "7:28.1", "pct": 75.4}], "boat": "M4-", "clock": "12:32"}, {"event": "Ch & T2 4-", "round": "Final F", "lanes": [{"crew": "Canterbury Pilgrims", "club": "Canterbury Pilgrims", "time": "7:14.0", "pct": 77.8}, {"crew": "Marlow", "club": "Marlow", "time": "7:17.8", "pct": 77.2}, {"crew": "St Paul's Sch", "club": "St Paul's Sch", "time": "7:19.8", "pct": 76.8}, {"crew": "Fulham Reach", "club": "Fulham Reach", "time": "7:20.1", "pct": 76.8}, {"crew": "Bath Univ", "club": "Bath Univ", "time": "7:23.3", "pct": 76.2}, {"crew": "Furnivall", "club": "Furnivall", "time": "7:23.6", "pct": 76.2}, {"crew": "Putney Town", "club": "Putney Town", "time": "7:32.6", "pct": 74.6}, {"crew": "Hereford", "club": "Hereford", "time": "7:34.2", "pct": 74.4}], "boat": "M4-", "clock": "12:38"}, {"event": "Ch & T2 4-", "round": "Final G", "lanes": [{"crew": "Wallingford", "club": "Wallingford", "time": "7:27.6", "pct": 75.5}, {"crew": "Warwick", "club": "Warwick", "time": "7:34.6", "pct": 74.3}, {"crew": "Kingston", "club": "Kingston", "time": "7:38.5", "pct": 73.7}, {"crew": "Stourport", "club": "Stourport", "time": "7:39.3", "pct": 73.6}, {"crew": "Norwich", "club": "Norwich", "time": "7:49.0", "pct": 72.0}, {"crew": "Curlew", "club": "Curlew", "time": "7:51.5", "pct": 71.7}], "boat": "M4-", "clock": "12:44"}, {"event": "Ch 2-", "round": "Final A", "lanes": [{"crew": "Upper Thames", "club": "Upper Thames", "time": "7:39.4", "pct": 80.2}, {"crew": "Leander", "club": "Leander", "time": "7:43.3", "pct": 79.5}, {"crew": "Upper Thames", "club": "Upper Thames", "time": "7:46.0", "pct": 79.1}, {"crew": "Crabtree", "club": "Crabtree", "time": "7:51.8", "pct": 78.1}, {"crew": "Imperial Coll", "club": "Imperial Coll", "time": "7:55.3", "pct": 77.5}, {"crew": "Radley Coll", "club": "Radley Coll", "time": "7:58.9", "pct": 76.9}, {"crew": "King's Coll Sch", "club": "King's Coll Sch", "time": "8:02.2", "pct": 76.4}], "boat": "M2-", "clock": "17:51"}, {"event": "Ch 2-", "round": "Final B", "lanes": [{"crew": "Vesta", "club": "Vesta", "time": "8:19.9", "pct": 73.7}, {"crew": "Queens Coll (Ox)", "club": "Queens Coll (Ox)", "time": "8:26.8", "pct": 72.7}], "boat": "M2-", "clock": "17:57"}, {"event": "Ch 2x", "round": "Final A", "lanes": [{"crew": "Leander", "club": "Leander", "time": "7:11.5", "pct": 83.4}, {"crew": "London", "club": "London", "time": "7:14.7", "pct": 82.7}, {"crew": "Leander", "club": "Leander", "time": "7:15.4", "pct": 82.6}, {"crew": "Wycliffe Junior RC", "club": "Wycliffe Junior RC", "time": "7:23.3", "pct": 81.2}, {"crew": "Upper Thames", "club": "Upper Thames", "time": "7:24.8", "pct": 80.9}, {"crew": "York City", "club": "York City", "time": "7:30.8", "pct": 79.8}, {"crew": "Kingston", "club": "Kingston", "time": "7:40.0", "pct": 78.2}, {"crew": "Cambridge '99", "club": "Cambridge '99", "time": "7:59.7", "pct": 75.0}], "boat": "M2x", "clock": "11:02"}, {"event": "Ch 2x", "round": "Final B", "lanes": [{"crew": "Univ of Glasgow, The", "club": "Univ of Glasgow, The", "time": "7:56.2", "pct": 75.5}, {"crew": "Tideway Scullers", "club": "Tideway Scullers", "time": "8:08.0", "pct": 73.7}, {"crew": "Maidstone Invicta", "club": "Maidstone Invicta", "time": "8:15.1", "pct": 72.7}, {"crew": "Hinksey", "club": "Hinksey", "time": "8:28.5", "pct": 70.7}], "boat": "M2x", "clock": "11:08"}, {"event": "Ch 1x", "round": "Final A", "lanes": [{"crew": "Minerva Bath", "club": "Minerva Bath", "time": "7:27.5", "pct": 87.3}, {"crew": "Clydesdale ARC", "club": "Clydesdale ARC", "time": "7:33.2", "pct": 86.2}, {"crew": "Hinksey", "club": "Hinksey", "time": "7:37.3", "pct": 85.4}, {"crew": "Leander", "club": "Leander", "time": "7:45.1", "pct": 84.0}, {"crew": "Lea", "club": "Lea", "time": "7:45.5", "pct": 83.9}, {"crew": "Univ of Nottingham", "club": "Univ of Nottingham", "time": "7:46.7", "pct": 83.7}, {"crew": "City of Cambridge", "club": "City of Cambridge", "time": "7:51.6", "pct": 82.9}, {"crew": "Bath Univ", "club": "Bath Univ", "time": "8:11.7", "pct": 79.5}], "boat": "M1x", "clock": "19:03"}, {"event": "Ch 1x", "round": "Final B", "lanes": [{"crew": "Leander", "club": "Leander", "time": "7:53.5", "pct": 82.5}, {"crew": "Imperial Coll", "club": "Imperial Coll", "time": "7:57.4", "pct": 81.8}, {"crew": "West of England, Univ of", "club": "West of England, Univ of", "time": "8:00.9", "pct": 81.3}, {"crew": "Molesey", "club": "Molesey", "time": "8:06.5", "pct": 80.3}, {"crew": "Bath Univ", "club": "Bath Univ", "time": "8:07.0", "pct": 80.2}, {"crew": "Nottingham", "club": "Nottingham", "time": "8:11.3", "pct": 79.5}, {"crew": "Kingston", "club": "Kingston", "time": "8:24.3", "pct": 77.5}, {"crew": "Bewl Bridge", "club": "Bewl Bridge", "time": "8:34.6", "pct": 75.9}], "boat": "M1x", "clock": "19:09"}, {"event": "Ch 1x", "round": "Final C", "lanes": [{"crew": "Dart Totnes", "club": "Dart Totnes", "time": "8:04.4", "pct": 80.7}, {"crew": "Bewl Bridge", "club": "Bewl Bridge", "time": "8:04.8", "pct": 80.6}, {"crew": "Henley", "club": "Henley", "time": "8:06.7", "pct": 80.3}, {"crew": "Walton", "club": "Walton", "time": "8:07.9", "pct": 80.1}, {"crew": "Sudbury", "club": "Sudbury", "time": "8:13.7", "pct": 79.2}, {"crew": "Sabrina", "club": "Sabrina", "time": "8:15.2", "pct": 78.9}, {"crew": "Univ of Leeds", "club": "Univ of Leeds", "time": "8:17.2", "pct": 78.6}, {"crew": "Vesta", "club": "Vesta", "time": "8:18.7", "pct": 78.3}], "boat": "M1x", "clock": "19:15"}, {"event": "Ch 1x", "round": "Final D", "lanes": [{"crew": "Univ of Leeds", "club": "Univ of Leeds", "time": "8:14.4", "pct": 79.0}, {"crew": "Southampton Coalporters", "club": "Southampton Coalporters", "time": "8:23.6", "pct": 77.6}, {"crew": "Pine Rivers (AUS)", "club": "Pine Rivers (AUS)", "time": "8:26.1", "pct": 77.2}, {"crew": "Norwich", "club": "Norwich", "time": "8:31.8", "pct": 76.3}, {"crew": "Royal Chester", "club": "Royal Chester", "time": "8:32.8", "pct": 76.2}, {"crew": "Upper Thames", "club": "Upper Thames", "time": "8:44.9", "pct": 74.4}, {"crew": "Bedford", "club": "Bedford", "time": "8:55.2", "pct": 73.0}, {"crew": "Hinksey", "club": "Hinksey", "time": "9:01.0", "pct": 72.2}], "boat": "M1x", "clock": "19:21"}];
+window.ROWS=ROWS;
+window.META={"venue": {"name": "Dorney Lake, Eton", "lat": 51.5002798, "lon": -0.6770478, "bearing": 127, "lanes": 8}, "date": "2025-06-21"};
+for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null&&l.pct<50)l.pct=null;
+function bg(p){return p===null?'#252523':p>=87?'#0a3d2a':p>=80?'#0d2d4a':p>=72?'#3d2200':'#3d0e0a'}
+function fg(p){return p===null?'#555':p>=87?'#34d399':p>=80?'#60a5fa':p>=72?'#fb923c':'#f87171'}
+function normClub(s){return(s||'').replace(/\s+[A-Z]$/,'').replace(/\s+(Rowing Club|Boat Club|RC|BC|ARC)\s*$/i,'').trim();}
+function rankBadge(r){return r===1?'<span class="rank-badge gold">1</span>':r===2?'<span class="rank-badge silver">2</span>':r===3?'<span class="rank-badge bronze">3</span>':'<span style="color:var(--text3)">'+r+'</span>';}
+function showTab(name,btn){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['heatmap','top100','compare','clublb'].forEach(v=>{
+    const el=document.getElementById('view-'+v);
+    el.style.display=v===name?'':'none';
+    if(v===name){el.classList.remove('view-in');void el.offsetWidth;el.classList.add('view-in');}
+  });
+  if(name==='heatmap')renderHeatmap(ROWS,document.getElementById('club-filter-hm').value);
+  if(name==='top100') renderTop100();
+  if(name==='clublb') renderClubLB();
+}
+function renderHeatmap(rows,clubQ){
+  clubQ=normClub((clubQ||'').trim()).toLowerCase();
+  const groups=new Map();
+  for(const r of rows){if(!groups.has(r.event))groups.set(r.event,[]);groups.get(r.event).push(r);}
+  let h='',tIdx=0;
+  for(const[ev,races] of groups){
+    const maxP=Math.min(Math.max(...races.map(r=>r.lanes.length)),8);
+    let th='<th class="rh">Round</th>';
+    for(let i=1;i<=maxP;i++)th+=`<th>P${i}</th>`;
+    let tb='';
+    for(const r of races){
+      let cells=`<td class="rnd">${r.round}</td>`;
+      for(let i=0;i<maxP;i++){
+        const l=r.lanes[i];
+        if(!l){cells+='<td></td>';continue;}
+        const b=bg(l.pct),f=fg(l.pct),p=l.pct!==null?l.pct.toFixed(1)+'%':'&#x2014;';
+        const dim=clubQ&&normClub(l.club).toLowerCase()!==clubQ?'opacity:0.12;':'';
+        cells+=`<td style="background:${b};${dim}"><div class="cell"><span class="cn">${l.crew}</span><span class="cp" style="color:${f}">${p}</span><span class="ct">${l.time}</span></div></td>`;
+      }
+      tb+=`<tr>${cells}</tr>`;
+    }
+    h+=`<table style="animation:viewIn .55s ease ${Math.min(tIdx,25)*0.08}s both"><caption>${ev}</caption><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table>`;tIdx++;
+  }
+  document.getElementById('heatmap-out').innerHTML=h||'<p style="color:#555">No results.</p>';
+}
+function filterHeatmap(q){
+  q=q.toLowerCase().trim();
+  const rows=q?ROWS.filter(r=>r.event.toLowerCase().includes(q)||r.boat.toLowerCase().includes(q)):ROWS;
+  renderHeatmap(rows,document.getElementById('club-filter-hm').value);
+}
+function filterClubHm(q){
+  const evQ=(document.getElementById('ev-filter').value||'').toLowerCase().trim();
+  const rows=evQ?ROWS.filter(r=>r.event.toLowerCase().includes(evQ)||r.boat.toLowerCase().includes(evQ)):ROWS;
+  renderHeatmap(rows,q);
+}
+function renderTop100(){
+  const clubQ=normClub((document.getElementById('lb-club-filter').value||'').trim()).toLowerCase();
+  const entries=[];
+  for(const r of ROWS)for(const l of r.lanes)
+    if(l.pct!==null)entries.push({crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct});
+  entries.sort((a,b)=>b.pct-a.pct);
+  entries.forEach((e,i)=>e.rank=i+1);
+  const filtered=clubQ?entries.filter(e=>normClub(e.club).toLowerCase()===clubQ):entries;
+  let h='';
+  filtered.forEach(e=>{
+    const f=fg(e.pct);
+    h+=`<tr><td class="num">${rankBadge(e.rank)}</td><td><strong>${e.crew}</strong></td><td style="color:var(--text2)"><a href="/clubs/?club=${encodeURIComponent(normClub(e.club))}" style="color:inherit;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${e.club}</a></td><td style="color:var(--text3)">${e.event}</td><td style="color:var(--text3)">${e.round}</td><td class="num" style="color:var(--text2)">${e.time}</td><td class="num"><strong style="color:${f}">${e.pct.toFixed(1)}%</strong></td><td class="num"><button onclick="shareResult(this)" data-club="${e.club.replace(/"/g,'&quot;')}" data-event="${e.event.replace(/"/g,'&quot;')}" data-round="${e.round}" data-time="${e.time}" data-pct="${e.pct.toFixed(1)}" data-rank="${e.rank}" data-total="${entries.length}" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 6px;border-radius:4px" title="Download result card">&#x2197;</button></td></tr>`;
+  });
+  document.getElementById('lb-body').innerHTML=h||'<tr><td colspan="8" style="color:#555;text-align:center;padding:20px">No results.</td></tr>';
+}
+const ALL_CLUBS=[...new Set(ROWS.flatMap(r=>r.lanes.map(l=>normClub(l.club)).filter(c=>c&&!c.includes('/'))))].sort((a,b)=>a.localeCompare(b));
+document.getElementById('cmp-clubs-list').innerHTML=ALL_CLUBS.map(c=>'<option value="'+c.replace(/"/g,'&quot;')+'">').join('');
+let cmpClubs=['',''];
+const CMP_COLS=['#7bbfff','#f0b030','#4ee8b0','#ff7050','#c084fc','#fb923c'];
+function renderClubInputs(){
+  let h='';
+  cmpClubs.forEach((q,i)=>{
+    const col=CMP_COLS[i%CMP_COLS.length];
+    const rm=cmpClubs.length>1?'<button onclick="removeCmpClub('+i+')" style="background:none;border:1px solid #2a2a2a;color:#555;cursor:pointer;font-size:13px;padding:1px 6px;border-radius:4px">&#x2715;</button>':'';
+    h+='<div style="display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:'+col+';flex-shrink:0"></div><input type="text" list="cmp-clubs-list" value="'+q.replace(/"/g,'&quot;')+'" placeholder="Club name&#8230;" oninput="updateCmpClub('+i+',this.value)" style="margin-bottom:0;width:220px">'+rm+'</div>';
+  });
+  document.getElementById('cmp-inputs').innerHTML=h;
+}
+function addCmpClub(){if(cmpClubs.length>=6)return;cmpClubs.push('');renderClubInputs();}
+function removeCmpClub(i){cmpClubs.splice(i,1);renderClubInputs();renderCompare();}
+function updateCmpClub(i,v){cmpClubs[i]=v;renderCompare();}
+function renderCompare(){
+  const active=cmpClubs.map((q,i)=>{return{q:normClub(q.trim()),col:CMP_COLS[i%CMP_COLS.length]}}).filter(c=>c.q);
+  if(!active.length){
+    document.getElementById('cmp-stats').innerHTML='';
+    document.getElementById('cmp-chart').innerHTML='<p style="color:#555;margin-top:8px">Enter one or more club names above.</p>';
+    return;
+  }
+  const all=[];
+  for(const r of ROWS)for(const l of r.lanes)
+    if(l.pct!==null)all.push({crew:l.crew,club:normClub(l.club),event:r.event,round:r.round,time:l.time,pct:l.pct});
+  const clubs=active.map(c=>{return{...c,entries:all.filter(e=>!e.club.includes('/')&&e.club.toLowerCase()===c.q.toLowerCase())}});
+  function mkStat(c){
+    if(!c.entries.length)return'<div class="stat-card"><div class="stat-card-name" style="color:'+c.col+'">'+c.q+'</div><div class="stat-card-lbl" style="margin-top:6px">No results found</div></div>';
+    const pcts=c.entries.map(e=>e.pct);
+    const avg=pcts.reduce((a,b)=>a+b,0)/pcts.length;
+    const best=Math.max(...pcts);
+    const top3=pcts.slice().sort((a,b)=>b-a).slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,pcts.length);
+    const evts=new Set(c.entries.map(e=>e.event)).size;
+    return'<div class="stat-card"><div class="stat-card-name" style="color:'+c.col+'">'+c.q+'</div><div class="stat-card-grid"><span class="stat-card-lbl">Entries</span><span class="stat-card-val">'+c.entries.length+'</span><span class="stat-card-lbl">Events</span><span class="stat-card-val">'+evts+'</span><span class="stat-card-lbl">Avg GMT%</span><span class="stat-card-val" style="color:'+c.col+'">'+avg.toFixed(1)+'%</span><span class="stat-card-lbl">Top 3 avg</span><span class="stat-card-val" style="color:'+c.col+'">'+top3.toFixed(1)+'%</span><span class="stat-card-lbl">Best</span><span class="stat-card-val" style="font-weight:700">'+best.toFixed(1)+'%</span></div></div>';
+  }
+  document.getElementById('cmp-stats').innerHTML=clubs.map(mkStat).join('');
+  const allPcts=clubs.flatMap(c=>c.entries.map(e=>e.pct));
+  if(!allPcts.length){document.getElementById('cmp-chart').innerHTML='';return;}
+  const minP=Math.max(50,Math.floor(Math.min(...allPcts))-3);
+  const maxP=Math.min(100,Math.ceil(Math.max(...allPcts))+2);
+  const n=clubs.length;
+  const BAND_H=Math.max(44,Math.min(70,Math.floor(280/n)));
+  const PL=96,PR=20,PT=14,PB=36,W=720;
+  const H=PT+n*BAND_H+PB;
+  const cW=W-PL-PR;
+  function xOf(p){return PL+(p-minP)/(maxP-minP)*cW;}
+  let s='';
+  for(let p=Math.ceil(minP/5)*5;p<=maxP;p+=5){const x=xOf(p).toFixed(1);s+='<line x1="'+x+'" y1="'+PT+'" x2="'+x+'" y2="'+(PT+n*BAND_H)+'" stroke="#1e1e1e" stroke-width="1"/>';}
+  const axY=PT+n*BAND_H;
+  s+='<line x1="'+PL+'" y1="'+axY+'" x2="'+(W-PR)+'" y2="'+axY+'" stroke="#2a2a2a" stroke-width="1"/>';
+  for(let p=Math.ceil(minP/5)*5;p<=maxP;p+=5){const x=xOf(p).toFixed(1);s+='<line x1="'+x+'" y1="'+axY+'" x2="'+x+'" y2="'+(axY+5)+'" stroke="#333" stroke-width="1"/><text x="'+x+'" y="'+(axY+16)+'" text-anchor="middle" fill="#444" font-size="10">'+p+'%</text>';}
+  clubs.forEach((c,bi)=>{
+    const bY=PT+bi*BAND_H;
+    if(bi%2===0)s+='<rect x="'+PL+'" y="'+bY+'" width="'+cW+'" height="'+BAND_H+'" fill="#161616"/>';
+    s+='<text x="'+(PL-8)+'" y="'+(bY+BAND_H/2+4)+'" text-anchor="end" fill="'+c.col+'" font-size="11" font-weight="600">'+c.q.substring(0,16)+'</text>';
+    if(c.entries.length){const avg=c.entries.map(e=>e.pct).reduce((a,b)=>a+b,0)/c.entries.length;const ax=xOf(avg).toFixed(1);s+='<line x1="'+ax+'" y1="'+bY+'" x2="'+ax+'" y2="'+(bY+BAND_H)+'" stroke="'+c.col+'" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/><text x="'+ax+'" y="'+(bY+10)+'" text-anchor="middle" fill="'+c.col+'" font-size="9" opacity="0.7">'+avg.toFixed(1)+'%</text>';}
+    const sorted=[...c.entries].sort((a,b)=>a.pct-b.pct);
+    sorted.forEach((e,j)=>{
+      const jy=(bY+BAND_H/2-BAND_H*0.3+((j*7+3)%11)/10*BAND_H*0.6).toFixed(1);
+      const tip=e.crew+' ('+e.club+')&#10;'+e.event+' '+e.round+'&#10;'+e.time+' ('+e.pct.toFixed(1)+'%)';
+      s+='<circle cx="'+xOf(e.pct).toFixed(1)+'" cy="'+jy+'" r="4" fill="'+c.col+'" fill-opacity="0" stroke="#111" stroke-width="0.5" style="animation:dotIn 1.0s ease '+(j*0.06).toFixed(2)+'s forwards"><title>'+tip+'</title></circle>';
+    });
+  });
+  document.getElementById('cmp-chart').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:'+W+'px;height:'+H+'px;display:block;overflow:visible">'+s+'</svg>';
+}
+function buildClubMap(){
+  const inclComp=document.getElementById('incl-composites').checked;
+  const minN=Math.max(1,parseInt(document.getElementById('min-entries').value)||1);
+  const map={};
+  for(const r of ROWS)for(const l of r.lanes){
+    if(l.pct===null||(!inclComp&&l.club.includes('/')))continue;
+    const cn=normClub(l.club);if(!cn)continue;
+    if(!map[cn])map[cn]={pcts:[],events:new Set()};
+    map[cn].pcts.push(l.pct);map[cn].events.add(r.event);
+  }
+  return Object.entries(map).map(([name,c])=>{
+    const s=c.pcts.slice().sort((a,b)=>b-a);
+    return{name,count:c.pcts.length,events:c.events.size,avg:c.pcts.reduce((a,b)=>a+b,0)/c.pcts.length,top3avg:s.slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,s.length),best:s[0]};
+  }).filter(c=>c.count>=minN).sort((a,b)=>b.top3avg-a.top3avg);
+}
+function renderClubLB(){
+  const ranked=buildClubMap();
+  let h='';
+  ranked.forEach((c,i)=>{
+    const f=fg(c.avg),ft=fg(c.top3avg);
+    h+='<tr><td class="num">'+rankBadge(i+1)+'</td><td><a href="/clubs/?club='+encodeURIComponent(c.name)+'" style="color:inherit;text-decoration:none;font-weight:700" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">'+c.name+'</a></td><td class="num" style="color:var(--text2)">'+c.count+'</td><td class="num" style="color:var(--text2)">'+c.events+'</td><td class="num"><strong style="color:'+ft+'">'+c.top3avg.toFixed(1)+'%</strong></td><td class="num" style="color:var(--text3)">'+c.avg.toFixed(1)+'%</td><td class="num" style="color:var(--text2)">'+c.best.toFixed(1)+'%</td><td class="num"><button onclick="shareClub(this)" data-club="'+c.name.replace(/"/g,'&quot;')+'" data-rank="'+(i+1)+'" data-total="'+ranked.length+'" data-top3="'+c.top3avg.toFixed(1)+'" data-avg="'+c.avg.toFixed(1)+'" data-best="'+c.best.toFixed(1)+'" data-entries="'+c.count+'" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 6px;border-radius:4px" title="Download club card">&#x2197;</button></td></tr>';
+  });
+  document.getElementById('clublb-body').innerHTML=h||'<tr><td colspan="8" style="color:#555;text-align:center;padding:20px">No data.</td></tr>';
+}
+function dlCSV(rows,fn){
+  const blob=new Blob([rows.map(r=>r.map(c=>(typeof c==='string'&&(c.includes(',')||c.includes('"')))?'"'+c.replace(/"/g,'""')+'"':c).join(',')).join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;a.click();
+}
+function downloadTop100CSV(){
+  const clubQ=normClub((document.getElementById('lb-club-filter').value||'').trim()).toLowerCase();
+  const entries=[];
+  for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null)entries.push({crew:l.crew,club:normClub(l.club),event:r.event,round:r.round,time:l.time,pct:l.pct});
+  entries.sort((a,b)=>b.pct-a.pct);
+  const filtered=clubQ?entries.filter(e=>e.club.toLowerCase()===clubQ):entries;
+  dlCSV([['Crew','Club','Event','Round','Time','GMT%'],...filtered.map(e=>[e.crew,e.club,e.event,e.round,e.time,e.pct.toFixed(1)])],'heatmap-marlow25-top250.csv');
+}
+function downloadClubLBCSV(){
+  const ranked=buildClubMap();
+  dlCSV([['#','Club','Entries','Events','Top 3 Avg %','Avg GMT%','Best %'],...ranked.map((c,i)=>[i+1,c.name,c.count,c.events,c.top3avg.toFixed(1),c.avg.toFixed(1),c.best.toFixed(1)])],'heatmap-marlow25-clubs.csv');
+}
+function downloadCompare(){
+  const svg=document.querySelector('#cmp-chart svg');
+  if(!svg){alert('Nothing to download.');return;}
+  const vb=svg.getAttribute('viewBox').split(' ').map(Number);
+  const W=vb[2]||720,H=vb[3]||400,PL=20,HEADER=54,PB=44;
+  const TW=W+PL*2,TH=H+HEADER+PB;
+  const full='<svg xmlns="http://www.w3.org/2000/svg" width="'+TW+'" height="'+TH+'"><rect width="'+TW+'" height="'+TH+'" fill="#111"/><text x="'+PL+'" y="28" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="15" font-weight="700" fill="#e8e8e6">Marlow Regatta 2025</text><text x="'+PL+'" y="46" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#c8472b" font-weight="600">rowingtools.co.uk</text><g transform="translate('+PL+','+HEADER+')">'+svg.innerHTML+'</g></svg>';
+  const blob=new Blob([full],{type:'image/svg+xml'});
+  const url=URL.createObjectURL(blob);
+  const img=new Image();
+  img.onload=()=>{const c=document.createElement('canvas');c.width=TW*2;c.height=TH*2;const ctx=c.getContext('2d');ctx.scale(2,2);ctx.drawImage(img,0,0);c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='heatmap-marlow25-compare.png';a.click();},'image/png');URL.revokeObjectURL(url);};
+  img.src=url;
+}
+
+renderClubInputs();
+renderHeatmap(ROWS,'');
+</script>
+
+<div class="footer"><a href="/">← rowingtools.co.uk</a></div>
+<script src="/rowingtools-share.js"></script>
+<script src="/conditions.js"></script>
+</body>
+</html>

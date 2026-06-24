@@ -533,6 +533,7 @@ if __name__ == "__main__":
     rows = build_races(session, wbt)
     html = generate_html(rows, args.comp, args.title)
 
-    out = args.out or str((Path(__file__).parent / f"../../heatmap-{args.comp}.html").resolve())
+    out = args.out or str((Path(__file__).parent / f"../../leaderboards/{args.comp}/index.html").resolve())
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
     Path(out).write_text(html, encoding="utf-8")
     print(f"\nWritten: {out}  ({len(rows)} events)")

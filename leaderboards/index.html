@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=0.55">
+<title>Regatta Leaderboards | RowingTools</title>
+<meta name="description" content="GMT% analysis for UK regattas: heatmaps across every event, top-performer leaderboards, club comparison, and a cross-regatta club ranking.">
+<link rel="canonical" href="https://rowingtools.co.uk/leaderboards/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a2744">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RowingTools">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta property="og:title" content="Regatta Leaderboards | RowingTools">
+<meta property="og:description" content="GMT% analysis for UK regattas: heatmaps across every event, top-performer leaderboards, club comparison, and a cross-regatta club ranking.">
+<meta property="og:url" content="https://rowingtools.co.uk/leaderboards/">
+<meta property="og:type" content="website">
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  });
+}
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-876ELQ9529"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-876ELQ9529');
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<div class="topbar"></div>
+<header class="site-hdr">
+  <div class="brand"><a href="/"><div class="brand-mark">Rowing<span class="brand-dot">.</span>Tools</div></a></div>
+  <p class="sub">Regatta Leaderboards - GMT% analysis, club rankings and club comparison across UK regattas</p>
+</header>
+
+<div class="sec-tabs">
+  <a class="sec-tab" href="/gmt/">GMT% Calculator</a>
+  <a class="sec-tab active" href="/leaderboards/">Regatta Leaderboards</a>
+  <a class="sec-tab" href="/clubs/">Club Profiles</a>
+</div>
+<div id="sec-leaderboards" class="sec active">
+  <div class="lbtab-wrap">
+    <button class="lbtab active" onclick="goLbTab('regattas',this)">By Regatta</button>
+    <button class="lbtab" onclick="goLbTab('clubs',this)">By Club</button>
+  </div>
+  <div id="lbpanel-regattas" class="lbpanel active">
+  <p class="info">Full regatta analysis: GMT% heatmap across every event, top performers leaderboard, and club comparison.</p>
+  <div class="lb-year-section">
+    <div class="lb-year">2026</div>
+    <div class="lb-grid">
+      <a href="/leaderboards/marlow26/" class="lb-card">
+        <div>
+          <div class="lb-card-name">Marlow Regatta</div>
+          <div class="lb-card-date">20 June 2026</div>
+          <div class="lb-card-venue"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Dorney Lake, Eton</div>
+          <div class="lb-card-meta">51 finals · Men's Championship eights, quads, fours, pairs and singles · All tiers and junior bands combined and labelled in the heatmap (Ch/Tier/Senior-Junior, incl. J15-J18) · 2000m multi-lane · Heatmap, Top 250, Club Leaderboard, Club Compare</div>
+        </div>
+        <span class="lb-arrow">→</span>
+      </a>
+      <a href="/leaderboards/reading26/" class="lb-card">
+        <div>
+          <div class="lb-card-name">Reading Amateur Regatta - Saturday</div>
+          <div class="lb-card-date">13 June 2026</div>
+          <div class="lb-card-venue"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>River Thames, Reading</div>
+          <div class="lb-card-meta">79 winning crews across 26 events · Open, Women's, School/Junior, J18 and J16 eights, fours, pairs, quads and singles (J14/J15 excluded) · Head-to-head knockout over 1500m (winners timed only) · Heatmap, Top 250, Club Leaderboard, Club Compare</div>
+        </div>
+        <span class="lb-arrow">→</span>
+      </a>
+      <a href="/leaderboards/metsun26/" class="lb-card">
+        <div>
+          <div class="lb-card-name">Met Regatta - Sunday</div>
+          <div class="lb-card-date">31 May 2026</div>
+          <div class="lb-card-venue"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Dorney Lake, Eton</div>
+          <div class="lb-card-meta">56 finals · Open and Women's eights, fours, pairs, quads, doubles and singles · Heatmap, Top 250, Club Leaderboard, Club Compare</div>
+        </div>
+        <span class="lb-arrow">→</span>
+      </a>
+      <a href="/leaderboards/metsat26/" class="lb-card">
+        <div>
+          <div class="lb-card-name">Met Regatta - Saturday</div>
+          <div class="lb-card-date">30 May 2026</div>
+          <div class="lb-card-venue"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Dorney Lake, Eton</div>
+          <div class="lb-card-meta">64 finals · Open and Women's eights, fours, pairs, quads and singles · Heatmap, Top 250, Club Leaderboard, Club Compare</div>
+        </div>
+        <span class="lb-arrow">→</span>
+      </a>
+      <a href="/leaderboards/nsr26/" class="lb-card">
+        <div>
+          <div class="lb-card-name">National Schools' Regatta</div>
+          <div class="lb-card-date">22-24 May 2026</div>
+          <div class="lb-card-venue"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Dorney Lake, Eton</div>
+          <div class="lb-card-meta">61 finals · Championship, 2nd and 3rd eights · Heatmap, Top 250, Club Leaderboard, Club Compare</div>
+        </div>
+        <span class="lb-arrow">→</span>
+      </a>
+      <a href="/leaderboards/poplar26/" class="lb-card">
+        <div>
+          <div class="lb-card-name">Poplar Regatta</div>
+          <div class="lb-card-date">17 May 2026</div>
+          <div class="lb-card-venue"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Royal Albert Dock, London</div>
+          <div class="lb-card-meta">40 finals · Senior, J16 and J18 · Headwind conditions, worsening through the day · Heatmap, Top 250, Club Leaderboard, Club Compare</div>
+        </div>
+        <span class="lb-arrow">→</span>
+      </a>
+      <a href="/leaderboards/nottm26/" class="lb-card">
+        <div>
+          <div class="lb-card-name">Nottingham City Regatta</div>
+          <div class="lb-card-date">9 May 2026</div>
+          <div class="lb-card-venue"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Holme Pierrepont, Nottingham</div>
+          <div class="lb-card-meta">53 finals · Challenge, Club, J18 and J16 · Heatmap, Top 250, Club Leaderboard, Club Compare</div>
+        </div>
+        <span class="lb-arrow">→</span>
+      </a>
+      <a href="/leaderboards/wallingford26/" class="lb-card">
+        <div>
+          <div class="lb-card-name">Wallingford Regatta</div>
+          <div class="lb-card-date">4 May 2026</div>
+          <div class="lb-card-venue"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Dorney Lake, Eton</div>
+          <div class="lb-card-meta">28 finals · Challenge, Club and Schools/J18 · Heatmap, Top 250, Club Leaderboard, Club Compare</div>
+        </div>
+        <span class="lb-arrow">→</span>
+      </a>
+    </div>
+  </div>
+  <div class="lb-year-section">
+    <div class="lb-year">2025</div>
+    <div class="lb-grid">
+      <a href="/leaderboards/brcc25/" class="lb-card">
+        <div>
+          <div class="lb-card-name">British Rowing Club Championships</div>
+          <div class="lb-card-date">18–21 July 2025</div>
+          <div class="lb-card-venue"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Holme Pierrepont, Nottingham</div>
+          <div class="lb-card-meta">85 finals · Heatmap, Top 250, Club Leaderboard, Club Compare</div>
+        </div>
+        <span class="lb-arrow">→</span>
+      </a>
+      <a href="/leaderboards/marlow25/" class="lb-card">
+        <div>
+          <div class="lb-card-name">Marlow Regatta</div>
+          <div class="lb-card-date">21 June 2025</div>
+          <div class="lb-card-venue"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Dorney Lake, Eton</div>
+          <div class="lb-card-meta">50 finals · Championship, Tier, University and Junior (J16/J18) eights, fours, quads, pairs and singles (J14/J15 excluded) · Open/men's events · 2000m multi-lane · Heatmap, Top 250, Club Leaderboard, Club Compare</div>
+        </div>
+        <span class="lb-arrow">→</span>
+      </a>
+      <a href="/leaderboards/metsun25/" class="lb-card">
+        <div>
+          <div class="lb-card-name">Met Regatta - Sunday</div>
+          <div class="lb-card-date">1 June 2025</div>
+          <div class="lb-card-venue"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Dorney Lake, Eton</div>
+          <div class="lb-card-meta">54 finals · Heatmap, Top 250, Club Compare</div>
+        </div>
+        <span class="lb-arrow">→</span>
+      </a>
+      <a href="/leaderboards/metsat25/" class="lb-card">
+        <div>
+          <div class="lb-card-name">Met Regatta - Saturday</div>
+          <div class="lb-card-date">31 May 2025</div>
+          <div class="lb-card-venue"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Dorney Lake, Eton</div>
+          <div class="lb-card-meta">65 finals · Heatmap, Top 250, Club Compare</div>
+        </div>
+        <span class="lb-arrow">→</span>
+      </a>
+      <a href="/leaderboards/wallingford25/" class="lb-card">
+        <div>
+          <div class="lb-card-name">Wallingford Regatta</div>
+          <div class="lb-card-date">4 May 2025</div>
+          <div class="lb-card-venue"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Dorney Lake, Eton</div>
+          <div class="lb-card-meta">30 finals · Heatmap, Top 250, Club Leaderboard, Club Compare</div>
+        </div>
+        <span class="lb-arrow">→</span>
+      </a>
+    </div>
+  </div>
+  </div><!-- /lbpanel-regattas -->
+  <div id="lbpanel-clubs" class="lbpanel">
+    <div id="lb-clubs-content"><p style="color:var(--text3);padding:2rem 0">Loading…</p></div>
+  </div>
+</div><!-- /sec-leaderboards -->
+
+<div class="subscribe">
+  <h3>Get notified when new regatta results are added</h3>
+  <div id="error-message" class="sub-msg">Your subscription could not be saved. Please try again.</div>
+  <div id="success-message" class="sub-msg">You&#39;re subscribed! We&#39;ll email you when new results are added.</div>
+  <div id="sib-container">
+    <form id="sib-form" class="subscribe-form" method="POST" action="https://3f21ad40.sibforms.com/serve/MUIFAIyRcuQ6bCKzKFZT2wgiKD0LFDzAyRvYqC0G9gH2H6m_9Uic0dqNTo3ZKEED_7O5cWwppL4l6V6SsRwNH1yQzgxePOjED63GWYWzDIocBYOxNvnGM32rnRnLlOcXicoIGdBc37uTEoVidPd39BYTPRE0XEQJesWgpy9G8t7M8TcDuO46Tu1W-G80rN5G1Dgwn50A1_fCqZdQkQ==" data-type="subscription">
+      <input type="email" name="EMAIL" id="EMAIL" placeholder="your@email.com" autocomplete="off" required>
+      <button type="submit">Notify me</button>
+      <input type="text" name="email_address_check" value="" class="input--hidden">
+      <input type="hidden" name="locale" value="en">
+    </form>
+  </div>
+</div>
+<div class="footer">
+  <a href="mailto:feedback@rowingtools.co.uk">Contact Us - Suggestions &amp; Feedback</a>
+</div>
+<script src="/assets/app.js"></script>
+<script>
+document.querySelectorAll('.lb-grid .lb-card').forEach(function(card,i){
+  card.style.animationDelay=(0.04+i*0.06)+'s';card.classList.add('lb-anim');
+});
+</script>
+</body>
+</html>

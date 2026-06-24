@@ -232,7 +232,7 @@ td.rnd{{background:#161616;color:#777;font-size:11px;padding:5px 7px;white-space
 <script>
 const ROWS={data_json};
 for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null&&l.pct<50)l.pct=null;
-function normClub(n){{return(n||'').replace(/\\s*\\([^)]+\\)\\s*$/,'').trim();}}
+function normClub(n){{return(n||'').replace(/\\s*\\/\\s*/g,'/').replace(/\\s*\\([^)]+\\)\\s*$/,'').trim();}}
 function bg(p){{return p===null?'#2a2a2a':p>=87?'#1a4d3e':p>=80?'#1a3a5c':p>=72?'#4a3200':'#4a1a0a'}}
 function fg(p){{return p===null?'#555':p>=87?'#4ee8b0':p>=80?'#7bbfff':p>=72?'#f0b030':'#ff7050'}}
 function showTab(name,btn){{
@@ -434,6 +434,7 @@ if __name__ == "__main__":
     rows = build_races(args.csv, wbt)
     html = generate_html(rows, args.comp, args.title)
 
-    out = args.out or str((Path(__file__).parent / f"../../heatmap-{args.comp}.html").resolve())
+    out = args.out or str((Path(__file__).parent / f"../../leaderboards/{args.comp}/index.html").resolve())
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
     Path(out).write_text(html, encoding="utf-8")
     print(f"Written: {out}  ({len(rows)} events)")
