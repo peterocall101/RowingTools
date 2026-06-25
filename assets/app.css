@@ -1,27 +1,18 @@
 *{box-sizing:border-box;margin:0;padding:0}
+/* Site is always dark, to match the regatta pages and the navy brand. */
 :root{
-  --bg:#f7f7f6;--bg2:#ffffff;--bg3:#eeeeec;
-  --text:#111827;--text2:#6b7280;--text3:#9ca3af;
-  --border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.15);
-  --shadow:0 1px 3px rgba(0,0,0,0.06),0 4px 12px rgba(0,0,0,0.04);
-  --shadow-md:0 4px 14px rgba(0,0,0,0.1),0 12px 32px rgba(0,0,0,0.07);
-  --r:10px;--rl:14px;
-  --c-wbt:#1d4ed8;--c-wbt-bg:#dbeafe;
-  --c-met:#7c3aed;--c-met-bg:#ede9fe;
-  --c-hrr:#059669;--c-hrr-bg:#d1fae5;
-  --c-hwr:#d97706;--c-hwr-bg:#fef3c7;
-}
-@media(prefers-color-scheme:dark){:root{
+  color-scheme:dark;
   --bg:#0f0f0e;--bg2:#1a1a18;--bg3:#252523;
   --text:#f0f0ee;--text2:#9ca3af;--text3:#6b7280;
   --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);
   --shadow:0 1px 3px rgba(0,0,0,0.3),0 4px 12px rgba(0,0,0,0.2);
   --shadow-md:0 4px 16px rgba(0,0,0,0.5),0 16px 40px rgba(0,0,0,0.35);
+  --r:10px;--rl:14px;
   --c-wbt:#60a5fa;--c-wbt-bg:#172554;
   --c-met:#a78bfa;--c-met-bg:#2e1065;
   --c-hrr:#34d399;--c-hrr-bg:#064e3b;
   --c-hwr:#fbbf24;--c-hwr-bg:#451a03;
-}}
+}
 body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);padding:0 1.5rem 2.5rem;max-width:1100px;margin:0 auto;line-height:1.6}
 .topbar{position:fixed;top:0;left:0;width:100%;height:3px;background:#c8472b;z-index:9999;pointer-events:none}
 .site-hdr{padding:2.5rem 0 1.5rem;margin-bottom:1.75rem;border-bottom:1px solid var(--border)}
@@ -195,6 +186,8 @@ body.loading .btog .dot{opacity:0}
 /* Multi-page nav (anchor-based section tabs + clickable brand) */
 .brand a{text-decoration:none;color:inherit}
 a.sec-tab{text-decoration:none;display:inline-flex;align-items:center}
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--text2);text-decoration:none;margin-bottom:1.75rem;transition:color .15s}
+.back-link:hover{color:var(--text)}
 /* Landing / home page */
 .home-lead{font-size:15px;color:var(--text2);max-width:640px;margin:0 0 2rem;line-height:1.7}
 .home-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;max-width:760px}
