@@ -61,6 +61,13 @@ details.hr-event-block:not([open])>summary{border-bottom-color:transparent}
 .hr-wx:hover{opacity:1;color:#c8472b}
 .hr-filter{min-width:150px}
 .hr-fclear{padding:0 12px}
+.hr-yearsel{display:flex;gap:10px;margin:0 0 1.5rem}
+.hr-yearsel .lbtab{font-size:18px;font-weight:700;letter-spacing:-.01em;padding:11px 30px;border-radius:12px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text2);height:auto}
+.hr-yearsel .lbtab.active{background:#c8472b;color:#fff;border-color:#c8472b;box-shadow:0 2px 10px rgba(200,71,43,.3)}
+.hr-yearsel .lbtab:hover:not(.active){color:var(--text);border-color:var(--text3)}
+.hr-sticky{position:sticky;top:0;z-index:50;background:var(--bg);padding:10px 0 4px;margin-bottom:10px;border-bottom:1px solid var(--border)}
+.hr-sticky .hr-bar{margin-bottom:6px}
+.hr-sticky .hr-bar:last-child{margin-bottom:0}
 td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
 td.sp,th.sp{color:var(--text3);font-variant-numeric:tabular-nums;text-align:right}
 </style>
@@ -72,6 +79,8 @@ td.sp,th.sp{color:var(--text3);font-variant-numeric:tabular-nums;text-align:righ
   <p class="sub">Henley Royal Regatta - leaderboards</p>
 </header>
 <a href="/" class="back-link">← Back to main tools</a>
+
+<div class="hr-yearsel" id="hr-years"></div>
 
 <p class="info" style="margin-bottom:1rem">
   Henley Regatta rankings by year and day - by raw time, by % of Henley course records at the start of the regatta, and by % of World Best Time.
@@ -87,7 +96,7 @@ td.sp,th.sp{color:var(--text3);font-variant-numeric:tabular-nums;text-align:righ
   </ol>
 </details>
 
-<div class="hr-bar"><span class="hr-bar-label">Year</span><div class="lbtab-wrap" id="hr-years"></div></div>
+<div class="hr-sticky">
 <div class="hr-bar"><span class="hr-bar-label">Day</span><div class="lbtab-wrap" id="hr-days"></div></div>
 <div class="hr-bar"><span class="hr-bar-label">Rank</span><div class="lbtab-wrap" id="hr-tabs">
   <button class="lbtab" data-tab="byevent">By event (raw time)</button>
@@ -99,11 +108,11 @@ td.sp,th.sp{color:var(--text3);font-variant-numeric:tabular-nums;text-align:righ
   <button class="lbtab" data-marker="fawley">Fawley</button>
   <button class="lbtab active" data-marker="finish">Finish</button>
 </div></div>
-
 <div class="hr-bar"><span class="hr-bar-label">Filter</span>
   <input type="text" id="hr-fclub" list="hr-clubs" placeholder="Club / crew…" class="hr-filter" autocomplete="off">
   <input type="text" id="hr-fevent" list="hr-events" placeholder="Event…" class="hr-filter" autocomplete="off">
   <button type="button" id="hr-fclear" class="hr-fclear" title="Clear filters">✕</button>
+</div>
 </div>
 <datalist id="hr-clubs"></datalist>
 <datalist id="hr-events"></datalist>
@@ -114,7 +123,10 @@ td.sp,th.sp{color:var(--text3);font-variant-numeric:tabular-nums;text-align:righ
 
 <script src="/conditions.js"></script>
 <script>
-var YEARS=['2025'];
+// Year tabs are auto-detected: a year appears once data/henley_<year>.json exists.
+// To add 2026 during the regatta, just scrape it (writes the file) and push - no edit here.
+var YEAR_CANDIDATES=['2026','2025'];  // newest first; the newest available becomes the default tab
+var YEARS=[];
 var DAY_ORDER=['Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 // Distance from the start to each timing point, in metres (confirmed HRR figures).
 // Finish = 1 mile 550 yards = 2112m.
@@ -323,6 +335,14 @@ Promise.all([
 ]).then(function(res){
   RECORDS=res[0];
   var w=res[1].wbt||{}; Object.keys(w).forEach(function(k){WBT[k]=parseWbt(w[k].time);});
+  // Probe each candidate year's data file; only years with data become tabs.
+  return Promise.all(YEAR_CANDIDATES.map(function(y){
+    return fetch('/data/henley_'+y+'.json').then(function(r){return r.ok?r.json():null;})
+      .catch(function(){return null;}).then(function(d){return {y:y,d:d};});
+  }));
+}).then(function(found){
+  found.forEach(function(o){if(o.d&&o.d.length){_cache[o.y]=o.d;YEARS.push(o.y);}});  // tab appears only once the year has races
+  if(!YEARS.length){document.getElementById('hr-content').innerHTML='<p style="color:var(--text3);padding:2rem 0">No Henley data available yet.</p>';return;}
   renderYearTabs(); wireToggles(); loadYear(YEARS[0]);
 }).catch(function(){document.getElementById('hr-content').innerHTML='<p style="color:var(--text3)">Could not load Henley data.</p>';});
 </script>

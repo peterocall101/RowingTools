@@ -163,17 +163,31 @@ def scrape_results(year, max_days=8, max_pages=20):
     return races
 
 
+def load_records():
+    dest_r = os.path.join(ROOT, 'data', 'henley_records.json')
+    if os.path.exists(dest_r):
+        with open(dest_r, encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--year', type=int, default=2025)
+    ap.add_argument('--results-only', action='store_true',
+                    help='skip the records fetch/write and only update data/henley_<year>.json '
+                         '(used by the automated 2026 updater, which must touch only the year file)')
     args = ap.parse_args()
 
-    print('Fetching records...', file=sys.stderr)
-    recs = parse_records(requests.get(RECORDS_URL, timeout=30, headers=HEADERS).text)
-    dest_r = os.path.join(ROOT, 'data', 'henley_records.json')
-    with open(dest_r, 'w', encoding='utf-8') as f:
-        json.dump(recs, f, separators=(',', ':'))
-    print(f'  {len(recs)} events with records -> {dest_r}', file=sys.stderr)
+    if args.results_only:
+        recs = load_records()  # use the records already in the repo; do not re-write them
+    else:
+        print('Fetching records...', file=sys.stderr)
+        recs = parse_records(requests.get(RECORDS_URL, timeout=30, headers=HEADERS).text)
+        dest_r = os.path.join(ROOT, 'data', 'henley_records.json')
+        with open(dest_r, 'w', encoding='utf-8') as f:
+            json.dump(recs, f, separators=(',', ':'))
+        print(f'  {len(recs)} events with records -> {dest_r}', file=sys.stderr)
 
     print(f'Fetching {args.year} results...', file=sys.stderr)
     races = scrape_results(args.year)

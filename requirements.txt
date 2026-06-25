@@ -1,0 +1,4 @@
+# Python dependencies for the data tools in gmt_processor/.
+# For the phone-driven Henley update (Claude Code on the web), only `requests` is needed.
+requests>=2.31
+Pillow>=10.0   # only used by the Instagram carousel image script, not the scrapers
