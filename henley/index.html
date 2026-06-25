@@ -170,16 +170,20 @@ function recBaseline(eventKey,marker){
 function tr(cols){return '<tr>'+cols.join('')+'</tr>';}
 function crewCell(e){return '<td><strong>'+esc(e.crew)+'</strong>'+(e.loserLeading?'<span class="hr-lost" title="Led at this point but lost the race - this split is the losing crew\'s time">LOST RACE</span>':'')+'</td>';}
 function paceCell(e,mk){return '<td class="sp">'+fmtPace(e.secs,DIST[mk])+'</td>';}
-// Filter by crew/club and/or event (case-insensitive substring); ranks are assigned before this.
+// Drop the entry letter so A/B/C crews count as one club: "London R.C. 'A'" -> "London R.C."
+// (handles letters mid-name too, e.g. "Rutgers University 'A', U.S.A.").
+function baseClub(s){return (s||'').replace(/\s*'[A-Z]'/,'').trim();}
+function clubMatch(crew){var fc=baseClub(state.fClub).toLowerCase().trim();return !fc||baseClub(crew).toLowerCase().indexOf(fc)>=0;}
+// Filter by crew/club and/or event; ranks are assigned before this.
 function passFilter(e){
-  var fc=(state.fClub||'').toLowerCase().trim(), fe=(state.fEvent||'').toLowerCase().trim();
-  if(fc && (e.crew||'').toLowerCase().indexOf(fc)<0) return false;
+  var fe=(state.fEvent||'').toLowerCase().trim();
+  if(!clubMatch(e.crew)) return false;
   if(fe && (e.eventFull||e.event||'').toLowerCase().indexOf(fe)<0) return false;
   return true;
 }
 function buildDatalists(){
   var ev={}, cl={};
-  RACES.forEach(function(r){if(r.event)ev[r.event]=1;if(r.winner)cl[r.winner]=1;if(r.loser)cl[r.loser]=1;});
+  RACES.forEach(function(r){if(r.event)ev[r.event]=1;if(r.winner)cl[baseClub(r.winner)]=1;if(r.loser)cl[baseClub(r.loser)]=1;});
   var elE=document.getElementById('hr-events'), elC=document.getElementById('hr-clubs');
   if(elE)elE.innerHTML=Object.keys(ev).sort().map(function(x){return '<option value="'+esc(x)+'"></option>';}).join('');
   if(elC)elC.innerHTML=Object.keys(cl).sort().map(function(x){return '<option value="'+esc(x)+'"></option>';}).join('');
@@ -252,12 +256,12 @@ function renderByEvent(){
   var keys=Object.keys(byEvent).sort(function(a,b){return byEvent[a].name.localeCompare(byEvent[b].name);});
   if(!keys.length)return '<p style="color:var(--text3);padding:1rem 0">No timed crews at this point for the selected day.</p>';
   var M=mk.charAt(0).toUpperCase()+mk.slice(1);
-  var fe=(state.fEvent||'').toLowerCase().trim(), fc=(state.fClub||'').toLowerCase().trim();
+  var fe=(state.fEvent||'').toLowerCase().trim();
   var blocks=keys.filter(function(k){return !fe||(byEvent[k].name||'').toLowerCase().indexOf(fe)>=0;}).map(function(k){
     var ev=byEvent[k]; ev.rows.sort(function(a,b){return a.secs-b.secs;});
     ev.rows.forEach(function(e,i){e.rank=i+1;});  // rank within the event, before filtering
     var b=recBaseline(k,mk);
-    var rows=ev.rows.filter(function(e){return !fc||(e.crew||'').toLowerCase().indexOf(fc)>=0;});
+    var rows=ev.rows.filter(function(e){return clubMatch(e.crew);});
     if(!rows.length)return '';
     var body=rows.map(function(e){
       var pct=b?(b.secs/e.secs*100):null;
