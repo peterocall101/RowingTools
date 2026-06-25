@@ -106,15 +106,25 @@
   async function wxFetch(v,date,clock){
     const [hh,mm]=clock.split(':').map(Number);
     const hour=Math.min(23,hh+(mm>=30?1:0));
-    const url=`https://archive-api.open-meteo.com/v1/archive?latitude=${v.lat}&longitude=${v.lon}`+
-      `&start_date=${date}&end_date=${date}`+
+    const params=`&start_date=${date}&end_date=${date}`+
       `&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code`+
       `&wind_speed_unit=kmh&timezone=Europe%2FLondon`;
-    const res=await fetch(url);if(!res.ok)throw new Error('fetch');
-    const h=(await res.json()).hourly;const i=Math.max(0,Math.min(h.time.length-1,hour));
-    return {temp:Math.round(h.temperature_2m[i]),hum:Math.round(h.relative_humidity_2m[i]),
-      wspd:Math.round(h.wind_speed_10m[i]),wgust:Math.round(h.wind_gusts_10m[i]),
-      wdir:Math.round(h.wind_direction_10m[i]),code:h.weather_code[i]};
+    const base=`latitude=${v.lat}&longitude=${v.lon}`+params;
+    async function grab(api){
+      try{
+        const res=await fetch(api+'?'+base);if(!res.ok)return null;
+        const h=(await res.json()).hourly;if(!h||!h.time||!h.time.length)return null;
+        const i=Math.max(0,Math.min(h.time.length-1,hour));
+        if(h.temperature_2m[i]==null&&h.wind_speed_10m[i]==null)return null;  // no data for that hour
+        return {temp:Math.round(h.temperature_2m[i]),hum:Math.round(h.relative_humidity_2m[i]),
+          wspd:Math.round(h.wind_speed_10m[i]),wgust:Math.round(h.wind_gusts_10m[i]),
+          wdir:Math.round(h.wind_direction_10m[i]),code:h.weather_code[i]};
+      }catch(e){return null;}
+    }
+    // Archive lags a few days, so for live/recent dates it has no data - fall back to the
+    // forecast API (which covers recent past + the current day).
+    return (await grab('https://archive-api.open-meteo.com/v1/archive'))
+        || (await grab('https://api.open-meteo.com/v1/forecast'));
   }
   function wxVsCourse(windFrom,bearing){
     const windTo=(windFrom+180)%360;let delta=((windTo-bearing+540)%360)-180;const a=Math.abs(delta);
