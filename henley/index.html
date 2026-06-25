@@ -74,6 +74,18 @@ details.hr-event-block:not([open])>summary{border-bottom-color:transparent}
 .hr-sticky .hr-bar:last-child{margin-bottom:0}
 td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
 td.sp,th.sp{color:var(--text3);font-variant-numeric:tabular-nums;text-align:right}
+/* Keep the Henley results leaderboards as real tables on mobile (same as web),
+   overriding app.css's card/box layout which is meant for the data-entry tables. */
+@media(max-width:600px){
+  #hr-content .tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--rl);background:var(--bg2);box-shadow:var(--shadow)}
+  #hr-content .tbl{min-width:700px;display:table}
+  #hr-content .tbl thead{display:table-header-group}
+  #hr-content .tbl tbody{display:table-row-group}
+  #hr-content .tbl tr{display:table-row;background:none;border:none;border-radius:0;box-shadow:none;padding:0;margin:0}
+  #hr-content .tbl tbody tr:hover td{background:var(--bg3)}
+  #hr-content .tbl td{display:table-cell;padding:6px 8px;border-bottom:1px solid var(--border);overflow:hidden}
+  #hr-content .tbl td::before{display:none}
+}
 </style>
 </head>
 <body>
