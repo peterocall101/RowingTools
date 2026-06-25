@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /henley/post/
 
 Sitemap: https://rowingtools.co.uk/sitemap.xml

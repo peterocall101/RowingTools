@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Henley post generator (unlisted)</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/app.css">
+<style>
+.pg-note{font-size:12px;color:var(--text3);background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;margin-bottom:1.25rem}
+.pg-bar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:1rem}
+.pg-bar-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);width:42px}
+.pg-go{background:#c8472b;color:#fff;border:none;border-radius:10px;padding:11px 22px;font-size:15px;font-weight:700;cursor:pointer;margin:.5rem 0 1.5rem}
+.pg-go:hover{background:#b03d26}
+.pg-cards{display:flex;flex-direction:column;gap:20px;max-width:420px}
+.pg-card img{width:100%;border-radius:10px;display:block;border:1px solid var(--border)}
+.pg-dl{margin-top:8px;width:100%;background:var(--bg2);color:var(--text);border:1.5px solid var(--border2);border-radius:8px;padding:11px;font-size:14px;font-weight:600;cursor:pointer}
+.pg-dl:hover{border-color:#c8472b;color:#c8472b}
+</style>
+</head>
+<body>
+<div class="topbar"></div>
+<header class="site-hdr">
+  <div class="brand"><a href="/"><div class="brand-mark">Rowing<span class="brand-dot">.</span>Tools</div></a></div>
+  <p class="sub">Henley Instagram post generator</p>
+</header>
+<a href="/henley/" class="back-link" style="font-size:13px;color:var(--text3);text-decoration:none">← Back to Henley leaderboards</a>
+
+<p class="pg-note">Unlisted creator tool (not linked or indexed). Pick a year and day, generate the carousel cards, save each image, and post them in order to Instagram.</p>
+
+<div class="pg-bar"><span class="pg-bar-label">Year</span><div class="lbtab-wrap" id="pg-years"></div></div>
+<div class="pg-bar"><span class="pg-bar-label">Day</span><div class="lbtab-wrap" id="pg-days"></div></div>
+<button type="button" id="pg-go" class="pg-go">📸 Generate carousel cards</button>
+<div class="pg-cards" id="pg-cards"></div>
+
+<script>
+var YEAR_CANDIDATES=['2026','2025'];
+var DAY_ORDER=['Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+var DIST={barrier:637,fawley:1047,finish:2112};
+var state={year:'',day:''};
+var RECORDS={}, WBT={}, RACES=[], YEARS=[], _cache={};
+
+function parseWbt(t){var p=(t||'').split(':');return p.length===2?(+p[0])*60+parseFloat(p[1]):null;}
+function wbtBoat(c){return c?c.replace(/^O/,'M'):null;}
+function recColor(p){if(p==null)return '#6b7280';if(p>=100)return '#fbbf24';if(p>=98)return '#34d399';if(p>=96)return '#60a5fa';if(p>=93)return '#fb923c';return '#f87171';}
+function gmtColor(p){if(p==null)return '#6b7280';if(p>=87)return '#34d399';if(p>=80)return '#60a5fa';if(p>=72)return '#fb923c';return '#f87171';}
+function markerEntry(race,m){
+  var s=race[m]; if(!s||s.secs==null||s.secs<=0)return null;
+  var win=m==='finish'?true:!s.loserLeading;
+  return {crew:win?race.winner:race.loser,secs:s.secs,display:s.display,newRecord:!!s.newRecord,loserLeading:!!s.loserLeading,
+    eventFull:race.event,event:race.eventShort||race.event,eventKey:race.eventKey,cls:race['class']};
+}
+function buildBest(m){
+  var best={};
+  RACES.forEach(function(r){if(r.withdrawn)return;if(state.day&&r.day!==state.day)return;var e=markerEntry(r,m);if(!e||!e.crew)return;var k=e.crew+'|'+e.eventKey;if(!best[k]||e.secs<best[k].secs)best[k]=e;});
+  return Object.keys(best).map(function(k){return best[k];});
+}
+function recBaseline(ek,m){var r=RECORDS[ek];if(!r||!r[m])return null;var y=+state.year,pre=r[m].filter(function(x){return x.year&&x.year<y;});return pre.length?pre.reduce(function(a,b){return b.secs<a.secs?b:a;}):null;}
+
+// ── card SVGs (1080x1350) ──
+function _x(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function _tr(s,n){s=s||'';return s.length>n?s.slice(0,n-1)+'…':s;}
+function _t(x,y,s,sz,fill,w,anchor,fam){return '<text x="'+x+'" y="'+y+'" font-family="'+(fam||'-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif')+'" font-size="'+sz+'" font-weight="'+(w||'400')+'" fill="'+fill+'"'+(anchor?' text-anchor="'+anchor+'"':'')+'>'+_x(s)+'</text>';}
+var _HDR='<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">';
+function _frame(){return '<rect width="1080" height="1350" fill="#0f0f0e"/><rect width="1080" height="10" fill="#c8472b"/>';}
+function _foot(n){return _t(80,1290,n,26,'#6b7280','500')+_t(1000,1290,'rowingtools.co.uk/henley',26,'#c8472b','700','end');}
+function _cover(day){return _HDR+_frame()
+  +_t(80,150,'Rowing.Tools',42,'#f5efe6','700',null,'Georgia,serif')
+  +_t(80,610,'HENLEY ROYAL',88,'#f0f0ee','800',null,'Georgia,serif')
+  +_t(80,710,'REGATTA '+state.year,88,'#c8472b','800',null,'Georgia,serif')
+  +_t(80,800,(day||'').toUpperCase(),44,'#9ca3af','700')+_t(80,860,'Daily leaderboards',32,'#6b7280','500')
+  +_foot('Live results during the regatta')+'</svg>';}
+function _list(title,sub,rows){
+  var s=_HDR+_frame()+_t(80,90,'Rowing.Tools',32,'#f5efe6','700',null,'Georgia,serif')+_t(1000,90,'HENLEY '+state.year,26,'#c8472b','700','end')
+    +'<line x1="80" y1="120" x2="1000" y2="120" stroke="#252523" stroke-width="2"/>'+_t(80,205,title,54,'#f0f0ee','800')+_t(80,255,sub,28,'#9ca3af','500');
+  var y=350,rh=98;
+  rows.forEach(function(r,i){s+=_t(80,y+i*rh,String(r.rank),34,'#6b7280','700')+_t(160,y+i*rh,_tr(r.name,26),38,'#f0f0ee','700')
+    +_t(160,y+i*rh+38,_tr(r.sub,34),24,'#9ca3af','500')+_t(1000,y+i*rh,r.val,44,r.color,'800','end');});
+  return s+_foot('')+'</svg>';
+}
+function _records(day,nr){
+  var s=_HDR+_frame()+_t(80,90,'Rowing.Tools',32,'#f5efe6','700',null,'Georgia,serif')+_t(1000,90,'HENLEY '+state.year,26,'#c8472b','700','end')
+    +'<line x1="80" y1="120" x2="1000" y2="120" stroke="#252523" stroke-width="2"/>'+_t(80,205,'Course records broken',54,'#fbbf24','800')+_t(80,255,day,28,'#9ca3af','500');
+  var y=350,rh=110;
+  nr.slice(0,7).forEach(function(r,i){s+=_t(80,y+i*rh,_tr(r.crew,28),38,'#f0f0ee','700')+_t(80,y+i*rh+38,r.event+' · '+r.marker,24,'#9ca3af','500')+_t(1000,y+i*rh,r.time,40,'#fbbf24','800','end');});
+  return s+_foot('New Henley records')+'</svg>';
+}
+function _svgToPng(svg,fn){var url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));var img=new Image();
+  img.onload=function(){var c=document.createElement('canvas');c.width=1080;c.height=1350;c.getContext('2d').drawImage(img,0,0,1080,1350);
+    c.toBlob(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;a.click();},'image/png');URL.revokeObjectURL(url);};img.src=url;}
+
+function generate(){
+  var m='finish', best=buildBest(m), day=state.day||'';
+  var rec=best.map(function(e){var b=recBaseline(e.eventKey,m);return {e:e,pct:b?(b.secs/e.secs*100):null};}).filter(function(o){return o.pct!=null;})
+    .sort(function(a,b){return b.pct-a.pct;}).slice(0,8).map(function(o,i){return {rank:i+1,name:o.e.crew,sub:o.e.eventFull,val:o.pct.toFixed(1)+'%',color:recColor(o.pct)};});
+  var scale=2000/DIST[m];
+  var wbt=best.map(function(e){var w=WBT[wbtBoat(e.cls)];return {e:e,pct:w?(w/(e.secs*scale)*100):null};}).filter(function(o){return o.pct!=null;})
+    .sort(function(a,b){return b.pct-a.pct;}).slice(0,8).map(function(o,i){return {rank:i+1,name:o.e.crew,sub:o.e.eventFull,val:o.pct.toFixed(1)+'%',color:gmtColor(o.pct)};});
+  var nr=[]; RACES.forEach(function(r){if(day&&r.day!==day)return;['barrier','fawley','finish'].forEach(function(mk){if(r[mk]&&r[mk].newRecord){var win=mk==='finish'?true:!r[mk].loserLeading;nr.push({crew:win?r.winner:r.loser,event:r.eventShort||r.event,marker:mk,time:r[mk].display});}});});
+  if(!rec.length&&!wbt.length){alert('No timed results for this day yet.');return;}
+  var cards=[{svg:_cover(day),name:'henley-'+state.year+'-1-cover.png'},
+    {svg:_list('Closest to the record',day+' · % of Henley record (finish)',rec),name:'henley-'+state.year+'-2-record.png'},
+    {svg:_list('Fastest crews',day+' · % of World Best Time (finish)',wbt),name:'henley-'+state.year+'-3-wbt.png'}];
+  if(nr.length)cards.push({svg:_records(day,nr),name:'henley-'+state.year+'-4-records.png'});
+  var box=document.getElementById('pg-cards');
+  box.innerHTML=cards.map(function(c,i){return '<div class="pg-card"><img src="data:image/svg+xml;utf8,'+encodeURIComponent(c.svg)+'" alt=""><button class="pg-dl" data-i="'+i+'">⬇ Save image '+(i+1)+'</button></div>';}).join('');
+  box.querySelectorAll('.pg-dl').forEach(function(b){b.onclick=function(){var c=cards[+b.dataset.i];_svgToPng(c.svg,c.name);};});
+}
+
+function setActive(box,btn){box.querySelectorAll('.lbtab').forEach(function(b){b.classList.toggle('active',b===btn);});}
+function renderDays(){
+  var present=[]; RACES.forEach(function(r){if(present.indexOf(r.day)<0)present.push(r.day);});
+  present.sort(function(a,b){return DAY_ORDER.indexOf(a)-DAY_ORDER.indexOf(b);});
+  if(present.indexOf(state.day)<0)state.day=present[0]||'';
+  var box=document.getElementById('pg-days');
+  box.innerHTML=present.map(function(d){return '<button class="lbtab'+(d===state.day?' active':'')+'" data-day="'+d+'">'+d.slice(0,3)+'</button>';}).join('');
+  box.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.day=b.dataset.day;setActive(box,b);document.getElementById('pg-cards').innerHTML='';};});
+}
+function loadYear(y){state.year=y;state.day='';RACES=_cache[y]||[];renderDays();document.getElementById('pg-cards').innerHTML='';}
+function renderYears(){
+  var box=document.getElementById('pg-years');
+  box.innerHTML=YEARS.map(function(y,i){return '<button class="lbtab'+(i===0?' active':'')+'" data-year="'+y+'">'+y+'</button>';}).join('');
+  box.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){setActive(box,b);loadYear(b.dataset.year);};});
+}
+
+document.getElementById('pg-go').onclick=generate;
+Promise.all([
+  fetch('/data/henley_records.json').then(function(r){return r.json();}),
+  fetch('/data/benchmarks_v3.json').then(function(r){return r.json();})
+]).then(function(res){
+  RECORDS=res[0]; var w=res[1].wbt||{}; Object.keys(w).forEach(function(k){WBT[k]=parseWbt(w[k].time);});
+  return Promise.all(YEAR_CANDIDATES.map(function(y){return fetch('/data/henley_'+y+'.json').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}).then(function(d){return {y:y,d:d};});}));
+}).then(function(found){
+  found.forEach(function(o){if(o.d&&o.d.length){_cache[o.y]=o.d;YEARS.push(o.y);}});
+  if(!YEARS.length){document.getElementById('pg-cards').innerHTML='<p style="color:var(--text3)">No Henley data available yet.</p>';return;}
+  renderYears(); loadYear(YEARS[0]);
+}).catch(function(){document.getElementById('pg-cards').innerHTML='<p style="color:var(--text3)">Could not load Henley data.</p>';});
+</script>
+</body>
+</html>
