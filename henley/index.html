@@ -59,6 +59,8 @@ details.hr-event-block:not([open])>summary{border-bottom-color:transparent}
 .hr-caveats li{font-size:12px;color:var(--text3);line-height:1.6;margin-bottom:.45rem}
 .hr-wx{background:none;border:none;color:#ef8268;cursor:pointer;padding:2px 4px;opacity:.85;line-height:0;vertical-align:middle}
 .hr-wx:hover{opacity:1;color:#c8472b}
+.hr-filter{min-width:150px}
+.hr-fclear{padding:0 12px}
 td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
 td.sp,th.sp{color:var(--text3);font-variant-numeric:tabular-nums;text-align:right}
 </style>
@@ -98,6 +100,14 @@ td.sp,th.sp{color:var(--text3);font-variant-numeric:tabular-nums;text-align:righ
   <button class="lbtab active" data-marker="finish">Finish</button>
 </div></div>
 
+<div class="hr-bar"><span class="hr-bar-label">Filter</span>
+  <input type="text" id="hr-fclub" list="hr-clubs" placeholder="Club / crew…" class="hr-filter" autocomplete="off">
+  <input type="text" id="hr-fevent" list="hr-events" placeholder="Event…" class="hr-filter" autocomplete="off">
+  <button type="button" id="hr-fclear" class="hr-fclear" title="Clear filters">✕</button>
+</div>
+<datalist id="hr-clubs"></datalist>
+<datalist id="hr-events"></datalist>
+
 <div id="hr-content"><p style="color:var(--text3);padding:2rem 0">Loading…</p></div>
 
 <div class="footer"><a href="mailto:feedback@rowingtools.co.uk">Contact Us - Suggestions &amp; Feedback</a></div>
@@ -109,7 +119,7 @@ var DAY_ORDER=['Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 // Distance from the start to each timing point, in metres (confirmed HRR figures).
 // Finish = 1 mile 550 yards = 2112m.
 var DIST={barrier:637, fawley:1047, finish:2112};
-var state={year:'2025',day:'',tab:'record',marker:'finish'};
+var state={year:'2025',day:'',tab:'record',marker:'finish',fClub:'',fEvent:''};
 var RECORDS={}, WBT={}, RACES=[], _cache={};
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -160,6 +170,20 @@ function recBaseline(eventKey,marker){
 function tr(cols){return '<tr>'+cols.join('')+'</tr>';}
 function crewCell(e){return '<td><strong>'+esc(e.crew)+'</strong>'+(e.loserLeading?'<span class="hr-lost" title="Led at this point but lost the race - this split is the losing crew\'s time">LOST RACE</span>':'')+'</td>';}
 function paceCell(e,mk){return '<td class="sp">'+fmtPace(e.secs,DIST[mk])+'</td>';}
+// Filter by crew/club and/or event (case-insensitive substring); ranks are assigned before this.
+function passFilter(e){
+  var fc=(state.fClub||'').toLowerCase().trim(), fe=(state.fEvent||'').toLowerCase().trim();
+  if(fc && (e.crew||'').toLowerCase().indexOf(fc)<0) return false;
+  if(fe && (e.eventFull||e.event||'').toLowerCase().indexOf(fe)<0) return false;
+  return true;
+}
+function buildDatalists(){
+  var ev={}, cl={};
+  RACES.forEach(function(r){if(r.event)ev[r.event]=1;if(r.winner)cl[r.winner]=1;if(r.loser)cl[r.loser]=1;});
+  var elE=document.getElementById('hr-events'), elC=document.getElementById('hr-clubs');
+  if(elE)elE.innerHTML=Object.keys(ev).sort().map(function(x){return '<option value="'+esc(x)+'"></option>';}).join('');
+  if(elC)elC.innerHTML=Object.keys(cl).sort().map(function(x){return '<option value="'+esc(x)+'"></option>';}).join('');
+}
 
 // Fixed Henley course for the weather widget. Bearing = direction crews travel,
 // start (Temple Island) -> finish, 203 deg (SSW). Open-Meteo weather is area-level.
@@ -180,9 +204,12 @@ function renderRecord(){
   var noPct=entries.filter(function(e){return e.pct==null;}).sort(function(a,b){return a.secs-b.secs;});
   var all=withPct.concat(noPct);
   if(!all.length)return '<p style="color:var(--text3);padding:1rem 0">No timed crews at this point for the selected day.</p>';
+  all.forEach(function(e,i){e.rank=i+1;});
+  var shown=all.filter(passFilter);
+  if(!shown.length)return '<p style="color:var(--text3);padding:1rem 0">No crews match the filter.</p>';
   var M=mk.charAt(0).toUpperCase()+mk.slice(1);
-  var body=all.map(function(e,i){return tr([
-    '<td style="color:var(--text3)">'+(i+1)+'</td>', crewCell(e),
+  var body=shown.map(function(e){return tr([
+    '<td style="color:var(--text3)">'+e.rank+'</td>', crewCell(e),
     '<td style="color:var(--text2)">'+esc(e.event)+'</td>',
     '<td style="color:var(--text3)">'+esc(e.round)+'</td>',
     '<td class="r">'+esc(e.display)+(e.newRecord?'<span class="hr-nr">NR</span>':'')+'</td>',
@@ -201,9 +228,12 @@ function renderWbt(){
     e.boat=boat; e.pct=w?(w/(e.secs*scale)*100):null; return e;
   }).filter(function(e){return e.pct!=null;}).sort(function(a,b){return b.pct-a.pct;});
   if(!entries.length)return '<p style="color:var(--text3);padding:1rem 0">No timed crews at this point for the selected day.</p>';
+  entries.forEach(function(e,i){e.rank=i+1;});
+  var shown=entries.filter(passFilter);
+  if(!shown.length)return '<p style="color:var(--text3);padding:1rem 0">No crews match the filter.</p>';
   var M=mk.charAt(0).toUpperCase()+mk.slice(1);
-  var body=entries.map(function(e,i){return tr([
-    '<td style="color:var(--text3)">'+(i+1)+'</td>', crewCell(e),
+  var body=shown.map(function(e){return tr([
+    '<td style="color:var(--text3)">'+e.rank+'</td>', crewCell(e),
     '<td style="color:var(--text2)">'+esc(e.event)+'</td>',
     '<td style="color:var(--text3)">'+esc(e.boat)+'</td>',
     '<td class="r">'+esc(e.display)+'</td>',
@@ -222,12 +252,16 @@ function renderByEvent(){
   var keys=Object.keys(byEvent).sort(function(a,b){return byEvent[a].name.localeCompare(byEvent[b].name);});
   if(!keys.length)return '<p style="color:var(--text3);padding:1rem 0">No timed crews at this point for the selected day.</p>';
   var M=mk.charAt(0).toUpperCase()+mk.slice(1);
-  return keys.map(function(k){
+  var fe=(state.fEvent||'').toLowerCase().trim(), fc=(state.fClub||'').toLowerCase().trim();
+  var blocks=keys.filter(function(k){return !fe||(byEvent[k].name||'').toLowerCase().indexOf(fe)>=0;}).map(function(k){
     var ev=byEvent[k]; ev.rows.sort(function(a,b){return a.secs-b.secs;});
+    ev.rows.forEach(function(e,i){e.rank=i+1;});  // rank within the event, before filtering
     var b=recBaseline(k,mk);
-    var body=ev.rows.map(function(e,i){
+    var rows=ev.rows.filter(function(e){return !fc||(e.crew||'').toLowerCase().indexOf(fc)>=0;});
+    if(!rows.length)return '';
+    var body=rows.map(function(e){
       var pct=b?(b.secs/e.secs*100):null;
-      return tr(['<td style="color:var(--text3)">'+(i+1)+'</td>', crewCell(e),
+      return tr(['<td style="color:var(--text3)">'+e.rank+'</td>', crewCell(e),
         '<td style="color:var(--text3)">'+esc(e.round)+'</td>',
         '<td class="r">'+esc(e.display)+(e.newRecord?'<span class="hr-nr">NR</span>':'')+'</td>',
         paceCell(e,mk),
@@ -236,7 +270,9 @@ function renderByEvent(){
       +'<span class="hr-event-rec">Record to '+M.toLowerCase()+' (into '+state.year+'): <strong>'+(b?b.display:'— none')+'</strong></span></summary>'
       +'<div class="tbl-wrap"><table class="tbl"><thead>'+tr(['<th>#</th>','<th>Crew</th>','<th>Round</th>','<th class="r">'+M+'</th>','<th class="sp">/500m</th>','<th class="r">% rec</th>', extraHead()])
       +'</thead><tbody>'+body+'</tbody></table></div></details>';
-  }).join('');
+  }).filter(Boolean);
+  if(!blocks.length)return '<p style="color:var(--text3);padding:1rem 0">No crews match the filter.</p>';
+  return blocks.join('');
 }
 
 function render(){
@@ -263,11 +299,15 @@ function wireToggles(){
   t.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.tab=b.dataset.tab;setActive(t,b);render();};});
   var mk=document.getElementById('hr-markers');
   mk.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.marker=b.dataset.marker;setActive(mk,b);render();};});
+  var fc=document.getElementById('hr-fclub'), fe=document.getElementById('hr-fevent'), fx=document.getElementById('hr-fclear');
+  if(fc)fc.oninput=function(){state.fClub=this.value;render();};
+  if(fe)fe.oninput=function(){state.fEvent=this.value;render();};
+  if(fx)fx.onclick=function(){state.fClub='';state.fEvent='';if(fc)fc.value='';if(fe)fe.value='';render();};
 }
 function loadYear(year){
   state.year=year; state.day='';
   document.getElementById('hr-content').innerHTML='<p style="color:var(--text3);padding:2rem 0">Loading…</p>';
-  var done=function(races){RACES=races;renderDayTabs();render();};
+  var done=function(races){RACES=races;buildDatalists();renderDayTabs();render();};
   if(_cache[year])return done(_cache[year]);
   fetch('/data/henley_'+year+'.json').then(function(r){return r.json();}).then(function(races){_cache[year]=races;done(races);})
     .catch(function(){document.getElementById('hr-content').innerHTML='<p style="color:var(--text3)">Could not load Henley '+year+' data.</p>';});
