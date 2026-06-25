@@ -204,3 +204,4 @@ a.sec-tab{text-decoration:none;display:inline-flex;align-items:center}
 .home-card.soon .home-card-ttl,.home-card.soon .home-card-ic{opacity:.75}
 .home-card-go.muted{color:var(--text3)}
 .home-badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#c8472b;background:rgba(200,71,43,0.10);border-radius:999px;padding:2px 9px;margin-left:8px;vertical-align:middle}
+.home-badge.live{color:#fff;background:#c8472b}
