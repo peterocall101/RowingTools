@@ -42,9 +42,20 @@ if ('serviceWorker' in navigator) {
 .hr-event-name{font-size:14px;font-weight:700;margin-bottom:2px}
 .hr-event-rec{font-size:12px;color:var(--text3);margin-bottom:8px}
 .hr-event-rec strong{color:var(--text2);font-weight:600}
+details.hr-event-block>summary{cursor:pointer;list-style:none;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:10px}
+details.hr-event-block>summary::-webkit-details-marker{display:none}
+details.hr-event-block>summary::before{content:'▾';color:var(--text3);font-size:11px;align-self:center}
+details.hr-event-block:not([open])>summary::before{content:'▸'}
+details.hr-event-block:not([open])>summary{border-bottom-color:transparent}
+.hr-ev-sum .hr-event-name,.hr-ev-sum .hr-event-rec{margin:0}
 .hr-pct{font-weight:700;font-variant-numeric:tabular-nums}
 .hr-note{font-size:12px;color:var(--text3);margin:10px 0 0;line-height:1.6}
-.hr-caveats{margin:0 0 1.5rem 1.1rem;padding:0}
+.hr-cav{margin:0 0 1.5rem;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2)}
+.hr-cav>summary{cursor:pointer;list-style:none;padding:10px 14px;font-size:12px;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:8px}
+.hr-cav>summary::-webkit-details-marker{display:none}
+.hr-cav>summary::before{content:'▸';color:var(--text3);font-size:11px}
+.hr-cav[open]>summary::before{content:'▾'}
+.hr-caveats{margin:0 14px 12px 2.6rem;padding:0}
 .hr-caveats li{font-size:12px;color:var(--text3);line-height:1.6;margin-bottom:.45rem}
 .hr-wx{background:none;border:none;color:#ef8268;cursor:pointer;padding:2px 4px;opacity:.85;line-height:0;vertical-align:middle}
 .hr-wx:hover{opacity:1;color:#c8472b}
@@ -64,12 +75,15 @@ td.sp,th.sp{color:var(--text3);font-variant-numeric:tabular-nums;text-align:righ
   Henley Regatta rankings by year and day - by raw time, by % of Henley course records at the start of the regatta, and by % of World Best Time.
   <a href="/henley/methodology/" style="color:#c8472b;text-decoration:none;font-weight:600;white-space:nowrap">Full methodology →</a>
 </p>
-<ol class="hr-caveats">
-  <li>World Best Times are 2000m flat-water benchmarks, so given Henley's stream conditions and different distance markers, they're included only to allow comparison between crews, not as an absolute statement of speed.</li>
-  <li>Leading crews at Henley typically ease off before the line when the gap to the losing crew is large, so comparing crews at the Barrier and Fawley can be more insightful - especially on earlier days, where there can be larger margins of victory.</li>
-  <li>Conditions at Henley can vary significantly within a single day - that's why the weather conditions can be viewed for each race.</li>
-  <li>Henley record benchmarks are the records to each distance marker going into the regatta, so it's possible to score over 100%. The benchmarks do not change over the course of the regatta.</li>
-</ol>
+<details class="hr-cav">
+  <summary>Caveats - how to read these rankings</summary>
+  <ol class="hr-caveats">
+    <li>World Best Times are 2000m flat-water benchmarks, so given Henley's stream conditions and different distance markers, they're included only to allow comparison between crews, not as an absolute statement of speed.</li>
+    <li>Leading crews at Henley typically ease off before the line when the gap to the losing crew is large, so comparing crews at the Barrier and Fawley can be more insightful - especially on earlier days, where there can be larger margins of victory.</li>
+    <li>Conditions at Henley can vary significantly within a single day - that's why the weather conditions can be viewed for each race.</li>
+    <li>Henley record benchmarks are the records to each distance marker going into the regatta, so it's possible to score over 100%. The benchmarks do not change over the course of the regatta.</li>
+  </ol>
+</details>
 
 <div class="hr-bar"><span class="hr-bar-label">Year</span><div class="lbtab-wrap" id="hr-years"></div></div>
 <div class="hr-bar"><span class="hr-bar-label">Day</span><div class="lbtab-wrap" id="hr-days"></div></div>
@@ -95,7 +109,7 @@ var DAY_ORDER=['Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 // Distance from the start to each timing point, in metres (confirmed HRR figures).
 // Finish = 1 mile 550 yards = 2112m.
 var DIST={barrier:637, fawley:1047, finish:2112};
-var state={year:'2025',day:'all',tab:'record',marker:'finish'};
+var state={year:'2025',day:'',tab:'record',marker:'finish'};
 var RECORDS={}, WBT={}, RACES=[], _cache={};
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -218,10 +232,10 @@ function renderByEvent(){
         '<td class="r">'+esc(e.display)+(e.newRecord?'<span class="hr-nr">NR</span>':'')+'</td>',
         paceCell(e,mk),
         '<td class="r hr-pct" style="color:'+recColor(pct)+'">'+fmtPct(pct)+'</td>', extraCells(e)]);}).join('');
-    return '<div class="hr-event-block"><div class="hr-event-name">'+esc(ev.name)+'</div>'
-      +'<div class="hr-event-rec">Record to '+M.toLowerCase()+' (into '+state.year+'): <strong>'+(b?b.display:'— none')+'</strong></div>'
+    return '<details class="hr-event-block" open><summary class="hr-ev-sum"><span class="hr-event-name">'+esc(ev.name)+'</span>'
+      +'<span class="hr-event-rec">Record to '+M.toLowerCase()+' (into '+state.year+'): <strong>'+(b?b.display:'— none')+'</strong></span></summary>'
       +'<div class="tbl-wrap"><table class="tbl"><thead>'+tr(['<th>#</th>','<th>Crew</th>','<th>Round</th>','<th class="r">'+M+'</th>','<th class="sp">/500m</th>','<th class="r">% rec</th>', extraHead()])
-      +'</thead><tbody>'+body+'</tbody></table></div></div>';
+      +'</thead><tbody>'+body+'</tbody></table></div></details>';
   }).join('');
 }
 
@@ -235,7 +249,8 @@ function renderDayTabs(){
   var present=[]; RACES.forEach(function(r){if(present.indexOf(r.day)<0)present.push(r.day);});
   present.sort(function(a,b){return DAY_ORDER.indexOf(a)-DAY_ORDER.indexOf(b);});
   var box=document.getElementById('hr-days');
-  box.innerHTML='<button class="lbtab active" data-day="all">All days</button>'+present.map(function(d){return '<button class="lbtab" data-day="'+d+'">'+d.slice(0,3)+'</button>';}).join('');
+  if(present.indexOf(state.day)<0)state.day=present[0]||'';  // default to the first racing day
+  box.innerHTML=present.map(function(d){return '<button class="lbtab'+(d===state.day?' active':'')+'" data-day="'+d+'">'+d.slice(0,3)+'</button>';}).join('');
   box.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.day=b.dataset.day;setActive(box,b);render();};});
 }
 function renderYearTabs(){
@@ -250,7 +265,7 @@ function wireToggles(){
   mk.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.marker=b.dataset.marker;setActive(mk,b);render();};});
 }
 function loadYear(year){
-  state.year=year; state.day='all';
+  state.year=year; state.day='';
   document.getElementById('hr-content').innerHTML='<p style="color:var(--text3);padding:2rem 0">Loading…</p>';
   var done=function(races){RACES=races;renderDayTabs();render();};
   if(_cache[year])return done(_cache[year]);
