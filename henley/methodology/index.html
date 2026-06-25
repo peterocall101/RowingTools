@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Henley leaderboards - methodology | RowingTools</title>
+<meta name="description" content="How RowingTools builds the Henley Royal Regatta leaderboards: timing points, the LOST RACE flag, % of course record, % of World Best Time, and 500m splits.">
+<link rel="canonical" href="https://rowingtools.co.uk/henley/methodology/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a2744">
+<meta name="apple-mobile-web-app-title" content="RowingTools">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta property="og:title" content="Henley leaderboards - methodology | RowingTools">
+<meta property="og:url" content="https://rowingtools.co.uk/henley/methodology/">
+<meta property="og:type" content="article">
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
+}
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-876ELQ9529"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-876ELQ9529');
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/app.css">
+<style>
+.meth h1{font-size:22px;font-weight:700;letter-spacing:-.3px;margin-bottom:1.25rem}
+.card ul{margin:.4rem 0 0 1.1rem;padding:0}
+.card li{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:.3rem}
+.tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;border-radius:4px;padding:0 6px;vertical-align:middle}
+.tag-nr{color:#fbbf24;border:1px solid rgba(251,191,36,.4)}
+.tag-lost{color:#f87171;border:1px solid rgba(248,113,113,.45)}
+</style>
+</head>
+<body>
+<div class="topbar"></div>
+<header class="site-hdr">
+  <div class="brand"><a href="/"><div class="brand-mark">Rowing<span class="brand-dot">.</span>Tools</div></a></div>
+  <p class="sub">Henley leaderboards - methodology</p>
+</header>
+<a href="/henley/" class="back-link">← Back to Henley leaderboards</a>
+
+<div class="meth">
+  <h1>How the Henley leaderboards work</h1>
+
+  <div class="card">
+    <h2>The course &amp; timing points</h2>
+    <p>Henley Royal Regatta is rowed over <strong>1 mile 550 yards (~2112m)</strong> as head-to-head match races (two crews, knockout draw). Intermediate times are taken at two points down the course - <strong>The Barrier</strong> and <strong>Fawley</strong> - as well as the <strong>Finish</strong>.</p>
+    <p>Only the <strong>leading crew is timed</strong> at each point. There is no time for the trailing crew at the Barrier or Fawley, and the losing crew gets no finish time - just the winning margin (the "verdict").</p>
+    <p>Marker distances from the start are Barrier <strong>637m</strong>, Fawley <strong>1047m</strong> and Finish <strong>2112m</strong>. They don't affect the ranking at a given point - that's just a constant scale - only the displayed % and 500m-split values.</p>
+  </div>
+
+  <div class="card">
+    <h2>The <span class="tag tag-lost">LOST RACE</span> flag</h2>
+    <p>Because only the leader is timed, a split at the Barrier or Fawley normally belongs to the eventual winner. But sometimes the crew that <em>lost</em> the race was ahead at that point - HRR marks these with a star. In that case the split is the <strong>losing</strong> crew's time, and we credit it to them and tag the row <span class="tag tag-lost">LOST RACE</span>. The finish time is always the winner's.</p>
+  </div>
+
+  <div class="card">
+    <h2>The three rankings</h2>
+    <p><strong>By event (raw time).</strong> Within each event, crews ordered by their fastest time to the selected point. The neutral, always-valid view.</p>
+    <p><strong>% of Henley record.</strong> The crew's time as a percentage of the Henley course record to that point: <em>record ÷ time × 100</em>. The record used is the one standing <strong>going into that year</strong>, so a crew that broke the record tops 100% and is marked <span class="tag tag-nr">NR</span>. This avoids the record shifting mid-regatta from skewing the table.</p>
+    <p><strong>% of World Best Time.</strong> Each split is scaled to a 2000m-equivalent pace (<em>× 2000 ÷ marker distance</em>) and compared to the World Rowing best time for the boat class - the same benchmark as the <a href="/gmt/" style="color:#c8472b;text-decoration:none">GMT% calculator</a>, so it's comparable to the rest of the site. Boat class comes from HRR's event class (Henley's open events are men's, so e.g. an open four maps to M4-).</p>
+    <p style="color:var(--text3)">Important: WBT is a 2000m flat-water benchmark, and Henley's distance and stream conditions differ every year. So <strong>% of WBT is only meaningful for ranking crews against each other</strong> within a regatta, not as an absolute statement of speed.</p>
+  </div>
+
+  <div class="card">
+    <h2>500m splits</h2>
+    <p>Every table shows a per-500m pace, derived from the time and the distance to that point (Barrier 637m, Fawley 1047m, Finish 2112m). Note crews don't simply go fastest off the start at Henley - the stream varies along the course - so a crew can read slower per 500m at the Barrier than over the full course.</p>
+  </div>
+
+  <div class="card">
+    <h2>Data &amp; caveats</h2>
+    <ul>
+      <li>Results and records are taken from the official Henley Royal Regatta website (race results and record holders).</li>
+      <li>Match racing is noisy: a clear winner often eases down, wind and stream shift through each day and between years, so treat these as "who looked fast", not a controlled time trial.</li>
+      <li>New events with no prior course record show no % - they appear in the raw-time view only.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="footer"><a href="mailto:feedback@rowingtools.co.uk">Contact Us - Suggestions &amp; Feedback</a></div>
+</body>
+</html>

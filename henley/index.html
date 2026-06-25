@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=0.7">
+<title>Henley Royal Regatta - leaderboards | RowingTools</title>
+<meta name="description" content="Henley Royal Regatta crews ranked by raw time, by % of the Henley course record (to the Barrier, Fawley and Finish), and by % of World Best Time, with 500m splits.">
+<link rel="canonical" href="https://rowingtools.co.uk/henley/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a2744">
+<meta name="apple-mobile-web-app-title" content="RowingTools">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta property="og:title" content="Henley Royal Regatta - leaderboards | RowingTools">
+<meta property="og:description" content="Crews ranked by % of the Henley course record and % of World Best Time, to the Barrier, Fawley and Finish.">
+<meta property="og:url" content="https://rowingtools.co.uk/henley/">
+<meta property="og:type" content="website">
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
+}
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-876ELQ9529"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-876ELQ9529');
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/app.css">
+<style>
+.hr-bar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-bottom:1rem}
+.hr-bar-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);width:42px;flex-shrink:0}
+.hr-bar .lbtab-wrap{margin:0}
+.hr-nr{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;color:#fbbf24;border:1px solid rgba(251,191,36,.4);border-radius:999px;padding:0 6px;margin-left:6px;vertical-align:middle}
+.hr-lost{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.04em;color:#f87171;border:1px solid rgba(248,113,113,.45);border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:middle;cursor:help}
+.hr-event-block{margin-bottom:1.75rem}
+.hr-event-name{font-size:14px;font-weight:700;margin-bottom:2px}
+.hr-event-rec{font-size:12px;color:var(--text3);margin-bottom:8px}
+.hr-event-rec strong{color:var(--text2);font-weight:600}
+details.hr-event-block>summary{cursor:pointer;list-style:none;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:10px}
+details.hr-event-block>summary::-webkit-details-marker{display:none}
+details.hr-event-block>summary::before{content:'▾';color:var(--text3);font-size:11px;align-self:center}
+details.hr-event-block:not([open])>summary::before{content:'▸'}
+details.hr-event-block:not([open])>summary{border-bottom-color:transparent}
+.hr-ev-sum .hr-event-name,.hr-ev-sum .hr-event-rec{margin:0}
+.hr-pct{font-weight:700;font-variant-numeric:tabular-nums}
+.hr-note{font-size:12px;color:var(--text3);margin:10px 0 0;line-height:1.6}
+.hr-cav{margin:0 0 1.5rem;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2)}
+.hr-cav>summary{cursor:pointer;list-style:none;padding:10px 14px;font-size:12px;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:8px}
+.hr-cav>summary::-webkit-details-marker{display:none}
+.hr-cav>summary::before{content:'▸';color:var(--text3);font-size:11px}
+.hr-cav[open]>summary::before{content:'▾'}
+.hr-caveats{margin:0 14px 12px 2.6rem;padding:0}
+.hr-caveats li{font-size:12px;color:var(--text3);line-height:1.6;margin-bottom:.45rem}
+.hr-wx{background:none;border:none;color:#ef8268;cursor:pointer;padding:2px 4px;opacity:.85;line-height:0;vertical-align:middle}
+.hr-wx:hover{opacity:1;color:#c8472b}
+.hr-filter{min-width:150px}
+.hr-fclear{padding:0 12px}
+.hr-yearsel{display:flex;gap:10px;margin:0 0 1.5rem}
+.hr-yearsel .lbtab{font-size:18px;font-weight:700;letter-spacing:-.01em;padding:11px 30px;border-radius:12px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text2);height:auto}
+.hr-yearsel .lbtab.active{background:#c8472b;color:#fff;border-color:#c8472b;box-shadow:0 2px 10px rgba(200,71,43,.3)}
+.hr-yearsel .lbtab:hover:not(.active){color:var(--text);border-color:var(--text3)}
+.hr-sticky{position:sticky;top:0;z-index:50;background:var(--bg);padding:10px 0 4px;margin-bottom:10px;border-bottom:1px solid var(--border)}
+.hr-sticky .hr-bar{margin-bottom:6px}
+.hr-sticky .hr-bar:last-child{margin-bottom:0}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+td.sp,th.sp{color:var(--text3);font-variant-numeric:tabular-nums;text-align:right}
+</style>
+</head>
+<body>
+<div class="topbar"></div>
+<header class="site-hdr">
+  <div class="brand"><a href="/"><div class="brand-mark">Rowing<span class="brand-dot">.</span>Tools</div></a></div>
+  <p class="sub">Henley Royal Regatta - leaderboards</p>
+</header>
+<a href="/" class="back-link">← Back to main tools</a>
+
+<div class="hr-yearsel" id="hr-years"></div>
+
+<p class="info" style="margin-bottom:1rem">
+  Henley Regatta rankings by year and day - by raw time, by % of Henley course records at the start of the regatta, and by % of World Best Time.
+  <a href="/henley/methodology/" style="color:#c8472b;text-decoration:none;font-weight:600;white-space:nowrap">Full methodology →</a>
+</p>
+<details class="hr-cav">
+  <summary>Caveats - how to read these rankings</summary>
+  <ol class="hr-caveats">
+    <li>World Best Times are 2000m flat-water benchmarks, so given Henley's stream conditions and different distance markers, they're included only to allow comparison between crews, not as an absolute statement of speed.</li>
+    <li>Leading crews at Henley typically ease off before the line when the gap to the losing crew is large, so comparing crews at the Barrier and Fawley can be more insightful - especially on earlier days, where there can be larger margins of victory.</li>
+    <li>Conditions at Henley can vary significantly within a single day - that's why the weather conditions can be viewed for each race.</li>
+    <li>Henley record benchmarks are the records to each distance marker going into the regatta, so it's possible to score over 100%. The benchmarks do not change over the course of the regatta.</li>
+  </ol>
+</details>
+
+<div class="hr-sticky">
+<div class="hr-bar"><span class="hr-bar-label">Day</span><div class="lbtab-wrap" id="hr-days"></div></div>
+<div class="hr-bar"><span class="hr-bar-label">Rank</span><div class="lbtab-wrap" id="hr-tabs">
+  <button class="lbtab" data-tab="byevent">By event (raw time)</button>
+  <button class="lbtab active" data-tab="record">% of Henley record</button>
+  <button class="lbtab" data-tab="wbt">% of WBT</button>
+</div></div>
+<div class="hr-bar"><span class="hr-bar-label">Point</span><div class="lbtab-wrap" id="hr-markers">
+  <button class="lbtab" data-marker="barrier">Barrier</button>
+  <button class="lbtab" data-marker="fawley">Fawley</button>
+  <button class="lbtab active" data-marker="finish">Finish</button>
+</div></div>
+<div class="hr-bar"><span class="hr-bar-label">Filter</span>
+  <input type="text" id="hr-fclub" list="hr-clubs" placeholder="Club / crew…" class="hr-filter" autocomplete="off">
+  <input type="text" id="hr-fevent" list="hr-events" placeholder="Event…" class="hr-filter" autocomplete="off">
+  <button type="button" id="hr-fclear" class="hr-fclear" title="Clear filters">✕</button>
+</div>
+</div>
+<datalist id="hr-clubs"></datalist>
+<datalist id="hr-events"></datalist>
+
+<div id="hr-content"><p style="color:var(--text3);padding:2rem 0">Loading…</p></div>
+
+<div class="footer"><a href="mailto:feedback@rowingtools.co.uk">Contact Us - Suggestions &amp; Feedback</a></div>
+
+<script src="/conditions.js"></script>
+<script>
+// Year tabs are auto-detected: a year appears once data/henley_<year>.json exists.
+// To add 2026 during the regatta, just scrape it (writes the file) and push - no edit here.
+var YEAR_CANDIDATES=['2026','2025'];  // newest first; the newest available becomes the default tab
+var YEARS=[];
+var DAY_ORDER=['Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+// Distance from the start to each timing point, in metres (confirmed HRR figures).
+// Finish = 1 mile 550 yards = 2112m.
+var DIST={barrier:637, fawley:1047, finish:2112};
+var state={year:'2025',day:'',tab:'record',marker:'finish',fClub:'',fEvent:''};
+var RECORDS={}, WBT={}, RACES=[], _cache={};
+
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmtPct(p){return p==null?'—':p.toFixed(1)+'%';}
+function fmtPace(secs,dist){var s=secs*500/dist,m=Math.floor(s/60);return m+':'+(s-m*60).toFixed(1).padStart(4,'0');}
+function recColor(p){
+  if(p==null)return 'var(--text3)';
+  if(p>=100)return '#fbbf24'; if(p>=98)return '#34d399'; if(p>=96)return '#60a5fa'; if(p>=93)return '#fb923c'; return '#f87171';
+}
+function gmtColor(p){ // same tiers as the GMT calculator
+  if(p==null)return 'var(--text3)';
+  if(p>=87)return '#34d399'; if(p>=80)return '#60a5fa'; if(p>=72)return '#fb923c'; return '#f87171';
+}
+function parseWbt(t){var p=(t||'').split(':');return p.length===2?(+p[0])*60+parseFloat(p[1]):null;}
+function wbtBoat(cls){return cls?cls.replace(/^O/,'M'):null;}  // Henley open events are men's
+
+// Timed crew + secs at a marker for one race (loserLeading => loser owns the split).
+function markerEntry(race,marker){
+  var s=race[marker];
+  if(!s||s.secs==null||s.secs<=0)return null;
+  var ownerWin = marker==='finish' ? true : !s.loserLeading;
+  return {crew: ownerWin?race.winner:race.loser, secs:s.secs, display:s.display,
+    newRecord:!!s.newRecord, loserLeading:!!s.loserLeading, round:race.round, day:race.day,
+    event:race.eventShort||race.event, eventFull:race.event, eventKey:race.eventKey, cls:race['class'],
+    dt:race.dateTime, verdict:race.verdict};
+}
+// Best (fastest) entry per crew+event for a marker, within the day filter.
+function buildBest(marker){
+  var best={};
+  RACES.forEach(function(race){
+    if(race.withdrawn)return;
+    if(state.day!=='all'&&race.day!==state.day)return;
+    var e=markerEntry(race,marker);
+    if(!e||!e.crew)return;
+    var k=e.crew+'|'+e.eventKey;
+    if(!best[k]||e.secs<best[k].secs)best[k]=e;
+  });
+  return Object.keys(best).map(function(k){return best[k];});
+}
+// Fastest record to a marker set BEFORE the selected year (record "going into" the regatta).
+function recBaseline(eventKey,marker){
+  var r=RECORDS[eventKey]; if(!r||!r[marker])return null;
+  var y=+state.year, pre=r[marker].filter(function(x){return x.year&&x.year<y;});
+  if(!pre.length)return null;
+  return pre.reduce(function(a,b){return b.secs<a.secs?b:a;});
+}
+
+function tr(cols){return '<tr>'+cols.join('')+'</tr>';}
+function crewCell(e){return '<td><strong>'+esc(e.crew)+'</strong>'+(e.loserLeading?'<span class="hr-lost" title="Led at this point but lost the race - this split is the losing crew\'s time">LOST RACE</span>':'')+'</td>';}
+function paceCell(e,mk){return '<td class="sp">'+fmtPace(e.secs,DIST[mk])+'</td>';}
+// Drop the entry letter so A/B/C crews count as one club: "London R.C. 'A'" -> "London R.C."
+// (handles letters mid-name too, e.g. "Rutgers University 'A', U.S.A.").
+function baseClub(s){return (s||'').replace(/\s*'[A-Z]'/,'').trim();}
+function clubMatch(crew){var fc=baseClub(state.fClub).toLowerCase().trim();return !fc||baseClub(crew).toLowerCase().indexOf(fc)>=0;}
+// Filter by crew/club and/or event; ranks are assigned before this.
+function passFilter(e){
+  var fe=(state.fEvent||'').toLowerCase().trim();
+  if(!clubMatch(e.crew)) return false;
+  if(fe && (e.eventFull||e.event||'').toLowerCase().indexOf(fe)<0) return false;
+  return true;
+}
+function buildDatalists(){
+  var ev={}, cl={};
+  RACES.forEach(function(r){if(r.event)ev[r.event]=1;if(r.winner)cl[baseClub(r.winner)]=1;if(r.loser)cl[baseClub(r.loser)]=1;});
+  var elE=document.getElementById('hr-events'), elC=document.getElementById('hr-clubs');
+  if(elE)elE.innerHTML=Object.keys(ev).sort().map(function(x){return '<option value="'+esc(x)+'"></option>';}).join('');
+  if(elC)elC.innerHTML=Object.keys(cl).sort().map(function(x){return '<option value="'+esc(x)+'"></option>';}).join('');
+}
+
+// Fixed Henley course for the weather widget. Bearing = direction crews travel,
+// start (Temple Island) -> finish, 203 deg (SSW). Open-Meteo weather is area-level.
+var HENLEY_VENUE={name:'Henley Royal Regatta',lat:51.5395,lon:-0.8890,bearing:203,lanes:2};
+var WIND_ICON='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2"/><path d="M17.73 7.73A2.5 2.5 0 1 1 19.5 12H2"/><path d="M12.59 19.41A2 2 0 1 0 14 16H2"/></svg>';
+function marginInfo(v){v=v||'';var big=/easily|row[\s-]?over|not rowed/i.test(v);var n=parseFloat(v);if(!isNaN(n)&&n>=3)big=true;return{text:v||'—',big:big};}
+function marginCell(e){if(state.marker!=='finish')return '';var m=marginInfo(e.verdict);return '<td style="color:'+(m.big?'#fb923c':'var(--text3)')+'" title="'+(m.big?'Large margin - winner likely eased down before the line':'Winning margin')+'">'+esc(m.text)+(m.big?' ↓':'')+'</td>';}
+function wxCell(e){if(!e.dt)return '<td></td>';var date=e.dt.slice(0,10),clock=e.dt.slice(11,16),label=(e.crew+' · '+(e.eventFull||e.event||'')).replace(/"/g,'&quot;');return '<td class="r"><button class="hr-wx" title="Conditions during this race" data-clock="'+clock+'" data-date="'+date+'" data-label="'+label+'" data-boat="'+esc(wbtBoat(e.cls)||'')+'">'+WIND_ICON+'</button></td>';}
+function extraHead(){return (state.marker==='finish'?'<th>Margin</th>':'')+'<th class="r">Wx</th>';}
+function extraCells(e){return marginCell(e)+wxCell(e);}
+document.addEventListener('click',function(ev){var b=ev.target.closest&&ev.target.closest('.hr-wx');if(b&&window.wxOpen)window.wxOpen(b.dataset.clock,b.dataset.label,b.dataset.boat,b.dataset.date,HENLEY_VENUE);});
+
+function renderRecord(){
+  var mk=state.marker, entries=buildBest(mk).map(function(e){
+    var b=recBaseline(e.eventKey,mk); e.pct=b?(b.secs/e.secs*100):null; return e;
+  });
+  var withPct=entries.filter(function(e){return e.pct!=null;}).sort(function(a,b){return b.pct-a.pct;});
+  var noPct=entries.filter(function(e){return e.pct==null;}).sort(function(a,b){return a.secs-b.secs;});
+  var all=withPct.concat(noPct);
+  if(!all.length)return '<p style="color:var(--text3);padding:1rem 0">No timed crews at this point for the selected day.</p>';
+  all.forEach(function(e,i){e.rank=i+1;});
+  var shown=all.filter(passFilter);
+  if(!shown.length)return '<p style="color:var(--text3);padding:1rem 0">No crews match the filter.</p>';
+  var M=mk.charAt(0).toUpperCase()+mk.slice(1);
+  var body=shown.map(function(e){return tr([
+    '<td style="color:var(--text3)">'+e.rank+'</td>', crewCell(e),
+    '<td style="color:var(--text2)">'+esc(e.event)+'</td>',
+    '<td style="color:var(--text3)">'+esc(e.round)+'</td>',
+    '<td class="r">'+esc(e.display)+(e.newRecord?'<span class="hr-nr">NR</span>':'')+'</td>',
+    paceCell(e,mk),
+    '<td class="r hr-pct" style="color:'+recColor(e.pct)+'">'+fmtPct(e.pct)+'</td>', extraCells(e)]);}).join('');
+  return '<div class="tbl-wrap"><table class="tbl"><thead>'+tr([
+      '<th>#</th>','<th>Crew</th>','<th>Event</th>','<th>Round</th>','<th class="r">'+M+'</th>','<th class="sp">/500m</th>','<th class="r">% of record</th>', extraHead()])
+    +'</thead><tbody>'+body+'</tbody></table></div>'
+    +'<p class="hr-note">% of the Henley record to the '+M.toLowerCase()+' as it stood going into '+state.year+'. Over 100% = beat that record (NR).</p>';
+}
+
+function renderWbt(){
+  var mk=state.marker, scale=2000/DIST[mk];
+  var entries=buildBest(mk).map(function(e){
+    var boat=wbtBoat(e.cls), w=WBT[boat];
+    e.boat=boat; e.pct=w?(w/(e.secs*scale)*100):null; return e;
+  }).filter(function(e){return e.pct!=null;}).sort(function(a,b){return b.pct-a.pct;});
+  if(!entries.length)return '<p style="color:var(--text3);padding:1rem 0">No timed crews at this point for the selected day.</p>';
+  entries.forEach(function(e,i){e.rank=i+1;});
+  var shown=entries.filter(passFilter);
+  if(!shown.length)return '<p style="color:var(--text3);padding:1rem 0">No crews match the filter.</p>';
+  var M=mk.charAt(0).toUpperCase()+mk.slice(1);
+  var body=shown.map(function(e){return tr([
+    '<td style="color:var(--text3)">'+e.rank+'</td>', crewCell(e),
+    '<td style="color:var(--text2)">'+esc(e.event)+'</td>',
+    '<td style="color:var(--text3)">'+esc(e.boat)+'</td>',
+    '<td class="r">'+esc(e.display)+'</td>',
+    paceCell(e,mk),
+    '<td class="r hr-pct" style="color:'+gmtColor(e.pct)+'">'+fmtPct(e.pct)+'</td>', extraCells(e)]);}).join('');
+  return '<div class="tbl-wrap"><table class="tbl"><thead>'+tr([
+      '<th>#</th>','<th>Crew</th>','<th>Event</th>','<th>Boat</th>','<th class="r">'+M+'</th>','<th class="sp">/500m</th>','<th class="r">% of WBT</th>', extraHead()])
+    +'</thead><tbody>'+body+'</tbody></table></div>'
+    +'<p class="hr-note">'+M+' pace scaled to 2000m (× 2000/'+DIST[mk]+'m) vs the World Best Time for the boat class - the same benchmark as the GMT% calculator. WBT is a flat-water 2000m benchmark and Henley\'s stream differs by year, so read % of WBT as a cross-crew ranking, not an absolute speed. Tiers: ≥87% green, 80-87% blue, 72-80% amber.</p>';
+}
+
+function renderByEvent(){
+  var mk=state.marker, entries=buildBest(mk);
+  var byEvent={};
+  entries.forEach(function(e){(byEvent[e.eventKey]=byEvent[e.eventKey]||{name:e.eventFull,key:e.eventKey,rows:[]}).rows.push(e);});
+  var keys=Object.keys(byEvent).sort(function(a,b){return byEvent[a].name.localeCompare(byEvent[b].name);});
+  if(!keys.length)return '<p style="color:var(--text3);padding:1rem 0">No timed crews at this point for the selected day.</p>';
+  var M=mk.charAt(0).toUpperCase()+mk.slice(1);
+  var fe=(state.fEvent||'').toLowerCase().trim();
+  var blocks=keys.filter(function(k){return !fe||(byEvent[k].name||'').toLowerCase().indexOf(fe)>=0;}).map(function(k){
+    var ev=byEvent[k]; ev.rows.sort(function(a,b){return a.secs-b.secs;});
+    ev.rows.forEach(function(e,i){e.rank=i+1;});  // rank within the event, before filtering
+    var b=recBaseline(k,mk);
+    var rows=ev.rows.filter(function(e){return clubMatch(e.crew);});
+    if(!rows.length)return '';
+    var body=rows.map(function(e){
+      var pct=b?(b.secs/e.secs*100):null;
+      return tr(['<td style="color:var(--text3)">'+e.rank+'</td>', crewCell(e),
+        '<td style="color:var(--text3)">'+esc(e.round)+'</td>',
+        '<td class="r">'+esc(e.display)+(e.newRecord?'<span class="hr-nr">NR</span>':'')+'</td>',
+        paceCell(e,mk),
+        '<td class="r hr-pct" style="color:'+recColor(pct)+'">'+fmtPct(pct)+'</td>', extraCells(e)]);}).join('');
+    return '<details class="hr-event-block" open><summary class="hr-ev-sum"><span class="hr-event-name">'+esc(ev.name)+'</span>'
+      +'<span class="hr-event-rec">Record to '+M.toLowerCase()+' (into '+state.year+'): <strong>'+(b?b.display:'— none')+'</strong></span></summary>'
+      +'<div class="tbl-wrap"><table class="tbl"><thead>'+tr(['<th>#</th>','<th>Crew</th>','<th>Round</th>','<th class="r">'+M+'</th>','<th class="sp">/500m</th>','<th class="r">% rec</th>', extraHead()])
+      +'</thead><tbody>'+body+'</tbody></table></div></details>';
+  }).filter(Boolean);
+  if(!blocks.length)return '<p style="color:var(--text3);padding:1rem 0">No crews match the filter.</p>';
+  return blocks.join('');
+}
+
+function render(){
+  var el=document.getElementById('hr-content');
+  el.innerHTML = state.tab==='wbt'?renderWbt() : state.tab==='byevent'?renderByEvent() : renderRecord();
+}
+
+function setActive(box,btn){box.querySelectorAll('.lbtab').forEach(function(b){b.classList.toggle('active',b===btn);});}
+function renderDayTabs(){
+  var present=[]; RACES.forEach(function(r){if(present.indexOf(r.day)<0)present.push(r.day);});
+  present.sort(function(a,b){return DAY_ORDER.indexOf(a)-DAY_ORDER.indexOf(b);});
+  var box=document.getElementById('hr-days');
+  if(present.indexOf(state.day)<0)state.day=present[0]||'';  // default to the first racing day
+  box.innerHTML=present.map(function(d){return '<button class="lbtab'+(d===state.day?' active':'')+'" data-day="'+d+'">'+d.slice(0,3)+'</button>';}).join('');
+  box.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.day=b.dataset.day;setActive(box,b);render();};});
+}
+function renderYearTabs(){
+  var box=document.getElementById('hr-years');
+  box.innerHTML=YEARS.map(function(y,i){return '<button class="lbtab'+(i===0?' active':'')+'" data-year="'+y+'">'+y+'</button>';}).join('');
+  box.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){setActive(box,b);loadYear(b.dataset.year);};});
+}
+function wireToggles(){
+  var t=document.getElementById('hr-tabs');
+  t.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.tab=b.dataset.tab;setActive(t,b);render();};});
+  var mk=document.getElementById('hr-markers');
+  mk.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.marker=b.dataset.marker;setActive(mk,b);render();};});
+  var fc=document.getElementById('hr-fclub'), fe=document.getElementById('hr-fevent'), fx=document.getElementById('hr-fclear');
+  if(fc)fc.oninput=function(){state.fClub=this.value;render();};
+  if(fe)fe.oninput=function(){state.fEvent=this.value;render();};
+  if(fx)fx.onclick=function(){state.fClub='';state.fEvent='';if(fc)fc.value='';if(fe)fe.value='';render();};
+}
+function loadYear(year){
+  state.year=year; state.day='';
+  document.getElementById('hr-content').innerHTML='<p style="color:var(--text3);padding:2rem 0">Loading…</p>';
+  var done=function(races){RACES=races;buildDatalists();renderDayTabs();render();};
+  if(_cache[year])return done(_cache[year]);
+  fetch('/data/henley_'+year+'.json').then(function(r){return r.json();}).then(function(races){_cache[year]=races;done(races);})
+    .catch(function(){document.getElementById('hr-content').innerHTML='<p style="color:var(--text3)">Could not load Henley '+year+' data.</p>';});
+}
+
+Promise.all([
+  fetch('/data/henley_records.json').then(function(r){return r.json();}),
+  fetch('/data/benchmarks_v3.json').then(function(r){return r.json();})
+]).then(function(res){
+  RECORDS=res[0];
+  var w=res[1].wbt||{}; Object.keys(w).forEach(function(k){WBT[k]=parseWbt(w[k].time);});
+  // Probe each candidate year's data file; only years with data become tabs.
+  return Promise.all(YEAR_CANDIDATES.map(function(y){
+    return fetch('/data/henley_'+y+'.json').then(function(r){return r.ok?r.json():null;})
+      .catch(function(){return null;}).then(function(d){return {y:y,d:d};});
+  }));
+}).then(function(found){
+  found.forEach(function(o){if(o.d&&o.d.length){_cache[o.y]=o.d;YEARS.push(o.y);}});  // tab appears only once the year has races
+  if(!YEARS.length){document.getElementById('hr-content').innerHTML='<p style="color:var(--text3);padding:2rem 0">No Henley data available yet.</p>';return;}
+  renderYearTabs(); wireToggles(); loadYear(YEARS[0]);
+}).catch(function(){document.getElementById('hr-content').innerHTML='<p style="color:var(--text3)">Could not load Henley data.</p>';});
+</script>
+</body>
+</html>

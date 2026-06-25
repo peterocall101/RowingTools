@@ -1,0 +1,61 @@
+name: Henley 2026 auto-update
+
+# Scrapes the live HRR results during the 2026 regatta and commits ONLY
+# data/henley_2026.json. It never touches any other file (the page auto-detects
+# the 2026 tab once that file has races, so no HTML edit is needed).
+
+on:
+  workflow_dispatch: {}          # manual trigger (e.g. from the GitHub mobile app)
+  schedule:
+    # Every 30 min, 06:00-19:30 UTC, on the HRR 2026 race days (Tue 30 Jun - Sun 5 Jul 2026).
+    - cron: '*/30 6-19 30 6 *'   # Tue 30 June
+    - cron: '*/30 6-19 1-5 7 *'  # Wed 1 - Sun 5 July
+
+permissions:
+  contents: write
+
+concurrency:
+  group: henley-2026-update
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard to the HRR 2026 dates
+        run: |
+          today=$(date -u +%Y-%m-%d)
+          if [[ "$today" < "2026-06-30" || "$today" > "2026-07-05" ]]; then
+            echo "Outside the HRR 2026 window ($today UTC) - skipping."
+            echo "SKIP=1" >> "$GITHUB_ENV"
+          else
+            echo "Within HRR 2026 window ($today UTC)."
+          fi
+
+      - uses: actions/setup-python@v5
+        if: env.SKIP != '1'
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        if: env.SKIP != '1'
+        run: pip install -r requirements.txt
+
+      - name: Scrape 2026 results (year file only)
+        if: env.SKIP != '1'
+        run: python gmt_processor/inputs/scrape_henley.py --year 2026 --results-only
+
+      - name: Commit & push if the 2026 data changed
+        if: env.SKIP != '1'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/henley_2026.json
+          if git diff --cached --quiet; then
+            echo "No new results since the last run."
+            exit 0
+          fi
+          git commit -m "Henley 2026: auto-update results ($(date -u +%FT%TZ))"
+          git push
