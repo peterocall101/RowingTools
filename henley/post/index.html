@@ -191,7 +191,7 @@ function drawStory(it){
   _tx(ctx,it.event,64,cy+10,'500 30px '+JM,fade(.55),'left',2);
   _bigVal(ctx,it.big,it.suffix||'',64,1480,950);
   _tx(ctx,(it.ctx||'').toUpperCase(),64,1560,'500 24px '+JM,fade(.5),'left',3);
-  if(it.time)_tx(ctx,'TIME — '+it.time,64,1635,'500 28px '+JM,fade(.55),'left',2);
+  if(it.time)_tx(ctx,'TIME  '+it.time+(it.pace?'      /500m  '+it.pace:''),64,1635,'500 26px '+JM,fade(.55),'left',1);
   ctx.strokeStyle=fade(.15);ctx.beginPath();ctx.moveTo(64,1800);ctx.lineTo(1016,1800);ctx.stroke();
   _tx(ctx,'FULL LEADERBOARDS · ROWINGTOOLS.CO.UK / HENLEY',64,1860,'700 22px '+JM,fade(.45),'left',3);
   return c;
@@ -202,8 +202,8 @@ function topWbt(m){var sc=2000/DIST[m];var r=buildBest(m).map(function(e){var w=
 // Six fixed stories per day: fastest to each marker by % of Henley record and by % of WBT.
 function storyItems(){
   var out=[],cap=function(m){return m.charAt(0).toUpperCase()+m.slice(1);};
-  ['barrier','fawley','finish'].forEach(function(m){var t=topRec(m);if(t)out.push({k:'Closest to the '+cap(m)+' record',crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',ctx:'of the Henley '+m+' record',time:t.e.display});});
-  ['barrier','fawley','finish'].forEach(function(m){var t=topWbt(m);if(t)out.push({k:'Fastest to the '+cap(m)+' (vs WBT)',crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',ctx:'of World Best Time',time:t.e.display});});
+  ['barrier','fawley','finish'].forEach(function(m){var t=topRec(m);if(t)out.push({k:'Closest to the '+cap(m)+' record',crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',ctx:'of the Henley '+m+' record',time:t.e.display,pace:fmtPace(t.e.secs,DIST[m])});});
+  ['barrier','fawley','finish'].forEach(function(m){var t=topWbt(m);if(t)out.push({k:'Fastest to the '+cap(m)+' (vs WBT)',crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',ctx:'of World Best Time',time:t.e.display,pace:fmtPace(t.e.secs,DIST[m])});});
   return out;
 }
 
