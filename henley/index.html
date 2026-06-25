@@ -211,7 +211,7 @@ function buildDatalists(){
 var HENLEY_VENUE={name:'Henley Royal Regatta',lat:51.5395,lon:-0.8890,bearing:203,lanes:2};
 var WIND_ICON='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2"/><path d="M17.73 7.73A2.5 2.5 0 1 1 19.5 12H2"/><path d="M12.59 19.41A2 2 0 1 0 14 16H2"/></svg>';
 function marginInfo(v){v=v||'';var big=/easily|row[\s-]?over|not rowed/i.test(v);var n=parseFloat(v);if(!isNaN(n)&&n>=3)big=true;return{text:v||'—',big:big};}
-function marginCell(e){if(state.marker!=='finish')return '';var m=marginInfo(e.verdict);return '<td style="color:'+(m.big?'#fb923c':'var(--text3)')+'" title="'+(m.big?'Large margin - winner likely eased down before the line':'Winning margin')+'">'+esc(m.text)+(m.big?' ↓':'')+'</td>';}
+function marginCell(e){if(state.marker!=='finish')return '';var m=marginInfo(e.verdict);return '<td style="color:'+(m.big?'#fb923c':'var(--text3)')+'" title="'+(m.big?'Large margin - winner likely eased down before the line':'Winning margin')+'">'+esc(m.text)+'</td>';}
 function wxCell(e){if(!e.dt)return '<td></td>';var date=e.dt.slice(0,10),clock=e.dt.slice(11,16),label=(e.crew+' · '+(e.eventFull||e.event||'')).replace(/"/g,'&quot;');return '<td class="r"><button class="hr-wx" title="Conditions during this race" data-clock="'+clock+'" data-date="'+date+'" data-label="'+label+'" data-boat="'+esc(wbtBoat(e.cls)||'')+'">'+WIND_ICON+'</button></td>';}
 function extraHead(){return (state.marker==='finish'?'<th>Margin</th>':'')+'<th class="r">Wx</th>';}
 function extraCells(e){return marginCell(e)+wxCell(e);}
