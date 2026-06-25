@@ -8,20 +8,22 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,700;9..144,900&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/app.css">
 <style>
 .pg-note{font-size:12px;color:var(--text3);background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;margin-bottom:1.25rem}
 .pg-bar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:1rem}
 .pg-bar-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);width:46px}
 .pg-bar select{min-width:280px}
-.pg-go{background:#c8472b;color:#fff;border:none;border-radius:10px;padding:11px 24px;font-size:15px;font-weight:700;cursor:pointer;margin:.5rem 0 1.5rem}
-.pg-go:hover{background:#b03d26}
+.pg-actions{display:flex;gap:10px;flex-wrap:wrap;margin:.5rem 0 1.5rem}
+.pg-go{background:#c8472b;color:#fff;border:none;border-radius:10px;padding:11px 22px;font-size:15px;font-weight:700;cursor:pointer}
+.pg-go.alt{background:var(--bg2);color:var(--text);border:1.5px solid var(--border2)}
+.pg-go:hover{filter:brightness(1.08)}
 #pg-caption{max-width:420px;margin-bottom:1.5rem}
 .pg-cap-lbl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
 #pg-cap-txt{width:100%;background:var(--bg2);color:var(--text);border:1.5px solid var(--border2);border-radius:10px;padding:12px;font-family:inherit;font-size:13px;line-height:1.55;resize:vertical}
 .pg-cards{display:flex;flex-direction:column;gap:20px;max-width:420px}
-.pg-card img{width:100%;border-radius:10px;display:block;border:1px solid var(--border)}
+.pg-card canvas{width:100%;border-radius:10px;display:block;border:1px solid var(--border)}
 .pg-dl{margin-top:8px;width:100%;background:var(--bg2);color:var(--text);border:1.5px solid var(--border2);border-radius:8px;padding:11px;font-size:14px;font-weight:600;cursor:pointer}
 .pg-dl:hover{border-color:#c8472b;color:#c8472b}
 </style>
@@ -34,7 +36,7 @@
 </header>
 <a href="/henley/" class="back-link" style="font-size:13px;color:var(--text3);text-decoration:none">← Back to Henley leaderboards</a>
 
-<p class="pg-note">Unlisted creator tool (not linked or indexed). Pick a day - the suggested angle is auto-selected (change it if you like) - then generate a short carousel + caption, save each image, and post.</p>
+<p class="pg-note">Unlisted creator tool (not linked or indexed). Pick a day - the suggested angle is auto-selected - then make a carousel (cover + top 5 + outro) or 5 story cards. Same navy / Fraunces house style as the regatta carousels.</p>
 
 <div class="pg-bar"><span class="pg-bar-label">Year</span><div class="lbtab-wrap" id="pg-years"></div></div>
 <div class="pg-bar"><span class="pg-bar-label">Day</span><div class="lbtab-wrap" id="pg-days"></div></div>
@@ -57,7 +59,10 @@
     </optgroup>
   </select>
 </div>
-<button type="button" id="pg-go" class="pg-go">📸 Generate carousel + caption</button>
+<div class="pg-actions">
+  <button type="button" id="pg-go" class="pg-go">📸 Carousel + caption</button>
+  <button type="button" id="pg-go-story" class="pg-go alt">📱 5 story cards</button>
+</div>
 
 <div id="pg-caption"></div>
 <div class="pg-cards" id="pg-cards"></div>
@@ -65,116 +70,180 @@
 <script>
 var YEAR_CANDIDATES=['2026','2025'];
 var DAY_ORDER=['Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-// Suggested rotation: a different angle each day so the feed never repeats.
 var DAY_ANGLE={Tuesday:'barrier-rec',Wednesday:'fawley-rec',Thursday:'finish-wbt',Friday:'records',Saturday:'finish-rec',Sunday:'finish-wbt'};
 var DIST={barrier:637,fawley:1047,finish:2112};
 var ANGLES={
-  'barrier-rec':{cover:['FASTEST','STARTS'],title:'Fastest starts',sub:'Top 5 to the Barrier · % of Henley record',kind:'rec',marker:'barrier',what:'closest to the Barrier record'},
-  'fawley-rec':{cover:['THROUGH THE','HALF-MILE'],title:'Through the half-mile',sub:'Top 5 to Fawley · % of Henley record',kind:'rec',marker:'fawley',what:'closest to the Fawley record'},
-  'finish-rec':{cover:['CLOSEST TO','THE RECORD'],title:'Closest to the record',sub:'Top 5 to the Finish · % of Henley record',kind:'rec',marker:'finish',what:'closest to the course record'},
-  'barrier-wbt':{cover:['FASTEST','STARTS'],title:'Fastest starts',sub:'Top 5 to the Barrier · % of World Best',kind:'wbt',marker:'barrier',what:'fastest to the Barrier vs World Best'},
-  'fawley-wbt':{cover:['THROUGH THE','HALF-MILE'],title:'Through the half-mile',sub:'Top 5 to Fawley · % of World Best',kind:'wbt',marker:'fawley',what:'fastest to Fawley vs World Best'},
-  'finish-wbt':{cover:['FASTEST','CREWS'],title:'Fastest crews',sub:'Top 5 · % of World Best Time',kind:'wbt',marker:'finish',what:'fastest vs World Best Time'},
-  'records':{cover:['RECORDS','BROKEN'],title:'Course records broken',sub:'New Henley course records today',kind:'records'},
-  'biggest':{cover:['BIGGEST','WINS'],title:'Biggest wins',sub:'Largest winning margins',kind:'margin',dir:'big'},
-  'closest':{cover:['CLOSEST','RACES'],title:'Closest races',sub:'Smallest winning margins',kind:'margin',dir:'close'}
+  'barrier-rec':{title:'Fastest starts',sub:'Top 5 to the Barrier · % of Henley record',kind:'rec',marker:'barrier'},
+  'fawley-rec':{title:'Through the half-mile',sub:'Top 5 to Fawley · % of Henley record',kind:'rec',marker:'fawley'},
+  'finish-rec':{title:'Closest to the record',sub:'Top 5 to the Finish · % of Henley record',kind:'rec',marker:'finish'},
+  'barrier-wbt':{title:'Fastest starts',sub:'Top 5 to the Barrier · % of World Best',kind:'wbt',marker:'barrier'},
+  'fawley-wbt':{title:'Through the half-mile',sub:'Top 5 to Fawley · % of World Best',kind:'wbt',marker:'fawley'},
+  'finish-wbt':{title:'Fastest crews',sub:'Top 5 · % of World Best Time',kind:'wbt',marker:'finish'},
+  'records':{title:'Records broken',sub:'New Henley course records today',kind:'records'},
+  'biggest':{title:'Biggest wins',sub:'Largest winning margins',kind:'margin',dir:'big'},
+  'closest':{title:'Closest races',sub:'Smallest winning margins',kind:'margin',dir:'close'}
 };
 var state={year:'',day:'',angle:'barrier-rec'};
-var RECORDS={}, WBT={}, RACES=[], YEARS=[], _cache={};
+var RECORDS={}, WBT={}, RACES=[], YEARS=[], _cache={}, _fontsReady=false;
+
+// ── house style (matches carousel-template-final.html) ──
+var INK='#0a1628', PAPER='#f4efe6', ACC='#c8472b', GOLD='#b8893a';
+var FR='Fraunces', JM='"JetBrains Mono"';
+function fade(a){return 'rgba(244,239,230,'+a+')';}
+function rankColor(r){return r===1?ACC:r<=3?GOLD:PAPER;}
 
 function parseWbt(t){var p=(t||'').split(':');return p.length===2?(+p[0])*60+parseFloat(p[1]):null;}
 function wbtBoat(c){return c?c.replace(/^O/,'M'):null;}
-function recColor(p){if(p==null)return '#6b7280';if(p>=100)return '#fbbf24';if(p>=98)return '#34d399';if(p>=96)return '#60a5fa';if(p>=93)return '#fb923c';return '#f87171';}
-function gmtColor(p){if(p==null)return '#6b7280';if(p>=87)return '#34d399';if(p>=80)return '#60a5fa';if(p>=72)return '#fb923c';return '#f87171';}
+function fmtPace(secs,dist){var s=secs*500/dist,m=Math.floor(s/60);return m+':'+(s-m*60).toFixed(1).padStart(4,'0');}
 function markerEntry(race,m){var s=race[m];if(!s||s.secs==null||s.secs<=0)return null;var win=m==='finish'?true:!s.loserLeading;
   return {crew:win?race.winner:race.loser,secs:s.secs,display:s.display,newRecord:!!s.newRecord,loserLeading:!!s.loserLeading,eventFull:race.event,event:race.eventShort||race.event,eventKey:race.eventKey,cls:race['class']};}
 function buildBest(m){var best={};RACES.forEach(function(r){if(r.withdrawn)return;if(state.day&&r.day!==state.day)return;var e=markerEntry(r,m);if(!e||!e.crew)return;var k=e.crew+'|'+e.eventKey;if(!best[k]||e.secs<best[k].secs)best[k]=e;});return Object.keys(best).map(function(k){return best[k];});}
 function recBaseline(ek,m){var r=RECORDS[ek];if(!r||!r[m])return null;var y=+state.year,pre=r[m].filter(function(x){return x.year&&x.year<y;});return pre.length?pre.reduce(function(a,b){return b.secs<a.secs?b:a;}):null;}
 function dayRaces(){return RACES.filter(function(r){return !r.withdrawn&&(!state.day||r.day===state.day)&&r.verdict&&!/row.?over|not rowed/i.test(r.verdict);});}
 function marginLengths(v){v=(v||'').toLowerCase();if(/easily/.test(v))return 99;if(/dead heat/.test(v))return 0;if(/feet/.test(v))return 0.08;if(/canvas/.test(v))return 0.2;var n=0,m=v.match(/(\d+)/);if(m)n=parseInt(m[1]);if(/¾/.test(v))n+=0.75;else if(/½/.test(v))n+=0.5;else if(/¼/.test(v))n+=0.25;return n;}
-
-function rowsFor(a){
-  if(a.kind==='rec')return buildBest(a.marker).map(function(e){var b=recBaseline(e.eventKey,a.marker);return {e:e,pct:b?(b.secs/e.secs*100):null};})
-    .filter(function(o){return o.pct!=null;}).sort(function(x,y){return y.pct-x.pct;}).slice(0,5)
-    .map(function(o,i){return {rank:i+1,name:o.e.crew,sub:o.e.eventFull,val:o.pct.toFixed(1)+'%',color:recColor(o.pct)};});
-  if(a.kind==='wbt'){var sc=2000/DIST[a.marker];return buildBest(a.marker).map(function(e){var w=WBT[wbtBoat(e.cls)];return {e:e,pct:w?(w/(e.secs*sc)*100):null};})
-    .filter(function(o){return o.pct!=null;}).sort(function(x,y){return y.pct-x.pct;}).slice(0,5)
-    .map(function(o,i){return {rank:i+1,name:o.e.crew,sub:o.e.eventFull,val:o.pct.toFixed(1)+'%',color:gmtColor(o.pct)};});}
-  if(a.kind==='margin'){var dr=dayRaces();dr.sort(function(x,y){return a.dir==='big'?marginLengths(y.verdict)-marginLengths(x.verdict):marginLengths(x.verdict)-marginLengths(y.verdict);});
-    return dr.slice(0,5).map(function(r,i){return {rank:i+1,name:r.winner,sub:r.eventShort||r.event,val:r.verdict,color:a.dir==='big'?'#fb923c':'#34d399'};});}
-  return [];
-}
 function recordsList(){var day=state.day,nr=[];RACES.forEach(function(r){if(day&&r.day!==day)return;['barrier','fawley','finish'].forEach(function(mk){if(r[mk]&&r[mk].newRecord){var win=mk==='finish'?true:!r[mk].loserLeading;nr.push({crew:win?r.winner:r.loser,event:r.eventShort||r.event,marker:mk,time:r[mk].display});}});});return nr;}
 
-// ── card SVGs (1080x1350) ──
-function _x(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function _tr(s,n){s=s||'';return s.length>n?s.slice(0,n-1)+'…':s;}
-function _t(x,y,s,sz,fill,w,anchor,fam){return '<text x="'+x+'" y="'+y+'" font-family="'+(fam||'-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif')+'" font-size="'+sz+'" font-weight="'+(w||'400')+'" fill="'+fill+'"'+(anchor?' text-anchor="'+anchor+'"':'')+'>'+_x(s)+'</text>';}
-var _HDR='<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">';
-function _frame(){return '<rect width="1080" height="1350" fill="#0f0f0e"/><rect width="1080" height="10" fill="#c8472b"/>';}
-function _foot(n){return _t(80,1290,n,26,'#6b7280','500')+_t(1000,1290,'rowingtools.co.uk/henley',26,'#c8472b','700','end');}
-function _coverA(a,day){return _HDR+_frame()
-  +_t(80,150,'Rowing.Tools',42,'#f5efe6','700',null,'Georgia,serif')
-  +_t(80,580,a.cover[0],90,'#f0f0ee','800',null,'Georgia,serif')
-  +_t(80,675,a.cover[1],90,'#c8472b','800',null,'Georgia,serif')
-  +_t(80,775,'HENLEY ROYAL REGATTA '+state.year,30,'#9ca3af','700')
-  +_t(80,825,(day||'').toUpperCase(),38,'#f0f0ee','700')
-  +_t(80,1180,a.sub,28,'#6b7280','500')
-  +_foot('Live results during the regatta')+'</svg>';}
-function _board(title,sub,rows){
-  var s=_HDR+_frame()+_t(80,90,'Rowing.Tools',32,'#f5efe6','700',null,'Georgia,serif')+_t(1000,90,'HENLEY '+state.year,26,'#c8472b','700','end')
-    +'<line x1="80" y1="120" x2="1000" y2="120" stroke="#252523" stroke-width="2"/>'+_t(80,212,title,56,'#f0f0ee','800')+_t(80,264,sub,28,'#9ca3af','500');
-  if(!rows.length)return s+_t(80,470,'— none today —',38,'#6b7280','600')+_foot('')+'</svg>';
-  var y=420,rh=132;
-  rows.forEach(function(r,i){s+=_t(80,y+i*rh,String(r.rank),40,'#6b7280','700')+_t(175,y+i*rh,_tr(r.name,24),44,'#f0f0ee','700')
-    +_t(175,y+i*rh+44,_tr(r.sub,32),26,'#9ca3af','500')+_t(1000,y+i*rh,r.val,52,r.color,'800','end');});
-  return s+_foot('')+'</svg>';
+// Build the per-slide data for the chosen angle (up to 5 entries).
+function slideData(a){
+  if(a.kind==='rec')return buildBest(a.marker).map(function(e){var b=recBaseline(e.eventKey,a.marker);return {e:e,pct:b?(b.secs/e.secs*100):null};})
+    .filter(function(o){return o.pct!=null;}).sort(function(x,y){return y.pct-x.pct;}).slice(0,5)
+    .map(function(o,i){return {rank:i+1,eventLine:o.e.eventFull,crew:o.e.crew,label:'% of Henley '+a.marker+' record',val:o.pct.toFixed(1),suffix:'%',s1:['Time',o.e.display],s2:['/500m',fmtPace(o.e.secs,DIST[a.marker])]};});
+  if(a.kind==='wbt'){var sc=2000/DIST[a.marker];return buildBest(a.marker).map(function(e){var w=WBT[wbtBoat(e.cls)];return {e:e,pct:w?(w/(e.secs*sc)*100):null};})
+    .filter(function(o){return o.pct!=null;}).sort(function(x,y){return y.pct-x.pct;}).slice(0,5)
+    .map(function(o,i){return {rank:i+1,eventLine:o.e.eventFull,crew:o.e.crew,label:'% of World Best ('+a.marker+')',val:o.pct.toFixed(1),suffix:'%',s1:['Time',o.e.display],s2:['/500m',fmtPace(o.e.secs,DIST[a.marker])]};});}
+  if(a.kind==='records')return recordsList().slice(0,5).map(function(r,i){return {rank:i+1,eventLine:r.event,crew:r.crew,label:'New '+r.marker+' record',val:r.time,suffix:'',gold:true};});
+  if(a.kind==='margin'){var dr=dayRaces();dr.sort(function(x,y){return a.dir==='big'?marginLengths(y.verdict)-marginLengths(x.verdict):marginLengths(x.verdict)-marginLengths(y.verdict);});
+    return dr.slice(0,5).map(function(r,i){return {rank:i+1,eventLine:r.eventShort||r.event,crew:r.winner,label:'Winning margin',val:r.verdict,suffix:''};});}
+  return [];
 }
-function _records(day,nr){
-  var s=_HDR+_frame()+_t(80,90,'Rowing.Tools',32,'#f5efe6','700',null,'Georgia,serif')+_t(1000,90,'HENLEY '+state.year,26,'#c8472b','700','end')
-    +'<line x1="80" y1="120" x2="1000" y2="120" stroke="#252523" stroke-width="2"/>'+_t(80,212,'Course records broken',54,'#fbbf24','800')+_t(80,264,day,28,'#9ca3af','500');
-  if(!nr.length)return s+_t(80,470,'— none broken today —',38,'#6b7280','600')+_foot('')+'</svg>';
-  var y=420,rh=150;
-  nr.slice(0,5).forEach(function(r,i){s+=_t(80,y+i*rh,_tr(r.crew,26),44,'#f0f0ee','700')+_t(80,y+i*rh+44,r.event+' · '+r.marker,26,'#9ca3af','500')+_t(1000,y+i*rh,r.time,48,'#fbbf24','800','end');});
-  return s+_foot('New Henley records')+'</svg>';
+
+// ── canvas drawing ──
+function _tx(ctx,s,x,y,font,color,align,sp){ctx.font=font;ctx.fillStyle=color;ctx.textAlign=align||'left';ctx.textBaseline='alphabetic';try{ctx.letterSpacing=(sp||0)+'px';}catch(e){}ctx.fillText(s,x,y);try{ctx.letterSpacing='0px';}catch(e){}}
+function _wrap(ctx,s,font,maxw){ctx.font=font;var words=(s||'').split(' '),lines=[],cur='';words.forEach(function(w){var t=cur?cur+' '+w:w;if(ctx.measureText(t).width>maxw&&cur){lines.push(cur);cur=w;}else cur=t;});if(cur)lines.push(cur);return lines;}
+function _newC(W,H){var c=document.createElement('canvas');c.width=W;c.height=H;return c;}
+function _header(ctx,W,meta,nSeg,cur){
+  _tx(ctx,'rowingtools',64,96,'900 36px '+FR,PAPER,'left');ctx.font='900 36px '+FR;var mw=ctx.measureText('rowingtools').width;
+  _tx(ctx,'.',64+mw,96,'900 36px '+FR,ACC,'left');
+  _tx(ctx,meta,W-64,92,'700 22px '+JM,fade(.5),'right',3);
+  if(nSeg){var x0=64,x1=W-64,gap=6,seg=(x1-x0-(nSeg-1)*gap)/nSeg;for(var i=0;i<nSeg;i++){ctx.fillStyle=i<=cur?fade(.7):fade(.2);ctx.fillRect(x0+i*(seg+gap),118,seg,3);}}
 }
-function _outro(day){return _HDR+_frame()
-  +_t(80,150,'Rowing.Tools',42,'#f5efe6','700',null,'Georgia,serif')
-  +_t(80,560,'Every crew,',70,'#f0f0ee','800',null,'Georgia,serif')
-  +_t(80,650,'split &amp; condition',70,'#f0f0ee','800',null,'Georgia,serif')
-  +_t(80,770,'rowingtools.co.uk',46,'#c8472b','800')
-  +_t(80,830,'/henley',46,'#c8472b','800')
-  +_t(80,1180,'Barrier · Fawley · Finish — % of record &amp; World Best, with race-day weather',26,'#6b7280','500')
-  +_foot('Live during the regatta')+'</svg>';}
-function _svgToPng(svg,fn){var url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));var img=new Image();
-  img.onload=function(){var c=document.createElement('canvas');c.width=1080;c.height=1350;c.getContext('2d').drawImage(img,0,0,1080,1350);
-    c.toBlob(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;a.click();},'image/png');URL.revokeObjectURL(url);};img.src=url;}
+function _bigVal(ctx,val,suffix,x,y,maxw){
+  var sz=150;ctx.font='900 '+sz+'px '+FR;while(ctx.measureText(val).width>maxw&&sz>54){sz-=8;ctx.font='900 '+sz+'px '+FR;}
+  _tx(ctx,val,x,y,'900 '+sz+'px '+FR,PAPER,'left');
+  if(suffix){var w=ctx.measureText(val).width;_tx(ctx,suffix,x+w+10,y,'400 '+Math.round(sz*0.34)+'px '+FR,ACC,'left');}
+}
+function _meta(){return "HENLEY '"+String(state.year).slice(2);}
+
+function drawCover(a,day,nSeg){
+  var W=1080,H=1350,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_header(ctx,W,_meta(),nSeg,0);
+  ctx.textAlign='center';
+  _tx(ctx,(day?day:'HENLEY '+state.year).toUpperCase(),W/2,440,'700 26px '+JM,ACC,'center',6);
+  var lines=_wrap(ctx,a.title,'900 120px '+FR,920),y=560;
+  lines.forEach(function(l){_tx(ctx,l,W/2,y,'900 120px '+FR,PAPER,'center');y+=120;});
+  _tx(ctx,a.sub,W/2,y+40,'italic 300 40px '+FR,fade(.6),'center');
+  ctx.strokeStyle=fade(.15);ctx.beginPath();ctx.moveTo(W/2-200,1050);ctx.lineTo(W/2+200,1050);ctx.stroke();
+  _tx(ctx,'ROWINGTOOLS.CO.UK / HENLEY',W/2,1110,'700 24px '+JM,fade(.45),'center',5);
+  _tx(ctx,'SWIPE  →',W/2,1230,'700 24px '+JM,fade(.4),'center',6);
+  return c;
+}
+function drawResult(d,nSeg,seg){
+  var W=1080,H=1350,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_header(ctx,W,_meta(),nSeg,seg);
+  _tx(ctx,'RANK',64,250,'700 22px '+JM,fade(.5),'left',6);
+  _tx(ctx,String(d.rank),60,470,'900 270px '+FR,d.gold?GOLD:rankColor(d.rank),'left');
+  ctx.font='900 270px '+FR;var nw=ctx.measureText(String(d.rank)).width;
+  _tx(ctx,'/5',60+nw+20,470,'300 80px '+FR,fade(.3),'left');
+  ctx.strokeStyle=fade(.2);ctx.beginPath();ctx.moveTo(64,520);ctx.lineTo(1016,520);ctx.stroke();
+  _tx(ctx,d.eventLine,64,582,'700 22px '+JM,fade(.6),'left',4);
+  var cl=_wrap(ctx,d.crew,'400 58px '+FR,950),cy=652;cl.slice(0,2).forEach(function(l){_tx(ctx,l,64,cy,'400 58px '+FR,PAPER,'left');cy+=66;});
+  _tx(ctx,d.label,64,1070,'700 22px '+JM,fade(.5),'left',5);
+  _bigVal(ctx,d.val,d.suffix,64,1210,900);
+  if(d.s1){_tx(ctx,d.s1[0].toUpperCase(),64,1285,'500 18px '+JM,fade(.5),'left',3);_tx(ctx,d.s1[1],64,1325,'500 30px '+FR,PAPER,'left');}
+  if(d.s2){_tx(ctx,d.s2[0].toUpperCase(),560,1285,'500 18px '+JM,fade(.5),'left',3);_tx(ctx,d.s2[1],560,1325,'500 30px '+FR,PAPER,'left');}
+  return c;
+}
+function drawOutro(nSeg){
+  var W=1080,H=1350,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_header(ctx,W,_meta(),nSeg,nSeg-1);
+  ctx.font='900 200px '+FR;var wrt=ctx.measureText('rt').width,wdot=ctx.measureText('.').width,x0=(W-(wrt+wdot))/2;
+  _tx(ctx,'rt',x0,720,'900 200px '+FR,PAPER,'left');
+  _tx(ctx,'.',x0+wrt,720,'900 200px '+FR,ACC,'left');
+  _tx(ctx,'ROWINGTOOLS.CO.UK / HENLEY',W/2,830,'700 26px '+JM,fade(.5),'center',5);
+  _tx(ctx,'EVERY CREW · SPLIT · CONDITION',W/2,1000,'500 22px '+JM,fade(.3),'center',4);
+  _tx(ctx,'BARRIER · FAWLEY · FINISH',W/2,1040,'500 22px '+JM,fade(.3),'center',4);
+  return c;
+}
+function drawStory(it){
+  var W=1080,H=1920,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_header(ctx,W,_meta()+(state.day?" · "+state.day.toUpperCase():''),0,0);
+  _tx(ctx,(it.k||'').toUpperCase(),64,820,'700 30px '+JM,ACC,'left',6);
+  var cl=_wrap(ctx,it.crew,'700 76px '+FR,950),cy=920;cl.slice(0,2).forEach(function(l){_tx(ctx,l,64,cy,'700 76px '+FR,PAPER,'left');cy+=82;});
+  _tx(ctx,it.event,64,cy+10,'500 30px '+JM,fade(.55),'left',2);
+  _bigVal(ctx,it.big,it.suffix||'',64,1480,950);
+  _tx(ctx,(it.ctx||'').toUpperCase(),64,1560,'500 24px '+JM,fade(.5),'left',3);
+  ctx.strokeStyle=fade(.15);ctx.beginPath();ctx.moveTo(64,1800);ctx.lineTo(1016,1800);ctx.stroke();
+  _tx(ctx,'FULL LEADERBOARDS · ROWINGTOOLS.CO.UK / HENLEY',64,1860,'700 22px '+JM,fade(.45),'left',3);
+  return c;
+}
+
+function topRec(m){var r=buildBest(m).map(function(e){var b=recBaseline(e.eventKey,m);return {e:e,pct:b?(b.secs/e.secs*100):null};}).filter(function(o){return o.pct!=null;}).sort(function(x,y){return y.pct-x.pct;});return r[0];}
+function topWbt(m){var sc=2000/DIST[m];var r=buildBest(m).map(function(e){var w=WBT[wbtBoat(e.cls)];return {e:e,pct:w?(w/(e.secs*sc)*100):null};}).filter(function(o){return o.pct!=null;}).sort(function(x,y){return y.pct-x.pct;});return r[0];}
+function storyItems(){
+  var items=[],t;
+  if(t=topRec('barrier'))items.push({k:'Fastest start',crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',ctx:'of the Barrier record'});
+  if(t=topRec('fawley'))items.push({k:'Through the half-mile',crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',ctx:'of the Fawley record'});
+  if(t=topRec('finish'))items.push({k:'Closest to the record',crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',ctx:'of the course record'});
+  if(t=topWbt('finish'))items.push({k:'Fastest crew',crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',ctx:'of World Best Time'});
+  recordsList().forEach(function(r){items.push({k:'Record broken',crew:r.crew,event:r.event,big:r.time,suffix:'',ctx:'new '+r.marker+' record'});});
+  var dr=dayRaces();
+  if(dr.length){var b=dr.slice().sort(function(x,y){return marginLengths(y.verdict)-marginLengths(x.verdict);})[0];items.push({k:'Biggest win',crew:b.winner,event:b.eventShort||b.event,big:b.verdict,suffix:'',ctx:'winning margin'});
+    var c=dr.slice().sort(function(x,y){return marginLengths(x.verdict)-marginLengths(y.verdict);})[0];items.push({k:'Closest race',crew:c.winner,event:c.eventShort||c.event,big:c.verdict,suffix:'',ctx:'winning margin'});}
+  var ll=(state.day?RACES.filter(function(r){return r.day===state.day;}):RACES).filter(function(r){return !r.withdrawn&&((r.barrier&&r.barrier.loserLeading)||(r.fawley&&r.fawley.loserLeading));});
+  if(ll.length){var r=ll[0],pts=[];if(r.barrier&&r.barrier.loserLeading)pts.push('Barrier');if(r.fawley&&r.fawley.loserLeading)pts.push('Fawley');items.push({k:'Led, but lost',crew:r.loser,event:r.eventShort||r.event,big:'led '+pts.join(' & '),suffix:'',ctx:'ahead, then beaten at the line'});}
+  return items;
+}
 
 function _tags(){return '#HenleyRoyalRegatta #HRR #Henley'+state.year+' #rowing #rowingtools';}
-function caption(a,day,rows,nr){
+function caption(a,day,rows){
   var L=['Henley Royal Regatta '+state.year+' — '+day,'',a.title+' 🚣'];
-  if(a.kind==='records'){
-    if(nr.length){L.push(nr.length+' new course record'+(nr.length>1?'s':'')+' today 🔥');nr.slice(0,4).forEach(function(r){L.push('• '+r.crew+' — '+r.event+' ('+r.marker+') '+r.time);});}
-    else L.push('No course records broken today.');
-  } else {
-    rows.slice(0,3).forEach(function(r){L.push(r.rank+'. '+r.name+' ('+r.sub+') — '+r.val);});
-  }
-  L.push('','Full leaderboards, splits &amp; race-day conditions → rowingtools.co.uk/henley','',_tags());
-  return L.join('\n').replace(/&amp;/g,'&');
+  if(a.kind==='records'){if(rows.length){L.push(rows.length+' new course record'+(rows.length>1?'s':'')+' today 🔥');rows.slice(0,4).forEach(function(r){L.push('• '+r.crew+' — '+r.eventLine+' '+r.val);});}else L.push('No course records broken today.');}
+  else rows.slice(0,3).forEach(function(r){L.push(r.rank+'. '+r.crew+' ('+r.eventLine+') — '+r.val+r.suffix);});
+  L.push('','Full leaderboards, splits & race-day conditions → rowingtools.co.uk/henley','',_tags());
+  return L.join('\n');
 }
 
-function generate(){
-  var a=ANGLES[state.angle], day=state.day||'';
-  var cards=[{svg:_coverA(a,day),name:'henley-'+state.year+'-01-cover.png'}], rows=[], nr=[];
-  if(a.kind==='records'){ nr=recordsList(); cards.push({svg:_records(day,nr),name:'henley-'+state.year+'-02-records.png'}); }
-  else { rows=rowsFor(a); if(!rows.length){alert('No data for this angle on the selected day yet.');return;} cards.push({svg:_board(a.title,a.sub,rows),name:'henley-'+state.year+'-02-board.png'}); }
-  cards.push({svg:_outro(day),name:'henley-'+state.year+'-03-outro.png'});
-  document.getElementById('pg-caption').innerHTML='<div class="pg-cap-lbl">Suggested caption</div><textarea id="pg-cap-txt" rows="9"></textarea><button class="pg-dl" id="pg-cap-copy">📋 Copy caption</button>';
-  document.getElementById('pg-cap-txt').value=caption(a,day,rows,nr);
-  document.getElementById('pg-cap-copy').onclick=function(){var t=document.getElementById('pg-cap-txt');t.select();try{navigator.clipboard.writeText(t.value);}catch(e){document.execCommand('copy');}this.textContent='✓ Copied';};
+async function ensureFonts(){
+  if(_fontsReady)return; if(!document.fonts)return;
+  try{await Promise.all(['900 100px Fraunces','400 60px Fraunces','300 80px Fraunces','italic 300 40px Fraunces','500 22px "JetBrains Mono"','700 22px "JetBrains Mono"'].map(function(f){return document.fonts.load(f);}));}catch(e){}
+  _fontsReady=true;
+}
+function showCanvases(list){
+  document.getElementById('pg-cards').innerHTML='';
   var box=document.getElementById('pg-cards');
-  box.innerHTML=cards.map(function(c,i){return '<div class="pg-card"><img src="data:image/svg+xml;utf8,'+encodeURIComponent(c.svg)+'" alt=""><button class="pg-dl" data-i="'+i+'">⬇ Save image '+(i+1)+' of '+cards.length+'</button></div>';}).join('');
-  box.querySelectorAll('.pg-dl[data-i]').forEach(function(b){b.onclick=function(){var c=cards[+b.dataset.i];_svgToPng(c.svg,c.name);};});
+  list.forEach(function(o,i){
+    var d=document.createElement('div');d.className='pg-card';
+    var b=document.createElement('button');b.className='pg-dl';b.textContent='⬇ Save '+(i+1)+' of '+list.length;
+    b.onclick=function(){o.canvas.toBlob(function(blob){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=o.name;a.click();},'image/png');};
+    d.appendChild(o.canvas);d.appendChild(b);box.appendChild(d);
+  });
+}
+async function generate(){
+  await ensureFonts();
+  var a=ANGLES[state.angle], day=state.day||'', rows=slideData(a);
+  if(!rows.length){alert('No data for this angle on the selected day yet.');return;}
+  var nSeg=rows.length+2, list=[{canvas:drawCover(a,day,nSeg),name:'henley-'+state.year+'-01-cover.png'}];
+  rows.forEach(function(d,i){list.push({canvas:drawResult(d,nSeg,i+1),name:'henley-'+state.year+'-0'+(i+2)+'-'+d.rank+'.png'});});
+  list.push({canvas:drawOutro(nSeg),name:'henley-'+state.year+'-outro.png'});
+  document.getElementById('pg-caption').innerHTML='<div class="pg-cap-lbl">Suggested caption</div><textarea id="pg-cap-txt" rows="9"></textarea><button class="pg-dl" id="pg-cap-copy">📋 Copy caption</button>';
+  document.getElementById('pg-cap-txt').value=caption(a,day,rows);
+  document.getElementById('pg-cap-copy').onclick=function(){var t=document.getElementById('pg-cap-txt');t.select();try{navigator.clipboard.writeText(t.value);}catch(e){document.execCommand('copy');}this.textContent='✓ Copied';};
+  showCanvases(list);
+}
+async function generateStories(){
+  await ensureFonts();
+  var items=storyItems();
+  if(!items.length){alert('No story data for this day yet.');return;}
+  for(var i=items.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=items[i];items[i]=items[j];items[j]=t;}
+  items=items.slice(0,5);
+  document.getElementById('pg-caption').innerHTML='<div class="pg-cap-lbl">Stories — save and post each one separately (9:16)</div>';
+  showCanvases(items.map(function(it,i){return {canvas:drawStory(it),name:'henley-'+state.year+'-story-'+(i+1)+'.png'};}));
 }
 
 function setActive(box,btn){box.querySelectorAll('.lbtab').forEach(function(b){b.classList.toggle('active',b===btn);});}
@@ -197,6 +266,8 @@ function renderYears(){
 
 document.getElementById('pg-angle').onchange=function(){state.angle=this.value;clearOut();};
 document.getElementById('pg-go').onclick=generate;
+document.getElementById('pg-go-story').onclick=generateStories;
+ensureFonts();
 Promise.all([
   fetch('/data/henley_records.json').then(function(r){return r.json();}),
   fetch('/data/benchmarks_v3.json').then(function(r){return r.json();})
