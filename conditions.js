@@ -43,6 +43,9 @@
 .wx-stat .v small{font-size:11px;color:#6b7280;font-weight:500}
 .wx-srcline{font-size:10px;color:#6b7280;margin-top:14px}
 .wx-srcline a{color:#6b7280}
+.wx-river{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.07)}
+.wx-river-hd{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.wx-river-hd .dot{width:7px;height:7px;border-radius:50%;background:#4ee8b0;flex-shrink:0}
 .wx-mini{margin-top:5px;display:inline-flex;align-items:center;gap:5px;background:rgba(200,71,43,0.16);border:1px solid rgba(200,71,43,0.55);color:#ef8268;padding:3px 10px;border-radius:999px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.02em;transition:all .15s;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.25)}
 .wx-mini:hover{background:#c8472b;color:#fff;border-color:#c8472b;transform:translateY(-1px)}
 .wx-mini svg{flex-shrink:0}
@@ -73,6 +76,13 @@
           <div class="wx-stat"><div class="k">Wind from</div><div class="v" id="wx-wdir">&mdash;</div></div>
           <div class="wx-stat"><div class="k">Humidity</div><div class="v" id="wx-hum">&mdash;</div></div>
         </div>
+        <div class="wx-river" id="wx-river" style="display:none">
+          <div class="wx-river-hd"><span class="dot"></span><span id="wx-river-time">River &middot; live</span></div>
+          <div class="wx-stats">
+            <div class="wx-stat"><div class="k">Stream (flow)</div><div class="v" id="wx-flow">&mdash;</div></div>
+            <div class="wx-stat"><div class="k" id="wx-level-k">Level</div><div class="v" id="wx-level">&mdash;</div></div>
+          </div>
+        </div>
         <div class="wx-srcline" id="wx-srcel"></div>
       </div>
     </div></div>`;
@@ -86,12 +96,13 @@
   const toCompass=d=>COMPASS[Math.round(((d%360)/22.5))%16];
   function wmo(code){const m={0:["☀️","Clear"],1:["🌤️","Mainly clear"],2:["⛅","Partly cloudy"],3:["☁️","Overcast"],45:["🌫️","Fog"],48:["🌫️","Rime fog"],51:["🌦️","Light drizzle"],53:["🌦️","Drizzle"],55:["🌧️","Heavy drizzle"],61:["🌦️","Light rain"],63:["🌧️","Rain"],65:["🌧️","Heavy rain"],71:["🌨️","Light snow"],73:["🌨️","Snow"],75:["❄️","Heavy snow"],80:["🌦️","Showers"],81:["🌧️","Showers"],82:["⛈️","Violent showers"],95:["⛈️","Thunderstorm"],96:["⛈️","Thunderstorm"],99:["⛈️","Thunderstorm"]};return m[code]||["🌤️","Fair"];}
 
-  let wxAnim=null,wxBoatClass='';
+  let wxAnim=null,wxBoatClass='',wxRaceDate='',wxRaceClock='';
   window.wxOpen=async function(clock,label,boat,date,venue){
     const v=venue||(window.META&&window.META.venue);   // explicit venue (clubs.html) or page META
     if(!v||!clock) return;
     wxBoatClass=boat||'';
     const d=date||(window.META&&window.META.date);   // per-race date falls back to META.date
+    wxRaceDate=d||'';wxRaceClock=clock;               // stashed for the river lookup
     document.getElementById('wx-title').textContent=label;
     document.getElementById('wx-sub').textContent=`${v.name} · ${d} · ${clock}`;
     document.getElementById('wx-railbox').style.visibility='hidden';
@@ -126,6 +137,43 @@
     return (await grab('https://archive-api.open-meteo.com/v1/archive'))
         || (await grab('https://api.open-meteo.com/v1/forecast'));
   }
+  /* ---- river flow/level from the Environment Agency flood-monitoring API
+     (open data, no key, CORS-enabled). Shown only for venues with a v.river config.
+     Matched to the race's date+time, like the weather - we pull that day's 15-min
+     readings and take the one nearest the race. The EA API only keeps ~28 days of
+     readings, so this works during/shortly after the regatta and otherwise returns
+     nothing (the block stays hidden) rather than showing an unrelated value. */
+  async function eaReadingAt(measure,date,clock){
+    if(!date) return null;
+    const res=await fetch('https://environment.data.gov.uk/flood-monitoring/id/measures/'+measure+'/readings?startdate='+date+'&enddate='+date);
+    if(!res.ok) return null;
+    const items=(await res.json()).items;
+    if(!items||!items.length) return null;
+    const [hh,mm]=clock.split(':').map(Number);
+    const target=hh*60+mm-60;   // race clock is UK local (BST in summer); EA times are UTC
+    let best=null,bd=1e9;
+    for(const it of items){
+      if(it.value==null) continue;
+      const t=it.dateTime.slice(11,16).split(':'),rm=(+t[0])*60+(+t[1]),diff=Math.abs(rm-target);
+      if(diff<bd){bd=diff;best=it;}
+    }
+    return best?{value:+best.value,dt:best.dateTime}:null;
+  }
+  async function wxRiver(river){
+    const box=document.getElementById('wx-river');box.style.display='none';
+    let any=false;
+    try{
+      if(river.flow){const f=await eaReadingAt(river.flow.measure,wxRaceDate,wxRaceClock);
+        if(f){document.getElementById('wx-flow').innerHTML=f.value.toFixed(1)+' <small>m&sup3;/s'+(river.flow.label?' &middot; '+river.flow.label:'')+'</small>';any=true;}}
+      if(river.level){const l=await eaReadingAt(river.level.measure,wxRaceDate,wxRaceClock);
+        if(l){document.getElementById('wx-level').innerHTML=l.value.toFixed(2)+' <small>m</small>';
+          document.getElementById('wx-level-k').textContent=(river.level.label||'Level')+' level';any=true;}}
+    }catch(e){return;}
+    if(any){
+      document.getElementById('wx-river-time').textContent='River'+(wxRaceClock?' · '+wxRaceClock:'')+' (gauge)';
+      box.style.display='block';
+    }
+  }
   function wxVsCourse(windFrom,bearing){
     const windTo=(windFrom+180)%360;let delta=((windTo-bearing+540)%360)-180;const a=Math.abs(delta);
     // Closest of five canonical winds, each a 45deg band: tail 0, cross-tail 45,
@@ -152,8 +200,12 @@
     const vc=wxVsCourse(wx.wdir,v.bearing);
     document.getElementById('wx-verdict').style.background=wxTone(wx.wspd);
     document.getElementById('wx-vbig').textContent=vc.label;
-    document.getElementById('wx-srcel').innerHTML='Source: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> historical archive.';
+    let src='Source: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> historical archive';
+    if(v.river)src+=' &middot; river data <a href="https://environment.data.gov.uk/flood-monitoring/" target="_blank" rel="noopener">Environment Agency</a>';
+    document.getElementById('wx-srcel').innerHTML=src+'.';
     document.getElementById('wx-railbox').style.visibility='visible';
+    document.getElementById('wx-river').style.display='none';
+    if(v.river)wxRiver(v.river);
     wxDrawCourse(v,wx);wxStartWind(v.bearing,wx.wdir,wx.wspd);
   }
   function wxDrawCourse(v,wx){
