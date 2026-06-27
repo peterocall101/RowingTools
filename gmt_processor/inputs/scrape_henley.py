@@ -2,12 +2,16 @@
 """Scrape Henley Royal Regatta results + course records into JSON for the Henley page.
 
 Outputs:
-  data/henley_records.json        - per-event course record to Barrier/Fawley/Finish (fastest ever)
+  data/henley_records.json        - per-event progression of records to Barrier/Fawley/Finish
+                                    (year-by-year; the page picks the fastest entry with
+                                    year < the selected year as that year's baseline)
   data/henley_<year>.json         - every race that year, normalised (splits, winner/loser, loserLeading)
 
 HRR data quirks handled here:
-  * Records page lists records chronologically and only fills the marker(s) broken that year,
-    so the live record to each marker is the FASTEST (min) value across all rows for that event.
+  * The record-holders page only shows the CURRENT record to each marker, so a fresh scrape
+    drops any time that was beaten since last time. We therefore MERGE each scrape into the
+    existing file (see merge_records) to keep the full progression - otherwise the baseline
+    for the year a record was broken vanishes and that year's record-setters wrongly show "-".
   * In results, each split time belongs to the LEADING crew at that marker. Usually that's the
     eventual winner, but when `loserLeading` is true the loser was ahead there, so the split is
     the loser's time (this is the "star" shown on hrr.co.uk).
@@ -171,6 +175,35 @@ def load_records():
     return {}
 
 
+def merge_records(existing, fresh):
+    """Union the fresh scrape into the existing progression so beaten records are kept.
+
+    HRR's record-holders page only shows the CURRENT record to each marker, so a fresh
+    scrape drops any time that was beaten since the last scrape. Without this merge, the
+    previous (slower) record is lost and the "going into year Y" baseline for the year it
+    was broken disappears - crews that set a new record then show "-" instead of >100%.
+    Merging keeps the full year-by-year progression; the page still picks the fastest
+    entry with year < the selected year as that year's baseline.
+    """
+    markers = ('barrier', 'fawley', 'finish')
+    out = {}
+    for key in set(existing) | set(fresh):
+        e, f = existing.get(key, {}), fresh.get(key, {})
+        rec = {'event': f.get('event') or e.get('event') or key}
+        for m in markers:
+            seen, entries = set(), []
+            for arr in (e.get(m) or [], f.get(m) or []):
+                for x in arr:
+                    sig = (x.get('year'), x.get('secs'))
+                    if sig in seen:
+                        continue
+                    seen.add(sig)
+                    entries.append(x)
+            rec[m] = sorted(entries, key=lambda x: (x['secs'], x['year'] or 0))
+        out[key] = rec
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--year', type=int, default=2025)
@@ -183,7 +216,8 @@ def main():
         recs = load_records()  # use the records already in the repo; do not re-write them
     else:
         print('Fetching records...', file=sys.stderr)
-        recs = parse_records(requests.get(RECORDS_URL, timeout=30, headers=HEADERS).text)
+        fresh = parse_records(requests.get(RECORDS_URL, timeout=30, headers=HEADERS).text)
+        recs = merge_records(load_records(), fresh)  # keep beaten records, don't clobber history
         dest_r = os.path.join(ROOT, 'data', 'henley_records.json')
         with open(dest_r, 'w', encoding='utf-8') as f:
             json.dump(recs, f, separators=(',', ':'))
