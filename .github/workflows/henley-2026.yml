@@ -7,9 +7,9 @@ name: Henley 2026 auto-update
 on:
   workflow_dispatch: {}          # manual trigger (e.g. from the GitHub mobile app)
   schedule:
-    # Every 30 min, 06:00-19:30 UTC, on the HRR 2026 race days (Tue 30 Jun - Sun 5 Jul 2026).
-    - cron: '*/30 6-19 30 6 *'   # Tue 30 June
-    - cron: '*/30 6-19 1-5 7 *'  # Wed 1 - Sun 5 July
+    # Every 10 min, 06:00-19:50 UTC, on the HRR 2026 race days (Tue 30 Jun - Sun 5 Jul 2026).
+    - cron: '*/10 6-19 30 6 *'   # Tue 30 June
+    - cron: '*/10 6-19 1-5 7 *'  # Wed 1 - Sun 5 July
 
 permissions:
   contents: write
