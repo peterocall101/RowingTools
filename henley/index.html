@@ -38,6 +38,12 @@ if ('serviceWorker' in navigator) {
 .hr-bar .lbtab-wrap{margin:0}
 .hr-nr{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;color:#fbbf24;border:1px solid rgba(251,191,36,.4);border-radius:999px;padding:0 6px;margin-left:6px;vertical-align:middle}
 .hr-lost{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.04em;color:#f87171;border:1px solid rgba(248,113,113,.45);border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:middle;cursor:help}
+.hr-vs{display:inline}
+.hr-vs>summary{display:inline;list-style:none;cursor:pointer}
+.hr-vs>summary::-webkit-details-marker{display:none}
+.hr-vs>summary::after{content:'›';margin-left:5px;color:var(--text3);font-size:.9em;display:inline-block;transition:transform .15s}
+.hr-vs[open]>summary::after{transform:rotate(90deg)}
+.hr-opp{display:block;font-size:.8rem;color:var(--text3);margin-top:2px}
 .hr-event-block{margin-bottom:1.75rem}
 .hr-event-name{font-size:14px;font-weight:700;margin-bottom:2px}
 .hr-event-rec{font-size:12px;color:var(--text3);margin-bottom:8px}
@@ -170,7 +176,8 @@ function markerEntry(race,marker){
   var s=race[marker];
   if(!s||s.secs==null||s.secs<=0)return null;
   var ownerWin = marker==='finish' ? true : !s.loserLeading;
-  return {crew: ownerWin?race.winner:race.loser, secs:s.secs, display:s.display,
+  return {crew: ownerWin?race.winner:race.loser, opp: ownerWin?race.loser:race.winner, won: ownerWin,
+    secs:s.secs, display:s.display,
     newRecord:!!s.newRecord, loserLeading:!!s.loserLeading, round:race.round, day:race.day,
     event:race.eventShort||race.event, eventFull:race.event, eventKey:race.eventKey, cls:race['class'],
     dt:race.dateTime, verdict:race.verdict};
@@ -197,7 +204,14 @@ function recBaseline(eventKey,marker){
 }
 
 function tr(cols){return '<tr>'+cols.join('')+'</tr>';}
-function crewCell(e){return '<td><strong>'+esc(e.crew)+'</strong>'+(e.loserLeading?'<span class="hr-lost" title="Led at this point but lost the race - this split is the losing crew\'s time">LOST RACE</span>':'')+'</td>';}
+function crewCell(e){
+  var lost=e.loserLeading?'<span class="hr-lost" title="Led at this point but lost the race - this split is the losing crew\'s time">LOST RACE</span>':'';
+  var opp=(e.opp||'').trim();
+  if(!opp)return '<td><strong>'+esc(e.crew)+'</strong>'+lost+'</td>';  // walkover / no opponent
+  // Click the crew to reveal who they raced (Henley is head-to-head).
+  return '<td><details class="hr-vs"><summary><strong>'+esc(e.crew)+'</strong>'+lost+'</summary>'
+    +'<span class="hr-opp">'+(e.won?'bt ':'lost to ')+esc(opp)+'</span></details></td>';
+}
 function paceCell(e,mk){return '<td class="sp">'+fmtPace(e.secs,DIST[mk])+'</td>';}
 // Drop the entry letter so A/B/C crews count as one club: "London R.C. 'A'" -> "London R.C."
 // (handles letters mid-name too, e.g. "Rutgers University 'A', U.S.A.").
