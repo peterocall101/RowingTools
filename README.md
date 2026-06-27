@@ -28,11 +28,12 @@ The **Python tools in `gmt_processor/` are local-only** - they generate the data
 # Henley live-update / lightweight scrapers (also what the GitHub Action uses)
 pip install -r requirements.txt            # requests, Pillow
 
-# The full results scraper (Stage 2, uses the Claude API + Selenium)
+# Only for the standalone generic scraper (uses the Claude API + Selenium) - not needed for the
+# regatta or Henley pipelines, which parse their sources directly
 pip install -r gmt_processor/requirements.txt   # anthropic, requests, beautifulsoup4, selenium, pandas
 #   plus ChromeDriver matching your Chrome: https://googlechromelabs.github.io/chrome-for-testing/
 
-# Social-media carousel image generation (Stage 4)
+# Social-media carousel image generation
 pip install playwright && playwright install chromium
 ```
 
@@ -100,23 +101,23 @@ RowingTools/
 ├── requirements.txt            # Lightweight deps (Henley scraper, icon gen)
 ├── gmt_processor/
 │   ├── requirements.txt        # Full scraper deps (anthropic, selenium, ...)
-│   ├── gmt_processor.py        # Stage 1: CSV in → ranked GMT% table out
+│   ├── gmt_processor.py        # [C] standalone: CSV of results → ranked GMT% table
 │   ├── benchmarks.py           # Loads data/benchmarks_vN.json (shared by Python + site)
 │   └── inputs/
-│       ├── scraper.py                       # Stage 2: URL → results CSV (Claude API extraction)
-│       ├── generate_heatmap*.py             # Stage 3: results source → regatta page (see table)
-│       ├── build_all_results.py             # Rebuilds data/all_results.json from the regatta pages
-│       ├── courses.py                        # Venue registry (lat/lon/bearing) + comp→venue map
-│       ├── scrape_henley.py                  # HRR scraper → data/henley_*.json + henley_records.json
-│       ├── met_finals_scraper.py            # Benchmark updater (Met A/B/C finals)
+│       ├── generate_heatmap*.py             # [A] regatta-page generators: results source → regatta page (see table)
+│       ├── build_all_results.py             # [A] rebuilds data/all_results.json from the regatta pages
+│       ├── courses.py                        # [A] venue registry (lat/lon/bearing) + comp→venue map
+│       ├── generate_carousel.py             # [A] regatta page → Instagram carousel PNGs
+│       ├── generate_season_carousel.py      # [A] season top-10-clubs carousel PNGs
+│       ├── carousel-*.html                   # [A]/[B] carousel slide templates
+│       ├── run_mets*26_carousel.py          # [A] one-off carousel drivers (per-regatta examples)
+│       ├── scrape_henley.py                  # [B] HRR scraper → data/henley_*.json + henley_records.json
+│       ├── scraper.py                       # [C] standalone generic scraper (URL → CSV via Claude API); needs ANTHROPIC_API_KEY
+│       ├── met_finals_scraper.py            # [C] benchmark maintenance (Met A/B/C finals)
 │       ├── met_finals_data.json             # Its output, staged for the next benchmarks version
-│       ├── generate_carousel.py             # Stage 4: regatta page → Instagram carousel PNGs
-│       ├── generate_season_carousel.py      # Season top-10-clubs carousel PNGs
-│       ├── carousel-*.html                   # Carousel slide templates
-│       ├── run_mets*26_carousel.py          # One-off carousel drivers (per-regatta examples)
-│       ├── update_heatmap_styles.py         # One-off: bulk restyle of heatmap pages
-│       ├── update_heatmap_animations.py     # One-off: inject count-up animations
-│       └── brcc25_scraper.py                # One-off: BRCC 2025 data patch
+│       ├── update_heatmap_styles.py         # one-off: bulk restyle of heatmap pages
+│       ├── update_heatmap_animations.py     # one-off: inject count-up animations
+│       └── brcc25_scraper.py                # one-off: BRCC 2025 data patch
 │
 ├── scripts/
 │   ├── gen_alias_review.py      # Finds near-duplicate club names → club_aliases_review.md
@@ -138,7 +139,7 @@ Gitignored (local only, not in the repo): `gmt_processor/outputs/`, `exhibits/` 
 **Three layers of HTML:**
 
 1. **Shared-shell pages** (`/`, `/gmt/`, `/leaderboards/` index, `/clubs/`) pull in `assets/app.css` + `assets/app.js`.
-2. **Per-regatta pages** (`/leaderboards/<comp>/index.html`) are **self-contained** - each is a single generated file with its own inline CSS/JS plus the shared `conditions.js` and `rowingtools-share.js`. They are produced by the Stage 3 generators, not hand-edited.
+2. **Per-regatta pages** (`/leaderboards/<comp>/index.html`) are **self-contained** - each is a single generated file with its own inline CSS/JS plus the shared `conditions.js` and `rowingtools-share.js`. They are produced by the [regatta-page generators](#regatta-page-generators), not hand-edited.
 3. **Redirect stubs** - the old `heatmap-<comp>.html` and `clubs.html` paths are tiny meta-refresh + `location.replace` files pointing at the new clean URLs, so previously-indexed links never 404. They forward `location.search`/`hash` too.
 
 **PWA.** `manifest.json` makes the site installable; `sw.js` is a network-first service worker (cache name `rowingtools-v1`, falls back to cache then to `/` offline) registered inline on the main pages. `icons/` and `.well-known/assetlinks.json` support an Android Trusted Web Activity wrapper.
@@ -146,9 +147,9 @@ Gitignored (local only, not in the repo): `gmt_processor/outputs/`, `exhibits/` 
 **Data flow.** The site reads JSON from `data/` at runtime via `fetch()`. Those files are produced by the Python tools and committed. The site never computes benchmarks itself - it reads them.
 
 ```
-results source ──Stage 2/3──▶ leaderboards/<comp>/index.html ──build_all_results.py──▶ data/all_results.json ──▶ /clubs/
-HRR site ───────scrape_henley.py──▶ data/henley_*.json ──▶ /henley/
-rowresults ─────met_finals_scraper.py──▶ benchmarks_v(N+1).json ──▶ /gmt/ + all GMT% calcs
+[A] results source ──generate_heatmap_*.py──▶ leaderboards/<comp>/index.html ──build_all_results.py──▶ data/all_results.json ──▶ /clubs/
+[B] HRR site ───────scrape_henley.py──▶ data/henley_*.json + henley_records.json ──▶ /henley/
+[C] rowresults ─────met_finals_scraper.py──▶ benchmarks_v(N+1).json ──▶ /gmt/ + all GMT% calcs (both pipelines)
 ```
 
 ---
@@ -181,14 +182,20 @@ The site fetches `benchmarks_v3.json` directly. `benchmarks.py` defaults to `v1`
 
 ## Python tools
 
-### Stage 1 - `gmt_processor.py`
-Standard-library only. Takes a CSV of results (`label, time, boat_class, henley_event?`), computes GMT% against every benchmark, prints a ranked table. `--input`, `--output`, `--top`, `--sample`. The reference implementation of the GMT% maths; the website mirrors it in JS.
+There are **two independent production pipelines** plus a set of standalone tools. They are **not** one linear "stage 1 → 2 → 3" flow - in particular, each regatta-page generator parses its own source directly and does **not** depend on `scraper.py` or `gmt_processor.py`.
 
-### Stage 2 - `scraper.py`
-Points at a results URL, fetches the page (Selenium for JS-rendered sites like rowresults.co.uk - needs ChromeDriver), and uses the **Claude API** (`anthropic`) to extract the finals into a clean CSV. Used when there's no structured feed to parse. Requires the full `gmt_processor/requirements.txt`.
+- **A. Regatta pipeline** - normal regattas → `/leaderboards/` and `/clubs/`. GMT% vs WBT/Met, 2000m-scaled.
+- **B. Henley pipeline** - HRR → `/henley/`. A *completely separate* workflow: different distance (2112m), % of course record, its own data files, sub-site and GitHub Action. See [Workflow: Henley live update](#workflow-henley-live-update).
+- **C. Standalone tools & utilities** - calculators, the generic scraper, benchmark/alias/icon maintenance. Not part of either production flow.
 
-### Stage 3 - heatmap / regatta-page generators
-Each writes a complete self-contained `leaderboards/<comp>/index.html` (four tabs: Heatmap, Top 250 Results, Club Leaderboard, Club Compare) and takes `--comp`, `--title`, `--out`. Pick the generator by **where the results live**:
+The only thing the two pipelines share is reading World Best Times from the same `benchmarks_vN.json`.
+
+---
+
+### A. Regatta pipeline
+
+#### Regatta-page generators
+Each writes a complete self-contained `leaderboards/<comp>/index.html` (four tabs: Heatmap, Top 250 Results, Club Leaderboard, Club Compare) and takes `--comp`, `--title`, `--out`. Each is self-sufficient - it fetches and parses its source with `requests`/`beautifulsoup4`, no LLM involved. Pick the generator by **where the results live**:
 
 | Generator | Results source |
 | --------- | -------------- |
@@ -202,31 +209,56 @@ Each writes a complete self-contained `leaderboards/<comp>/index.html` (four tab
 
 The time-team.nl and head-to-head sources each have their own quirks - see [Source-specific notes](#source-specific-notes-and-gotchas).
 
-### `build_all_results.py`
+#### `build_all_results.py`
 Reads each regatta page listed in its `HEATMAPS` array (`comp`, `date`), pulls the embedded `window.ROWS`/`window.META`, normalises club names (via `club_aliases.json`), attaches the venue from `courses.py`, and writes `data/all_results.json`. **This is what makes a regatta appear under `/clubs/`** - the list is hardcoded, not auto-discovered, so a new regatta must be added here.
 
-### `courses.py`
+#### `courses.py`
 No CLI - imported by the generators and `build_all_results.py`. Holds `COURSES` (each venue's `lat`, `lon`, `bearing` = compass heading boats travel start→finish, and `lanes`) and `COMP_VENUE` (comp code → venue key). Powers the race-conditions weather widget. Four venues defined: `dorney`, `reading`, `holme`, `albert`.
 
-### `scrape_henley.py`
-Scrapes HRR results and course records from hrr.co.uk. `--year <YYYY>` (default 2025); `--results-only` skips the records fetch and writes only `data/henley_<year>.json` (used by the GitHub Action so it never clobbers `henley_records.json`). Records are **merged** with the existing file. Idempotent and read-only against HRR. Full operational guide: [`henley/UPDATE.md`](henley/UPDATE.md).
+#### `gen_alias_review.py` (in `scripts/`)
+Reads `all_results.json` + `club_aliases.json`, flags near-duplicate club names (string similarity), writes `club_aliases_review.md`. Run it after ingesting a new regatta; eyeball the candidates and add genuine duplicates to `club_aliases.json`.
 
-### `met_finals_scraper.py`
-Scrapes Met A/B/C final results across years from rowresults.co.uk and emits `met_finals_data.json` - the depth benchmarks (2nd-slowest finisher per final, per boat class) ready to paste into the next `benchmarks_v(N+1).json`.
-
-### Stage 4 - carousels & social images
+#### Carousels & social images (optional, post-publish)
 - `generate_carousel.py` - regatta page → Instagram carousel PNGs (810×1440) into `exhibits/<comp>/`, via Playwright + `carousel-template-final.html`. `--comp <code>` or `--html <file>`.
 - `generate_season_carousel.py` - season top-10-clubs carousel via `carousel-season-template.html`. `--year <YY>`.
-- `carousel-henley-feature-template.html` - the Henley feature carousel template (driven from `henley/post/`).
-- `run_metsat26_carousel.py` / `run_metsun26_carousel.py` - one-off per-regatta drivers; useful as worked examples of feeding custom top-5 data into `generate_carousel.py`.
+- `run_metsat26_carousel.py` / `run_metsun26_carousel.py` - one-off per-regatta drivers; worked examples of feeding custom top-5 data into `generate_carousel.py`.
 - `normalize_slides.py` (repo root) - pads a folder of screenshots to a fixed Instagram aspect ratio (`--fill`, `--square`, `--bg`, `--width`).
 
-### `scripts/`
-- `gen_alias_review.py` - reads `all_results.json` + `club_aliases.json`, flags near-duplicate club names (string similarity), writes `club_aliases_review.md`. Run it after ingesting a new regatta; eyeball the candidates and add genuine duplicates to `club_aliases.json`.
-- `generate_app_icons.py` - renders the PWA icons in `icons/` from the brand mark (Pillow). One-off, re-run only after a brand/icon change.
+---
 
-### One-off / historical utilities
-`update_heatmap_styles.py`, `update_heatmap_animations.py` (bulk edits applied during past redesigns) and `brcc25_scraper.py` (a data patch) are kept for reference but are **not part of the routine workflow**.
+### B. Henley pipeline
+
+A standalone workflow that has nothing to do with the regatta generators above.
+
+#### `scrape_henley.py`
+Scrapes HRR results and course records from hrr.co.uk. `--year <YYYY>` (default 2025); `--results-only` skips the records fetch and writes only `data/henley_<year>.json` (used by the GitHub Action so it never clobbers `henley_records.json`). Records are **merged** with the existing file. Idempotent and read-only against HRR. Outputs `data/henley_<year>.json` + `data/henley_records.json`, which the `/henley/` sub-site reads directly.
+
+#### `.github/workflows/henley-2026.yml`
+Runs `scrape_henley.py --results-only` every 10 min during the HRR 2026 race days and auto-commits only `data/henley_2026.json`. Full operational guide: [`henley/UPDATE.md`](henley/UPDATE.md).
+
+#### `carousel-henley-feature-template.html`
+The Henley feature-carousel template, driven from `henley/post/` (the unlisted Instagram-post generator). Henley's own social-image path, separate from the regatta carousels.
+
+---
+
+### C. Standalone tools & utilities
+
+Not part of either production pipeline - run ad hoc.
+
+#### `gmt_processor.py`
+Standard-library only. Takes a CSV of results (`label, time, boat_class, henley_event?`), computes GMT% against every benchmark, prints a ranked table. `--input`, `--output`, `--top`, `--sample`. The **reference implementation of the GMT% maths**; the website mirrors it in JS. Not invoked by the regatta generators.
+
+#### `scraper.py`
+General-purpose results scraper for a source that has **no dedicated generator**. Points at a URL, fetches it (Selenium for JS-rendered sites - needs ChromeDriver), and uses the **Claude API** (`anthropic`) to extract finals into a CSV that `gmt_processor.py` can rank. The **only file in the repo that needs `ANTHROPIC_API_KEY`** (env var or gitignored `.env`), and nothing else imports it - the per-source generators in pipeline A are preferred wherever a script exists. Requires the full `gmt_processor/requirements.txt`.
+
+#### `met_finals_scraper.py`
+Benchmark maintenance. Scrapes Met A/B/C final results across years from rowresults.co.uk and emits `met_finals_data.json` - the depth benchmarks (2nd-slowest finisher per final, per boat class) ready to paste into the next `benchmarks_v(N+1).json`. See [Workflow: updating benchmarks](#workflow-updating-benchmarks).
+
+#### `generate_app_icons.py` (in `scripts/`)
+Renders the PWA icons in `icons/` from the brand mark (Pillow). Re-run only after a brand/icon change.
+
+#### One-off / historical
+`update_heatmap_styles.py`, `update_heatmap_animations.py` (bulk edits applied during past redesigns) and `brcc25_scraper.py` (a data patch) are kept for reference but are **not part of any routine workflow**.
 
 ---
 
@@ -234,12 +266,12 @@ Scrapes Met A/B/C final results across years from rowresults.co.uk and emits `me
 
 Do **all** of these. Steps 3-5 are easy to forget and the site-wide club pages break silently without them.
 
-1. **Generate the regatta page** - run the right [Stage 3 generator](#stage-3---heatmap--regatta-page-generators). It writes `leaderboards/<comp>/index.html` (clean URL `/leaderboards/<comp>/`), creating the folder if needed.
+1. **Generate the regatta page** - run the right [regatta-page generator](#regatta-page-generators). It writes `leaderboards/<comp>/index.html` (clean URL `/leaderboards/<comp>/`), creating the folder if needed.
 2. **Add a card** to the `.lb-grid` in `leaderboards/index.html`. **Newest on top within its year section** (linking `/leaderboards/<comp>/`).
 3. **Rebuild the club dataset** - add the comp (`comp`, `date`) to the `HEATMAPS` list in `build_all_results.py`, then run it. This regenerates `data/all_results.json`, which powers `/clubs/`. **Skip this and the regatta never appears under any club.**
 4. **Add the page to `sitemap.xml`** as `https://rowingtools.co.uk/leaderboards/<comp>/`.
 5. **Refresh club aliases** - run `python scripts/gen_alias_review.py`, read the near-duplicate candidates in `club_aliases_review.md`, add genuine same-club duplicates to `data/club_aliases.json` (keyed lowercased), and re-run to confirm they merged. Abbreviated sources (time-team.nl) usually need a few.
-6. **Review locally and push.** Optionally run Stage 4 for carousel slides.
+6. **Review locally and push.** Optionally run `generate_carousel.py` for social slides.
 
 ### Race conditions (weather) on a new regatta
 Each heatmap row has a clickable time chip opening that race's wind/water/weather (Open-Meteo historical archive); `/clubs/` and the Result Leaderboard reuse the same popup (`conditions.js`).
