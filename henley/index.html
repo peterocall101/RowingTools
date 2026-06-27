@@ -375,6 +375,7 @@ function renderByEvent(){
 }
 
 /* ---- Live results: list, tree, and the race-detail modal ---- */
+var ROUND_RANK={'Heat':1,'Quarter-Final':2,'Semi-Final':3,'Final':4};
 function raceClubMatch(r){var fc=baseClub(state.fClub).toLowerCase().trim(); if(!fc)return true; return baseClub(r.winner).toLowerCase().indexOf(fc)>=0||baseClub(r.loser||'').toLowerCase().indexOf(fc)>=0;}
 function raceEventMatch(r){var fe=(state.fEvent||'').toLowerCase().trim(); return !fe||(r.event||'').toLowerCase().indexOf(fe)>=0;}
 function resultCell(r){return '<strong>'+esc(r.winnerShort||r.winner)+'</strong> <span style="color:var(--text3)">bt</span> '+esc(r.loserShort||r.loser||'—');}
@@ -415,14 +416,18 @@ function renderLiveTree(){
   if(!keys.length)return '<p style="color:var(--text3);padding:1rem 0">No events match the filter.</p>';
   var html=keys.map(function(k){
     var ev=byEvent[k];
-    // Heats run over two days at HRR (e.g. Tue = 1st round, Wed = 2nd round), both labelled
-    // "Heat"; split the Heat round per day so every round shows. Sections are ordered by time
-    // (latest round first), so this works for any number of rounds.
+    // HRR labels the early rounds "Heat", and these legitimately run over more than one day
+    // (e.g. Tue = 1st round, Wed = 2nd round) - those are split per day. But HRR also sometimes
+    // MIS-labels a later-stage race as "Heat" (e.g. a Saturday semi-final, or a 4th quarter-final
+    // on quarter-final day); a "Heat" sharing a day with a more senior round is folded into it.
+    var daySenior={};
+    ev.races.forEach(function(r){var rk=ROUND_RANK[r.round]||0; if(!daySenior[r.day]||rk>daySenior[r.day].rk)daySenior[r.day]={round:r.round,rk:rk};});
     var groups={};
     ev.races.forEach(function(r){
-      var splitHeat=(r.round==='Heat');
-      var key=splitHeat?'Heat|'+r.day:r.round;
-      var g=groups[key]||(groups[key]={label:splitHeat?'Heat · '+r.day:r.round, dt:'', races:[]});
+      var er=r.round; if(er==='Heat'&&daySenior[r.day]&&daySenior[r.day].rk>1)er=daySenior[r.day].round;
+      var splitHeat=(er==='Heat');
+      var key=splitHeat?'Heat|'+r.day:er;
+      var g=groups[key]||(groups[key]={label:splitHeat?'Heat · '+r.day:er, dt:'', races:[]});
       g.races.push(r);
       if(!g.dt||(r.dateTime&&r.dateTime<g.dt))g.dt=r.dateTime;
     });
