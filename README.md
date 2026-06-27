@@ -300,3 +300,9 @@ filtered.slice(0,250).forEach((e)=>{ /* use e.rank, never i+1 */ });
 ## Deployment
 
 Push to `main`. GitHub Pages serves the repo root at `rowingtools.co.uk` (via `CNAME`) and redeploys in ~30s. There is nothing to build. The Henley GitHub Action is the only automation that writes to the repo, and it only ever commits `data/henley_2026.json`.
+
+---
+
+## Licence & contributing
+
+The code is **all rights reserved** (see [`LICENSE`](LICENSE)) - public for reference, not for reuse. Contributions are welcome by **fork and pull request**; merged contributions fall under the same terms. No direct push access is granted. Never commit secrets - the scraper's `ANTHROPIC_API_KEY` belongs in an env var or a (gitignored) `.env`.

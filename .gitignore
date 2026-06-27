@@ -2,3 +2,7 @@ gmt_processor/outputs/
 exhibits/
 __pycache__/
 *.pyc
+
+# Secrets - the scraper reads ANTHROPIC_API_KEY from here if set
+.env
+.env.*
