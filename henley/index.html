@@ -114,7 +114,7 @@ td.sp,th.sp{color:var(--text3);font-variant-numeric:tabular-nums;text-align:righ
 </details>
 
 <div class="hr-sticky">
-<div class="hr-bar"><span class="hr-bar-label">Day</span><div class="lbtab-wrap" id="hr-days"></div></div>
+<div class="hr-bar"><span class="hr-bar-label">Day</span><div class="lbtab-wrap" id="hr-days"></div><span id="hr-updated" style="margin-left:auto;color:var(--text3);font-size:.8rem;white-space:nowrap" title="Most recent race included in these results"></span></div>
 <div class="hr-bar"><span class="hr-bar-label">Rank</span><div class="lbtab-wrap" id="hr-tabs">
   <button class="lbtab" data-tab="byevent">By event (raw time)</button>
   <button class="lbtab active" data-tab="record">% of Henley record</button>
@@ -315,12 +315,28 @@ function render(){
 
 function setActive(box,btn){box.querySelectorAll('.lbtab').forEach(function(b){b.classList.toggle('active',b===btn);});}
 function renderDayTabs(){
-  var present=[]; RACES.forEach(function(r){if(present.indexOf(r.day)<0)present.push(r.day);});
+  var present=[], dayDate={};
+  RACES.forEach(function(r){
+    if(present.indexOf(r.day)<0)present.push(r.day);
+    if(r.dateTime&&!dayDate[r.day])dayDate[r.day]=r.dateTime.slice(0,10);  // day name -> race date
+  });
   present.sort(function(a,b){return DAY_ORDER.indexOf(a)-DAY_ORDER.indexOf(b);});
   var box=document.getElementById('hr-days');
-  if(present.indexOf(state.day)<0)state.day=present[0]||'';  // default to the first racing day
+  if(present.indexOf(state.day)<0){
+    // Default to today's racing day if the regatta is live; otherwise the most recent day with results.
+    var n=new Date(),p=function(x){return(x<10?'0':'')+x;},todayStr=n.getFullYear()+'-'+p(n.getMonth()+1)+'-'+p(n.getDate());
+    var todayDay=present.filter(function(d){return dayDate[d]===todayStr;})[0];
+    state.day=todayDay||present[present.length-1]||'';
+  }
   box.innerHTML=present.map(function(d){return '<button class="lbtab'+(d===state.day?' active':'')+'" data-day="'+d+'">'+d.slice(0,3)+'</button>';}).join('');
   box.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.day=b.dataset.day;setActive(box,b);render();};});
+}
+// "Latest result" freshness stamp - the most recent race in the loaded year's data.
+function renderUpdated(){
+  var el=document.getElementById('hr-updated'); if(!el)return;
+  var latest=null;
+  RACES.forEach(function(r){if(r.dateTime&&(!latest||r.dateTime>latest.dateTime))latest=r;});
+  el.textContent=latest?('Latest result · '+latest.day.slice(0,3)+' '+latest.dateTime.slice(11,16)):'';
 }
 function renderYearTabs(){
   var box=document.getElementById('hr-years');
@@ -340,7 +356,7 @@ function wireToggles(){
 function loadYear(year){
   state.year=year; state.day='';
   document.getElementById('hr-content').innerHTML='<p style="color:var(--text3);padding:2rem 0">Loading…</p>';
-  var done=function(races){RACES=races;buildDatalists();renderDayTabs();render();};
+  var done=function(races){RACES=races;buildDatalists();renderDayTabs();renderUpdated();render();};
   if(_cache[year])return done(_cache[year]);
   fetch('/data/henley_'+year+'.json').then(function(r){return r.json();}).then(function(races){_cache[year]=races;done(races);})
     .catch(function(){document.getElementById('hr-content').innerHTML='<p style="color:var(--text3)">Could not load Henley '+year+' data.</p>';});
