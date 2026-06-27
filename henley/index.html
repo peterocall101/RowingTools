@@ -75,6 +75,10 @@ details.hr-event-block:not([open])>summary{border-bottom-color:transparent}
 .hr-yearsel .lbtab{font-size:18px;font-weight:700;letter-spacing:-.01em;padding:11px 30px;border-radius:12px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text2);height:auto}
 .hr-yearsel .lbtab.active{background:#c8472b;color:#fff;border-color:#c8472b;box-shadow:0 2px 10px rgba(200,71,43,.3)}
 .hr-yearsel .lbtab:hover:not(.active){color:var(--text);border-color:var(--text3)}
+.hr-viewsel{display:flex;gap:8px;margin:0 0 1.5rem}
+.hr-viewsel .lbtab{font-size:14px;font-weight:600;padding:8px 20px;border-radius:10px;border:1.5px solid #c8472b;background:transparent;color:#c8472b;height:auto}
+.hr-viewsel .lbtab.active{background:#c8472b;color:#fff;border-color:#c8472b;box-shadow:0 2px 10px rgba(200,71,43,.3)}
+.hr-viewsel .lbtab:hover:not(.active){background:rgba(200,71,43,.1)}
 .hr-sticky{position:sticky;top:0;z-index:50;background:var(--bg);padding:10px 0 4px;margin-bottom:10px;border-bottom:1px solid var(--border)}
 .hr-sticky .hr-bar{margin-bottom:6px}
 .hr-sticky .hr-bar:last-child{margin-bottom:0}
@@ -92,6 +96,35 @@ td.sp,th.sp{color:var(--text3);font-variant-numeric:tabular-nums;text-align:righ
   #hr-content .tbl td{display:table-cell;padding:6px 8px;border-bottom:1px solid var(--border);overflow:hidden}
   #hr-content .tbl td::before{display:none}
 }
+/* ---- Live results: tab visibility, list/tree, race-detail modal ---- */
+.hr-sticky[data-view="live"] .only-board{display:none}
+.hr-sticky[data-view="board"] .only-live{display:none}
+.hr-sticky[data-view="live"][data-live="tree"] .hide-in-tree{display:none}
+.rd-table tbody tr{cursor:pointer}
+.rd-tree{padding:2px 0 6px}
+.rd-round{margin:0 0 8px}
+.rd-round-h{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:8px 0 3px}
+.rd-tree-race{display:flex;justify-content:space-between;gap:12px;align-items:baseline;padding:6px 8px;border-radius:6px;cursor:pointer}
+.rd-tree-race:hover{background:var(--bg3)}
+.rd-tm{color:var(--text3);white-space:nowrap;font-variant-numeric:tabular-nums;font-size:13px}
+.rd-overlay{position:fixed;inset:0;background:rgba(5,5,5,.72);backdrop-filter:blur(6px);z-index:980;display:none;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .2s}
+.rd-overlay.show{display:flex;opacity:1}
+.rd-modal{position:relative;background:var(--bg2);border:1px solid var(--border2);border-radius:14px;max-width:540px;width:100%;max-height:88vh;overflow:auto;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.rd-close{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--text3);font-size:24px;line-height:1;cursor:pointer;height:auto;padding:2px 6px}
+.rd-head h3{margin:0 24px 2px 0;font-size:1.15rem;line-height:1.3}
+.rd-meta{color:var(--text3);font-size:.85rem;margin-bottom:14px}
+.rd-result{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;font-size:.95rem}
+.rd-result>div{display:flex;align-items:baseline}
+.rd-tag{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);width:56px;flex-shrink:0}
+.rd-st{font-size:11px;color:var(--text3);border:1px solid var(--border2);border-radius:4px;padding:0 5px;margin-left:6px}
+.rd-margin strong{color:var(--text)}
+.rd-splits{width:100%;border-collapse:collapse;font-size:13px;margin:0 0 12px}
+.rd-splits th{text-align:left;padding:7px 8px;color:var(--text2);font-weight:500;border-bottom:2px solid var(--border);font-size:10px;letter-spacing:.05em;text-transform:uppercase}
+.rd-splits td{padding:6px 8px;border-bottom:1px solid var(--border)}
+.rd-splits tr:last-child td{border-bottom:none}
+.rd-wbt{color:var(--text2);font-size:.9rem;margin-bottom:14px}
+.rd-wxbtn{background:rgba(123,191,255,.12);border:1px solid rgba(123,191,255,.35);color:#7bbfff;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:.9rem;font-weight:600;height:auto;width:100%}
+.rd-wxbtn:hover{background:rgba(123,191,255,.2)}
 </style>
 </head>
 <body>
@@ -104,6 +137,11 @@ td.sp,th.sp{color:var(--text3);font-variant-numeric:tabular-nums;text-align:righ
 <a href="/" class="back-link">← Back to main tools</a>
 
 <div class="hr-yearsel" id="hr-years"></div>
+
+<div class="hr-viewsel" id="hr-view">
+  <button class="lbtab active" data-view="live">Live results</button>
+  <button class="lbtab" data-view="board">Leaderboards</button>
+</div>
 
 <p class="info" style="margin-bottom:1rem">
   Henley Regatta rankings by year and day - by raw time, by % of Henley course records at the start of the regatta, and by % of World Best Time.
@@ -119,14 +157,18 @@ td.sp,th.sp{color:var(--text3);font-variant-numeric:tabular-nums;text-align:righ
   </ol>
 </details>
 
-<div class="hr-sticky">
-<div class="hr-bar"><span class="hr-bar-label">Day</span><div class="lbtab-wrap" id="hr-days"></div><span id="hr-updated" style="margin-left:auto;color:var(--text3);font-size:.8rem;white-space:nowrap" title="Most recent race included in these results"></span></div>
-<div class="hr-bar"><span class="hr-bar-label">Rank</span><div class="lbtab-wrap" id="hr-tabs">
+<div class="hr-sticky" data-view="live" data-live="list">
+<div class="hr-bar only-live"><span class="hr-bar-label">Show</span><div class="lbtab-wrap" id="hr-live">
+  <button class="lbtab active" data-live="list">List</button>
+  <button class="lbtab" data-live="tree">Tree by event</button>
+</div></div>
+<div class="hr-bar hide-in-tree"><span class="hr-bar-label">Day</span><div class="lbtab-wrap" id="hr-days"></div><span id="hr-updated" style="margin-left:auto;color:var(--text3);font-size:.8rem;white-space:nowrap" title="Most recent race included in these results"></span></div>
+<div class="hr-bar only-board"><span class="hr-bar-label">Rank</span><div class="lbtab-wrap" id="hr-tabs">
   <button class="lbtab" data-tab="byevent">By event (raw time)</button>
   <button class="lbtab active" data-tab="record">% of Henley record</button>
   <button class="lbtab" data-tab="wbt">% of WBT</button>
 </div></div>
-<div class="hr-bar"><span class="hr-bar-label">Point</span><div class="lbtab-wrap" id="hr-markers">
+<div class="hr-bar only-board"><span class="hr-bar-label">Point</span><div class="lbtab-wrap" id="hr-markers">
   <button class="lbtab" data-marker="barrier">Barrier</button>
   <button class="lbtab" data-marker="fawley">Fawley</button>
   <button class="lbtab active" data-marker="finish">Finish</button>
@@ -144,6 +186,8 @@ td.sp,th.sp{color:var(--text3);font-variant-numeric:tabular-nums;text-align:righ
 
 <div class="footer"><a href="mailto:feedback@rowingtools.co.uk">Contact Us - Suggestions &amp; Feedback</a></div>
 
+<div class="rd-overlay" id="rd-overlay"><div class="rd-modal"><button type="button" class="rd-close" id="rd-close" aria-label="Close">&times;</button><div id="rd-body"></div></div></div>
+
 <script src="/conditions.js"></script>
 <script>
 // Year tabs are auto-detected: a year appears once data/henley_<year>.json exists.
@@ -154,8 +198,8 @@ var DAY_ORDER=['Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 // Distance from the start to each timing point, in metres (confirmed HRR figures).
 // Finish = 1 mile 550 yards = 2112m.
 var DIST={barrier:637, fawley:1047, finish:2112};
-var state={year:'2025',day:'',tab:'record',marker:'finish',fClub:'',fEvent:''};
-var RECORDS={}, WBT={}, RACES=[], _cache={};
+var state={year:'2025',day:'',view:'live',liveMode:'list',tab:'record',marker:'finish',fClub:'',fEvent:''};
+var RECORDS={}, WBT={}, RACES=[], RACE_BY_ID={}, _cache={};
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function fmtPct(p){return p==null?'—':p.toFixed(1)+'%';}
@@ -241,7 +285,15 @@ function marginCell(e){if(state.marker!=='finish')return '';var m=marginInfo(e.v
 function wxCell(e){if(!e.dt)return '<td></td>';var date=e.dt.slice(0,10),clock=e.dt.slice(11,16),label=(e.crew+' · '+(e.eventFull||e.event||'')).replace(/"/g,'&quot;');return '<td class="r"><button class="hr-wx" title="Conditions during this race" data-clock="'+clock+'" data-date="'+date+'" data-label="'+label+'" data-boat="'+esc(wbtBoat(e.cls)||'')+'">'+WIND_ICON+'</button></td>';}
 function extraHead(){return (state.marker==='finish'?'<th>Margin</th>':'')+'<th class="r">Wx</th>';}
 function extraCells(e){return marginCell(e)+wxCell(e);}
-document.addEventListener('click',function(ev){var b=ev.target.closest&&ev.target.closest('.hr-wx');if(b&&window.wxOpen)window.wxOpen(b.dataset.clock,b.dataset.label,b.dataset.boat,b.dataset.date,HENLEY_VENUE);});
+document.addEventListener('click',function(ev){
+  var t=ev.target; if(!t.closest)return;
+  var wx=t.closest('.hr-wx')||t.closest('.rd-wxbtn');
+  if(wx&&window.wxOpen){window.wxOpen(wx.dataset.clock,wx.dataset.label,wx.dataset.boat,wx.dataset.date,HENLEY_VENUE);return;}
+  if(t.closest('#rd-close')||t.id==='rd-overlay'){closeRaceDetail();return;}
+  var row=t.closest('.rd-row');
+  if(row&&row.dataset.raceid){openRaceDetail(row.dataset.raceid);return;}
+});
+document.addEventListener('keydown',function(ev){if(ev.key==='Escape')closeRaceDetail();});
 
 function renderRecord(){
   var mk=state.marker, entries=buildBest(mk).map(function(e){
@@ -322,8 +374,103 @@ function renderByEvent(){
   return blocks.join('');
 }
 
+/* ---- Live results: list, tree, and the race-detail modal ---- */
+function raceClubMatch(r){var fc=baseClub(state.fClub).toLowerCase().trim(); if(!fc)return true; return baseClub(r.winner).toLowerCase().indexOf(fc)>=0||baseClub(r.loser||'').toLowerCase().indexOf(fc)>=0;}
+function raceEventMatch(r){var fe=(state.fEvent||'').toLowerCase().trim(); return !fe||(r.event||'').toLowerCase().indexOf(fe)>=0;}
+function resultCell(r){return '<strong>'+esc(r.winnerShort||r.winner)+'</strong> <span style="color:var(--text3)">bt</span> '+esc(r.loserShort||r.loser||'—');}
+
+function renderLiveList(){
+  var rows=RACES.filter(function(r){
+    if(r.withdrawn)return false;
+    if(state.day!=='all'&&r.day!==state.day)return false;
+    return raceClubMatch(r)&&raceEventMatch(r);
+  }).sort(function(a,b){return (b.dateTime||'').localeCompare(a.dateTime||'');});
+  if(!rows.length)return '<p style="color:var(--text3);padding:1rem 0">No races for the selected day / filter.</p>';
+  var body=rows.map(function(r){
+    var clock=(r.dateTime||'').slice(11,16),m=marginInfo(r.verdict);
+    var nr=(r.finish&&r.finish.newRecord)?'<span class="hr-nr">NR</span>':'';
+    return '<tr class="rd-row" data-raceid="'+r.id+'">'
+      +'<td style="color:var(--text3)">'+esc(clock)+'</td>'
+      +'<td style="color:var(--text2)">'+esc(r.eventShort||r.event)+'</td>'
+      +'<td style="color:var(--text3)">'+esc(r.round)+'</td>'
+      +'<td>'+resultCell(r)+'</td>'
+      +'<td class="r">'+esc(r.finish?r.finish.display:'—')+nr+'</td>'
+      +'<td style="color:'+(m.big?'#fb923c':'var(--text3)')+'">'+esc(m.text)+'</td>'
+      +'<td class="r" style="color:var(--text3)">›</td></tr>';
+  }).join('');
+  return '<div class="tbl-wrap"><table class="tbl rd-table"><thead><tr><th>Time</th><th>Event</th><th>Round</th><th>Result</th><th class="r">Finish</th><th>Margin</th><th></th></tr></thead><tbody>'+body+'</tbody></table></div>'
+    +'<p class="hr-note">Latest races first'+(state.day&&state.day!=='all'?' &middot; '+esc(state.day):'')+'. Tap any race for full stats and race-day conditions.</p>';
+}
+
+function renderLiveTree(){
+  var byEvent={};
+  RACES.forEach(function(r){
+    if(r.withdrawn)return;
+    if(!raceClubMatch(r))return;
+    (byEvent[r.eventKey]=byEvent[r.eventKey]||{name:r.event,races:[]}).races.push(r);
+  });
+  var fe=(state.fEvent||'').toLowerCase().trim();
+  var keys=Object.keys(byEvent).filter(function(k){return !fe||(byEvent[k].name||'').toLowerCase().indexOf(fe)>=0;})
+    .sort(function(a,b){return byEvent[a].name.localeCompare(byEvent[b].name);});
+  if(!keys.length)return '<p style="color:var(--text3);padding:1rem 0">No events match the filter.</p>';
+  var html=keys.map(function(k){
+    var ev=byEvent[k];
+    // Heats run over two days at HRR (e.g. Tue = 1st round, Wed = 2nd round), both labelled
+    // "Heat"; split the Heat round per day so every round shows. Sections are ordered by time
+    // (latest round first), so this works for any number of rounds.
+    var groups={};
+    ev.races.forEach(function(r){
+      var splitHeat=(r.round==='Heat');
+      var key=splitHeat?'Heat|'+r.day:r.round;
+      var g=groups[key]||(groups[key]={label:splitHeat?'Heat · '+r.day:r.round, dt:'', races:[]});
+      g.races.push(r);
+      if(!g.dt||(r.dateTime&&r.dateTime<g.dt))g.dt=r.dateTime;
+    });
+    var inner=Object.keys(groups).sort(function(a,b){return (groups[b].dt||'').localeCompare(groups[a].dt||'');}).map(function(key){
+      var g=groups[key],races=g.races.sort(function(a,b){return (a.dateTime||'').localeCompare(b.dateTime||'');});
+      var list=races.map(function(r){
+        var m=marginInfo(r.verdict);
+        return '<div class="rd-tree-race rd-row" data-raceid="'+r.id+'"><span>'+resultCell(r)+'</span>'
+          +'<span class="rd-tm">'+esc(r.finish?r.finish.display:'')+(m.text&&m.text!=='—'?' &middot; '+esc(m.text):'')+'</span></div>';
+      }).join('');
+      return '<div class="rd-round"><div class="rd-round-h">'+esc(g.label)+'</div>'+list+'</div>';
+    }).join('');
+    return '<details class="hr-event-block"><summary class="hr-ev-sum"><span class="hr-event-name">'+esc(ev.name)+'</span><span class="hr-event-rec">'+ev.races.length+' races</span></summary><div class="rd-tree">'+inner+'</div></details>';
+  }).join('');
+  return html+'<p class="hr-note">Click an event to expand its rounds (Final &rarr; Heats). Tap any race for full stats and race-day conditions.</p>';
+}
+
+function otherStation(s){return /berks/i.test(s||'')?'Bucks':/bucks/i.test(s||'')?'Berks':'';}
+function recPctAt(r,mk){var s=r[mk]; if(!s||!s.secs)return null; var b=recBaseline(r.eventKey,mk); return b?(b.secs/s.secs*100):null;}
+function openRaceDetail(id){
+  var r=RACE_BY_ID[id]; if(!r)return;
+  var clock=(r.dateTime||'').slice(11,16),date=(r.dateTime||'').slice(0,10);
+  var winS=(r.station||'').replace(/^\d+\s*-\s*/,''),loseS=otherStation(r.station),m=marginInfo(r.verdict);
+  var splits=[['barrier','Barrier'],['fawley','Fawley'],['finish','Finish']].map(function(mp){
+    var mk=mp[0],s=r[mk]; if(!s||!s.secs)return '';
+    var pct=recPctAt(r,mk);
+    var fl=(s.newRecord?'<span class="hr-nr">NR</span>':'')+((s.equalsRecord&&!s.newRecord)?'<span class="hr-nr">=REC</span>':'')+(s.loserLeading?'<span class="hr-lost" title="The crew that went on to lose led at this point">LOSER LED</span>':'');
+    return '<tr><td>'+mp[1]+'</td><td class="r">'+esc(s.display)+'</td><td class="sp">'+fmtPace(s.secs,DIST[mk])+'</td><td class="r hr-pct" style="color:'+recColor(pct)+'">'+fmtPct(pct)+'</td><td>'+fl+'</td></tr>';
+  }).join('');
+  var boat=wbtBoat(r['class']),w=WBT[boat],wbtPct=(w&&r.finish&&r.finish.secs)?(w/(r.finish.secs*(2000/DIST.finish))*100):null;
+  var label=(r.winner+' v '+(r.loser||'')+' · '+r.event).replace(/"/g,'&quot;');
+  var html='<div class="rd-head"><h3>'+esc(r.event)+'</h3><div class="rd-meta">'+esc(r.round)+' &middot; '+esc(r.day)+' '+esc(date)+' &middot; '+esc(clock)+'</div></div>'
+    +'<div class="rd-result">'
+    +'<div><span class="rd-tag">Winner</span><strong>'+esc(r.winner)+'</strong>'+(winS?'<span class="rd-st">'+esc(winS)+'</span>':'')+'</div>'
+    +'<div><span class="rd-tag">Beaten</span>'+esc(r.loser||'—')+(loseS?'<span class="rd-st">'+esc(loseS)+'</span>':'')+'</div>'
+    +'<div class="rd-margin"><span class="rd-tag">Margin</span><strong>'+esc(m.text)+'</strong></div></div>'
+    +'<table class="rd-splits"><thead><tr><th>Point</th><th class="r">Time</th><th class="sp">/500m</th><th class="r">% rec</th><th></th></tr></thead><tbody>'+splits+'</tbody></table>'
+    +(wbtPct!=null?'<div class="rd-wbt">% of WBT at the finish ('+esc(boat)+'): <strong style="color:'+gmtColor(wbtPct)+'">'+fmtPct(wbtPct)+'</strong></div>':'')
+    +'<div class="rd-actions"><button type="button" class="rd-wxbtn" data-clock="'+esc(clock)+'" data-date="'+esc(date)+'" data-boat="'+esc(boat||'')+'" data-label="'+label+'">View race-day conditions</button></div>'
+    +'<p class="hr-note" style="margin-top:12px">% of the Henley record to each point as it stood going into '+esc(r.year)+'; over 100% beat that record. LOSER LED = the crew that ultimately lost was ahead at that point.</p>';
+  document.getElementById('rd-body').innerHTML=html;
+  document.getElementById('rd-overlay').classList.add('show');
+}
+function closeRaceDetail(){document.getElementById('rd-overlay').classList.remove('show');}
+
 function render(){
   var el=document.getElementById('hr-content');
+  if(state.view==='live'){el.innerHTML=state.liveMode==='tree'?renderLiveTree():renderLiveList();return;}
   el.innerHTML = state.tab==='wbt'?renderWbt() : state.tab==='byevent'?renderByEvent() : renderRecord();
 }
 
@@ -358,6 +505,11 @@ function renderYearTabs(){
   box.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){setActive(box,b);loadYear(b.dataset.year);};});
 }
 function wireToggles(){
+  var sticky=document.querySelector('.hr-sticky');
+  var vw=document.getElementById('hr-view');
+  vw.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.view=b.dataset.view;setActive(vw,b);sticky.setAttribute('data-view',state.view);render();};});
+  var lv=document.getElementById('hr-live');
+  lv.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.liveMode=b.dataset.live;setActive(lv,b);sticky.setAttribute('data-live',state.liveMode);render();};});
   var t=document.getElementById('hr-tabs');
   t.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.tab=b.dataset.tab;setActive(t,b);render();};});
   var mk=document.getElementById('hr-markers');
@@ -370,7 +522,7 @@ function wireToggles(){
 function loadYear(year){
   state.year=year; state.day='';
   document.getElementById('hr-content').innerHTML='<p style="color:var(--text3);padding:2rem 0">Loading…</p>';
-  var done=function(races){RACES=races;buildDatalists();renderDayTabs();renderUpdated();render();};
+  var done=function(races){RACES=races;RACE_BY_ID={};races.forEach(function(r){RACE_BY_ID[r.id]=r;});buildDatalists();renderDayTabs();renderUpdated();render();};
   if(_cache[year])return done(_cache[year]);
   fetch('/data/henley_'+year+'.json').then(function(r){return r.json();}).then(function(races){_cache[year]=races;done(races);})
     .catch(function(){document.getElementById('hr-content').innerHTML='<p style="color:var(--text3)">Could not load Henley '+year+' data.</p>';});
