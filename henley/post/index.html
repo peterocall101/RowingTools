@@ -45,7 +45,7 @@
     <optgroup label="% of Henley record">
       <option value="barrier-rec">Fastest starts — to the Barrier</option>
       <option value="fawley-rec">Through the half-mile — to Fawley</option>
-      <option value="finish-rec">Closest to the record — Finish</option>
+      <option value="finish-rec">Fastest to the Finish — % of Henley record</option>
     </optgroup>
     <optgroup label="% of World Best Time">
       <option value="barrier-wbt">Fastest starts — Barrier (vs WBT)</option>
@@ -75,7 +75,7 @@ var DIST={barrier:637,fawley:1047,finish:2112};
 var ANGLES={
   'barrier-rec':{title:'Fastest starts',sub:'Top 5 to the Barrier · % of Henley record',kind:'rec',marker:'barrier'},
   'fawley-rec':{title:'Through the half-mile',sub:'Top 5 to Fawley · % of Henley record',kind:'rec',marker:'fawley'},
-  'finish-rec':{title:'Closest to the record',sub:'Top 5 to the Finish · % of Henley record',kind:'rec',marker:'finish'},
+  'finish-rec':{title:'Fastest to the Finish',sub:'Top 5 to the Finish · % of Henley record',kind:'rec',marker:'finish'},
   'barrier-wbt':{title:'Fastest starts',sub:'Top 5 to the Barrier · % of World Best',kind:'wbt',marker:'barrier'},
   'fawley-wbt':{title:'Through the half-mile',sub:'Top 5 to Fawley · % of World Best',kind:'wbt',marker:'fawley'},
   'finish-wbt':{title:'Fastest crews',sub:'Top 5 · % of World Best Time',kind:'wbt',marker:'finish'},
@@ -97,6 +97,7 @@ function _dec(s){if(!s||s.indexOf('&')<0)return s;if(!_decEl)_decEl=document.cre
 function parseWbt(t){var p=(t||'').split(':');return p.length===2?(+p[0])*60+parseFloat(p[1]):null;}
 function wbtBoat(c){return c?c.replace(/^O/,'M'):null;}
 function fmtPace(secs,dist){var s=secs*500/dist,m=Math.floor(s/60);return m+':'+(s-m*60).toFixed(1).padStart(4,'0');}
+function fmtTime(secs){var m=Math.floor(secs/60),s=secs-m*60;return m+':'+(s%1===0?String(s).padStart(2,'0'):s.toFixed(1).padStart(4,'0'));}
 function markerEntry(race,m){var s=race[m];if(!s||s.secs==null||s.secs<=0)return null;var win=m==='finish'?true:!s.loserLeading;
   return {crew:_dec(win?race.winner:race.loser),secs:s.secs,display:s.display,newRecord:!!s.newRecord,loserLeading:!!s.loserLeading,eventFull:_dec(race.event),event:_dec(race.eventShort||race.event),eventKey:race.eventKey,cls:race['class']};}
 function buildBest(m){var best={};RACES.forEach(function(r){if(r.withdrawn)return;if(state.day&&r.day!==state.day)return;var e=markerEntry(r,m);if(!e||!e.crew)return;var k=e.crew+'|'+e.eventKey;if(!best[k]||e.secs<best[k].secs)best[k]=e;});return Object.keys(best).map(function(k){return best[k];});}
@@ -118,9 +119,9 @@ function recordsList(){var day=state.day,nr=[];RACES.forEach(function(r){if(day&
 
 // Build the per-slide data for the chosen angle (up to 5 entries).
 function slideData(a){
-  if(a.kind==='rec')return buildBest(a.marker).map(function(e){var b=recBaseline(e.eventKey,a.marker);return {e:e,pct:b?(b.secs/e.secs*100):null};})
+  if(a.kind==='rec')return buildBest(a.marker).map(function(e){var b=recBaseline(e.eventKey,a.marker);return {e:e,pct:b?(b.secs/e.secs*100):null,b:b};})
     .filter(function(o){return o.pct!=null;}).sort(function(x,y){return y.pct-x.pct;}).slice(0,5)
-    .map(function(o,i){return {rank:i+1,eventLine:o.e.eventFull,crew:o.e.crew,label:'% of Henley '+a.marker+' record',val:o.pct.toFixed(1),suffix:'%',s1:['Time',o.e.display],s2:['/500m',fmtPace(o.e.secs,DIST[a.marker])]};});
+    .map(function(o,i){return {rank:i+1,eventLine:o.e.eventFull,crew:o.e.crew,label:'% of Henley '+a.marker+' record',val:o.pct.toFixed(1),suffix:'%',s1:['Time',o.e.display],s2:['/500m',fmtPace(o.e.secs,DIST[a.marker])],rec:o.b?{marker:a.marker,time:fmtTime(o.b.secs),year:o.b.year}:null};});
   if(a.kind==='wbt'){var sc=2000/DIST[a.marker];return buildBest(a.marker).map(function(e){var w=WBT[wbtBoat(e.cls)];return {e:e,pct:w?(w/(e.secs*sc)*100):null};})
     .filter(function(o){return o.pct!=null;}).sort(function(x,y){return y.pct-x.pct;}).slice(0,5)
     .map(function(o,i){return {rank:i+1,eventLine:o.e.eventFull,crew:o.e.crew,label:'% of World Best ('+a.marker+')',val:o.pct.toFixed(1),suffix:'%',s1:['Time',o.e.display],s2:['/500m',fmtPace(o.e.secs,DIST[a.marker])]};});}
@@ -146,6 +147,16 @@ function _bigVal(ctx,val,suffix,x,y,maxw){
   if(suffix){var w=ctx.measureText(val).width;_tx(ctx,suffix,x+w+10,y,'400 '+Math.round(sz*0.34)+'px '+FR,ACC,'left');}
 }
 function _meta(){return "HENLEY '"+String(state.year).slice(2);}
+function _rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+// Reference chip: the Henley course record going INTO this regatta, for the relevant marker.
+function drawRecordBox(ctx,x,y,w,marker,timeStr,year){
+  var h=152;
+  _rr(ctx,x,y,w,h,16);ctx.fillStyle='rgba(244,239,230,0.04)';ctx.fill();
+  ctx.strokeStyle=fade(.2);ctx.lineWidth=2;ctx.stroke();
+  _tx(ctx,'HENLEY RECORD BEFORE THIS REGATTA',x+30,y+48,'700 20px '+JM,ACC,'left',3);
+  _tx(ctx,marker.toUpperCase()+'   '+timeStr,x+30,y+114,'500 46px '+FR,PAPER,'left');
+  if(year)_tx(ctx,'SET '+year,x+w-30,y+110,'500 20px '+JM,fade(.4),'right',2);
+}
 
 function drawCover(a,day,nSeg){
   var W=1080,H=1350,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_header(ctx,W,_meta(),nSeg,0);
@@ -168,6 +179,7 @@ function drawResult(d,nSeg,seg){
   ctx.strokeStyle=fade(.2);ctx.beginPath();ctx.moveTo(64,520);ctx.lineTo(1016,520);ctx.stroke();
   _tx(ctx,d.eventLine,64,582,'700 22px '+JM,fade(.6),'left',4);
   var cl=_wrap(ctx,d.crew,'400 58px '+FR,950),cy=652;cl.slice(0,2).forEach(function(l){_tx(ctx,l,64,cy,'400 58px '+FR,PAPER,'left');cy+=66;});
+  if(d.rec)drawRecordBox(ctx,64,805,760,d.rec.marker,d.rec.time,d.rec.year);
   _tx(ctx,d.label,64,1070,'700 22px '+JM,fade(.5),'left',5);
   _bigVal(ctx,d.val,d.suffix,64,1210,900);
   if(d.s1){_tx(ctx,d.s1[0].toUpperCase(),64,1285,'500 18px '+JM,fade(.5),'left',3);_tx(ctx,d.s1[1],64,1325,'500 30px '+FR,PAPER,'left');}
@@ -189,6 +201,7 @@ function drawStory(it){
   _tx(ctx,(it.k||'').toUpperCase(),64,820,'700 30px '+JM,ACC,'left',6);
   var cl=_wrap(ctx,it.crew,'700 76px '+FR,950),cy=920;cl.slice(0,2).forEach(function(l){_tx(ctx,l,64,cy,'700 76px '+FR,PAPER,'left');cy+=82;});
   _tx(ctx,it.event,64,cy+10,'500 30px '+JM,fade(.55),'left',2);
+  if(it.rec)drawRecordBox(ctx,64,1150,900,it.rec.marker,it.rec.time,it.rec.year);
   _bigVal(ctx,it.big,it.suffix||'',64,1480,950);
   _tx(ctx,(it.ctx||'').toUpperCase(),64,1560,'500 24px '+JM,fade(.5),'left',3);
   if(it.time)_tx(ctx,'TIME  '+it.time+(it.pace?'      /500m  '+it.pace:''),64,1635,'500 26px '+JM,fade(.55),'left',1);
@@ -197,12 +210,12 @@ function drawStory(it){
   return c;
 }
 
-function topRec(m){var r=buildBest(m).map(function(e){var b=recBaseline(e.eventKey,m);return {e:e,pct:b?(b.secs/e.secs*100):null};}).filter(function(o){return o.pct!=null;}).sort(function(x,y){return y.pct-x.pct;});return r[0];}
+function topRec(m){var r=buildBest(m).map(function(e){var b=recBaseline(e.eventKey,m);return {e:e,pct:b?(b.secs/e.secs*100):null,b:b};}).filter(function(o){return o.pct!=null;}).sort(function(x,y){return y.pct-x.pct;});return r[0];}
 function topWbt(m){var sc=2000/DIST[m];var r=buildBest(m).map(function(e){var w=WBT[wbtBoat(e.cls)];return {e:e,pct:w?(w/(e.secs*sc)*100):null};}).filter(function(o){return o.pct!=null;}).sort(function(x,y){return y.pct-x.pct;});return r[0];}
 // Six fixed stories per day: fastest to each marker by % of Henley record and by % of WBT.
 function storyItems(){
   var out=[],cap=function(m){return m.charAt(0).toUpperCase()+m.slice(1);};
-  ['barrier','fawley','finish'].forEach(function(m){var t=topRec(m);if(t)out.push({k:'Closest to the '+cap(m)+' record',crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',ctx:'of the Henley '+m+' record',time:t.e.display,pace:fmtPace(t.e.secs,DIST[m])});});
+  ['barrier','fawley','finish'].forEach(function(m){var t=topRec(m);if(t)out.push({k:'Fastest to the '+cap(m),crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',ctx:'based off % of Henley record',time:t.e.display,pace:fmtPace(t.e.secs,DIST[m]),rec:t.b?{marker:m,time:fmtTime(t.b.secs),year:t.b.year}:null});});
   ['barrier','fawley','finish'].forEach(function(m){var t=topWbt(m);if(t)out.push({k:'Fastest to the '+cap(m)+' (vs WBT)',crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',ctx:'of World Best Time',time:t.e.display,pace:fmtPace(t.e.secs,DIST[m])});});
   return out;
 }

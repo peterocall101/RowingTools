@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>rowingtools.co.uk &ndash; Henley feature carousel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,900;1,9..144,300;1,9..144,400&family=JetBrains+Mono:wght@400;500;700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0a1628;
+    --paper: #f4efe6;
+    --accent: #c8472b;
+    --gold: #b8893a;
+    /* Henley-page ranking tiers */
+    --t-gold:#fbbf24; --t-green:#34d399; --t-blue:#60a5fa; --t-orange:#fb923c; --t-red:#f87171;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter Tight', sans-serif;
+    background: #0a0a0a;
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 18px; padding: 24px; color: #ccc;
+  }
+
+  .phone {
+    width: 540px; height: 675px;
+    background: #000; overflow: hidden; position: relative;
+  }
+  .stage {
+    width: 100%; height: 100%; position: relative;
+    background: var(--ink); overflow: hidden;
+  }
+  .stage::after {
+    content: ''; position: absolute; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.5; pointer-events: none; z-index: 5;
+  }
+
+  /* HEADER */
+  .stage-header {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: 24px 30px 14px; display: flex;
+    justify-content: space-between; align-items: center; z-index: 4;
+  }
+  .stage-masthead {
+    font-family: 'Fraunces', serif; font-weight: 900; font-size: 16px;
+    letter-spacing: -0.02em; color: var(--paper);
+  }
+  .stage-masthead .dot { color: var(--accent); }
+  .stage-meta {
+    display: flex; align-items: center; gap: 7px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.2em;
+    color: rgba(244,239,230,0.5);
+  }
+  .stage-meta .pip {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent); animation: livePulse 1.4s ease-in-out infinite;
+  }
+  @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+  .progress-dots {
+    position: absolute; top: 58px; left: 30px; right: 30px;
+    display: flex; gap: 3px; z-index: 4;
+  }
+  .dot-segment { flex: 1; height: 2px; background: rgba(244,239,230,0.2); border-radius: 1px; }
+  .dot-segment.viewed, .dot-segment.current { background: rgba(244,239,230,0.7); }
+
+  .track { position: absolute; inset: 0; display: flex;
+    transition: transform 0.4s cubic-bezier(0.22,1,0.36,1); }
+  .slide {
+    flex: 0 0 100%; height: 100%; position: relative; color: var(--paper);
+    padding: 96px 40px 64px; display: flex; flex-direction: column;
+  }
+
+  .index-pill {
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.5); color: var(--paper);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.15em;
+    padding: 6px 13px; border-radius: 12px; z-index: 4;
+  }
+
+  /* SHARED CONTENT */
+  .kicker {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.3em; color: var(--accent);
+    margin-bottom: 18px;
+  }
+  .feat-title {
+    font-family: 'Fraunces', serif; font-weight: 900;
+    font-size: 58px; line-height: 0.95; letter-spacing: -0.035em;
+    color: var(--paper);
+  }
+  .feat-body {
+    font-family: 'Inter Tight', sans-serif; font-weight: 400;
+    font-size: 24px; line-height: 1.45; color: rgba(244,239,230,0.72);
+  }
+  .feat-body b { color: var(--paper); font-weight: 600; }
+  .spacer { flex: 1; min-height: 12px; }
+
+  .live-badge {
+    display: inline-flex; align-items: center; gap: 9px;
+    background: var(--accent); color: #fff;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    padding: 8px 16px; border-radius: 999px;
+  }
+  .live-badge .pip { width: 9px; height: 9px; border-radius: 50%; background: #fff;
+    animation: livePulse 1.4s ease-in-out infinite; }
+
+  /* COVER (slide 1) */
+  .slide.cover { justify-content: center; }
+  .cover .live-badge { align-self: flex-start; margin-bottom: 26px; }
+  .cover-name {
+    font-family: 'Fraunces', serif; font-weight: 900;
+    font-size: 76px; line-height: 0.9; letter-spacing: -0.045em;
+    color: var(--paper); margin-bottom: 22px;
+  }
+  .cover-name .accent { color: var(--accent); }
+  .cover .subtitle {
+    font-family: 'Fraunces', serif; font-weight: 300; font-style: italic;
+    font-size: 25px; line-height: 1.3; color: rgba(244,239,230,0.65);
+    max-width: 92%;
+  }
+  .cover-foot {
+    margin-top: 40px; padding-top: 22px; border-top: 1px solid rgba(244,239,230,0.18);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .cover-foot .url {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    text-transform: uppercase; letter-spacing: 0.22em; color: rgba(244,239,230,0.5);
+  }
+  .swipe {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.28em; color: var(--accent);
+    display: flex; align-items: center; gap: 8px;
+    animation: nudge 2s ease-in-out infinite;
+  }
+  .swipe::after { content: '\2192'; font-size: 15px; }
+  @keyframes nudge { 0%,100%{transform:translateX(0)} 50%{transform:translateX(5px)} }
+
+  /* COURSE DIAGRAM (slide 2) */
+  .course { position: relative; margin: 54px 0 30px; height: 120px; }
+  .course .rail { position: absolute; left: 0; right: 0; top: 60px; height: 4px;
+    background: rgba(244,239,230,0.16); border-radius: 2px; }
+  .course .mk { position: absolute; top: 60px; transform: translate(-50%,-50%);
+    width: 16px; height: 16px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 0 5px rgba(200,71,43,0.18); }
+  .course .start { position: absolute; top: 60px; left: 0; transform: translate(-50%,-50%);
+    width: 10px; height: 10px; border-radius: 50%; background: rgba(244,239,230,0.4); }
+  .course .lab { position: absolute; transform: translateX(-50%); text-align: center; }
+  .course .lab .nm { font-family: 'Fraunces', serif; font-weight: 500; font-size: 17px;
+    color: var(--paper); white-space: nowrap; }
+  .course .lab .ds { font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    letter-spacing: 0.08em; color: rgba(244,239,230,0.55); margin-top: 4px; }
+  .course .lab.top { top: 0; }
+  .course .lab.bot { top: 86px; }
+
+  /* TWO WAYS (slide 3) */
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 30px 0 30px; }
+  .card { background: rgba(244,239,230,0.04); border: 1px solid rgba(244,239,230,0.12);
+    border-radius: 14px; padding: 22px 20px; }
+  .card .ct { font-family: 'Fraunces', serif; font-weight: 700; font-size: 24px;
+    color: var(--paper); margin-bottom: 10px; }
+  .card .cs { font-family: 'Inter Tight', sans-serif; font-size: 17px; line-height: 1.4;
+    color: rgba(244,239,230,0.62); }
+  .tier-label { font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.25em; color: rgba(244,239,230,0.5);
+    margin-bottom: 14px; }
+  .tiers { display: flex; gap: 10px; flex-wrap: wrap; }
+  .chip { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px;
+    padding: 9px 16px; border-radius: 11px; border: 2px solid; background: rgba(244,239,230,0.03); }
+
+  /* BULLETS (slide 4) */
+  .list { margin-top: 16px; display: flex; flex-direction: column; gap: 26px; }
+  .li { display: flex; gap: 18px; align-items: flex-start; }
+  .li .bp { flex: 0 0 auto; width: 13px; height: 13px; border-radius: 50%;
+    background: var(--accent); margin-top: 9px; }
+  .li .lt { font-family: 'Fraunces', serif; font-weight: 600; font-size: 27px;
+    color: var(--paper); line-height: 1.1; }
+  .li .ls { font-family: 'Inter Tight', sans-serif; font-size: 19px;
+    color: rgba(244,239,230,0.6); margin-top: 5px; }
+
+  /* OUTRO (slide 5) */
+  .slide.outro { justify-content: center; align-items: center; text-align: center; }
+  .outro .caveat { font-family: 'Fraunces', serif; font-style: italic; font-weight: 300;
+    font-size: 21px; line-height: 1.4; color: rgba(244,239,230,0.62);
+    max-width: 96%; margin-bottom: 34px; }
+  .outro .caveat b { font-style: normal; font-weight: 500; color: var(--paper); }
+  .outro .live-badge { margin-bottom: 24px; }
+  .outro .big {
+    font-family: 'Fraunces', serif; font-weight: 900; font-size: 56px;
+    letter-spacing: -0.035em; color: var(--paper); margin-bottom: 18px; line-height: 0.95;
+  }
+  .outro .url { font-family: 'JetBrains Mono', monospace; font-size: 15px;
+    text-transform: uppercase; letter-spacing: 0.22em; color: var(--accent); margin-bottom: 14px; }
+  .outro .note { font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.18em; color: rgba(244,239,230,0.45); }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="stage" id="stage">
+    <div class="stage-header">
+      <div class="stage-masthead">rowingtools<span class="dot">.</span></div>
+      <div class="stage-meta"><span class="pip"></span>Henley &middot; Live</div>
+    </div>
+    <div class="progress-dots" id="progress-dots"></div>
+
+    <div class="track" id="track">
+
+      <!-- 1. COVER -->
+      <div class="slide cover">
+        <div class="live-badge"><span class="pip"></span>Live</div>
+        <div class="kicker">New feature</div>
+        <div class="cover-name">Henley,<br><span class="accent">ranked live</span></div>
+        <div class="subtitle">Every crew ranked by % of the Henley record at the Barrier, Fawley and the Finish, updated daily.</div>
+        <div class="cover-foot">
+          <div class="url">rowingtools.co.uk/henley</div>
+          <div class="swipe">Swipe</div>
+        </div>
+      </div>
+
+      <!-- 2. THE COURSE -->
+      <div class="slide">
+        <div class="kicker">Three timing points</div>
+        <div class="feat-title">The whole course,<br>not just the line</div>
+        <div class="course">
+          <div class="rail"></div>
+          <div class="start"></div>
+          <div class="mk" style="left:30.2%"></div>
+          <div class="mk" style="left:49.6%"></div>
+          <div class="mk" style="left:100%"></div>
+          <div class="lab top" style="left:30.2%"><div class="nm">Barrier</div></div>
+          <div class="lab bot" style="left:30.2%"><div class="ds">637m</div></div>
+          <div class="lab top" style="left:49.6%"><div class="nm">Fawley</div></div>
+          <div class="lab bot" style="left:49.6%"><div class="ds">1,047m</div></div>
+          <div class="lab top" style="left:100%"><div class="nm">Finish</div></div>
+          <div class="lab bot" style="left:100%"><div class="ds">2,112m</div></div>
+        </div>
+        <div class="feat-body">Each crew is ranked by its <b>% of the Henley record</b> at these points, so you can compare a whole event's crews, day by day of the regatta.</div>
+        <div class="spacer"></div>
+      </div>
+
+      <!-- 3. TWO WAYS -->
+      <div class="slide">
+        <div class="kicker">Two benchmarks</div>
+        <div class="feat-title">Record pace, or<br>world-class pace</div>
+        <div class="cards">
+          <div class="card">
+            <div class="ct">% Henley record</div>
+            <div class="cs">How close to the course record for that event.</div>
+          </div>
+          <div class="card">
+            <div class="ct">% World Best</div>
+            <div class="cs">The same crew against the global standard.</div>
+          </div>
+        </div>
+        <div class="tier-label">Colour-coded by tier</div>
+        <div class="tiers">
+          <span class="chip" style="color:var(--t-gold);border-color:var(--t-gold)">100%+</span>
+          <span class="chip" style="color:var(--t-green);border-color:var(--t-green)">98+</span>
+          <span class="chip" style="color:var(--t-blue);border-color:var(--t-blue)">96+</span>
+          <span class="chip" style="color:var(--t-orange);border-color:var(--t-orange)">93+</span>
+          <span class="chip" style="color:var(--t-red);border-color:var(--t-red)">&lt;93</span>
+        </div>
+        <div class="spacer"></div>
+      </div>
+
+      <!-- 4. WHAT'S IN IT -->
+      <div class="slide">
+        <div class="kicker">What's in it</div>
+        <div class="feat-title">Built for browsing</div>
+        <div class="list">
+          <div class="li"><div class="bp"></div><div><div class="lt">Daily leaderboards</div><div class="ls">A board for every racing day, Tuesday to Sunday.</div></div></div>
+          <div class="li"><div class="bp"></div><div><div class="lt">Filter by club or event</div><div class="ls">A, B and C crews grouped under one club.</div></div></div>
+          <div class="li"><div class="bp"></div><div><div class="lt">Race conditions</div><div class="ls">Wind speed and temperature for every race.</div></div></div>
+          <div class="li"><div class="bp"></div><div><div class="lt">500m splits</div><div class="ls">At the Barrier, Fawley and the Finish.</div></div></div>
+        </div>
+        <div class="spacer"></div>
+      </div>
+
+      <!-- 5. OUTRO / CTA -->
+      <div class="slide outro">
+        <div class="caveat">Wind and crews easing down move the clock, so this ranks <b>who looked fast on the day</b>, not exact boat speed.</div>
+        <div class="live-badge"><span class="pip"></span>Live now</div>
+        <div class="big">See who's<br>fastest</div>
+        <div class="url">rowingtools.co.uk / henley</div>
+        <div class="note">Updated daily through the regatta &middot; Tue&ndash;Sun</div>
+      </div>
+
+    </div>
+
+    <div class="index-pill" id="index-pill">1 / 5</div>
+  </div>
+</div>
+
+<script>
+  const track = document.getElementById('track');
+  const dotsContainer = document.getElementById('progress-dots');
+  const indexPill = document.getElementById('index-pill');
+  let currentIndex = 0;
+  const totalSlides = track.querySelectorAll('.slide').length;
+
+  for (let i = 0; i < totalSlides; i++) {
+    const seg = document.createElement('div');
+    seg.className = 'dot-segment';
+    dotsContainer.appendChild(seg);
+  }
+  function updateDots() {
+    document.querySelectorAll('.dot-segment').forEach((seg, i) => {
+      seg.classList.remove('viewed', 'current');
+      if (i < currentIndex) seg.classList.add('viewed');
+      if (i === currentIndex) seg.classList.add('current');
+    });
+  }
+  function goTo(index) {
+    currentIndex = Math.max(0, Math.min(totalSlides - 1, index));
+    track.style.transform = `translateX(-${currentIndex * 100}%)`;
+    indexPill.textContent = `${currentIndex + 1} / ${totalSlides}`;
+    updateDots();
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') goTo(currentIndex - 1);
+    if (e.key === 'ArrowRight') goTo(currentIndex + 1);
+  });
+  window.__slideCount = () => totalSlides;
+  window.__goTo = (idx) => goTo(idx);
+  goTo(0);
+</script>
+</body>
+</html>
