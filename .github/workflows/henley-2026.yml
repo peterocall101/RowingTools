@@ -5,7 +5,12 @@ name: Henley 2026 auto-update
 # the 2026 tab once that file has races, so no HTML edit is needed).
 
 on:
-  workflow_dispatch: {}          # manual trigger (e.g. from the GitHub mobile app)
+  workflow_dispatch:             # manual trigger (e.g. from the GitHub mobile app)
+    inputs:
+      force:
+        description: 'Bypass the date guard (one-off dry-run / test outside the regatta window)'
+        type: boolean
+        default: false
   schedule:
     # Every 10 min, 06:00-19:50 UTC, on the HRR 2026 race days (Tue 30 Jun - Sun 5 Jul 2026).
     - cron: '*/10 6-19 30 6 *'   # Tue 30 June
@@ -26,12 +31,16 @@ jobs:
 
       - name: Guard to the HRR 2026 dates
         run: |
-          today=$(date -u +%Y-%m-%d)
-          if [[ "$today" < "2026-06-30" || "$today" > "2026-07-05" ]]; then
-            echo "Outside the HRR 2026 window ($today UTC) - skipping."
-            echo "SKIP=1" >> "$GITHUB_ENV"
+          if [[ "${{ github.event.inputs.force }}" == "true" ]]; then
+            echo "Force run requested - bypassing the date guard."
           else
-            echo "Within HRR 2026 window ($today UTC)."
+            today=$(date -u +%Y-%m-%d)
+            if [[ "$today" < "2026-06-30" || "$today" > "2026-07-05" ]]; then
+              echo "Outside the HRR 2026 window ($today UTC) - skipping."
+              echo "SKIP=1" >> "$GITHUB_ENV"
+            else
+              echo "Within HRR 2026 window ($today UTC)."
+            fi
           fi
 
       - uses: actions/setup-python@v5
