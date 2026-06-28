@@ -220,7 +220,7 @@ function topWbt(m){var sc=2000/DIST[m];var r=buildBest(m).map(function(e){var w=
 // Six fixed stories per day: fastest to each marker by % of Henley record and by % of WBT.
 function storyItems(){
   var out=[],cap=function(m){return m.charAt(0).toUpperCase()+m.slice(1);};
-  ['barrier','fawley','finish'].forEach(function(m){var t=topRec(m);if(t)out.push({k:'Fastest to the '+cap(m),crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',ctx:'by % of the Henley record',time:t.e.display,pace:fmtPace(t.e.secs,DIST[m]),rec:t.b?{marker:m,time:fmtTime(t.b.secs),year:t.b.year}:null});});
+  ['barrier','fawley','finish'].forEach(function(m){var t=topRec(m);if(t)out.push({k:'Fastest to the '+cap(m),crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',ctx:'based off % of Henley record',time:t.e.display,pace:fmtPace(t.e.secs,DIST[m]),rec:t.b?{marker:m,time:fmtTime(t.b.secs),year:t.b.year}:null});});
   ['barrier','fawley','finish'].forEach(function(m){var t=topWbt(m);if(t)out.push({k:'Fastest to the '+cap(m)+' (vs WBT)',crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',ctx:'of World Best Time',time:t.e.display,pace:fmtPace(t.e.secs,DIST[m])});});
   return out;
 }
@@ -230,13 +230,12 @@ function _cap(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s;}
 function caption(a,day,rows){
   var L=['Henley Royal Regatta '+state.year+' - '+day,''];
   if(a.kind==='rec'||a.kind==='wbt'){
-    var bench=a.kind==='rec'?'by % of the Henley record':'by % of World Best Time';
+    var bench=a.kind==='rec'?'by % of the Henley record leading into the regatta':'by % of World Best Time';
     L.push('Fastest to the '+_cap(a.marker)+', '+bench+' 🚣','');
     rows.forEach(function(r){
-      var t=r.s1?r.s1[1]:'', p=r.s2?r.s2[1]:'';
-      var lab=a.kind==='rec'?('of the Henley '+_cap(a.marker)+' record'):('of World Best Time to the '+_cap(a.marker));
+      var t=r.s1?r.s1[1].replace(/^0/,''):'', p=r.s2?r.s2[1]:'';
       L.push(r.rank+'. '+r.crew+' - '+r.eventLine);
-      L.push('   '+r.val+r.suffix+' '+lab+(t?' · time '+t:'')+(p?' · '+p+'/500m':''));
+      L.push('   '+r.val+r.suffix+(t?' · '+t:'')+(p?' · split: '+p+'/500m':''));
       if(a.kind==='rec'&&r.rec)L.push('   (Henley '+_cap(r.rec.marker)+' record being chased: '+r.rec.time+(r.rec.year?', set '+r.rec.year:'')+')');
     });
   } else if(a.kind==='records'){
@@ -246,7 +245,7 @@ function caption(a,day,rows){
     } else L.push('No course records broken today.');
   } else {
     L.push(a.title+' 🚣','');
-    rows.forEach(function(r){L.push(r.rank+'. '+r.crew+' - '+r.eventLine+' · '+r.val+(r.s1?' (time '+r.s1[1]+')':''));});
+    rows.forEach(function(r){L.push(r.rank+'. '+r.crew+' - '+r.eventLine+' · '+r.val+(r.s1?' ('+r.s1[1].replace(/^0/,'')+')':''));});
   }
   L.push('','Full leaderboards, splits & race-day conditions → rowingtools.co.uk/henley','',_tags());
   return L.join('\n');
