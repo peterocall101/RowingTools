@@ -203,7 +203,9 @@ function drawStory(it){
   _tx(ctx,'Henley Royal Regatta',64,310,'900 62px '+FR,PAPER,'left');
   _tx(ctx,(state.day||'').toUpperCase()+'  ·  '+state.year,64,372,'700 36px '+JM,ACC,'left',5);
   ctx.strokeStyle=fade(.15);ctx.beginPath();ctx.moveTo(64,430);ctx.lineTo(1016,430);ctx.stroke();
-  _tx(ctx,(it.k||'').toUpperCase(),64,820,'700 30px '+JM,ACC,'left',6);
+  var ky=it.k2?788:820;
+  _tx(ctx,(it.k||'').toUpperCase(),64,ky,'700 30px '+JM,ACC,'left',6);
+  if(it.k2)_tx(ctx,it.k2.toUpperCase(),64,ky+42,'700 26px '+JM,ACC,'left',4);
   var cl=_wrap(ctx,it.crew,'700 76px '+FR,950),cy=920;cl.slice(0,2).forEach(function(l){_tx(ctx,l,64,cy,'700 76px '+FR,PAPER,'left');cy+=82;});
   _tx(ctx,it.event,64,cy+10,'500 30px '+JM,fade(.55),'left',2);
   if(it.rec)drawRecordBox(ctx,64,1150,900,it.rec.marker,it.rec.time,it.rec.year);
@@ -220,8 +222,8 @@ function topWbt(m){var sc=2000/DIST[m];var r=buildBest(m).map(function(e){var w=
 // Six fixed stories per day: fastest to each marker by % of Henley record and by % of WBT.
 function storyItems(){
   var out=[],cap=function(m){return m.charAt(0).toUpperCase()+m.slice(1);};
-  ['barrier','fawley','finish'].forEach(function(m){var t=topRec(m);if(t)out.push({k:'Fastest to the '+cap(m),crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',ctx:'based off % of Henley record',time:t.e.display,pace:fmtPace(t.e.secs,DIST[m]),rec:t.b?{marker:m,time:fmtTime(t.b.secs),year:t.b.year}:null});});
-  ['barrier','fawley','finish'].forEach(function(m){var t=topWbt(m);if(t)out.push({k:'Fastest to the '+cap(m)+' (vs WBT)',crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',ctx:'of World Best Time',time:t.e.display,pace:fmtPace(t.e.secs,DIST[m])});});
+  ['barrier','fawley','finish'].forEach(function(m){var t=topRec(m);if(t)out.push({k:'Fastest to the '+cap(m),k2:'as a % of Henley record',crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',time:t.e.display,pace:fmtPace(t.e.secs,DIST[m]),rec:t.b?{marker:m,time:fmtTime(t.b.secs),year:t.b.year}:null});});
+  ['barrier','fawley','finish'].forEach(function(m){var t=topWbt(m);if(t)out.push({k:'Fastest to the '+cap(m),k2:'as a % of World Best Time',crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',time:t.e.display,pace:fmtPace(t.e.secs,DIST[m])});});
   return out;
 }
 
