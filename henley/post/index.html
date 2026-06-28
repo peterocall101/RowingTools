@@ -161,8 +161,9 @@ function drawRecordBox(ctx,x,y,w,marker,timeStr,year){
 function drawCover(a,day,nSeg){
   var W=1080,H=1350,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_header(ctx,W,_meta(),nSeg,0);
   ctx.textAlign='center';
-  _tx(ctx,(day?day:'HENLEY '+state.year).toUpperCase(),W/2,440,'700 26px '+JM,ACC,'center',6);
-  var lines=_wrap(ctx,a.title,'900 120px '+FR,920),y=560;
+  _tx(ctx,'Henley Royal Regatta',W/2,400,'900 54px '+FR,PAPER,'center');
+  _tx(ctx,day?(day.toUpperCase()+'  ·  '+state.year):state.year,W/2,452,'700 30px '+JM,ACC,'center',5);
+  var lines=_wrap(ctx,a.title,'900 120px '+FR,920),y=585;
   lines.forEach(function(l){_tx(ctx,l,W/2,y,'900 120px '+FR,PAPER,'center');y+=120;});
   _tx(ctx,a.sub,W/2,y+40,'italic 300 40px '+FR,fade(.6),'center');
   ctx.strokeStyle=fade(.15);ctx.beginPath();ctx.moveTo(W/2-200,1050);ctx.lineTo(W/2+200,1050);ctx.stroke();
@@ -197,7 +198,11 @@ function drawOutro(nSeg){
   return c;
 }
 function drawStory(it){
-  var W=1080,H=1920,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_header(ctx,W,_meta()+(state.day?" · "+state.day.toUpperCase():''),0,0);
+  var W=1080,H=1920,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_header(ctx,W,_meta(),0,0);
+  // Prominent masthead so the regatta + day read at a glance
+  _tx(ctx,'Henley Royal Regatta',64,310,'900 62px '+FR,PAPER,'left');
+  _tx(ctx,(state.day||'').toUpperCase()+'  ·  '+state.year,64,372,'700 36px '+JM,ACC,'left',5);
+  ctx.strokeStyle=fade(.15);ctx.beginPath();ctx.moveTo(64,430);ctx.lineTo(1016,430);ctx.stroke();
   _tx(ctx,(it.k||'').toUpperCase(),64,820,'700 30px '+JM,ACC,'left',6);
   var cl=_wrap(ctx,it.crew,'700 76px '+FR,950),cy=920;cl.slice(0,2).forEach(function(l){_tx(ctx,l,64,cy,'700 76px '+FR,PAPER,'left');cy+=82;});
   _tx(ctx,it.event,64,cy+10,'500 30px '+JM,fade(.55),'left',2);
