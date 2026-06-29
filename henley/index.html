@@ -220,6 +220,11 @@ var state={year:'2025',day:'',view:'live',liveMode:'list',tab:'record',marker:'f
 var RECORDS={}, WBT={}, RACES=[], RACE_BY_ID={}, _cache={}, _openRaceId='';
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+// The scraper stores names/events HTML-entity-encoded (e.g. "A &amp; B"). Decode once at load so
+// every consumer (esc'd HTML, CSV, canvas images) gets real characters and isn't double-escaped.
+var _decEl;
+function decEnt(s){if(typeof s!=='string'||s.indexOf('&')<0)return s;if(!_decEl)_decEl=document.createElement('textarea');_decEl.innerHTML=s;return _decEl.value;}
+function prepRace(r){['winner','loser','winnerShort','loserShort','event','eventShort','station','verdict'].forEach(function(k){if(typeof r[k]==='string')r[k]=decEnt(r[k]);});return r;}
 function fmtPct(p){return p==null?'—':p.toFixed(1)+'%';}
 function fmtPace(secs,dist){var s=secs*500/dist,m=Math.floor(s/60);return m+':'+(s-m*60).toFixed(1).padStart(4,'0');}
 function recColor(p){
@@ -767,7 +772,7 @@ function wireToggles(){
 function loadYear(year,keepDay){
   state.year=year; if(!keepDay)state.day='';
   document.getElementById('hr-content').innerHTML='<p style="color:var(--text3);padding:2rem 0">Loading…</p>';
-  var done=function(races){RACES=races;RACE_BY_ID={};races.forEach(function(r){RACE_BY_ID[r.id]=r;});buildDatalists();renderDayTabs();renderUpdated();render();
+  var done=function(races){RACES=races;RACE_BY_ID={};races.forEach(function(r){prepRace(r);RACE_BY_ID[r.id]=r;});buildDatalists();renderDayTabs();renderUpdated();render();
     if(_openRaceId&&RACE_BY_ID[_openRaceId]){openRaceDetail(_openRaceId);} _openRaceId='';};
   if(_cache[year])return done(_cache[year]);
   fetch('/data/henley_'+year+'.json').then(function(r){return r.json();}).then(function(races){_cache[year]=races;done(races);})
