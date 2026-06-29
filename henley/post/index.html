@@ -52,6 +52,9 @@
       <option value="fawley-wbt">To Fawley (vs WBT)</option>
       <option value="finish-wbt">Fastest crews — Finish (vs WBT)</option>
     </optgroup>
+    <optgroup label="Upsets">
+      <option value="upsets">Seeded crews beaten today</option>
+    </optgroup>
     <optgroup label="Stories">
       <option value="records">Records broken today</option>
       <option value="biggest">Biggest wins</option>
@@ -81,10 +84,29 @@ var ANGLES={
   'finish-wbt':{title:'Fastest crews',sub:'Top 5 · % of World Best Time',kind:'wbt',marker:'finish'},
   'records':{title:'Records broken',sub:'New Henley course records today',kind:'records'},
   'biggest':{title:'Biggest wins',sub:'Largest winning margins',kind:'margin',dir:'big'},
-  'closest':{title:'Closest races',sub:'Smallest winning margins',kind:'margin',dir:'close'}
+  'closest':{title:'Closest races',sub:'Smallest winning margins',kind:'margin',dir:'close'},
+  'upsets':{title:'Seeded crews beaten',sub:'Seeds knocked out today',kind:'upset'}
 };
 var state={year:'',day:'',angle:'barrier-rec'};
 var RECORDS={}, WBT={}, RACES=[], YEARS=[], _cache={}, _fontsReady=false;
+var SEEDS_RAW={}, SEEDS={};  // SEEDS[year] = [{ek, nc, seed}] - normalised event key + crew, for matching beaten seeds
+
+// Match the eventKey form the scraper writes ("The Fawley Challenge Cup" -> "fawley challenge cup").
+function normEvent(s){return (s||'').toLowerCase().replace(/the /g,' ').replace(/['’`]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
+// Canonical crew token-set so a draw name ("Univ. of Washington, USA", "Nautilus R.C. 'A'")
+// matches the results name ("University of Washington, U.S.A.", "Nautilus Rowing Club 'A'").
+// Returns a sorted, deduped token string for order-independent equality.
+var SEED_DROP={the:1,of:1,and:1,rowing:1,club:1,boat:1,usa:1,ger:1,ned:1,ita:1,aus:1,nzl:1,irl:1,cro:1,aut:1,den:1,por:1,srb:1,rsa:1,hun:1,can:1,fra:1,esp:1,bel:1,nor:1,cze:1,gbr:1,svk:1,pol:1,sui:1,rou:1,gre:1,ukr:1,rsf:1};
+function normCrew(s){
+  s=(s||'').replace(/[‘’']\s*([A-Za-z])\s*[‘’']/g,' entry$1 ');           // 'A' entry letter -> token "entrya"
+  s=' '+s.toLowerCase().replace(/[^a-z0-9]+/g,' ')+' ';
+  s=s.replace(/ g s /g,' grammar school ').replace(/ univ /g,' university ').replace(/ coll /g,' college ').replace(/ sch /g,' school ');
+  var seen={},out=[];s.split(' ').forEach(function(t){if(t.length>1&&!SEED_DROP[t]&&!seen[t]){seen[t]=1;out.push(t);}});
+  return out.sort().join(' ');
+}
+function buildSeeds(){SEEDS={};Object.keys(SEEDS_RAW).forEach(function(y){if(!/^\d{4}$/.test(y))return;var ev=SEEDS_RAW[y],out=[];Object.keys(ev).forEach(function(name){if(!Array.isArray(ev[name]))return;var ek=normEvent(name);ev[name].forEach(function(en){var crew=typeof en==='string'?en:en.crew,seed=typeof en==='string'?null:en.seed;if(crew)out.push({ek:ek,nc:normCrew(crew),seed:seed});});});SEEDS[y]=out;});}
+// Is this crew a seed in this event (for the selected year)? Returns the seed entry or null.
+function seedInfo(crew,eventKey){var arr=SEEDS[state.year]||[],nc=normCrew(crew);if(!nc)return null;for(var i=0;i<arr.length;i++){if(arr[i].ek===eventKey&&arr[i].nc&&arr[i].nc===nc)return arr[i];}return null;}
 
 // ── house style (matches carousel-template-final.html) ──
 var INK='#0a1628', PAPER='#f4efe6', ACC='#c8472b', GOLD='#b8893a';
@@ -128,6 +150,18 @@ function slideData(a){
   if(a.kind==='records')return recordsList().slice(0,5).map(function(r,i){return {rank:i+1,eventLine:r.event,crew:r.crew,label:'New '+r.marker+' record',val:r.time,suffix:'',gold:true};});
   if(a.kind==='margin'){var dr=dayRaces();dr.sort(function(x,y){return a.dir==='big'?marginRank(y.verdict)-marginRank(x.verdict):marginRank(x.verdict)-marginRank(y.verdict);});
     return dr.slice(0,5).map(function(r,i){return {rank:i+1,eventLine:_dec(r.eventShort||r.event),crew:_dec(r.winner),label:'Winning margin',val:r.verdict,suffix:'',s1:(r.finish&&r.finish.display)?['Time',r.finish.display]:null};});}
+  if(a.kind==='upset'){
+    // Every race today whose beaten crew is a seed. No top-5 cap - list them all (user posts only if < 10 slides).
+    return dayRaces().map(function(r){
+      if(!r.loser)return null;
+      var si=seedInfo(r.loser,r.eventKey); if(!si)return null;
+      var splits=[['barrier','Barrier'],['fawley','Fawley'],['finish','Finish']].map(function(mp){
+        var s=r[mp[0]]; if(!s||s.secs==null)return null;
+        return {mk:mp[1].toUpperCase(),time:s.display,pace:fmtPace(s.secs,DIST[mp[0]]),led:!!s.loserLeading};
+      }).filter(Boolean);
+      return {eventLine:_dec(r.event),loser:_dec(r.loser),winner:_dec(r.winner),seedNum:si.seed,margin:r.verdict||'—',splits:splits,dt:r.dateTime||''};
+    }).filter(Boolean).sort(function(x,y){return (x.seedNum||99)-(y.seedNum||99)||x.dt.localeCompare(y.dt);});
+  }
   return [];
 }
 
@@ -185,6 +219,40 @@ function drawResult(d,nSeg,seg){
   _bigVal(ctx,d.val,d.suffix,64,1210,900);
   if(d.s1){_tx(ctx,d.s1[0].toUpperCase(),64,1285,'500 18px '+JM,fade(.5),'left',3);_tx(ctx,d.s1[1],64,1325,'500 30px '+FR,PAPER,'left');}
   if(d.s2){_tx(ctx,d.s2[0].toUpperCase(),560,1285,'500 18px '+JM,fade(.5),'left',3);_tx(ctx,d.s2[1],560,1325,'500 30px '+FR,PAPER,'left');}
+  return c;
+}
+// Labelled chip (same frame as the record box) for the winning margin.
+function drawChip(ctx,x,y,w,label,value){
+  var h=152;_rr(ctx,x,y,w,h,16);ctx.fillStyle='rgba(244,239,230,0.04)';ctx.fill();
+  ctx.strokeStyle=fade(.2);ctx.lineWidth=2;ctx.stroke();
+  _tx(ctx,label,x+30,y+48,'700 20px '+JM,ACC,'left',3);
+  _tx(ctx,value,x+30,y+114,'500 46px '+FR,PAPER,'left');
+}
+// Time + /500m to each marker, flagging where the (eventual) loser was leading.
+function drawSplits(ctx,x,y,rows){
+  _tx(ctx,'POINT',x,y,'700 18px '+JM,fade(.5),'left',3);
+  _tx(ctx,'TIME',x+340,y,'700 18px '+JM,fade(.5),'left',3);
+  _tx(ctx,'/500m',x+600,y,'700 18px '+JM,fade(.5),'left',3);
+  ctx.strokeStyle=fade(.2);ctx.beginPath();ctx.moveTo(x,y+22);ctx.lineTo(x+888,y+22);ctx.stroke();
+  var ry=y+22;
+  rows.forEach(function(r){ry+=70;
+    _tx(ctx,r.mk,x,ry,'500 36px '+FR,PAPER,'left');
+    _tx(ctx,r.time,x+340,ry,'500 36px '+FR,PAPER,'left');
+    _tx(ctx,r.pace,x+600,ry,'500 32px '+JM,fade(.7),'left');
+    if(r.led)_tx(ctx,'◀ LED HERE',x+770,ry,'700 22px '+JM,ACC,'left',2);
+  });
+}
+function drawUpset(d,nSeg,seg){
+  var W=1080,H=1350,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_header(ctx,W,_meta(),nSeg,seg);
+  _tx(ctx,d.eventLine,64,250,'700 22px '+JM,fade(.6),'left',4);
+  _tx(ctx,(d.seedNum?'SEED '+d.seedNum:'SEEDED CREW')+'  ·  BEATEN',64,300,'700 26px '+JM,ACC,'left',4);
+  var cl=_wrap(ctx,d.loser,'700 58px '+FR,950),cy=400;cl.slice(0,2).forEach(function(l){_tx(ctx,l,64,cy,'700 58px '+FR,PAPER,'left');cy+=66;});
+  _tx(ctx,'BEATEN BY',64,540,'700 20px '+JM,fade(.5),'left',4);
+  var wl=_wrap(ctx,d.winner,'500 42px '+FR,950),wy=592;wl.slice(0,2).forEach(function(l){_tx(ctx,l,64,wy,'500 42px '+FR,PAPER,'left');wy+=48;});
+  drawChip(ctx,64,710,900,'WINNING MARGIN',d.margin);
+  drawSplits(ctx,96,960,d.splits);
+  ctx.strokeStyle=fade(.15);ctx.beginPath();ctx.moveTo(64,1280);ctx.lineTo(1016,1280);ctx.stroke();
+  _tx(ctx,'SPLITS & CONDITIONS · ROWINGTOOLS.CO.UK / HENLEY',64,1325,'700 20px '+JM,fade(.45),'left',3);
   return c;
 }
 function drawOutro(nSeg){
@@ -245,6 +313,15 @@ function caption(a,day,rows){
     if(rows.length){L.push(rows.length+' new course record'+(rows.length>1?'s':'')+' today 🔥','');
       rows.forEach(function(r){L.push('• '+r.crew+' - '+r.eventLine+' · '+r.label+' '+r.val);});
     } else L.push('No course records broken today.');
+  } else if(a.kind==='upset'){
+    L.push('Seeds knocked out today 🚣','');
+    if(!rows.length){L.push('No seeded crews beaten today.');}
+    rows.forEach(function(r){
+      L.push('• '+r.loser+(r.seedNum?' (seed '+r.seedNum+')':'')+' beaten by '+r.winner+' - '+r.eventLine);
+      var sp=r.splits.map(function(s){return _cap(s.mk.toLowerCase())+' '+s.time+(s.led?'*':'');}).join(', ');
+      L.push('   Margin '+r.margin+(sp?' · '+sp:''));
+    });
+    if(rows.some(function(r){return r.splits.some(function(s){return s.led;});}))L.push('','* led at this point but still lost');
   } else {
     L.push(a.title+' 🚣','');
     rows.forEach(function(r){L.push(r.rank+'. '+r.crew+' - '+r.eventLine+' · '+r.val+(r.s1?' ('+r.s1[1].replace(/^0/,'')+')':''));});
@@ -271,9 +348,10 @@ function showCanvases(list){
 async function generate(){
   await ensureFonts();
   var a=ANGLES[state.angle], day=state.day||'', rows=slideData(a);
-  if(!rows.length){alert('No data for this angle on the selected day yet.');return;}
-  var nSeg=rows.length+2, list=[{canvas:drawCover(a,day,nSeg),name:'henley-'+state.year+'-01-cover.png'}];
-  rows.forEach(function(d,i){list.push({canvas:drawResult(d,nSeg,i+1),name:'henley-'+state.year+'-0'+(i+2)+'-'+d.rank+'.png'});});
+  if(!rows.length){alert(a.kind==='upset'?'No seeded crews beaten on '+(day||'this day')+' (or no seed list for '+state.year+' in data/henley_seeds.json yet).':'No data for this angle on the selected day yet.');return;}
+  var nSeg=rows.length+2, drawer=a.kind==='upset'?drawUpset:drawResult;
+  var list=[{canvas:drawCover(a,day,nSeg),name:'henley-'+state.year+'-01-cover.png'}];
+  rows.forEach(function(d,i){list.push({canvas:drawer(d,nSeg,i+1),name:'henley-'+state.year+'-'+('0'+(i+2)).slice(-2)+'-'+(d.rank||'upset')+'.png'});});
   list.push({canvas:drawOutro(nSeg),name:'henley-'+state.year+'-outro.png'});
   document.getElementById('pg-caption').innerHTML='<div class="pg-cap-lbl">Suggested caption</div><textarea id="pg-cap-txt" rows="9"></textarea><button class="pg-dl" id="pg-cap-copy">📋 Copy caption</button>';
   document.getElementById('pg-cap-txt').value=caption(a,day,rows);
@@ -312,9 +390,11 @@ document.getElementById('pg-go-story').onclick=generateStories;
 ensureFonts();
 Promise.all([
   fetch('/data/henley_records.json').then(function(r){return r.json();}),
-  fetch('/data/benchmarks_v3.json').then(function(r){return r.json();})
+  fetch('/data/benchmarks_v3.json').then(function(r){return r.json();}),
+  fetch('/data/henley_seeds.json').then(function(r){return r.ok?r.json():{};}).catch(function(){return {};})
 ]).then(function(res){
   RECORDS=res[0]; var w=res[1].wbt||{}; Object.keys(w).forEach(function(k){WBT[k]=parseWbt(w[k].time);});
+  SEEDS_RAW=res[2]||{}; buildSeeds();
   return Promise.all(YEAR_CANDIDATES.map(function(y){return fetch('/data/henley_'+y+'.json').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}).then(function(d){return {y:y,d:d};});}));
 }).then(function(found){
   found.forEach(function(o){if(o.d&&o.d.length){_cache[o.y]=o.d;YEARS.push(o.y);}});

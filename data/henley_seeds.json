@@ -1,0 +1,34 @@
+{
+  "_format": "Per year, map each event's full name (as on the HRR draw) to its selected (seeded) crews - the ones printed in italic on the draw. Each entry is either a plain crew name or {\"crew\":\"...\",\"seed\":1}. Crew matching ignores entry letters, 'Rowing Club'/'R.C.'/'Univ.'/'Coll.'/'Sch.' abbreviations, country codes and punctuation, so the abbreviated draw names below match the full names in the results data. A 'seeded crew beaten' slide is generated for any race whose loser appears here.",
+  "2026": {
+    "The Stewards' Challenge Cup": ["Leander Club"],
+    "The Town Challenge Cup": ["Univ. of Washington, USA", "Hollandia R.C., NED", "R.C. Potsdam & R.V. Wandsbek, GER", "Nautilus R.C. 'A'"],
+    "The Queen Mother Challenge Cup": ["Leander Club & Twickenham R.C.", "Team Italia, ITA"],
+    "The Silver Goblets & Nickalls' Challenge Cup": ["Borković & Cesarec, CRO", "Corrigan & Timoney, IRL", "Martin & Achterfeld, GER", "Wincomb & Digby"],
+    "The Hambleden Pairs Challenge Cup": ["Mast & Van der Wal, NED", "Santruckova & Flamikova, CZE", "Meriano & Codato, ITA", "Zehetmair & Swoboda, AUT"],
+    "The Double Sculls Challenge Cup": ["Mackovic & Pimenov, SRB", "McCarthy & McCarthy, IRL", "Haywood & Knight", "Rodrigues & Neves, POR"],
+    "The Stonor Challenge Trophy": ["Francis & Spoors, NZL", "Marshall & Phillips"],
+    "The Diamond Challenge Sculls": ["C. Baxter, RSA", "K. Hultsch, AUT", "D.M.V. Gonçalves, POR", "O. Zeidler, GER", "B.C.D. Parsonage", "T. Gränitz, GER"],
+    "The Princess Royal Challenge Cup": ["J. Jongsma, NED", "L.R. Henry", "P. Badenhorst, RSA", "M. Lobnig, AUT"],
+    "The Ladies' Challenge Plate": ["Leander Club", "Molesey B.C. & A.S.R. Nereus, NED", "Nautilus R.C.", "Univ. of Washington, USA", "Thames R.C.", "Cambridge Univ. & Harvard Univ., USA"],
+    "The Bridge Challenge Plate": ["Yale Univ., USA", "Molesey B.C. & Univ. of London", "Thames R.C.", "Nautilus R.C. & Cambridge Univ."],
+    "The Visitors' Challenge Cup": ["Nautilus R.C. 'A'", "Oxford Univ. & E.W.R.C. Lia, AUT", "Leander Club 'A'", "A.A.S.R. Skøll & T.S.R. Vidar, NED"],
+    "The Prince of Wales Challenge Cup": ["A.A.S.R. Skøll, NED", "Leander Club", "Reading Univ. 'A'", "Nautilus R.C. & Edinburgh Univ."],
+    "The Princess of Wales Challenge Trophy": ["A.S.R. Nereus, NED", "A.A.S.R. Skøll, NED", "Reading Univ.", "Edinburgh Univ. & Leeds R.C."],
+    "The Thames Challenge Cup": ["City of Cambridge R.C.", "Cork B.C., IRL", "Thames R.C. 'A'", "R.V. Osnabrücker, GER", "Leander Club", "Potomac B.C., USA", "Mercantile R.C., AUS", "Marlow R.C. 'A'", "London R.C. 'B'", "K.R.Z.V. De Maas, NED", "London R.C. 'A'", "Sydney R.C., AUS", "Thames R.C. 'B'"],
+    "The Wargrave Challenge Cup": ["Mercantile R.C., AUS", "Leander Club", "Avon R.C., NZL", "Thames R.C. 'A'", "London R.C. 'A'", "Tyne A.R.C.", "Molesey B.C. 'A'", "Sydney R.C., AUS"],
+    "The Wyfold Challenge Cup": ["Thames R.C. 'B'", "Mercantile R.C., AUS", "Northwich R.C.", "Sydney R.C. 'A', AUS", "St. Andrew B.C. 'A'", "Thames R.C. 'A'", "London R.C."],
+    "The Danesfield Challenge Cup": ["Christiania R.K., NOR", "Thames R.C. 'A'", "Marlow R.C.", "Leander Club", "London R.C. 'A'", "Strathclyde Park R.C.", "Swan River R.C., AUS"],
+    "The Britannia Challenge Cup": ["Potomac B.C., USA", "Molesey B.C.", "Thames R.C. 'A'", "K.A.R.Z.V. De Hoop, NED", "London R.C. 'A'", "Marlow R.C.", "Thames R.C. 'B'", "Royal Chester R.C."],
+    "The Temple Challenge Cup": ["A.L.S.R.V. Asopos de Vliet, NED", "Syracuse Univ., USA", "Univ. of Washington, USA", "D.S.R.V. Laga 'A', NED", "G.S.R. Aegir, NED", "A.S.R. Nereus 'A', NED", "Oxford Brookes Univ. 'A'", "Yale Univ., USA", "Durham Univ.", "Cambridge Univ. 'A'", "Trinity Coll., Hartford, USA", "Univ. of London"],
+    "The Island Challenge Cup": ["G.S.R. Aegir, NED", "Durham Univ. 'A'", "Univ. of Miami, USA", "Univ. of Washington, USA 'A'", "Yale Univ., USA 'A'", "Oxford Brookes Univ. 'A'", "Brown Univ., USA 'A'", "A.S.R. Nereus, NED"],
+    "The Prince Albert Challenge Cup": ["M.S.R.V. Saurus, NED", "U.S.R. Triton, NED", "K.S.R.V. Njord, NED", "Imperial Coll. London", "Oxford Univ. 'A'", "Harvard Univ., USA", "Newcastle Univ.", "Oxford Brookes Univ. 'A'"],
+    "The Queen Victoria Challenge Cup": ["Bath Univ.", "A.A.S.R. Skøll, NED", "Reading Univ. 'A'", "Univ. of Birmingham"],
+    "The Prince Philip Challenge Trophy": ["TBC Racing, USA", "St. Edward's Sch.", "Shiplake Coll.", "Winter Park Crew, USA", "Lady Eleanor Holles Sch.", "Chicago R.F., USA", "Headington Sch.", "Deerfield Academy, USA", "Latymer Upper Sch.", "RowAmerica Rye, USA", "Green Lake Crew, USA", "Sir William Perkins's Sch."],
+    "The Diamond Jubilee Challenge Cup": ["Los Gatos R.C., USA", "Wycliffe Coll.", "Shrewsbury Sch.", "Tideway Scullers' Sch. 'A'", "Marlow R.C. 'A'", "Hartpury Coll. 'A'", "Sir William Perkins's Sch.", "Maidenhead R.C. 'A'"],
+    "The Fawley Challenge Cup": ["Los Gatos R.C. 'A', USA", "Sir William Borlase's G.S.", "Windsor Boys' Sch.", "Belen Jesuit Prep. Sch. 'A', USA", "Leander Club", "Hartpury Coll.", "Marlow R.C.", "Tideway Scullers' Sch.", "Hinksey Sc. Sch."],
+    "The Princess Elizabeth Challenge Cup": ["Westminster Sch.", "Shiplake Coll.", "St. Edward's Sch.", "King's Coll. Sch.", "Deerfield Academy, USA", "Hampton Sch.", "Radley Coll.", "Reading Blue Coat Sch.", "Boulogne 92 Aviron, FRA", "Bedford Sch.", "St. Paul's Sch.", "Sydney Univ. B.C., AUS", "Shrewsbury Sch."]
+  },
+  "2025": {
+  }
+}
