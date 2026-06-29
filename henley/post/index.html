@@ -26,6 +26,8 @@
 .pg-card canvas{width:100%;border-radius:10px;display:block;border:1px solid var(--border)}
 .pg-dl{margin-top:8px;width:100%;background:var(--bg2);color:var(--text);border:1.5px solid var(--border2);border-radius:8px;padding:11px;font-size:14px;font-weight:600;cursor:pointer}
 .pg-dl:hover{border-color:#c8472b;color:#c8472b}
+.pg-asat{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--text2);cursor:pointer;user-select:none}
+.pg-asat input{width:16px;height:16px;accent-color:#c8472b;cursor:pointer}
 </style>
 </head>
 <body>
@@ -67,6 +69,18 @@
   <button type="button" id="pg-go-story" class="pg-go alt">📱 5 story cards</button>
 </div>
 
+<div class="pg-bar"><span class="pg-bar-label">Top 10</span>
+  <div class="lbtab-wrap" id="pg-marker">
+    <button class="lbtab active" data-marker="barrier">Barrier</button>
+    <button class="lbtab" data-marker="fawley">Fawley</button>
+    <button class="lbtab" data-marker="finish">Finish</button>
+  </div>
+  <label class="pg-asat"><input type="checkbox" id="pg-asat"> Stamp "as at" time (results so far today)</label>
+</div>
+<div class="pg-actions">
+  <button type="button" id="pg-go-top10" class="pg-go alt">🏅 Top 10 to a marker — 1 story slide (% Henley record)</button>
+</div>
+
 <div id="pg-caption"></div>
 <div class="pg-cards" id="pg-cards"></div>
 
@@ -87,7 +101,7 @@ var ANGLES={
   'closest':{title:'Closest races',sub:'Smallest winning margins',kind:'margin',dir:'close'},
   'upsets':{title:'Seeded crews beaten',sub:'Seeds knocked out today',kind:'upset'}
 };
-var state={year:'',day:'',angle:'barrier-rec'};
+var state={year:'',day:'',angle:'barrier-rec',top10Marker:'barrier'};
 var RECORDS={}, WBT={}, RACES=[], YEARS=[], _cache={}, _fontsReady=false;
 var SEEDS_RAW={}, SEEDS={};  // SEEDS[year] = [{ek, nc, seed}] - normalised event key + crew, for matching beaten seeds
 
@@ -121,7 +135,7 @@ function wbtBoat(c){return c?c.replace(/^O/,'M'):null;}
 function fmtPace(secs,dist){var s=secs*500/dist,m=Math.floor(s/60);return m+':'+(s-m*60).toFixed(1).padStart(4,'0');}
 function fmtTime(secs){var m=Math.floor(secs/60),s=secs-m*60;return m+':'+(s%1===0?String(s).padStart(2,'0'):s.toFixed(1).padStart(4,'0'));}
 function markerEntry(race,m){var s=race[m];if(!s||s.secs==null||s.secs<=0)return null;var win=m==='finish'?true:!s.loserLeading;
-  return {crew:_dec(win?race.winner:race.loser),secs:s.secs,display:s.display,newRecord:!!s.newRecord,loserLeading:!!s.loserLeading,eventFull:_dec(race.event),event:_dec(race.eventShort||race.event),eventKey:race.eventKey,cls:race['class']};}
+  return {crew:_dec(win?race.winner:race.loser),opp:_dec(win?race.loser:race.winner),won:win,secs:s.secs,display:s.display,newRecord:!!s.newRecord,loserLeading:!!s.loserLeading,eventFull:_dec(race.event),event:_dec(race.eventShort||race.event),eventKey:race.eventKey,cls:race['class']};}
 function buildBest(m){var best={};RACES.forEach(function(r){if(r.withdrawn)return;if(state.day&&r.day!==state.day)return;var e=markerEntry(r,m);if(!e||!e.crew)return;var k=e.crew+'|'+e.eventKey;if(!best[k]||e.secs<best[k].secs)best[k]=e;});return Object.keys(best).map(function(k){return best[k];});}
 function recBaseline(ek,m){var r=RECORDS[ek];if(!r||!r[m])return null;var y=+state.year,pre=r[m].filter(function(x){return x.year&&x.year<y;});return pre.length?pre.reduce(function(a,b){return b.secs<a.secs?b:a;}):null;}
 function dayRaces(){return RACES.filter(function(r){return !r.withdrawn&&(!state.day||r.day===state.day)&&r.verdict&&!/row.?over|not rowed/i.test(r.verdict);});}
@@ -137,19 +151,19 @@ function marginRank(v){v=(v||'').toLowerCase();
   if(num>=1)return 1000+num+f;   // whole lengths (incl. fractional, e.g. "1 ½ lengths")
   if(f>0)return 500+f*100;       // fraction-only length (¼ / ½ / ¾)
   return 400;}
-function recordsList(){var day=state.day,nr=[];RACES.forEach(function(r){if(day&&r.day!==day)return;['barrier','fawley','finish'].forEach(function(mk){if(r[mk]&&r[mk].newRecord){var win=mk==='finish'?true:!r[mk].loserLeading;nr.push({crew:_dec(win?r.winner:r.loser),event:_dec(r.eventShort||r.event),marker:mk,time:r[mk].display});}});});return nr;}
+function recordsList(){var day=state.day,nr=[];RACES.forEach(function(r){if(day&&r.day!==day)return;['barrier','fawley','finish'].forEach(function(mk){if(r[mk]&&r[mk].newRecord){var win=mk==='finish'?true:!r[mk].loserLeading;nr.push({crew:_dec(win?r.winner:r.loser),opp:_dec(win?r.loser:r.winner),won:win,event:_dec(r.eventShort||r.event),marker:mk,time:r[mk].display});}});});return nr;}
 
 // Build the per-slide data for the chosen angle (up to 5 entries).
 function slideData(a){
   if(a.kind==='rec')return buildBest(a.marker).map(function(e){var b=recBaseline(e.eventKey,a.marker);return {e:e,pct:b?(b.secs/e.secs*100):null,b:b};})
     .filter(function(o){return o.pct!=null;}).sort(function(x,y){return y.pct-x.pct;}).slice(0,5)
-    .map(function(o,i){return {rank:i+1,eventLine:o.e.eventFull,crew:o.e.crew,label:'% of Henley '+a.marker+' record',val:o.pct.toFixed(1),suffix:'%',s1:['Time',o.e.display],s2:['/500m',fmtPace(o.e.secs,DIST[a.marker])],rec:o.b?{marker:a.marker,time:fmtTime(o.b.secs),year:o.b.year}:null};});
+    .map(function(o,i){return {rank:i+1,eventLine:o.e.eventFull,crew:o.e.crew,opp:o.e.opp,won:o.e.won,label:'% of Henley '+a.marker+' record',val:o.pct.toFixed(1),suffix:'%',s1:['Time',o.e.display],s2:['/500m',fmtPace(o.e.secs,DIST[a.marker])],rec:o.b?{marker:a.marker,time:fmtTime(o.b.secs),year:o.b.year}:null};});
   if(a.kind==='wbt'){var sc=2000/DIST[a.marker];return buildBest(a.marker).map(function(e){var w=WBT[wbtBoat(e.cls)];return {e:e,pct:w?(w/(e.secs*sc)*100):null};})
     .filter(function(o){return o.pct!=null;}).sort(function(x,y){return y.pct-x.pct;}).slice(0,5)
-    .map(function(o,i){return {rank:i+1,eventLine:o.e.eventFull,crew:o.e.crew,label:'% of World Best ('+a.marker+')',val:o.pct.toFixed(1),suffix:'%',s1:['Time',o.e.display],s2:['/500m',fmtPace(o.e.secs,DIST[a.marker])]};});}
-  if(a.kind==='records')return recordsList().slice(0,5).map(function(r,i){return {rank:i+1,eventLine:r.event,crew:r.crew,label:'New '+r.marker+' record',val:r.time,suffix:'',gold:true};});
+    .map(function(o,i){return {rank:i+1,eventLine:o.e.eventFull,crew:o.e.crew,opp:o.e.opp,won:o.e.won,label:'% of World Best ('+a.marker+')',val:o.pct.toFixed(1),suffix:'%',s1:['Time',o.e.display],s2:['/500m',fmtPace(o.e.secs,DIST[a.marker])]};});}
+  if(a.kind==='records')return recordsList().slice(0,5).map(function(r,i){return {rank:i+1,eventLine:r.event,crew:r.crew,opp:r.opp,won:r.won,label:'New '+r.marker+' record',val:r.time,suffix:'',gold:true};});
   if(a.kind==='margin'){var dr=dayRaces();dr.sort(function(x,y){return a.dir==='big'?marginRank(y.verdict)-marginRank(x.verdict):marginRank(x.verdict)-marginRank(y.verdict);});
-    return dr.slice(0,5).map(function(r,i){return {rank:i+1,eventLine:_dec(r.eventShort||r.event),crew:_dec(r.winner),label:'Winning margin',val:r.verdict,suffix:'',s1:(r.finish&&r.finish.display)?['Time',r.finish.display]:null};});}
+    return dr.slice(0,5).map(function(r,i){return {rank:i+1,eventLine:_dec(r.eventShort||r.event),crew:_dec(r.winner),opp:_dec(r.loser),won:true,label:'Winning margin',val:r.verdict,suffix:'',s1:(r.finish&&r.finish.display)?['Time',r.finish.display]:null};});}
   if(a.kind==='upset'){
     // Every race today whose beaten crew is a seed. No top-5 cap - list them all (user posts only if < 10 slides).
     return dayRaces().map(function(r){
@@ -168,6 +182,9 @@ function slideData(a){
 // ── canvas drawing ──
 function _tx(ctx,s,x,y,font,color,align,sp){ctx.font=font;ctx.fillStyle=color;ctx.textAlign=align||'left';ctx.textBaseline='alphabetic';try{ctx.letterSpacing=(sp||0)+'px';}catch(e){}ctx.fillText(s,x,y);try{ctx.letterSpacing='0px';}catch(e){}}
 function _wrap(ctx,s,font,maxw){ctx.font=font;var words=(s||'').split(' '),lines=[],cur='';words.forEach(function(w){var t=cur?cur+' '+w:w;if(ctx.measureText(t).width>maxw&&cur){lines.push(cur);cur=w;}else cur=t;});if(cur)lines.push(cur);return lines;}
+function _one(ctx,s,font,maxw){s=s||'';ctx.font=font;if(ctx.measureText(s).width<=maxw)return s;while(s.length>2&&ctx.measureText(s+'…').width>maxw)s=s.slice(0,-1);return s.trim()+'…';}
+// "bt Opponent" / "lost to Opponent" - the beaten crew, in small italic.
+function _btLine(ctx,d,x,y,maxw,size){if(!d.opp)return;var s=(d.won?'bt ':'lost to ')+d.opp,f='italic 300 '+(size||30)+'px '+FR;_tx(ctx,_one(ctx,s,f,maxw),x,y,f,fade(.55),'left');}
 function _newC(W,H){var c=document.createElement('canvas');c.width=W;c.height=H;return c;}
 function _header(ctx,W,meta,nSeg,cur){
   _tx(ctx,'rowingtools',64,96,'900 36px '+FR,PAPER,'left');ctx.font='900 36px '+FR;var mw=ctx.measureText('rowingtools').width;
@@ -214,6 +231,7 @@ function drawResult(d,nSeg,seg){
   ctx.strokeStyle=fade(.2);ctx.beginPath();ctx.moveTo(64,520);ctx.lineTo(1016,520);ctx.stroke();
   _tx(ctx,d.eventLine,64,582,'700 22px '+JM,fade(.6),'left',4);
   var cl=_wrap(ctx,d.crew,'400 58px '+FR,950),cy=652;cl.slice(0,2).forEach(function(l){_tx(ctx,l,64,cy,'400 58px '+FR,PAPER,'left');cy+=66;});
+  _btLine(ctx,d,64,cy+4,900,30);
   if(d.rec)drawRecordBox(ctx,64,805,760,d.rec.marker,d.rec.time,d.rec.year);
   _tx(ctx,d.label,64,1070,'700 22px '+JM,fade(.5),'left',5);
   _bigVal(ctx,d.val,d.suffix,64,1210,900);
@@ -245,10 +263,10 @@ function drawSplits(ctx,x,y,rows){
 function drawUpset(d,nSeg,seg){
   var W=1080,H=1350,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_header(ctx,W,_meta(),nSeg,seg);
   _tx(ctx,d.eventLine,64,250,'700 22px '+JM,fade(.6),'left',4);
-  _tx(ctx,(d.seedNum?'SEED '+d.seedNum:'SEEDED CREW')+'  ·  BEATEN',64,300,'700 26px '+JM,ACC,'left',4);
-  var cl=_wrap(ctx,d.loser,'700 58px '+FR,950),cy=400;cl.slice(0,2).forEach(function(l){_tx(ctx,l,64,cy,'700 58px '+FR,PAPER,'left');cy+=66;});
-  _tx(ctx,'BEATEN BY',64,540,'700 20px '+JM,fade(.5),'left',4);
-  var wl=_wrap(ctx,d.winner,'500 42px '+FR,950),wy=592;wl.slice(0,2).forEach(function(l){_tx(ctx,l,64,wy,'500 42px '+FR,PAPER,'left');wy+=48;});
+  _tx(ctx,d.seedNum?'BEAT SEED '+d.seedNum:'BEAT A SEEDED CREW',64,300,'700 26px '+JM,ACC,'left',4);
+  var cl=_wrap(ctx,d.winner,'700 58px '+FR,950),cy=400;cl.slice(0,2).forEach(function(l){_tx(ctx,l,64,cy,'700 58px '+FR,PAPER,'left');cy+=66;});
+  _tx(ctx,'BEAT',64,540,'700 20px '+JM,fade(.5),'left',4);
+  var wl=_wrap(ctx,d.loser,'500 42px '+FR,950),wy=592;wl.slice(0,2).forEach(function(l){_tx(ctx,l,64,wy,'500 42px '+FR,PAPER,'left');wy+=48;});
   drawChip(ctx,64,710,900,'WINNING MARGIN',d.margin);
   drawSplits(ctx,96,960,d.splits);
   ctx.strokeStyle=fade(.15);ctx.beginPath();ctx.moveTo(64,1280);ctx.lineTo(1016,1280);ctx.stroke();
@@ -275,7 +293,8 @@ function drawStory(it){
   _tx(ctx,(it.k||'').toUpperCase(),64,ky,'700 30px '+JM,ACC,'left',6);
   if(it.k2)_tx(ctx,it.k2.toUpperCase(),64,ky+42,'700 26px '+JM,ACC,'left',4);
   var cl=_wrap(ctx,it.crew,'700 76px '+FR,950),cy=920;cl.slice(0,2).forEach(function(l){_tx(ctx,l,64,cy,'700 76px '+FR,PAPER,'left');cy+=82;});
-  _tx(ctx,it.event,64,cy+10,'500 30px '+JM,fade(.55),'left',2);
+  var evl=it.event+(it.opp?'   ·   '+(it.won?'bt ':'lost to ')+it.opp:'');
+  _tx(ctx,_one(ctx,evl,'500 30px '+JM,920),64,cy+10,'500 30px '+JM,fade(.55),'left',2);
   if(it.rec)drawRecordBox(ctx,64,1150,900,it.rec.marker,it.rec.time,it.rec.year);
   _bigVal(ctx,it.big,it.suffix||'',64,1480,950);
   _tx(ctx,(it.ctx||'').toUpperCase(),64,1560,'500 24px '+JM,fade(.5),'left',3);
@@ -290,11 +309,12 @@ function topWbt(m){var sc=2000/DIST[m];var r=buildBest(m).map(function(e){var w=
 // Six fixed stories per day: fastest to each marker by % of Henley record and by % of WBT.
 function storyItems(){
   var out=[],cap=function(m){return m.charAt(0).toUpperCase()+m.slice(1);};
-  ['barrier','fawley','finish'].forEach(function(m){var t=topRec(m);if(t)out.push({k:'Fastest to the '+cap(m),k2:'as a % of Henley record',crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',time:t.e.display,pace:fmtPace(t.e.secs,DIST[m]),rec:t.b?{marker:m,time:fmtTime(t.b.secs),year:t.b.year}:null});});
-  ['barrier','fawley','finish'].forEach(function(m){var t=topWbt(m);if(t)out.push({k:'Fastest to the '+cap(m),k2:'as a % of World Best Time',crew:t.e.crew,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',time:t.e.display,pace:fmtPace(t.e.secs,DIST[m])});});
+  ['barrier','fawley','finish'].forEach(function(m){var t=topRec(m);if(t)out.push({k:'Fastest to the '+cap(m),k2:'as a % of Henley record',crew:t.e.crew,opp:t.e.opp,won:t.e.won,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',time:t.e.display,pace:fmtPace(t.e.secs,DIST[m]),rec:t.b?{marker:m,time:fmtTime(t.b.secs),year:t.b.year}:null});});
+  ['barrier','fawley','finish'].forEach(function(m){var t=topWbt(m);if(t)out.push({k:'Fastest to the '+cap(m),k2:'as a % of World Best Time',crew:t.e.crew,opp:t.e.opp,won:t.e.won,event:t.e.eventFull,big:t.pct.toFixed(1),suffix:'%',time:t.e.display,pace:fmtPace(t.e.secs,DIST[m])});});
   return out;
 }
 
+function _bt(r){return r.opp?(r.won?' (bt ':' (lost to ')+r.opp+')':'';}
 function _tags(){return '#HenleyRoyalRegatta #HRR #Henley'+state.year+' #rowing #rowingtools';}
 function _cap(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s;}
 function caption(a,day,rows){
@@ -304,27 +324,27 @@ function caption(a,day,rows){
     L.push('Fastest to the '+_cap(a.marker)+', '+bench+' 🚣','');
     rows.forEach(function(r){
       var t=r.s1?r.s1[1].replace(/^0/,''):'', p=r.s2?r.s2[1]:'';
-      L.push(r.rank+'. '+r.crew+' - '+r.eventLine);
+      L.push(r.rank+'. '+r.crew+_bt(r)+' - '+r.eventLine);
       L.push('   '+r.val+r.suffix+(t?' · '+t:'')+(p?' · split: '+p+'/500m':''));
       if(a.kind==='rec'&&r.rec)L.push('   (Henley '+_cap(r.rec.marker)+' record being chased: '+r.rec.time+(r.rec.year?', set '+r.rec.year:'')+')');
     });
   } else if(a.kind==='records'){
     L.push(a.title+' 🚣','');
     if(rows.length){L.push(rows.length+' new course record'+(rows.length>1?'s':'')+' today 🔥','');
-      rows.forEach(function(r){L.push('• '+r.crew+' - '+r.eventLine+' · '+r.label+' '+r.val);});
+      rows.forEach(function(r){L.push('• '+r.crew+_bt(r)+' - '+r.eventLine+' · '+r.label+' '+r.val);});
     } else L.push('No course records broken today.');
   } else if(a.kind==='upset'){
     L.push('Seeds knocked out today 🚣','');
     if(!rows.length){L.push('No seeded crews beaten today.');}
     rows.forEach(function(r){
-      L.push('• '+r.loser+(r.seedNum?' (seed '+r.seedNum+')':'')+' beaten by '+r.winner+' - '+r.eventLine);
+      L.push('• '+r.winner+' beat '+r.loser+(r.seedNum?' (seed '+r.seedNum+')':'')+' - '+r.eventLine);
       var sp=r.splits.map(function(s){return _cap(s.mk.toLowerCase())+' '+s.time+(s.led?'*':'');}).join(', ');
       L.push('   Margin '+r.margin+(sp?' · '+sp:''));
     });
     if(rows.some(function(r){return r.splits.some(function(s){return s.led;});}))L.push('','* led at this point but still lost');
   } else {
     L.push(a.title+' 🚣','');
-    rows.forEach(function(r){L.push(r.rank+'. '+r.crew+' - '+r.eventLine+' · '+r.val+(r.s1?' ('+r.s1[1].replace(/^0/,'')+')':''));});
+    rows.forEach(function(r){L.push(r.rank+'. '+r.crew+_bt(r)+' - '+r.eventLine+' · '+r.val+(r.s1?' ('+r.s1[1].replace(/^0/,'')+')':''));});
   }
   L.push('','Full leaderboards, splits & race-day conditions → rowingtools.co.uk/henley','',_tags());
   return L.join('\n');
@@ -366,6 +386,55 @@ async function generateStories(){
   showCanvases(items.map(function(it,i){return {canvas:drawStory(it),name:'henley-'+state.year+'-story-'+(i+1)+'.png'};}));
 }
 
+/* ── Top 10 to a marker, % of Henley record, on one 9:16 story slide ── */
+// Generation-time stamp for "results so far today" (local time, where the user is generating).
+function asAtStr(){var d=new Date(),p=function(x){return(x<10?'0':'')+x;};return p(d.getHours())+':'+p(d.getMinutes());}
+function top10Rec(marker){
+  return buildBest(marker).map(function(e){var b=recBaseline(e.eventKey,marker);return {e:e,pct:b?(b.secs/e.secs*100):null,b:b};})
+    .filter(function(o){return o.pct!=null;}).sort(function(x,y){return y.pct-x.pct;}).slice(0,10);
+}
+function drawTop10Story(rows,marker,asAt){
+  var W=1080,H=1920,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_header(ctx,W,_meta(),0,0);
+  var M=marker.charAt(0).toUpperCase()+marker.slice(1);
+  _tx(ctx,'Henley Royal Regatta',64,300,'900 60px '+FR,PAPER,'left');
+  _tx(ctx,(state.day||'').toUpperCase()+'  ·  '+state.year,64,360,'700 32px '+JM,ACC,'left',4);
+  _tx(ctx,'Fastest to the '+M,64,470,'900 80px '+FR,PAPER,'left');
+  _tx(ctx,'Top 10 · % of Henley course record',64,524,'italic 300 36px '+FR,fade(.6),'left');
+  if(asAt)_tx(ctx,'RESULTS SO FAR · AS AT '+asAtStr(),64,584,'700 26px '+JM,ACC,'left',3);
+  var y=asAt?660:628, rowH=Math.min(114,(1740-y)/rows.length);
+  rows.forEach(function(o,i){
+    var e=o.e;
+    _tx(ctx,String(i+1),64,y+50,'900 58px '+FR,rankColor(i+1),'left');
+    _tx(ctx,_one(ctx,e.crew,'700 44px '+FR,640),168,y+38,'700 44px '+FR,PAPER,'left');
+    _tx(ctx,_one(ctx,e.eventFull,'500 24px '+JM,640),168,y+74,'500 24px '+JM,fade(.5),'left',1);
+    _tx(ctx,o.pct.toFixed(1)+'%',W-64,y+44,'900 56px '+FR,i===0?ACC:PAPER,'right');
+    _tx(ctx,e.display+'  ·  '+fmtPace(e.secs,DIST[marker])+'/500m',W-64,y+78,'500 22px '+JM,fade(.45),'right');
+    ctx.strokeStyle=fade(.1);ctx.beginPath();ctx.moveTo(64,y+rowH-10);ctx.lineTo(W-64,y+rowH-10);ctx.stroke();
+    y+=rowH;
+  });
+  _tx(ctx,'FULL LEADERBOARDS · ROWINGTOOLS.CO.UK / HENLEY',W/2,1860,'700 24px '+JM,fade(.5),'center',4);
+  return c;
+}
+function captionTop10(rows,marker,asAt){
+  var M=marker.charAt(0).toUpperCase()+marker.slice(1);
+  var L=['Henley Royal Regatta '+state.year+' - '+state.day,''];
+  L.push('Fastest to the '+M+', by % of the Henley course record'+(asAt?' (results so far today)':'')+' 🚣','');
+  rows.forEach(function(o,i){L.push((i+1)+'. '+o.e.crew+_bt(o.e)+' - '+o.e.eventFull+' · '+o.pct.toFixed(1)+'% · '+o.e.display);});
+  if(asAt)L.push('','Standings as at '+asAtStr()+' - racing still to come.');
+  L.push('','Full leaderboards, splits & race-day conditions → rowingtools.co.uk/henley','',_tags());
+  return L.join('\n');
+}
+async function generateTop10(){
+  await ensureFonts();
+  var marker=state.top10Marker, rows=top10Rec(marker);
+  if(!rows.length){alert('No timed crews to the '+marker+' for '+(state.day||'this day')+' yet.');return;}
+  var asAt=document.getElementById('pg-asat').checked;
+  document.getElementById('pg-caption').innerHTML='<div class="pg-cap-lbl">Suggested caption</div><textarea id="pg-cap-txt" rows="9"></textarea><button class="pg-dl" id="pg-cap-copy">📋 Copy caption</button>';
+  document.getElementById('pg-cap-txt').value=captionTop10(rows,marker,asAt);
+  document.getElementById('pg-cap-copy').onclick=function(){var t=document.getElementById('pg-cap-txt');t.select();try{navigator.clipboard.writeText(t.value);}catch(e){document.execCommand('copy');}this.textContent='✓ Copied';};
+  showCanvases([{canvas:drawTop10Story(rows,marker,asAt),name:'henley-'+state.year+'-top10-'+marker+'-'+(state.day||'').toLowerCase()+(asAt?'-asat'+asAtStr().replace(':',''):'')+'.png'}]);
+}
+
 function setActive(box,btn){box.querySelectorAll('.lbtab').forEach(function(b){b.classList.toggle('active',b===btn);});}
 function clearOut(){document.getElementById('pg-cards').innerHTML='';document.getElementById('pg-caption').innerHTML='';}
 function renderDays(){
@@ -387,6 +456,8 @@ function renderYears(){
 document.getElementById('pg-angle').onchange=function(){state.angle=this.value;clearOut();};
 document.getElementById('pg-go').onclick=generate;
 document.getElementById('pg-go-story').onclick=generateStories;
+(function(){var box=document.getElementById('pg-marker');box.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.top10Marker=b.dataset.marker;setActive(box,b);};});})();
+document.getElementById('pg-go-top10').onclick=generateTop10;
 ensureFonts();
 Promise.all([
   fetch('/data/henley_records.json').then(function(r){return r.json();}),
