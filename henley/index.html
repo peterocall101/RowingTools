@@ -488,7 +488,7 @@ function openRaceDetail(id){
   var html='<div class="rd-head"><h3>'+esc(r.event)+'</h3><div class="rd-meta">'+esc(r.round)+' &middot; '+esc(r.day)+' '+esc(date)+' &middot; '+esc(clock)+'</div></div>'
     +'<div class="rd-result">'
     +'<div><span class="rd-tag">Winner</span><strong>'+esc(r.winner)+'</strong>'+(winS?'<span class="rd-st">'+esc(winS)+'</span>':'')+'</div>'
-    +'<div><span class="rd-tag">Beaten</span>'+esc(r.loser||'—')+(loseS?'<span class="rd-st">'+esc(loseS)+'</span>':'')+'</div>'
+    +'<div><span class="rd-tag">Beat</span>'+esc(r.loser||'—')+(loseS?'<span class="rd-st">'+esc(loseS)+'</span>':'')+'</div>'
     +'<div class="rd-margin"><span class="rd-tag">Margin</span><strong>'+esc(m.text)+'</strong></div></div>'
     +'<table class="rd-splits"><thead><tr><th>Point</th><th class="r">Time</th><th class="sp">/500m</th><th class="r">% rec</th><th></th></tr></thead><tbody>'+splits+'</tbody></table>'
     +(wbtPct!=null?'<div class="rd-wbt">% of WBT at the finish ('+esc(boat)+'): <strong style="color:'+gmtColor(wbtPct)+'">'+fmtPct(wbtPct)+'</strong></div>':'')
@@ -590,7 +590,7 @@ function csvByEvent(){
   return rows;
 }
 function csvLive(){
-  var rows=[['Time','Day','Event','Round','Winner','Beaten','Finish','Margin','New record']];
+  var rows=[['Time','Day','Event','Round','Winner','Beat','Finish','Margin','New record']];
   RACES.filter(function(r){if(r.withdrawn)return false;if(state.day!=='all'&&r.day!==state.day)return false;return raceClubMatch(r)&&raceEventMatch(r);})
     .sort(function(a,b){return (b.dateTime||'').localeCompare(a.dateTime||'');})
     .forEach(function(r){rows.push([(r.dateTime||'').slice(11,16),r.day,r.event,r.round,r.winner,r.loser||'',r.finish?r.finish.display:'',r.verdict||'',(r.finish&&r.finish.newRecord)?'NR':'']);});
@@ -699,7 +699,7 @@ async function exportRaceImage(id){
   _tx(ctx,'WINNER',64,ey,'700 20px '+JM,fade(.5),'left',4);ey+=46;
   _wrap(ctx,r.winner,'700 50px '+FR,840).slice(0,2).forEach(function(l){_tx(ctx,l,64,ey,'700 50px '+FR,PAPER,'left');ey+=56;});
   ey+=16;
-  _tx(ctx,'BEATEN',64,ey,'700 20px '+JM,fade(.5),'left',4);ey+=42;
+  _tx(ctx,'BEAT',64,ey,'700 20px '+JM,fade(.5),'left',4);ey+=42;
   _wrap(ctx,r.loser||'—','500 38px '+FR,840).slice(0,2).forEach(function(l){_tx(ctx,l,64,ey,'500 38px '+FR,fade(.85),'left');ey+=44;});
   ey+=22;
   _chip(ctx,64,ey,560,'WINNING MARGIN',r.verdict||'—');ey+=148+34;
