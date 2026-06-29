@@ -101,6 +101,7 @@ td.sp,th.sp{color:var(--text3);font-variant-numeric:tabular-nums;text-align:righ
 .hr-sticky[data-view="board"] .only-live{display:none}
 .hr-sticky[data-view="live"][data-live="tree"] .hide-in-tree{display:none}
 .rd-table tbody tr{cursor:pointer}
+tr.rd-row{cursor:pointer}
 .rd-tree{padding:2px 0 6px}
 .rd-round{margin:0 0 8px}
 .rd-round-h{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:8px 0 3px}
@@ -220,7 +221,7 @@ function markerEntry(race,marker){
   var s=race[marker];
   if(!s||s.secs==null||s.secs<=0)return null;
   var ownerWin = marker==='finish' ? true : !s.loserLeading;
-  return {crew: ownerWin?race.winner:race.loser, opp: ownerWin?race.loser:race.winner, won: ownerWin,
+  return {id:race.id, crew: ownerWin?race.winner:race.loser, opp: ownerWin?race.loser:race.winner, won: ownerWin,
     secs:s.secs, display:s.display,
     newRecord:!!s.newRecord, loserLeading:!!s.loserLeading, round:race.round, day:race.day,
     event:race.eventShort||race.event, eventFull:race.event, eventKey:race.eventKey, cls:race['class'],
@@ -247,7 +248,7 @@ function recBaseline(eventKey,marker){
   return pre.reduce(function(a,b){return b.secs<a.secs?b:a;});
 }
 
-function tr(cols){return '<tr>'+cols.join('')+'</tr>';}
+function tr(cols,attrs){return '<tr'+(attrs?' '+attrs:'')+'>'+cols.join('')+'</tr>';}
 function crewCell(e){
   var lost=e.loserLeading?'<span class="hr-lost" title="Led at this point but lost the race - this split is the losing crew\'s time">LOST RACE</span>':'';
   var opp=(e.opp||'').trim();
@@ -290,6 +291,7 @@ document.addEventListener('click',function(ev){
   var wx=t.closest('.hr-wx')||t.closest('.rd-wxbtn');
   if(wx&&window.wxOpen){window.wxOpen(wx.dataset.clock,wx.dataset.label,wx.dataset.boat,wx.dataset.date,HENLEY_VENUE);return;}
   if(t.closest('#rd-close')||t.id==='rd-overlay'){closeRaceDetail();return;}
+  if(t.closest('.hr-vs'))return;  // the inline "bt / lost to" reveal toggles itself; don't also open the modal
   var row=t.closest('.rd-row');
   if(row&&row.dataset.raceid){openRaceDetail(row.dataset.raceid);return;}
 });
@@ -313,11 +315,11 @@ function renderRecord(){
     '<td style="color:var(--text3)">'+esc(e.round)+'</td>',
     '<td class="r">'+esc(e.display)+(e.newRecord?'<span class="hr-nr">NR</span>':'')+'</td>',
     paceCell(e,mk),
-    '<td class="r hr-pct" style="color:'+recColor(e.pct)+'">'+fmtPct(e.pct)+'</td>', extraCells(e)]);}).join('');
+    '<td class="r hr-pct" style="color:'+recColor(e.pct)+'">'+fmtPct(e.pct)+'</td>', extraCells(e)],'class="rd-row" data-raceid="'+e.id+'"');}).join('');
   return '<div class="tbl-wrap"><table class="tbl"><thead>'+tr([
       '<th>#</th>','<th>Crew</th>','<th>Event</th>','<th>Round</th>','<th class="r">'+M+'</th>','<th class="sp">/500m</th>','<th class="r">% of record</th>', extraHead()])
     +'</thead><tbody>'+body+'</tbody></table></div>'
-    +'<p class="hr-note">% of the Henley record to the '+M.toLowerCase()+' as it stood going into '+state.year+'. Over 100% = beat that record (NR).</p>';
+    +'<p class="hr-note">Tap any crew for full race stats and race-day conditions. % of the Henley record to the '+M.toLowerCase()+' as it stood going into '+state.year+'. Over 100% = beat that record (NR).</p>';
 }
 
 function renderWbt(){
@@ -337,11 +339,11 @@ function renderWbt(){
     '<td style="color:var(--text3)">'+esc(e.boat)+'</td>',
     '<td class="r">'+esc(e.display)+'</td>',
     paceCell(e,mk),
-    '<td class="r hr-pct" style="color:'+gmtColor(e.pct)+'">'+fmtPct(e.pct)+'</td>', extraCells(e)]);}).join('');
+    '<td class="r hr-pct" style="color:'+gmtColor(e.pct)+'">'+fmtPct(e.pct)+'</td>', extraCells(e)],'class="rd-row" data-raceid="'+e.id+'"');}).join('');
   return '<div class="tbl-wrap"><table class="tbl"><thead>'+tr([
       '<th>#</th>','<th>Crew</th>','<th>Event</th>','<th>Boat</th>','<th class="r">'+M+'</th>','<th class="sp">/500m</th>','<th class="r">% of WBT</th>', extraHead()])
     +'</thead><tbody>'+body+'</tbody></table></div>'
-    +'<p class="hr-note">'+M+' pace scaled to 2000m (× 2000/'+DIST[mk]+'m) vs the World Best Time for the boat class - the same benchmark as the GMT% calculator. WBT is a flat-water 2000m benchmark and Henley\'s stream differs by year, so read % of WBT as a cross-crew ranking, not an absolute speed. Tiers: ≥87% green, 80-87% blue, 72-80% amber.</p>';
+    +'<p class="hr-note">Tap any crew for full race stats and race-day conditions. '+M+' pace scaled to 2000m (× 2000/'+DIST[mk]+'m) vs the World Best Time for the boat class - the same benchmark as the GMT% calculator. WBT is a flat-water 2000m benchmark and Henley\'s stream differs by year, so read % of WBT as a cross-crew ranking, not an absolute speed. Tiers: ≥87% green, 80-87% blue, 72-80% amber.</p>';
 }
 
 function renderByEvent(){
@@ -364,7 +366,7 @@ function renderByEvent(){
         '<td style="color:var(--text3)">'+esc(e.round)+'</td>',
         '<td class="r">'+esc(e.display)+(e.newRecord?'<span class="hr-nr">NR</span>':'')+'</td>',
         paceCell(e,mk),
-        '<td class="r hr-pct" style="color:'+recColor(pct)+'">'+fmtPct(pct)+'</td>', extraCells(e)]);}).join('');
+        '<td class="r hr-pct" style="color:'+recColor(pct)+'">'+fmtPct(pct)+'</td>', extraCells(e)],'class="rd-row" data-raceid="'+e.id+'"');}).join('');
     return '<details class="hr-event-block" open><summary class="hr-ev-sum"><span class="hr-event-name">'+esc(ev.name)+'</span>'
       +'<span class="hr-event-rec">Record to '+M.toLowerCase()+' (into '+state.year+'): <strong>'+(b?b.display:'— none')+'</strong></span></summary>'
       +'<div class="tbl-wrap"><table class="tbl"><thead>'+tr(['<th>#</th>','<th>Crew</th>','<th>Round</th>','<th class="r">'+M+'</th>','<th class="sp">/500m</th>','<th class="r">% rec</th>', extraHead()])
