@@ -137,10 +137,6 @@ tr.rd-row{cursor:pointer}
 .rd-actrow .hr-act{flex:1;justify-content:center;padding:10px 12px}
 .hr-toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(18px);background:#c8472b;color:#fff;font-size:13px;font-weight:600;padding:10px 20px;border-radius:999px;box-shadow:0 8px 28px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:1000}
 .hr-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.hr-hint{display:flex;align-items:center;gap:12px;justify-content:space-between;font-size:12.5px;color:var(--text2);background:rgba(200,71,43,.08);border:1px solid rgba(200,71,43,.25);border-radius:var(--r);padding:9px 14px;margin:0 0 1rem;line-height:1.5}
-.hr-hint strong{color:#e8896f;font-weight:600}
-.hr-hint-x{background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;height:auto;flex-shrink:0}
-.hr-hint-x:hover{color:var(--text)}
 </style>
 </head>
 <body>
@@ -202,11 +198,6 @@ tr.rd-row{cursor:pointer}
 </div>
 <datalist id="hr-clubs"></datalist>
 <datalist id="hr-events"></datalist>
-
-<div class="hr-hint" id="hr-hint">
-  <span>🎏 Tap any race for full splits + a <strong>downloadable graphic</strong> for your club's socials — or export the whole board with <strong>Save image</strong> / <strong>CSV</strong> / <strong>Share view</strong>.</span>
-  <button type="button" class="hr-hint-x" id="hr-hint-x" aria-label="Dismiss" title="Dismiss">✕</button>
-</div>
 
 <div id="hr-content"><p style="color:var(--text3);padding:2rem 0">Loading…</p></div>
 
@@ -787,12 +778,6 @@ function loadYear(year,keepDay){
   fetch('/data/henley_'+year+'.json').then(function(r){return r.json();}).then(function(races){_cache[year]=races;done(races);})
     .catch(function(){document.getElementById('hr-content').innerHTML='<p style="color:var(--text3)">Could not load Henley '+year+' data.</p>';});
 }
-
-// Discovery nudge: show once, remember dismissal so returning visitors aren't nagged.
-(function(){var hint=document.getElementById('hr-hint'),x=document.getElementById('hr-hint-x'); if(!hint)return;
-  try{if(localStorage.getItem('hrHintDismissed'))hint.style.display='none';}catch(e){}
-  if(x)x.onclick=function(){hint.style.display='none';try{localStorage.setItem('hrHintDismissed','1');}catch(e){}};
-})();
 
 Promise.all([
   fetch('/data/henley_records.json').then(function(r){return r.json();}),
