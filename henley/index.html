@@ -126,6 +126,17 @@ tr.rd-row{cursor:pointer}
 .rd-wbt{color:var(--text2);font-size:.9rem;margin-bottom:14px}
 .rd-wxbtn{background:rgba(123,191,255,.12);border:1px solid rgba(123,191,255,.35);color:#7bbfff;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:.9rem;font-weight:600;height:auto;width:100%}
 .rd-wxbtn:hover{background:rgba(123,191,255,.2)}
+/* ---- Share / download actions ---- */
+.hr-actbar{margin-top:2px}
+.hr-act{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;padding:7px 13px;border-radius:8px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;height:auto;line-height:1}
+.hr-act:hover{border-color:#c8472b;color:#c8472b;background:var(--bg2)}
+.hr-act svg{width:14px;height:14px;flex-shrink:0}
+.hr-sticky[data-view="live"] .only-rank,.hr-sticky[data-tab="byevent"] .only-rank{display:none}
+.rd-actions{display:flex;flex-direction:column;gap:8px;margin-top:2px}
+.rd-actrow{display:flex;gap:8px}
+.rd-actrow .hr-act{flex:1;justify-content:center;padding:10px 12px}
+.hr-toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(18px);background:#c8472b;color:#fff;font-size:13px;font-weight:600;padding:10px 20px;border-radius:999px;box-shadow:0 8px 28px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:1000}
+.hr-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
@@ -158,7 +169,7 @@ tr.rd-row{cursor:pointer}
   </ol>
 </details>
 
-<div class="hr-sticky" data-view="live" data-live="list">
+<div class="hr-sticky" data-view="live" data-live="list" data-tab="record">
 <div class="hr-bar only-live"><span class="hr-bar-label">Show</span><div class="lbtab-wrap" id="hr-live">
   <button class="lbtab active" data-live="list">List</button>
   <button class="lbtab" data-live="tree">Tree by event</button>
@@ -179,6 +190,11 @@ tr.rd-row{cursor:pointer}
   <input type="text" id="hr-fevent" list="hr-events" placeholder="Event…" class="hr-filter" autocomplete="off">
   <button type="button" id="hr-fclear" class="hr-fclear" title="Clear filters">✕</button>
 </div>
+<div class="hr-bar hr-actbar"><span class="hr-bar-label">Get</span>
+  <button type="button" class="hr-act" id="hr-share" title="Copy a link to this exact view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>Share view</button>
+  <button type="button" class="hr-act" id="hr-csv" title="Download the current table as CSV"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>CSV</button>
+  <button type="button" class="hr-act only-rank" id="hr-img" title="Save this leaderboard as a shareable image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Save image</button>
+</div>
 </div>
 <datalist id="hr-clubs"></datalist>
 <datalist id="hr-events"></datalist>
@@ -188,6 +204,7 @@ tr.rd-row{cursor:pointer}
 <div class="footer"><a href="mailto:feedback@rowingtools.co.uk">Contact Us - Suggestions &amp; Feedback</a></div>
 
 <div class="rd-overlay" id="rd-overlay"><div class="rd-modal"><button type="button" class="rd-close" id="rd-close" aria-label="Close">&times;</button><div id="rd-body"></div></div></div>
+<div class="hr-toast" id="hr-toast"></div>
 
 <script src="/conditions.js"></script>
 <script>
@@ -200,7 +217,7 @@ var DAY_ORDER=['Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 // Finish = 1 mile 550 yards = 2112m.
 var DIST={barrier:637, fawley:1047, finish:2112};
 var state={year:'2025',day:'',view:'live',liveMode:'list',tab:'record',marker:'finish',fClub:'',fEvent:''};
-var RECORDS={}, WBT={}, RACES=[], RACE_BY_ID={}, _cache={};
+var RECORDS={}, WBT={}, RACES=[], RACE_BY_ID={}, _cache={}, _openRaceId='';
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function fmtPct(p){return p==null?'—':p.toFixed(1)+'%';}
@@ -290,6 +307,8 @@ document.addEventListener('click',function(ev){
   var t=ev.target; if(!t.closest)return;
   var wx=t.closest('.hr-wx')||t.closest('.rd-wxbtn');
   if(wx&&window.wxOpen){window.wxOpen(wx.dataset.clock,wx.dataset.label,wx.dataset.boat,wx.dataset.date,HENLEY_VENUE);return;}
+  var rdi=t.closest('#rd-img'); if(rdi){exportRaceImage(rdi.dataset.raceid);return;}
+  var rds=t.closest('#rd-share'); if(rds){shareRace(rds.dataset.raceid);return;}
   if(t.closest('#rd-close')||t.id==='rd-overlay'){closeRaceDetail();return;}
   if(t.closest('.hr-vs'))return;  // the inline "bt / lost to" reveal toggles itself; don't also open the modal
   var row=t.closest('.rd-row');
@@ -468,14 +487,230 @@ function openRaceDetail(id){
     +'<div class="rd-margin"><span class="rd-tag">Margin</span><strong>'+esc(m.text)+'</strong></div></div>'
     +'<table class="rd-splits"><thead><tr><th>Point</th><th class="r">Time</th><th class="sp">/500m</th><th class="r">% rec</th><th></th></tr></thead><tbody>'+splits+'</tbody></table>'
     +(wbtPct!=null?'<div class="rd-wbt">% of WBT at the finish ('+esc(boat)+'): <strong style="color:'+gmtColor(wbtPct)+'">'+fmtPct(wbtPct)+'</strong></div>':'')
-    +'<div class="rd-actions"><button type="button" class="rd-wxbtn" data-clock="'+esc(clock)+'" data-date="'+esc(date)+'" data-boat="'+esc(boat||'')+'" data-label="'+label+'">View race-day conditions</button></div>'
+    +'<div class="rd-actions"><button type="button" class="rd-wxbtn" data-clock="'+esc(clock)+'" data-date="'+esc(date)+'" data-boat="'+esc(boat||'')+'" data-label="'+label+'">View race-day conditions</button>'
+    +'<div class="rd-actrow"><button type="button" class="hr-act" id="rd-img" data-raceid="'+esc(id)+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Save as image</button>'
+    +'<button type="button" class="hr-act" id="rd-share" data-raceid="'+esc(id)+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>Share race</button></div></div>'
     +'<p class="hr-note" style="margin-top:12px">% of the Henley record to each point as it stood going into '+esc(r.year)+'; over 100% beat that record. LOSER LED = the crew that ultimately lost was ahead at that point.</p>';
   document.getElementById('rd-body').innerHTML=html;
   document.getElementById('rd-overlay').classList.add('show');
 }
 function closeRaceDetail(){document.getElementById('rd-overlay').classList.remove('show');}
 
+/* ---- Shareable deep links: keep the URL in step with the current view ---- */
+function syncURL(){
+  var p=new URLSearchParams();
+  if(state.year)p.set('y',state.year);
+  if(state.view!=='live')p.set('v',state.view);
+  if(state.view==='live'&&state.liveMode!=='list')p.set('lm',state.liveMode);
+  if(state.view==='board'){if(state.tab!=='record')p.set('t',state.tab);if(state.marker!=='finish')p.set('m',state.marker);}
+  if(state.day&&state.day!=='all')p.set('d',state.day.slice(0,3));
+  if(state.fClub)p.set('fc',state.fClub);
+  if(state.fEvent)p.set('fe',state.fEvent);
+  var qs=p.toString();
+  try{history.replaceState(null,'',qs?('?'+qs):location.pathname);}catch(e){}
+}
+function applyURLState(){
+  var p=new URLSearchParams(location.search);
+  var y=p.get('y'); state.year=(y&&YEARS.indexOf(y)>=0)?y:YEARS[0];
+  var v=p.get('v'); if(v==='board'||v==='live')state.view=v;
+  var lm=p.get('lm'); if(lm==='tree'||lm==='list')state.liveMode=lm;
+  var t=p.get('t'); if(t==='byevent'||t==='wbt'||t==='record')state.tab=t;
+  var m=p.get('m'); if(m==='barrier'||m==='fawley'||m==='finish')state.marker=m;
+  var d=p.get('d'); if(d){var full=DAY_ORDER.filter(function(x){return x.slice(0,3).toLowerCase()===d.toLowerCase();})[0]; if(full)state.day=full;}
+  state.fClub=p.get('fc')||''; state.fEvent=p.get('fe')||'';
+  _openRaceId=p.get('r')||'';
+}
+// Reflect the restored state on the toggle controls + filter inputs.
+function syncToggleDOM(){
+  var sticky=document.querySelector('.hr-sticky');
+  sticky.setAttribute('data-view',state.view);
+  sticky.setAttribute('data-live',state.liveMode);
+  sticky.setAttribute('data-tab',state.tab);
+  function act(id,key,val){var box=document.getElementById(id); if(!box)return; box.querySelectorAll('.lbtab').forEach(function(b){b.classList.toggle('active',b.dataset[key]===val);});}
+  act('hr-view','view',state.view); act('hr-live','live',state.liveMode);
+  act('hr-tabs','tab',state.tab); act('hr-markers','marker',state.marker);
+  var fc=document.getElementById('hr-fclub'),fe=document.getElementById('hr-fevent');
+  if(fc)fc.value=state.fClub; if(fe)fe.value=state.fEvent;
+}
+function toast(msg){var t=document.getElementById('hr-toast'); if(!t)return; t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2200);}
+function shareLink(url,title){
+  url=url||location.href; title=title||('Henley Royal Regatta '+state.year+' · RowingTools');
+  if(navigator.share){navigator.share({title:title,text:title,url:url}).catch(function(){});return;}
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(url).then(function(){toast('Link copied');},function(){window.prompt('Copy this link:',url);});}
+  else window.prompt('Copy this link:',url);
+}
+function shareRace(id){
+  var r=RACE_BY_ID[id];
+  var url=location.origin+location.pathname+'?y='+encodeURIComponent(state.year)+'&r='+encodeURIComponent(id);
+  var title=r?(r.winner+' bt '+(r.loser||'')+' · '+r.event+' · Henley '+state.year):('Henley '+state.year);
+  shareLink(url,title);
+}
+
+/* ---- CSV export of whatever is currently on screen ---- */
+function csvEscape(v){v=(v==null?'':String(v));return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+function downloadCSV(rows,fname){
+  var csv=rows.map(function(r){return r.map(csvEscape).join(',');}).join('\r\n');
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}));a.download=fname;a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+}
+function csvRecord(){
+  var mk=state.marker, entries=buildBest(mk).map(function(e){var b=recBaseline(e.eventKey,mk);e.pct=b?(b.secs/e.secs*100):null;return e;});
+  var withPct=entries.filter(function(e){return e.pct!=null;}).sort(function(a,b){return b.pct-a.pct;});
+  var noPct=entries.filter(function(e){return e.pct==null;}).sort(function(a,b){return a.secs-b.secs;});
+  var all=withPct.concat(noPct); all.forEach(function(e,i){e.rank=i+1;});
+  var rows=[['Rank','Crew','Result','Opponent','Event','Round','Time','/500m','% of record']];
+  all.filter(passFilter).forEach(function(e){rows.push([e.rank,e.crew,e.won?'Won':(e.loserLeading?'Lost (led here)':'Lost'),e.opp||'',e.eventFull||e.event,e.round,e.display,fmtPace(e.secs,DIST[mk]),e.pct==null?'':e.pct.toFixed(1)]);});
+  return rows;
+}
+function csvWbt(){
+  var mk=state.marker,scale=2000/DIST[mk];
+  var es=buildBest(mk).map(function(e){var boat=wbtBoat(e.cls),w=WBT[boat];e.boat=boat;e.pct=w?(w/(e.secs*scale)*100):null;return e;}).filter(function(e){return e.pct!=null;}).sort(function(a,b){return b.pct-a.pct;});
+  es.forEach(function(e,i){e.rank=i+1;});
+  var rows=[['Rank','Crew','Event','Boat','Time','/500m','% of WBT']];
+  es.filter(passFilter).forEach(function(e){rows.push([e.rank,e.crew,e.eventFull||e.event,e.boat,e.display,fmtPace(e.secs,DIST[mk]),e.pct.toFixed(1)]);});
+  return rows;
+}
+function csvByEvent(){
+  var mk=state.marker,entries=buildBest(mk),byEvent={};
+  entries.forEach(function(e){(byEvent[e.eventKey]=byEvent[e.eventKey]||{name:e.eventFull,key:e.eventKey,rows:[]}).rows.push(e);});
+  var keys=Object.keys(byEvent).sort(function(a,b){return byEvent[a].name.localeCompare(byEvent[b].name);});
+  var fe=(state.fEvent||'').toLowerCase().trim();
+  var rows=[['Event','Rank','Crew','Round','Time','/500m','% of record']];
+  keys.forEach(function(k){
+    if(fe&&(byEvent[k].name||'').toLowerCase().indexOf(fe)<0)return;
+    var ev=byEvent[k]; ev.rows.sort(function(a,b){return a.secs-b.secs;}); ev.rows.forEach(function(e,i){e.rank=i+1;});
+    var b=recBaseline(k,mk);
+    ev.rows.filter(function(e){return clubMatch(e.crew);}).forEach(function(e){var pct=b?(b.secs/e.secs*100):null;rows.push([ev.name,e.rank,e.crew,e.round,e.display,fmtPace(e.secs,DIST[mk]),pct==null?'':pct.toFixed(1)]);});
+  });
+  return rows;
+}
+function csvLive(){
+  var rows=[['Time','Day','Event','Round','Winner','Beaten','Finish','Margin','New record']];
+  RACES.filter(function(r){if(r.withdrawn)return false;if(state.day!=='all'&&r.day!==state.day)return false;return raceClubMatch(r)&&raceEventMatch(r);})
+    .sort(function(a,b){return (b.dateTime||'').localeCompare(a.dateTime||'');})
+    .forEach(function(r){rows.push([(r.dateTime||'').slice(11,16),r.day,r.event,r.round,r.winner,r.loser||'',r.finish?r.finish.display:'',r.verdict||'',(r.finish&&r.finish.newRecord)?'NR':'']);});
+  return rows;
+}
+function exportCSV(){
+  var rows,label;
+  if(state.view==='live'){rows=csvLive();label='results';}
+  else if(state.tab==='wbt'){rows=csvWbt();label='wbt-'+state.marker;}
+  else if(state.tab==='byevent'){rows=csvByEvent();label='byevent-'+state.marker;}
+  else {rows=csvRecord();label='record-'+state.marker;}
+  if(rows.length<=1){toast('Nothing to export');return;}
+  var day=(state.day&&state.day!=='all')?state.day.slice(0,3).toLowerCase()+'-':'';
+  downloadCSV(rows,'henley-'+state.year+'-'+day+label+'.csv');
+  toast('CSV downloaded');
+}
+
+/* ---- House-style shareable images (navy / Fraunces, matches the carousels) ---- */
+var INK='#0a1628', PAPER='#f4efe6', ACC='#c8472b', GOLD='#b8893a', FR='Fraunces', JM='"JetBrains Mono"';
+function fade(a){return 'rgba(244,239,230,'+a+')';}
+function rankColor(r){return r===1?ACC:r<=3?GOLD:PAPER;}
+function fmtTime(secs){var m=Math.floor(secs/60),s=secs-m*60;return m+':'+(s%1===0?String(s).padStart(2,'0'):s.toFixed(1).padStart(4,'0'));}
+function _tx(ctx,s,x,y,font,color,align,sp){ctx.font=font;ctx.fillStyle=color;ctx.textAlign=align||'left';ctx.textBaseline='alphabetic';try{ctx.letterSpacing=(sp||0)+'px';}catch(e){}ctx.fillText(s,x,y);try{ctx.letterSpacing='0px';}catch(e){}}
+function _wrap(ctx,s,font,maxw){ctx.font=font;var words=(s||'').split(' '),lines=[],cur='';words.forEach(function(w){var t=cur?cur+' '+w:w;if(ctx.measureText(t).width>maxw&&cur){lines.push(cur);cur=w;}else cur=t;});if(cur)lines.push(cur);return lines;}
+function _fit(ctx,s,weight,size,maxw){ctx.font=weight+' '+size+'px '+FR;if(ctx.measureText(s).width<=maxw)return s;while(s.length>4&&ctx.measureText(s+'…').width>maxw)s=s.slice(0,-1);return s.trim()+'…';}
+function _newC(W,H){var c=document.createElement('canvas');c.width=W;c.height=H;return c;}
+function _rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function _shareHeader(ctx,W){
+  _tx(ctx,'rowingtools',64,96,'900 36px '+FR,PAPER,'left');ctx.font='900 36px '+FR;
+  _tx(ctx,'.',64+ctx.measureText('rowingtools').width,96,'900 36px '+FR,ACC,'left');
+  _tx(ctx,"HENLEY '"+String(state.year).slice(2),W-64,92,'700 22px '+JM,fade(.5),'right',3);
+}
+var _shareFontLink,_shareFontsReady=false;
+function ensureShareFonts(){
+  return new Promise(function(resolve){
+    if(!_shareFontLink){_shareFontLink=document.createElement('link');_shareFontLink.rel='stylesheet';_shareFontLink.href='https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,700;9..144,900&family=JetBrains+Mono:wght@400;500;700&display=swap';document.head.appendChild(_shareFontLink);}
+    if(_shareFontsReady||!document.fonts){resolve();return;}
+    Promise.all(['900 100px Fraunces','700 60px Fraunces','500 46px Fraunces','italic 300 40px Fraunces','500 22px "JetBrains Mono"','700 22px "JetBrains Mono"'].map(function(f){return document.fonts.load(f).catch(function(){});})).then(function(){_shareFontsReady=true;resolve();});
+  });
+}
+function downloadCanvas(c,fname){c.toBlob(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fname;a.click();setTimeout(function(){URL.revokeObjectURL(a.href);},1000);},'image/png');}
+
+// The current ranked board (record or wbt) as up to 10 rows for the image.
+function leaderboardImageData(){
+  var mk=state.marker, M=mk.charAt(0).toUpperCase()+mk.slice(1);
+  if(state.tab==='wbt'){
+    var scale=2000/DIST[mk];
+    var es=buildBest(mk).map(function(e){var w=WBT[wbtBoat(e.cls)];e.pct=w?(w/(e.secs*scale)*100):null;return e;}).filter(function(e){return e.pct!=null;}).sort(function(a,b){return b.pct-a.pct;});
+    es.forEach(function(e,i){e.rank=i+1;});
+    return {title:'Fastest to the '+M, sub:'% of World Best Time',
+      rows:es.filter(passFilter).slice(0,10).map(function(e){return {rank:e.rank,crew:e.crew,event:e.eventFull||e.event,val:e.pct.toFixed(1)+'%',sub2:e.display+' · '+fmtPace(e.secs,DIST[mk])+'/500m'};})};
+  }
+  var entries=buildBest(mk).map(function(e){var b=recBaseline(e.eventKey,mk);e.pct=b?(b.secs/e.secs*100):null;return e;});
+  var withPct=entries.filter(function(e){return e.pct!=null;}).sort(function(a,b){return b.pct-a.pct;});
+  withPct.forEach(function(e,i){e.rank=i+1;});
+  return {title:'Fastest to the '+M, sub:'% of Henley course record',
+    rows:withPct.filter(passFilter).slice(0,10).map(function(e){return {rank:e.rank,crew:e.crew,event:e.eventFull||e.event,val:e.pct.toFixed(1)+'%',sub2:e.display+' · '+fmtPace(e.secs,DIST[mk])+'/500m'};})};
+}
+async function exportLeaderboardImage(){
+  await ensureShareFonts();
+  var d=leaderboardImageData();
+  if(!d.rows.length){toast('Nothing to show for this view');return;}
+  var W=1080,H=1350,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_shareHeader(ctx,W);
+  _tx(ctx,'Henley Royal Regatta',64,234,'900 54px '+FR,PAPER,'left');
+  _tx(ctx,(state.day?state.day.toUpperCase()+'  ·  ':'')+state.year,64,284,'700 26px '+JM,ACC,'left',4);
+  _tx(ctx,d.title,64,372,'900 66px '+FR,PAPER,'left');
+  _tx(ctx,d.sub,64,420,'italic 300 36px '+FR,fade(.6),'left');
+  var y=496, rowH=Math.min(76,(1240-y)/d.rows.length);
+  d.rows.forEach(function(r){
+    _tx(ctx,String(r.rank),64,y+34,'900 50px '+FR,rankColor(r.rank),'left');
+    _tx(ctx,_fit(ctx,r.crew,'700',38,600),150,y+22,'700 38px '+FR,PAPER,'left');
+    _tx(ctx,r.event,150,y+52,'500 21px '+JM,fade(.5),'left',1);
+    _tx(ctx,r.val,W-64,y+28,'900 48px '+FR,r.rank===1?ACC:PAPER,'right');
+    _tx(ctx,r.sub2,W-64,y+54,'500 19px '+JM,fade(.45),'right');
+    ctx.strokeStyle=fade(.1);ctx.beginPath();ctx.moveTo(64,y+rowH-8);ctx.lineTo(W-64,y+rowH-8);ctx.stroke();
+    y+=rowH;
+  });
+  _tx(ctx,'ROWINGTOOLS.CO.UK / HENLEY',W/2,1300,'700 24px '+JM,fade(.45),'center',5);
+  downloadCanvas(c,'henley-'+state.year+'-'+(state.day?state.day.slice(0,3).toLowerCase()+'-':'')+state.tab+'-'+state.marker+'.png');
+  toast('Image saved');
+}
+
+function _chip(ctx,x,y,w,label,value){var h=148;_rr(ctx,x,y,w,h,16);ctx.fillStyle='rgba(244,239,230,0.04)';ctx.fill();ctx.strokeStyle=fade(.2);ctx.lineWidth=2;ctx.stroke();_tx(ctx,label,x+28,y+46,'700 20px '+JM,ACC,'left',3);_tx(ctx,value,x+28,y+110,'500 44px '+FR,PAPER,'left');}
+function _splitsCard(ctx,x,y,rows){
+  _tx(ctx,'POINT',x,y,'700 18px '+JM,fade(.5),'left',3);
+  _tx(ctx,'TIME',x+300,y,'700 18px '+JM,fade(.5),'left',3);
+  _tx(ctx,'/500M',x+540,y,'700 18px '+JM,fade(.5),'left',3);
+  _tx(ctx,'% REC',x+770,y,'700 18px '+JM,fade(.5),'left',3);
+  ctx.strokeStyle=fade(.2);ctx.beginPath();ctx.moveTo(x,y+22);ctx.lineTo(x+888,y+22);ctx.stroke();
+  var ry=y+22;
+  rows.forEach(function(r){ry+=66;
+    _tx(ctx,r.mk,x,ry,'500 34px '+FR,r.led?ACC:PAPER,'left');
+    _tx(ctx,r.time+(r.nr?'  NR':''),x+300,ry,'500 34px '+FR,r.nr?GOLD:PAPER,'left');
+    _tx(ctx,r.pace,x+540,ry,'500 30px '+JM,fade(.7),'left');
+    _tx(ctx,r.pct,x+770,ry,'500 34px '+FR,PAPER,'left');
+  });
+}
+async function exportRaceImage(id){
+  await ensureShareFonts();
+  var r=RACE_BY_ID[id]; if(!r)return;
+  var clock=(r.dateTime||'').slice(11,16);
+  var W=1080,H=1350,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_shareHeader(ctx,W);
+  var ey=224;
+  _wrap(ctx,r.event,'900 58px '+FR,952).slice(0,2).forEach(function(l){_tx(ctx,l,64,ey,'900 58px '+FR,PAPER,'left');ey+=64;});
+  _tx(ctx,(r.round+'  ·  '+r.day+(clock?'  ·  '+clock:'')).toUpperCase(),64,ey+4,'700 23px '+JM,ACC,'left',3);ey+=66;
+  _tx(ctx,'WINNER',64,ey,'700 20px '+JM,fade(.5),'left',4);ey+=46;
+  _wrap(ctx,r.winner,'700 50px '+FR,840).slice(0,2).forEach(function(l){_tx(ctx,l,64,ey,'700 50px '+FR,PAPER,'left');ey+=56;});
+  ey+=16;
+  _tx(ctx,'BEATEN',64,ey,'700 20px '+JM,fade(.5),'left',4);ey+=42;
+  _wrap(ctx,r.loser||'—','500 38px '+FR,840).slice(0,2).forEach(function(l){_tx(ctx,l,64,ey,'500 38px '+FR,fade(.85),'left');ey+=44;});
+  ey+=22;
+  _chip(ctx,64,ey,560,'WINNING MARGIN',r.verdict||'—');ey+=148+34;
+  var splits=[['barrier','BARRIER'],['fawley','FAWLEY'],['finish','FINISH']].map(function(mp){
+    var s=r[mp[0]]; if(!s||s.secs==null)return null; var b=recBaseline(r.eventKey,mp[0]),pct=b?(b.secs/s.secs*100):null;
+    return {mk:mp[1],time:s.display,pace:fmtPace(s.secs,DIST[mp[0]]),pct:pct==null?'—':pct.toFixed(1)+'%',nr:!!s.newRecord,led:!!s.loserLeading};
+  }).filter(Boolean);
+  _splitsCard(ctx,96,Math.min(ey,1010),splits);
+  _tx(ctx,'TIME · /500m PACE · % OF HENLEY RECORD',64,H-92,'500 19px '+JM,fade(.4),'left',2);
+  _tx(ctx,'ROWINGTOOLS.CO.UK / HENLEY',64,H-50,'700 24px '+JM,fade(.5),'left',4);
+  downloadCanvas(c,'henley-'+state.year+'-'+(r.winner||'race').replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'.png');
+  toast('Image saved');
+}
+
 function render(){
+  syncURL();
   var el=document.getElementById('hr-content');
   if(state.view==='live'){el.innerHTML=state.liveMode==='tree'?renderLiveTree():renderLiveList();return;}
   el.innerHTML = state.tab==='wbt'?renderWbt() : state.tab==='byevent'?renderByEvent() : renderRecord();
@@ -518,18 +753,22 @@ function wireToggles(){
   var lv=document.getElementById('hr-live');
   lv.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.liveMode=b.dataset.live;setActive(lv,b);sticky.setAttribute('data-live',state.liveMode);render();};});
   var t=document.getElementById('hr-tabs');
-  t.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.tab=b.dataset.tab;setActive(t,b);render();};});
+  t.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.tab=b.dataset.tab;setActive(t,b);sticky.setAttribute('data-tab',state.tab);render();};});
   var mk=document.getElementById('hr-markers');
   mk.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.marker=b.dataset.marker;setActive(mk,b);render();};});
   var fc=document.getElementById('hr-fclub'), fe=document.getElementById('hr-fevent'), fx=document.getElementById('hr-fclear');
   if(fc)fc.oninput=function(){state.fClub=this.value;render();};
   if(fe)fe.oninput=function(){state.fEvent=this.value;render();};
   if(fx)fx.onclick=function(){state.fClub='';state.fEvent='';if(fc)fc.value='';if(fe)fe.value='';render();};
+  var sh=document.getElementById('hr-share'); if(sh)sh.onclick=function(){shareLink();};
+  var cv=document.getElementById('hr-csv'); if(cv)cv.onclick=exportCSV;
+  var im=document.getElementById('hr-img'); if(im)im.onclick=exportLeaderboardImage;
 }
-function loadYear(year){
-  state.year=year; state.day='';
+function loadYear(year,keepDay){
+  state.year=year; if(!keepDay)state.day='';
   document.getElementById('hr-content').innerHTML='<p style="color:var(--text3);padding:2rem 0">Loading…</p>';
-  var done=function(races){RACES=races;RACE_BY_ID={};races.forEach(function(r){RACE_BY_ID[r.id]=r;});buildDatalists();renderDayTabs();renderUpdated();render();};
+  var done=function(races){RACES=races;RACE_BY_ID={};races.forEach(function(r){RACE_BY_ID[r.id]=r;});buildDatalists();renderDayTabs();renderUpdated();render();
+    if(_openRaceId&&RACE_BY_ID[_openRaceId]){openRaceDetail(_openRaceId);} _openRaceId='';};
   if(_cache[year])return done(_cache[year]);
   fetch('/data/henley_'+year+'.json').then(function(r){return r.json();}).then(function(races){_cache[year]=races;done(races);})
     .catch(function(){document.getElementById('hr-content').innerHTML='<p style="color:var(--text3)">Could not load Henley '+year+' data.</p>';});
@@ -549,7 +788,10 @@ Promise.all([
 }).then(function(found){
   found.forEach(function(o){if(o.d&&o.d.length){_cache[o.y]=o.d;YEARS.push(o.y);}});  // tab appears only once the year has races
   if(!YEARS.length){document.getElementById('hr-content').innerHTML='<p style="color:var(--text3);padding:2rem 0">No Henley data available yet.</p>';return;}
-  renderYearTabs(); wireToggles(); loadYear(YEARS[0]);
+  renderYearTabs(); wireToggles();
+  applyURLState(); syncToggleDOM();
+  var yb=document.getElementById('hr-years'); yb.querySelectorAll('.lbtab').forEach(function(b){b.classList.toggle('active',b.dataset.year===state.year);});
+  loadYear(state.year,true);
 }).catch(function(){document.getElementById('hr-content').innerHTML='<p style="color:var(--text3)">Could not load Henley data.</p>';});
 </script>
 </body>
