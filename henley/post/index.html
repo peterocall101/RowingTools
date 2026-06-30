@@ -76,6 +76,7 @@
     <option value="closest">⚡ Top 5 closest races</option>
     <option value="records">🔥 Records broken today</option>
     <option value="upsets">🎯 Seeded crews beaten today</option>
+    <option value="summary">📋 Day summary — intro / cover slide</option>
   </select>
 </div>
 <div class="pg-bar" id="pg-marker-bar"><span class="pg-bar-label">Marker</span>
@@ -88,8 +89,11 @@
 <div class="pg-bar"><span class="pg-bar-label">When</span>
   <label class="pg-asat"><input type="checkbox" id="pg-asat"> Stamp "as at" time (mid-day "results so far")</label>
 </div>
+<div class="pg-bar"><span class="pg-bar-label">Format</span>
+  <label class="pg-asat"><input type="checkbox" id="pg-post"> 4:5 post (instead of 9:16 story) — for day-summary carousels</label>
+</div>
 <div class="pg-actions">
-  <button type="button" id="pg-go-slide" class="pg-go alt">📱 Generate story slide</button>
+  <button type="button" id="pg-go-slide" class="pg-go alt">📱 Generate slide</button>
 </div>
 
 <div id="pg-caption"></div>
@@ -406,27 +410,26 @@ function top10Rec(marker){
   return buildBest(marker).map(function(e){var b=recBaseline(e.eventKey,marker);return {e:e,pct:b?(b.secs/e.secs*100):null,b:b};})
     .filter(function(o){return o.pct!=null;}).sort(function(x,y){return y.pct-x.pct;}).slice(0,10);
 }
-function drawTop10Story(rows,marker,asAt){
-  var W=1080,H=1920,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_header(ctx,W,_meta(),0,0);
-  var M=marker.charAt(0).toUpperCase()+marker.slice(1);
-  _tx(ctx,'Henley Royal Regatta',64,300,'900 60px '+FR,PAPER,'left');
-  _tx(ctx,(state.day||'').toUpperCase()+'  ·  '+state.year,64,360,'700 32px '+JM,ACC,'left',4);
-  _tx(ctx,'Fastest to the '+M,64,470,'900 80px '+FR,PAPER,'left');
-  _tx(ctx,'Top 10 · % of Henley course record',64,524,'italic 300 36px '+FR,fade(.6),'left');
-  if(asAt)_tx(ctx,'RESULTS SO FAR · AS AT '+asAtStr(),64,584,'700 26px '+JM,ACC,'left',3);
-  var y=asAt?660:628, rowH=Math.min(100,(1740-y)/rows.length);
-  rows.forEach(function(o,i){
-    var e=o.e;
-    _tx(ctx,String(i+1),64,y+50,'900 58px '+FR,rankColor(i+1),'left');
-    _tx(ctx,_one(ctx,e.crew,'700 44px '+FR,640),168,y+38,'700 44px '+FR,PAPER,'left');
-    _tx(ctx,_one(ctx,e.eventFull,'500 24px '+JM,640),168,y+74,'500 24px '+JM,fade(.5),'left',1);
-    _tx(ctx,o.pct.toFixed(1)+'%',W-64,y+44,'900 56px '+FR,i===0?ACC:PAPER,'right');
-    _tx(ctx,e.display+'  ·  '+fmtPace(e.secs,DIST[marker])+'/500m',W-64,y+78,'500 22px '+JM,fade(.45),'right');
-    ctx.strokeStyle=fade(.1);ctx.beginPath();ctx.moveTo(64,y+rowH-10);ctx.lineTo(W-64,y+rowH-10);ctx.stroke();
-    y+=rowH;
-  });
-  _tx(ctx,'FULL LEADERBOARDS · ROWINGTOOLS.CO.UK / HENLEY',W/2,Math.min(1860,y+96),'700 24px '+JM,fade(.5),'center',4);
+// Output height: 9:16 story (1920) by default, or 4:5 feed/carousel post (1350) when the
+// "post format" box is ticked - so the same slide can drop straight into a day-summary carousel.
+function slideH(){var b=document.getElementById('pg-post');return (b&&b.checked)?1350:1920;}
+// Day-summary cover/intro slide ("Tuesday 2026 · Day Summary · more at the website").
+function drawSummaryCover(H){
+  var W=1080;H=H||1920;var c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_header(ctx,W,_meta(),0,0);
+  var mid=H*0.44;
+  _tx(ctx,'Henley Royal Regatta',W/2,mid-150,'900 56px '+FR,PAPER,'center');
+  _tx(ctx,(state.day||'').toUpperCase()+'  ·  '+state.year,W/2,mid-92,'700 32px '+JM,ACC,'center',5);
+  var t='Day Summary',sz=130;ctx.font='900 '+sz+'px '+FR;while(ctx.measureText(t).width>920&&sz>60){sz-=6;ctx.font='900 '+sz+'px '+FR;}
+  _tx(ctx,t,W/2,mid+60,'900 '+sz+'px '+FR,PAPER,'center');
+  _tx(ctx,'Fastest crews · records · closest races · upsets',W/2,mid+128,'italic 300 36px '+FR,fade(.6),'center');
+  ctx.strokeStyle=fade(.15);ctx.beginPath();ctx.moveTo(W/2-200,H-300);ctx.lineTo(W/2+200,H-300);ctx.stroke();
+  _tx(ctx,'MORE RESULTS, SPLITS & CONDITIONS',W/2,H-228,'700 24px '+JM,fade(.5),'center',3);
+  _tx(ctx,'rowingtools.co.uk / henley',W/2,H-166,'900 40px '+FR,PAPER,'center');
+  if(H<1600)_tx(ctx,'SWIPE  →',W/2,H-90,'700 24px '+JM,fade(.4),'center',6);
   return c;
+}
+function captionSummary(){
+  return ['Henley Royal Regatta '+state.year+' - '+state.day,'','Our day summary 🚣 the fastest crews, new course records, the closest races and the seeds that fell.','','Full leaderboards, splits & race-day conditions → rowingtools.co.uk/henley','',_tags()].join('\n');
 }
 function captionTop10(rows,marker,asAt){
   var M=marker.charAt(0).toUpperCase()+marker.slice(1);
@@ -439,13 +442,15 @@ function captionTop10(rows,marker,asAt){
 }
 async function generateTop10(){
   await ensureFonts();
-  var marker=state.top10Marker, rows=top10Rec(marker);
+  var marker=state.top10Marker, rows=top10Rec(marker), H=slideH();
   if(!rows.length){alert('No timed crews to the '+marker+' for '+(state.day||'this day')+' yet.');return;}
-  var asAt=document.getElementById('pg-asat').checked;
+  var asAt=document.getElementById('pg-asat').checked, M=marker.charAt(0).toUpperCase()+marker.slice(1);
+  var story=drawListStory({H:H,title:'Fastest to the '+M,sub:'Top 10 · % of Henley course record',asAt:asAt,
+    rows:rows.map(function(o,i){return {name:o.e.crew,sub:o.e.eventFull,val:o.pct.toFixed(1)+'%',valColor:i===0?ACC:PAPER,val2:o.e.display+'  ·  '+fmtPace(o.e.secs,DIST[marker])+'/500m'};})});
   document.getElementById('pg-caption').innerHTML='<div class="pg-cap-lbl">Suggested caption</div><textarea id="pg-cap-txt" rows="9"></textarea><button class="pg-dl" id="pg-cap-copy">📋 Copy caption</button>';
   document.getElementById('pg-cap-txt').value=captionTop10(rows,marker,asAt);
   document.getElementById('pg-cap-copy').onclick=function(){var t=document.getElementById('pg-cap-txt');t.select();try{navigator.clipboard.writeText(t.value);}catch(e){document.execCommand('copy');}this.textContent='✓ Copied';};
-  showCanvases([{canvas:drawTop10Story(rows,marker,asAt),name:'henley-'+state.year+'-top10-'+marker+'-'+(state.day||'').toLowerCase()+(asAt?'-asat'+asAtStr().replace(':',''):'')+'.png'}]);
+  showCanvases([{canvas:story,name:'henley-'+state.year+'-top10-'+marker+'-'+(state.day||'').toLowerCase()+(H===1350?'-post':'')+(asAt?'-asat'+asAtStr().replace(':',''):'')+'.png'}]);
 }
 
 /* ── Generic ranked-list story slide (closest races / records / seeds beaten) ── */
@@ -454,24 +459,31 @@ function shortMargin(v){return (v||'').replace(/lengths?/ig,'L').replace(/feet|f
 // opts: {title, sub, asAt, rows:[{name, sub, val, val2, valColor}]}. Rows are vertically centred
 // so a 5-row slide is as balanced as an 8-row one; footer stays pinned at the bottom.
 function drawListStory(opts){
-  var W=1080,H=1920,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_header(ctx,W,_meta(),0,0);
+  var W=1080,H=opts.H||1920,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_header(ctx,W,_meta(),0,0);
   _tx(ctx,'Henley Royal Regatta',64,300,'900 60px '+FR,PAPER,'left');
   _tx(ctx,(state.day||'').toUpperCase()+'  ·  '+state.year,64,360,'700 32px '+JM,ACC,'left',4);
   _tx(ctx,opts.title,64,470,'900 80px '+FR,PAPER,'left');
   _tx(ctx,opts.sub,64,524,'italic 300 36px '+FR,fade(.6),'left');
   if(opts.asAt)_tx(ctx,'RESULTS SO FAR · AS AT '+asAtStr(),64,584,'700 26px '+JM,ACC,'left',3);
-  var rows=opts.rows,n=rows.length||1,top=opts.asAt?660:620,bottom=1790,avail=bottom-top;
-  var rowH=Math.min(150,avail/n),y=top+Math.max(0,(avail-rowH*n)/2);
+  var rows=opts.rows,n=rows.length||1,top=opts.asAt?660:620,bottom=H-130,avail=bottom-top;
+  var rowH=Math.min(150,avail/n),y=top+Math.max(0,(avail-rowH*n)/2),two=rowH>=82;
   rows.forEach(function(r,i){
-    _tx(ctx,String(i+1),64,y+54,'900 58px '+FR,rankColor(i+1),'left');
-    _tx(ctx,_one(ctx,r.name,'700 46px '+FR,600),168,y+42,'700 46px '+FR,PAPER,'left');
-    _tx(ctx,_one(ctx,r.sub||'','500 24px '+JM,620),168,y+80,'500 24px '+JM,fade(.5),'left',1);
-    _tx(ctx,r.val||'',W-64,y+48,'900 48px '+FR,r.valColor||PAPER,'right');
-    if(r.val2)_tx(ctx,r.val2,W-64,y+84,'500 22px '+JM,fade(.45),'right');
+    if(two){
+      _tx(ctx,String(i+1),64,y+54,'900 58px '+FR,rankColor(i+1),'left');
+      _tx(ctx,_one(ctx,r.name,'700 46px '+FR,600),168,y+42,'700 46px '+FR,PAPER,'left');
+      _tx(ctx,_one(ctx,r.sub||'','500 24px '+JM,620),168,y+80,'500 24px '+JM,fade(.5),'left',1);
+      _tx(ctx,r.val||'',W-64,y+48,'900 48px '+FR,r.valColor||PAPER,'right');
+      if(r.val2)_tx(ctx,r.val2,W-64,y+84,'500 22px '+JM,fade(.45),'right');
+    }else{                                   // tight (e.g. 10 rows in 4:5): one line, value only
+      var b=y+rowH/2+13;
+      _tx(ctx,String(i+1),64,b,'900 40px '+FR,rankColor(i+1),'left');
+      _tx(ctx,_one(ctx,r.name,'700 36px '+FR,660),150,b,'700 36px '+FR,PAPER,'left');
+      _tx(ctx,r.val||'',W-64,b,'900 38px '+FR,r.valColor||PAPER,'right');
+    }
     ctx.strokeStyle=fade(.1);ctx.beginPath();ctx.moveTo(64,y+rowH-12);ctx.lineTo(W-64,y+rowH-12);ctx.stroke();
     y+=rowH;
   });
-  _tx(ctx,'FULL LEADERBOARDS · ROWINGTOOLS.CO.UK / HENLEY',W/2,1858,'700 24px '+JM,fade(.5),'center',4);
+  _tx(ctx,'FULL LEADERBOARDS · ROWINGTOOLS.CO.UK / HENLEY',W/2,H-62,'700 24px '+JM,fade(.5),'center',4);
   return c;
 }
 // Dispatcher for the "single story slide" dropdown. Top 10 keeps its own generator; the other
@@ -479,30 +491,32 @@ function drawListStory(opts){
 async function generateSlide(){
   await ensureFonts();
   if(state.slide==='top10')return generateTop10();
-  var day=state.day||'',asAt=document.getElementById('pg-asat').checked,a,rows,story,fname;
-  if(state.slide==='closest'){
+  var day=state.day||'',asAt=document.getElementById('pg-asat').checked,H=slideH(),a,rows,story,fname,capText;
+  if(state.slide==='summary'){
+    story=drawSummaryCover(H); fname='summary'; capText=captionSummary();
+  }else if(state.slide==='closest'){
     a=ANGLES['closest']; rows=slideData(a).slice(0,5);
     if(!rows.length){alert('No races for '+(day||'this day')+' yet.');return;}
-    story=drawListStory({title:'Closest races',sub:'Top 5 · smallest winning margins',asAt:asAt,
+    story=drawListStory({H:H,title:'Closest races',sub:'Top 5 · smallest winning margins',asAt:asAt,
       rows:rows.map(function(r,i){return {name:r.crew,sub:'bt '+(r.opp||'—')+'   ·   '+r.eventLine,val:shortMargin(r.val),valColor:i===0?ACC:PAPER,val2:r.s1?r.s1[1]:''};})});
-    fname='closest';
+    fname='closest'; capText=caption(a,day,rows);
   }else if(state.slide==='records'){
     a=ANGLES['records']; rows=slideData(a);
     if(!rows.length){alert('No course records broken on '+(day||'this day')+'.');return;}
-    story=drawListStory({title:'Records broken',sub:rows.length+' new Henley course record'+(rows.length>1?'s':'')+' today',asAt:asAt,
+    story=drawListStory({H:H,title:'Records broken',sub:rows.length+' new Henley course record'+(rows.length>1?'s':'')+' today',asAt:asAt,
       rows:rows.map(function(r){return {name:r.crew,sub:r.eventLine,val:r.val,valColor:GOLD,val2:(r.label||'').replace(/^New /i,'').replace(/ record$/i,'').toUpperCase()};})});
-    fname='records';
+    fname='records'; capText=caption(a,day,rows);
   }else if(state.slide==='upsets'){
     a=ANGLES['upsets']; rows=slideData(a).slice(0,8);
     if(!rows.length){alert('No seeded crews beaten on '+(day||'this day')+' (or no seed list for '+state.year+' in data/henley_seeds.json yet).');return;}
-    story=drawListStory({title:'Seeds beaten',sub:'Seeded crews knocked out today',asAt:asAt,
+    story=drawListStory({H:H,title:'Seeds beaten',sub:'Seeded crews knocked out today',asAt:asAt,
       rows:rows.map(function(r){return {name:r.winner,sub:'bt '+r.loser+'   ·   '+r.eventLine,val:r.seedNum?'SEED '+r.seedNum:'SEED',valColor:ACC,val2:shortMargin(r.margin)};})});
-    fname='upsets';
+    fname='upsets'; capText=caption(a,day,rows);
   }else return;
   document.getElementById('pg-caption').innerHTML='<div class="pg-cap-lbl">Suggested caption</div><textarea id="pg-cap-txt" rows="9"></textarea><button class="pg-dl" id="pg-cap-copy">📋 Copy caption</button>';
-  document.getElementById('pg-cap-txt').value=caption(a,day,rows);
+  document.getElementById('pg-cap-txt').value=capText;
   document.getElementById('pg-cap-copy').onclick=function(){var t=document.getElementById('pg-cap-txt');t.select();try{navigator.clipboard.writeText(t.value);}catch(e){document.execCommand('copy');}this.textContent='✓ Copied';};
-  showCanvases([{canvas:story,name:'henley-'+state.year+'-'+fname+'-story-'+day.toLowerCase()+(asAt?'-asat'+asAtStr().replace(':',''):'')+'.png'}]);
+  showCanvases([{canvas:story,name:'henley-'+state.year+'-'+fname+'-'+(H===1350?'post':'story')+'-'+day.toLowerCase()+(asAt?'-asat'+asAtStr().replace(':',''):'')+'.png'}]);
 }
 
 function setActive(box,btn){box.querySelectorAll('.lbtab').forEach(function(b){b.classList.toggle('active',b===btn);});}
