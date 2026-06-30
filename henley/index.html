@@ -220,6 +220,16 @@ var state={year:'2025',day:'',view:'live',liveMode:'list',tab:'record',marker:'f
 var RECORDS={}, WBT={}, RACES=[], RACE_BY_ID={}, _cache={}, _openRaceId='';
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+// HRR's raceDateTime is UTC (…+00:00). Henley runs on UK local time (BST = UTC+1 in summer),
+// so format the wall-clock in Europe/London rather than slicing the raw UTC characters out of
+// the ISO string - otherwise every race shows an hour early. Falls back to the raw slice if the
+// timestamp is missing/unparseable.
+function fmtClock(dt){
+  if(!dt)return '';
+  var d=new Date(dt);
+  if(isNaN(d.getTime()))return (dt||'').slice(11,16);
+  return d.toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',hour12:false});
+}
 // The scraper stores names/events HTML-entity-encoded (e.g. "A &amp; B"). Decode once at load so
 // every consumer (esc'd HTML, CSV, canvas images) gets real characters and isn't double-escaped.
 var _decEl;
@@ -414,7 +424,7 @@ function renderLiveList(){
   }).sort(function(a,b){return (b.dateTime||'').localeCompare(a.dateTime||'');});
   if(!rows.length)return '<p style="color:var(--text3);padding:1rem 0">No races for the selected day / filter.</p>';
   var body=rows.map(function(r){
-    var clock=(r.dateTime||'').slice(11,16),m=marginInfo(r.verdict);
+    var clock=fmtClock(r.dateTime),m=marginInfo(r.verdict);
     var nr=(r.finish&&r.finish.newRecord)?'<span class="hr-nr">NR</span>':'';
     return '<tr class="rd-row" data-raceid="'+r.id+'">'
       +'<td style="color:var(--text3)">'+esc(clock)+'</td>'
@@ -475,7 +485,7 @@ function otherStation(s){return /berks/i.test(s||'')?'Bucks':/bucks/i.test(s||''
 function recPctAt(r,mk){var s=r[mk]; if(!s||!s.secs)return null; var b=recBaseline(r.eventKey,mk); return b?(b.secs/s.secs*100):null;}
 function openRaceDetail(id){
   var r=RACE_BY_ID[id]; if(!r)return;
-  var clock=(r.dateTime||'').slice(11,16),date=(r.dateTime||'').slice(0,10);
+  var clock=fmtClock(r.dateTime),date=(r.dateTime||'').slice(0,10);
   var winS=(r.station||'').replace(/^\d+\s*-\s*/,''),loseS=otherStation(r.station),m=marginInfo(r.verdict);
   var splits=[['barrier','Barrier'],['fawley','Fawley'],['finish','Finish']].map(function(mp){
     var mk=mp[0],s=r[mk]; if(!s||!s.secs)return '';
@@ -593,7 +603,7 @@ function csvLive(){
   var rows=[['Time','Day','Event','Round','Winner','Beat','Finish','Margin','New record']];
   RACES.filter(function(r){if(r.withdrawn)return false;if(state.day!=='all'&&r.day!==state.day)return false;return raceClubMatch(r)&&raceEventMatch(r);})
     .sort(function(a,b){return (b.dateTime||'').localeCompare(a.dateTime||'');})
-    .forEach(function(r){rows.push([(r.dateTime||'').slice(11,16),r.day,r.event,r.round,r.winner,r.loser||'',r.finish?r.finish.display:'',r.verdict||'',(r.finish&&r.finish.newRecord)?'NR':'']);});
+    .forEach(function(r){rows.push([fmtClock(r.dateTime),r.day,r.event,r.round,r.winner,r.loser||'',r.finish?r.finish.display:'',r.verdict||'',(r.finish&&r.finish.newRecord)?'NR':'']);});
   return rows;
 }
 function exportCSV(){
@@ -691,7 +701,7 @@ function _splitsCard(ctx,x,y,rows){
 async function exportRaceImage(id){
   await ensureShareFonts();
   var r=RACE_BY_ID[id]; if(!r)return;
-  var clock=(r.dateTime||'').slice(11,16);
+  var clock=fmtClock(r.dateTime);
   var W=1080,H=1350,c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_shareHeader(ctx,W);
   var ey=224;
   _wrap(ctx,r.event,'900 58px '+FR,952).slice(0,2).forEach(function(l){_tx(ctx,l,64,ey,'900 58px '+FR,PAPER,'left');ey+=64;});
@@ -744,7 +754,7 @@ function renderUpdated(){
   var el=document.getElementById('hr-updated'); if(!el)return;
   var latest=null;
   RACES.forEach(function(r){if(r.dateTime&&(!latest||r.dateTime>latest.dateTime))latest=r;});
-  el.textContent=latest?('Latest result · '+latest.day.slice(0,3)+' '+latest.dateTime.slice(11,16)):'';
+  el.textContent=latest?('Latest result · '+latest.day.slice(0,3)+' '+fmtClock(latest.dateTime)):'';
 }
 function renderYearTabs(){
   var box=document.getElementById('hr-years');
