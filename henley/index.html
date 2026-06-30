@@ -779,25 +779,31 @@ function wireToggles(){
   var cv=document.getElementById('hr-csv'); if(cv)cv.onclick=exportCSV;
   var im=document.getElementById('hr-img'); if(im)im.onclick=exportLeaderboardImage;
 }
+// Pull the data files past the browser's HTTP cache so a normal refresh shows new results.
+// GitHub Pages serves them with a ~10-min max-age, so a plain fetch re-uses the cached JSON on
+// F5 and only a hard refresh updates. The ?t buster makes each load a unique URL (busting the
+// browser cache) and no-store stops it reading/writing its cache; the Pages CDN is purged on
+// every deploy, so the network response is already the latest commit.
+function dfetch(u){return fetch(u+(u.indexOf('?')<0?'?':'&')+'t='+Date.now(),{cache:'no-store'});}
 function loadYear(year,keepDay){
   state.year=year; if(!keepDay)state.day='';
   document.getElementById('hr-content').innerHTML='<p style="color:var(--text3);padding:2rem 0">Loading…</p>';
   var done=function(races){RACES=races;RACE_BY_ID={};races.forEach(function(r){prepRace(r);RACE_BY_ID[r.id]=r;});buildDatalists();renderDayTabs();renderUpdated();render();
     if(_openRaceId&&RACE_BY_ID[_openRaceId]){openRaceDetail(_openRaceId);} _openRaceId='';};
   if(_cache[year])return done(_cache[year]);
-  fetch('/data/henley_'+year+'.json').then(function(r){return r.json();}).then(function(races){_cache[year]=races;done(races);})
+  dfetch('/data/henley_'+year+'.json').then(function(r){return r.json();}).then(function(races){_cache[year]=races;done(races);})
     .catch(function(){document.getElementById('hr-content').innerHTML='<p style="color:var(--text3)">Could not load Henley '+year+' data.</p>';});
 }
 
 Promise.all([
-  fetch('/data/henley_records.json').then(function(r){return r.json();}),
-  fetch('/data/benchmarks_v3.json').then(function(r){return r.json();})
+  dfetch('/data/henley_records.json').then(function(r){return r.json();}),
+  dfetch('/data/benchmarks_v3.json').then(function(r){return r.json();})
 ]).then(function(res){
   RECORDS=res[0];
   var w=res[1].wbt||{}; Object.keys(w).forEach(function(k){WBT[k]=parseWbt(w[k].time);});
   // Probe each candidate year's data file; only years with data become tabs.
   return Promise.all(YEAR_CANDIDATES.map(function(y){
-    return fetch('/data/henley_'+y+'.json').then(function(r){return r.ok?r.json():null;})
+    return dfetch('/data/henley_'+y+'.json').then(function(r){return r.ok?r.json():null;})
       .catch(function(){return null;}).then(function(d){return {y:y,d:d};});
   }));
 }).then(function(found){
