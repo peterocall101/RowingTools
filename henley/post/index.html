@@ -155,12 +155,14 @@ function marginRank(v){v=(v||'').toLowerCase();
   if(/dead.?heat/.test(v))return 0;
   if(/easily|row.?over|not rowed/.test(v))return 1e6;
   if(/canvas/.test(v))return 1;
-  var m=v.match(/(\d+(?:\.\d+)?)/),num=m?parseFloat(m[1]):0,f=/¾|3\/4/.test(v)?0.75:/½|1\/2/.test(v)?0.5:/¼|1\/4/.test(v)?0.25:0;
+  // Henley uses both quarter (¼ ½ ¾) and third (⅓ ⅔) fractions of a length.
+  var m=v.match(/(\d+(?:\.\d+)?)/),num=m?parseFloat(m[1]):0,
+      f=/¾|3\/4/.test(v)?0.75:/⅔|2\/3/.test(v)?2/3:/½|1\/2/.test(v)?0.5:/⅓|1\/3/.test(v)?1/3:/¼|1\/4/.test(v)?0.25:0;
   if(/millimet|\bmm\b/.test(v))return 10+num;
   if(/inch|"/.test(v))return 100+num;
   if(/feet|foot|\bft\b/.test(v))return 200+num;
   if(num>=1)return 1000+num+f;   // whole lengths (incl. fractional, e.g. "1 ½ lengths")
-  if(f>0)return 500+f*100;       // fraction-only length (¼ / ½ / ¾)
+  if(f>0)return 500+f*100;       // fraction-only length (¼ ⅓ ½ ⅔ ¾)
   return 400;}
 function recordsList(){var day=state.day,nr=[];RACES.forEach(function(r){if(day&&r.day!==day)return;['barrier','fawley','finish'].forEach(function(mk){if(r[mk]&&r[mk].newRecord){var win=mk==='finish'?true:!r[mk].loserLeading;nr.push({crew:_dec(win?r.winner:r.loser),opp:_dec(win?r.loser:r.winner),won:win,event:_dec(r.eventShort||r.event),marker:mk,time:r[mk].display});}});});return nr;}
 
