@@ -444,8 +444,9 @@ async function generateTop10(){
   await ensureFonts();
   var marker=state.top10Marker, rows=top10Rec(marker), H=slideH();
   if(!rows.length){alert('No timed crews to the '+marker+' for '+(state.day||'this day')+' yet.');return;}
+  if(H===1350)rows=rows.slice(0,5);   // 4:5 carousel: top 5 so each row keeps event + time + split
   var asAt=document.getElementById('pg-asat').checked, M=marker.charAt(0).toUpperCase()+marker.slice(1);
-  var story=drawListStory({H:H,title:'Fastest to the '+M,sub:'Top 10 · % of Henley course record',asAt:asAt,
+  var story=drawListStory({H:H,title:'Fastest to the '+M,sub:'Top '+rows.length+' · % of Henley course record',asAt:asAt,
     rows:rows.map(function(o,i){return {name:o.e.crew,sub:o.e.eventFull,val:o.pct.toFixed(1)+'%',valColor:i===0?ACC:PAPER,val2:o.e.display+'  ·  '+fmtPace(o.e.secs,DIST[marker])+'/500m'};})});
   document.getElementById('pg-caption').innerHTML='<div class="pg-cap-lbl">Suggested caption</div><textarea id="pg-cap-txt" rows="9"></textarea><button class="pg-dl" id="pg-cap-copy">📋 Copy caption</button>';
   document.getElementById('pg-cap-txt').value=captionTop10(rows,marker,asAt);
@@ -507,7 +508,7 @@ async function generateSlide(){
       rows:rows.map(function(r){return {name:r.crew,sub:r.eventLine,val:r.val,valColor:GOLD,val2:(r.label||'').replace(/^New /i,'').replace(/ record$/i,'').toUpperCase()};})});
     fname='records'; capText=caption(a,day,rows);
   }else if(state.slide==='upsets'){
-    a=ANGLES['upsets']; rows=slideData(a).slice(0,8);
+    a=ANGLES['upsets']; rows=slideData(a).slice(0,H===1350?5:8);
     if(!rows.length){alert('No seeded crews beaten on '+(day||'this day')+' (or no seed list for '+state.year+' in data/henley_seeds.json yet).');return;}
     story=drawListStory({H:H,title:'Seeds beaten',sub:'Seeded crews knocked out today',asAt:asAt,
       rows:rows.map(function(r){return {name:r.winner,sub:'bt '+r.loser+'   ·   '+r.eventLine,val:r.seedNum?'SEED '+r.seedNum:'SEED',valColor:ACC,val2:shortMargin(r.margin)};})});
