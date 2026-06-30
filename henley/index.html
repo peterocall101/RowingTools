@@ -132,6 +132,17 @@ tr.rd-row{cursor:pointer}
 .hr-act:hover{border-color:#c8472b;color:#c8472b;background:var(--bg2)}
 .hr-act svg{width:14px;height:14px;flex-shrink:0}
 .hr-sticky[data-view="live"] .only-rank,.hr-sticky[data-tab="byevent"] .only-rank{display:none}
+/* ---- Station tracker (Berks vs Bucks wins) ---- */
+.hr-sticky[data-view="station"] .only-live,.hr-sticky[data-view="station"] .only-board,.hr-sticky[data-view="station"] .hr-filterbar,.hr-sticky[data-view="station"] .hr-actbar{display:none}
+.st-wrap{display:flex;gap:16px;margin:1.25rem 0 0;flex-wrap:wrap}
+.st-card{flex:1 1 220px;background:var(--bg2);border:1.5px solid var(--border2);border-radius:16px;padding:1.8rem 1.4rem;text-align:center}
+.st-card.st-lead{border-color:#c8472b;box-shadow:0 4px 18px rgba(200,71,43,.16)}
+.st-name{font-size:.82rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text2)}
+.st-name span{color:var(--text3);font-weight:600}
+.st-wins{font-family:'Fraunces',serif;font-weight:900;font-size:4.4rem;line-height:1;margin:.55rem 0 .15rem;color:var(--text);font-variant-numeric:tabular-nums}
+.st-card.st-lead .st-wins{color:#c8472b}
+.st-pct{font-size:1.15rem;font-weight:600;color:var(--text2);font-variant-numeric:tabular-nums}
+.st-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.09em;color:var(--text3);margin-top:.55rem}
 .rd-actions{display:flex;flex-direction:column;gap:8px;margin-top:2px}
 .rd-actrow{display:flex;gap:8px}
 .rd-actrow .hr-act{flex:1;justify-content:center;padding:10px 12px}
@@ -153,6 +164,7 @@ tr.rd-row{cursor:pointer}
 <div class="hr-viewsel" id="hr-view">
   <button class="lbtab active" data-view="live">Live results</button>
   <button class="lbtab" data-view="board">Leaderboards</button>
+  <button class="lbtab" data-view="station">Station tracker</button>
 </div>
 
 <p class="info" style="margin-bottom:1rem">
@@ -185,7 +197,7 @@ tr.rd-row{cursor:pointer}
   <button class="lbtab" data-marker="fawley">Fawley</button>
   <button class="lbtab active" data-marker="finish">Finish</button>
 </div></div>
-<div class="hr-bar"><span class="hr-bar-label">Filter</span>
+<div class="hr-bar hr-filterbar"><span class="hr-bar-label">Filter</span>
   <input type="text" id="hr-fclub" list="hr-clubs" placeholder="Club / crew…" class="hr-filter" autocomplete="off">
   <input type="text" id="hr-fevent" list="hr-events" placeholder="Event…" class="hr-filter" autocomplete="off">
   <button type="button" id="hr-fclear" class="hr-fclear" title="Clear filters">✕</button>
@@ -518,7 +530,7 @@ function syncURL(){
   if(state.view!=='live')p.set('v',state.view);
   if(state.view==='live'&&state.liveMode!=='list')p.set('lm',state.liveMode);
   if(state.view==='board'){if(state.tab!=='record')p.set('t',state.tab);if(state.marker!=='finish')p.set('m',state.marker);}
-  if(state.day&&state.day!=='all')p.set('d',state.day.slice(0,3));
+  if(state.day==='all')p.set('d','all'); else if(state.day)p.set('d',state.day.slice(0,3));
   if(state.fClub)p.set('fc',state.fClub);
   if(state.fEvent)p.set('fe',state.fEvent);
   var qs=p.toString();
@@ -527,11 +539,11 @@ function syncURL(){
 function applyURLState(){
   var p=new URLSearchParams(location.search);
   var y=p.get('y'); state.year=(y&&YEARS.indexOf(y)>=0)?y:YEARS[0];
-  var v=p.get('v'); if(v==='board'||v==='live')state.view=v;
+  var v=p.get('v'); if(v==='board'||v==='live'||v==='station')state.view=v;
   var lm=p.get('lm'); if(lm==='tree'||lm==='list')state.liveMode=lm;
   var t=p.get('t'); if(t==='byevent'||t==='wbt'||t==='record')state.tab=t;
   var m=p.get('m'); if(m==='barrier'||m==='fawley'||m==='finish')state.marker=m;
-  var d=p.get('d'); if(d){var full=DAY_ORDER.filter(function(x){return x.slice(0,3).toLowerCase()===d.toLowerCase();})[0]; if(full)state.day=full;}
+  var d=p.get('d'); if(d==='all')state.day='all'; else if(d){var full=DAY_ORDER.filter(function(x){return x.slice(0,3).toLowerCase()===d.toLowerCase();})[0]; if(full)state.day=full;}
   state.fClub=p.get('fc')||''; state.fEvent=p.get('fe')||'';
   _openRaceId=p.get('r')||'';
 }
@@ -727,8 +739,40 @@ async function exportRaceImage(id){
 function render(){
   syncURL();
   var el=document.getElementById('hr-content');
+  if(state.view==='station'){el.innerHTML=renderStation();return;}
   if(state.view==='live'){el.innerHTML=state.liveMode==='tree'?renderLiveTree():renderLiveList();return;}
   el.innerHTML = state.tab==='wbt'?renderWbt() : state.tab==='byevent'?renderByEvent() : renderRecord();
+}
+// Station tracker: count wins by starting station (Berks vs Bucks) for the selected day.
+// r.station is the WINNING crew's station ("1 - Berks" / "2 - Bucks"). Walkovers (withdrawn
+// opponent) aren't raced on the water, so they're excluded from the win tally.
+function renderStation(){
+  var berks=0,bucks=0;
+  RACES.forEach(function(r){
+    if(r.withdrawn)return;
+    if(state.day&&state.day!=='all'&&r.day!==state.day)return;
+    var s=(r.station||'').toLowerCase();
+    if(s.indexOf('berks')>=0)berks++; else if(s.indexOf('bucks')>=0)bucks++;
+  });
+  var tot=berks+bucks;
+  var dayLbl=(state.day&&state.day!=='all')?state.day:'all days';
+  if(!tot)return '<p style="color:var(--text3);padding:2rem 0">No completed races for '+esc(dayLbl)+' yet.</p>';
+  // Only two stations, so show Bucks as the exact complement of Berks - independent rounding
+  // would otherwise let the two percentages sum to 99% or 101%.
+  var bp=Math.round(berks/tot*100), kp=100-bp;
+  var card=function(name,abbr,wins,p,lead){
+    return '<div class="st-card'+(lead?' st-lead':'')+'">'
+      +'<div class="st-name">'+name+' <span>('+abbr+')</span></div>'
+      +'<div class="st-wins">'+wins+'</div>'
+      +'<div class="st-pct">('+p+'%)</div>'
+      +'<div class="st-label">wins</div></div>';
+  };
+  return '<div class="st-wrap">'
+    +card('Berkshire','Berks',berks,bp,berks>=bucks)
+    +card('Buckinghamshire','Bucks',bucks,kp,bucks>berks)
+    +'</div>'
+    +'<p class="hr-note">Wins by starting station '+(state.day&&state.day!=='all'?'on '+esc(state.day):'across all days')
+    +'. Based on '+tot+' raced heats; walkovers (withdrawn opponents) excluded.</p>';
 }
 
 function setActive(box,btn){box.querySelectorAll('.lbtab').forEach(function(b){b.classList.toggle('active',b===btn);});}
@@ -740,13 +784,17 @@ function renderDayTabs(){
   });
   present.sort(function(a,b){return DAY_ORDER.indexOf(a)-DAY_ORDER.indexOf(b);});
   var box=document.getElementById('hr-days');
-  if(present.indexOf(state.day)<0){
+  // The station tracker offers a cumulative "All days" view; other views are always a single day.
+  var allowAll=(state.view==='station');
+  if(!(allowAll&&state.day==='all') && present.indexOf(state.day)<0){
     // Default to today's racing day if the regatta is live; otherwise the most recent day with results.
     var n=new Date(),p=function(x){return(x<10?'0':'')+x;},todayStr=n.getFullYear()+'-'+p(n.getMonth()+1)+'-'+p(n.getDate());
     var todayDay=present.filter(function(d){return dayDate[d]===todayStr;})[0];
     state.day=todayDay||present[present.length-1]||'';
   }
-  box.innerHTML=present.map(function(d){return '<button class="lbtab'+(d===state.day?' active':'')+'" data-day="'+d+'">'+d.slice(0,3)+'</button>';}).join('');
+  var btns=present.map(function(d){return '<button class="lbtab'+(d===state.day?' active':'')+'" data-day="'+d+'">'+d.slice(0,3)+'</button>';});
+  if(allowAll)btns.unshift('<button class="lbtab'+(state.day==='all'?' active':'')+'" data-day="all">All days</button>');
+  box.innerHTML=btns.join('');
   box.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.day=b.dataset.day;setActive(box,b);render();};});
 }
 // "Latest result" freshness stamp - the most recent race in the loaded year's data.
@@ -764,7 +812,7 @@ function renderYearTabs(){
 function wireToggles(){
   var sticky=document.querySelector('.hr-sticky');
   var vw=document.getElementById('hr-view');
-  vw.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.view=b.dataset.view;setActive(vw,b);sticky.setAttribute('data-view',state.view);render();};});
+  vw.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.view=b.dataset.view;setActive(vw,b);sticky.setAttribute('data-view',state.view);renderDayTabs();render();};});
   var lv=document.getElementById('hr-live');
   lv.querySelectorAll('.lbtab').forEach(function(b){b.onclick=function(){state.liveMode=b.dataset.live;setActive(lv,b);sticky.setAttribute('data-live',state.liveMode);render();};});
   var t=document.getElementById('hr-tabs');
