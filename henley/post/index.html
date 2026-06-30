@@ -401,7 +401,7 @@ function drawTop10Story(rows,marker,asAt){
   _tx(ctx,'Fastest to the '+M,64,470,'900 80px '+FR,PAPER,'left');
   _tx(ctx,'Top 10 · % of Henley course record',64,524,'italic 300 36px '+FR,fade(.6),'left');
   if(asAt)_tx(ctx,'RESULTS SO FAR · AS AT '+asAtStr(),64,584,'700 26px '+JM,ACC,'left',3);
-  var y=asAt?660:628, rowH=Math.min(114,(1740-y)/rows.length);
+  var y=asAt?660:628, rowH=Math.min(100,(1740-y)/rows.length);
   rows.forEach(function(o,i){
     var e=o.e;
     _tx(ctx,String(i+1),64,y+50,'900 58px '+FR,rankColor(i+1),'left');
@@ -412,7 +412,7 @@ function drawTop10Story(rows,marker,asAt){
     ctx.strokeStyle=fade(.1);ctx.beginPath();ctx.moveTo(64,y+rowH-10);ctx.lineTo(W-64,y+rowH-10);ctx.stroke();
     y+=rowH;
   });
-  _tx(ctx,'FULL LEADERBOARDS · ROWINGTOOLS.CO.UK / HENLEY',W/2,1860,'700 24px '+JM,fade(.5),'center',4);
+  _tx(ctx,'FULL LEADERBOARDS · ROWINGTOOLS.CO.UK / HENLEY',W/2,Math.min(1860,y+96),'700 24px '+JM,fade(.5),'center',4);
   return c;
 }
 function captionTop10(rows,marker,asAt){
