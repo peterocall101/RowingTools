@@ -190,7 +190,7 @@ function slideData(a){
         var s=r[mp[0]]; if(!s||s.secs==null)return null;
         return {mk:mp[1].toUpperCase(),time:s.display,pace:fmtPace(s.secs,DIST[mp[0]]),led:!!s.loserLeading};
       }).filter(Boolean);
-      return {eventLine:_dec(r.event),loser:_dec(r.loser),winner:_dec(r.winner),seedNum:si.seed,margin:r.verdict||'—',splits:splits,dt:r.dateTime||''};
+      return {eventLine:_dec(r.event),eventShort:_dec(r.eventShort||r.event),loser:_dec(r.loser),winner:_dec(r.winner),seedNum:si.seed,margin:r.verdict||'—',splits:splits,dt:r.dateTime||''};
     }).filter(Boolean).sort(function(x,y){return (x.seedNum||99)-(y.seedNum||99)||x.dt.localeCompare(y.dt);});
   }
   return [];
@@ -416,12 +416,13 @@ function slideH(){var b=document.getElementById('pg-post');return (b&&b.checked)
 // Day-summary cover/intro slide ("Tuesday 2026 · Day Summary · more at the website").
 function drawSummaryCover(H){
   var W=1080;H=H||1920;var c=_newC(W,H),ctx=c.getContext('2d');ctx.fillStyle=INK;ctx.fillRect(0,0,W,H);_header(ctx,W,_meta(),0,0);
-  var mid=H*0.44;
-  _tx(ctx,'Henley Royal Regatta',W/2,mid-150,'900 56px '+FR,PAPER,'center');
-  _tx(ctx,(state.day||'').toUpperCase()+'  ·  '+state.year,W/2,mid-92,'700 32px '+JM,ACC,'center',5);
-  var t='Day Summary',sz=130;ctx.font='900 '+sz+'px '+FR;while(ctx.measureText(t).width>920&&sz>60){sz-=6;ctx.font='900 '+sz+'px '+FR;}
-  _tx(ctx,t,W/2,mid+60,'900 '+sz+'px '+FR,PAPER,'center');
-  _tx(ctx,'Fastest crews · records · closest races · upsets',W/2,mid+128,'italic 300 36px '+FR,fade(.6),'center');
+  var mid=H*0.42;
+  _tx(ctx,'HENLEY ROYAL REGATTA  ·  '+state.year,W/2,mid-160,'700 32px '+JM,fade(.6),'center',4);
+  // The day name is the hero; "Day Summary" sits smaller beneath it.
+  var t=(state.day||'').toUpperCase()||'SUMMARY',sz=170;ctx.font='900 '+sz+'px '+FR;while(ctx.measureText(t).width>940&&sz>70){sz-=6;ctx.font='900 '+sz+'px '+FR;}
+  _tx(ctx,t,W/2,mid+30,'900 '+sz+'px '+FR,PAPER,'center');
+  _tx(ctx,'Day Summary',W/2,mid+112,'900 62px '+FR,ACC,'center');
+  _tx(ctx,'Fastest crews · records · closest races · upsets',W/2,mid+176,'italic 300 34px '+FR,fade(.6),'center');
   ctx.strokeStyle=fade(.15);ctx.beginPath();ctx.moveTo(W/2-200,H-300);ctx.lineTo(W/2+200,H-300);ctx.stroke();
   _tx(ctx,'MORE RESULTS, SPLITS & CONDITIONS',W/2,H-228,'700 24px '+JM,fade(.5),'center',3);
   _tx(ctx,'rowingtools.co.uk / henley',W/2,H-166,'900 40px '+FR,PAPER,'center');
@@ -472,7 +473,7 @@ function drawListStory(opts){
     if(two){
       _tx(ctx,String(i+1),64,y+54,'900 58px '+FR,rankColor(i+1),'left');
       _tx(ctx,_one(ctx,r.name,'700 46px '+FR,600),168,y+42,'700 46px '+FR,PAPER,'left');
-      _tx(ctx,_one(ctx,r.sub||'','500 24px '+JM,620),168,y+80,'500 24px '+JM,fade(.5),'left',1);
+      _tx(ctx,_one(ctx,r.sub||'','500 24px '+JM,560),168,y+80,'500 24px '+JM,fade(.5),'left',1);
       _tx(ctx,r.val||'',W-64,y+48,'900 48px '+FR,r.valColor||PAPER,'right');
       if(r.val2)_tx(ctx,r.val2,W-64,y+84,'500 22px '+JM,fade(.45),'right');
     }else{                                   // tight (e.g. 10 rows in 4:5): one line, value only
@@ -511,7 +512,9 @@ async function generateSlide(){
     a=ANGLES['upsets']; rows=slideData(a).slice(0,H===1350?5:8);
     if(!rows.length){alert('No seeded crews beaten on '+(day||'this day')+' (or no seed list for '+state.year+' in data/henley_seeds.json yet).');return;}
     story=drawListStory({H:H,title:'Seeds beaten',sub:'Seeded crews knocked out today',asAt:asAt,
-      rows:rows.map(function(r){return {name:r.winner,sub:'bt '+r.loser+'   ·   '+r.eventLine,val:r.seedNum?'SEED '+r.seedNum:'SEED',valColor:ACC,val2:shortMargin(r.margin)};})});
+      rows:rows.map(function(r){var fin=(r.splits||[]).filter(function(s){return s.mk==='FINISH';})[0];
+        return {name:r.winner,sub:'bt '+r.loser+'   ·   '+(r.eventShort||r.eventLine),val:r.seedNum?'SEED '+r.seedNum:'SEED',valColor:ACC,
+          val2:fin?fin.time+'  ·  '+fin.pace+'/500m':shortMargin(r.margin)};})});
     fname='upsets'; capText=caption(a,day,rows);
   }else return;
   document.getElementById('pg-caption').innerHTML='<div class="pg-cap-lbl">Suggested caption</div><textarea id="pg-cap-txt" rows="9"></textarea><button class="pg-dl" id="pg-cap-copy">📋 Copy caption</button>';
