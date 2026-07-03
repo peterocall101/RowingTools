@@ -159,8 +159,10 @@ def scrape_results(year, max_days=8, max_pages=20):
                 seen.add(b['id'])
                 races.append(normalise_race(b))
             got_day += len(new)
-            if len(batch) < 20:  # last page for this day
-                break
+            # Don't infer "last page" from a short batch: HRR omits withdrawn/walkover
+            # races from each page, so a non-final page can hold fewer than 20 rows
+            # (e.g. Friday page 1 had 17). Keep paging until a page returns no new
+            # races - the empty-results page (`not new` above) is the real terminator.
         print(f'  day {day}: {got_day} races', file=sys.stderr)
         if got_day == 0 and day > 1:
             break
