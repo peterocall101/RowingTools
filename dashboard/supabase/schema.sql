@@ -77,6 +77,7 @@ create table public.athletes (
   sex         text        check (sex in ('M', 'F') or sex is null),
   dob         date,
   notes       text,
+  is_demo     boolean     not null default false,  -- sample/demo rows, bulk-removable from the UI
   created_by  uuid        not null references public.profiles on delete cascade,
   created_at  timestamptz not null default now(),
   deleted_at  timestamptz                          -- soft delete
@@ -93,6 +94,7 @@ create table public.crews (
   name        text,                                -- optional label for this athlete-set
   signature   text,                                -- sorted athlete ids, '<id>,<id>,...'
   boat_class  text,                                -- '8+', '4-', '2x', '1x', etc. (optional)
+  is_demo     boolean     not null default false,  -- sample/demo rows, bulk-removable from the UI
   created_by  uuid        not null references public.profiles on delete cascade,
   created_at  timestamptz not null default now(),
   deleted_at  timestamptz
@@ -141,7 +143,11 @@ create table public.results (
   start_lng    double precision,
   finish_lat   double precision,
   finish_lng   double precision,
-  weather      jsonb,                               -- { wind_ms, wind_dir, temp_c, ... }
+  bearing      double precision,                    -- course bearing start -> finish, degrees true
+  weather      jsonb,                               -- { temp, hum, wspd, wgust, wdir, head_ms, cross_ms, source, fetched_at }
+  stream       jsonb,                               -- { station_id, station, river, flow_m3s, level_m, measured_at, source }
+  location_name text,                               -- optional label for the stretch of water, e.g. "Tideway, Putney-Hammersmith"
+  is_demo      boolean     not null default false,  -- sample/demo rows, bulk-removable from the UI
   notes        text,
   created_by   uuid        not null references public.profiles on delete cascade,
   created_at   timestamptz not null default now(),
@@ -163,28 +169,45 @@ create table public.result_athletes (
   primary key (result_id, athlete_id)
 );
 
+-- Saved courses: named start/finish pin pairs a squad reuses when logging
+-- water pieces (e.g. "Putney - Hammersmith"). Only the pins are stored;
+-- distance and bearing are recomputed from them client-side.
+create table public.courses (
+  id          uuid             primary key default gen_random_uuid(),
+  group_id    uuid             not null references public.groups on delete cascade,
+  name        text             not null,
+  start_lat   double precision not null,
+  start_lng   double precision not null,
+  finish_lat  double precision not null,
+  finish_lng  double precision not null,
+  created_by  uuid             not null references public.profiles on delete cascade,
+  created_at  timestamptz      not null default now()
+);
+create index courses_group_idx on public.courses (group_id);
+
 -- ================================================================
 -- Benchmark sets and times
 -- ================================================================
--- A benchmark set = a reference time standard per squad (WBT, Metropolitan,
--- Harvard, Henley, or custom). Coaches switch active benchmarks to change how
--- GMT% is calculated on results. Each benchmark_times row is a boat class → time.
+-- A benchmark set = a reference time standard per squad. The model is
+-- "WBT as base + per-boat-class offsets": WBT 2000m times live as static JSON
+-- in the frontend (data/benchmarks_v3.json), and a benchmark stores only an
+-- offset_ms per boat class added on top. Coaches switch the active benchmark
+-- to change how GMT% is calculated on results.
 create table public.benchmarks (
   id          uuid        primary key default gen_random_uuid(),
   group_id    uuid        not null references public.groups on delete cascade,
   name        text        not null,       -- e.g. "Watts Boat Table", "Harvard", "Custom 2026"
-  source      text        not null check (source in ('wbt', 'met_raw', 'hrr_raw', 'hwr_raw', 'met_a_slowest', 'met_b_slowest', 'met_c_slowest', 'custom')),
   created_by  uuid        not null references public.profiles on delete cascade,
   created_at  timestamptz not null default now(),
   deleted_at  timestamptz
 );
 create index benchmarks_group_idx on public.benchmarks (group_id);
 
--- Times for each boat class within a benchmark.
-create table public.benchmark_times (
+-- Per-boat-class offsets (ms added to the WBT 2000m time) within a benchmark.
+create table public.benchmark_adjustments (
   benchmark_id uuid        not null references public.benchmarks on delete cascade,
   boat_class   text        not null,      -- e.g. 'M4x', 'W2-', 'LM1x'
-  time_ms      integer     not null,      -- 2000m time in milliseconds
+  offset_ms    integer     not null default 0,
   created_at   timestamptz not null default now(),
   primary key (benchmark_id, boat_class)
 );
@@ -207,8 +230,9 @@ alter table public.crews           enable row level security;
 alter table public.crew_members    enable row level security;
 alter table public.results         enable row level security;
 alter table public.result_athletes enable row level security;
+alter table public.courses         enable row level security;
 alter table public.benchmarks      enable row level security;
-alter table public.benchmark_times enable row level security;
+alter table public.benchmark_adjustments enable row level security;
 
 -- Helper functions. SECURITY DEFINER so they bypass RLS when reading
 -- group_members - this is what prevents infinite recursion in the
@@ -335,6 +359,16 @@ create policy "result_athletes_write" on public.result_athletes
   using  (public.is_group_member(public.group_of_result(result_id)))
   with check (public.is_group_member(public.group_of_result(result_id)));
 
+-- courses (hard delete - just a few reusable pins, no bin needed)
+create policy "courses_select" on public.courses
+  for select using (public.is_group_member(group_id));
+create policy "courses_insert" on public.courses
+  for insert with check (public.is_group_member(group_id) and created_by = auth.uid());
+create policy "courses_update" on public.courses
+  for update using (public.is_group_member(group_id)) with check (public.is_group_member(group_id));
+create policy "courses_delete" on public.courses
+  for delete using (public.is_group_admin(group_id) or created_by = auth.uid());
+
 -- benchmarks
 create policy "benchmarks_select" on public.benchmarks
   for select using (public.is_group_member(group_id));
@@ -345,12 +379,12 @@ create policy "benchmarks_update" on public.benchmarks
 create policy "benchmarks_delete" on public.benchmarks
   for delete using (public.is_group_admin(group_id));
 
--- benchmark_times (scoped through parent benchmark's group)
-create policy "benchmark_times_select" on public.benchmark_times
+-- benchmark_adjustments (scoped through parent benchmark's group)
+create policy "benchmark_adjustments_select" on public.benchmark_adjustments
   for select using (public.is_group_member(
     (select group_id from public.benchmarks where id = benchmark_id)
   ));
-create policy "benchmark_times_write" on public.benchmark_times
+create policy "benchmark_adjustments_write" on public.benchmark_adjustments
   for all
   using (public.is_group_admin(
     (select group_id from public.benchmarks where id = benchmark_id)
@@ -447,12 +481,12 @@ begin
 end; $$;
 grant execute on function public.upsert_crew(uuid, uuid[], text) to authenticated;
 
--- Create a new benchmark set with initial times. The caller must be a group admin.
+-- Create a new benchmark set (WBT base + per-boat-class offsets). The caller
+-- must be a group admin. p_adjustments = { "M4x": 12000, ... } in ms.
 create or replace function public.create_benchmark(
   p_group_id uuid,
   p_name text,
-  p_source text,
-  p_times jsonb
+  p_adjustments jsonb default '{}'
 )
 returns uuid language plpgsql security definer set search_path = public as $$
 declare
@@ -461,27 +495,21 @@ begin
   if not public.is_group_admin(p_group_id) then
     raise exception 'Only a group admin can create benchmarks.';
   end if;
-  if p_source not in ('wbt', 'met_raw', 'hrr_raw', 'hwr_raw', 'met_a_slowest', 'met_b_slowest', 'met_c_slowest', 'custom') then
-    raise exception 'Invalid benchmark source.';
-  end if;
   if coalesce(trim(p_name), '') = '' then
     raise exception 'Benchmark name is required.';
   end if;
-  if p_times is null or p_times = '{}' then
-    raise exception 'At least one benchmark time is required.';
-  end if;
 
-  insert into public.benchmarks (group_id, name, source, created_by)
-  values (p_group_id, trim(p_name), p_source, auth.uid())
+  insert into public.benchmarks (group_id, name, created_by)
+  values (p_group_id, trim(p_name), auth.uid())
   returning id into v_id;
 
-  insert into public.benchmark_times (benchmark_id, boat_class, time_ms)
+  insert into public.benchmark_adjustments (benchmark_id, boat_class, offset_ms)
   select v_id, key, (value)::integer
-  from jsonb_each_text(p_times);
+  from jsonb_each_text(coalesce(p_adjustments, '{}'::jsonb));
 
   return v_id;
 end; $$;
-grant execute on function public.create_benchmark(uuid, text, text, jsonb) to authenticated;
+grant execute on function public.create_benchmark(uuid, text, jsonb) to authenticated;
 
 -- Set a benchmark as the active one for a group (admins only).
 create or replace function public.set_active_benchmark(p_group_id uuid, p_benchmark_id uuid)

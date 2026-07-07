@@ -87,16 +87,12 @@ async function setActiveBenchmark(benchmarkId) {
   activeGroup().active_benchmark_id = benchmarkId;
 }
 
-// Calculate GMT% using active benchmark
-async function calculateGmt(timeMs, boatClass) {
-  const bench = await getActiveBenchmark(RT.activeGroupId);
-  if (!bench || !bench.wbt[boatClass]) return null;
-
-  const baseTime = bench.wbt[boatClass];
-  const adjustment = bench.adjustments[boatClass] || 0;
-  const refTime = baseTime + adjustment;
-
-  return (timeMs / refTime) * 100;
+// Reference 2000m time (ms) for a boat class under a loaded benchmark
+// (WBT base + per-class offset). GMT% = benchRefTime / your_time * 100 -
+// the single definition of the direction, shared by Results and Analytics.
+function benchRefTime(bench, boatClass) {
+  if (!bench || !boatClass || !bench.wbt?.[boatClass]) return null;
+  return bench.wbt[boatClass] + (bench.adjustments?.[boatClass] || 0);
 }
 
 // Helper: convert "m:ss.ss" to milliseconds

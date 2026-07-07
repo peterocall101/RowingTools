@@ -51,3 +51,9 @@ function formatSplit(ms, distanceM) {
   const per500 = ms * 500 / distanceM;
   return formatMs(per500) + '/500m';
 }
+
+// "2026-07-07" -> "7 Jul 2026". Parsed at local midnight so the date never
+// shifts a day for users west of UTC.
+function fmtDate(d) {
+  return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}

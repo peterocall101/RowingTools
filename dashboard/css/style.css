@@ -379,3 +379,88 @@ table.data tbody tr:hover { background: #fafbfc; }
 .tp-doc-type { font-weight: 700; color: #0d1b2a; font-size: 10px; margin-bottom: 1px; }
 .tp-doc-notes { font-size: 8px; color: #6b7a8a; margin-top: 1px; font-style: italic; }
 .tp-doc-empty { height: 0; }
+
+/* ================================================================
+   Analytics, distance adjuster, and map piece logger
+   ================================================================ */
+
+/* Wider main column for chart pages (main is otherwise capped by page rules) */
+main.app-wide { max-width: 1240px; }
+
+/* ---- chart cards ---- */
+.chart-card { padding: 16px 18px 12px; }
+.chart-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.chart-title { font-size: 15px; font-weight: 600; }
+.chart-sub { font-size: 12.5px; color: var(--ink-3); max-width: 720px; }
+.chart { width: 100%; height: 320px; }
+.chart-tall { height: 460px; }
+.chart-empty { display: flex; align-items: center; justify-content: center; }
+.chart-empty::after { content: 'Nothing in view - widen the filters.'; color: var(--ink-3); font-size: 13px; }
+.an-chartrow { margin-top: 16px; }
+.an-chartrow + .chart-card { margin-top: 16px; }
+
+/* ---- analytics filter bar ---- */
+.an-filters { display: flex; flex-wrap: wrap; gap: 18px 26px; align-items: flex-end; }
+.an-filter-group { display: flex; flex-direction: column; gap: 5px; }
+.an-filter-label { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
+.an-filters .input-select { min-width: 130px; }
+
+.chip-row { display: flex; gap: 6px; }
+.chip {
+  padding: 6px 13px; border: 1px solid var(--line); border-radius: 20px;
+  background: var(--surface); font: inherit; font-size: 13px; font-weight: 500;
+  color: var(--ink-2); cursor: pointer;
+}
+.chip:hover { border-color: var(--brand); }
+.chip.on { background: rgba(29,91,138,0.1); border-color: var(--brand); color: var(--brand); font-weight: 600; }
+
+.chip-toggle { display: flex; align-items: center; gap: 7px; cursor: pointer; padding: 7px 0; font-size: 13.5px; color: var(--ink-2); }
+.chip-toggle input { accent-color: var(--brand); width: 15px; height: 15px; }
+
+/* segmented control (progression group-by) */
+.seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button {
+  padding: 5px 12px; border: none; background: var(--surface);
+  font: inherit; font-size: 12.5px; font-weight: 500; color: var(--ink-2); cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: rgba(29,91,138,0.1); color: var(--brand); font-weight: 600; }
+
+/* KPI row */
+.an-kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 16px 0; }
+.an-kpis .stat-label .muted { font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+/* ---- distance adjuster ---- */
+.adjust-grid { align-items: start; }
+.adjust-out { margin-top: 14px; padding: 16px; background: var(--bg); border-radius: var(--radius); }
+.adjust-big { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; color: var(--brand); }
+.adjust-sub { font-size: 15px; color: var(--ink-2); margin-top: 2px; }
+
+/* ---- map piece logger ---- */
+.piece-grid { align-items: start; }
+.piece-map { width: 100%; height: 380px; border-radius: var(--radius); z-index: 0; }
+.piece-course { margin-top: 10px; font-size: 13.5px; color: var(--ink-2); }
+.piece-cond { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.cond-row { display: flex; gap: 12px; font-size: 13.5px; }
+.cond-row > span {
+  flex: 0 0 52px; font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--ink-3); padding-top: 2px;
+}
+.pin {
+  width: 26px; height: 26px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+  background: var(--pin, var(--brand)); border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(13,27,42,0.4);
+  display: flex; align-items: center; justify-content: center;
+}
+.pin::after { content: ''; }
+.pin { color: #fff; font-size: 11px; font-weight: 700; }
+.pin > * { transform: rotate(45deg); }
+
+@media (max-width: 860px) {
+  .an-filters { gap: 12px 16px; }
+  .chart-tall { height: 360px; }
+  .piece-map { height: 300px; }
+}
+
+/* Normalised-value marker on the Results table */
+.norm-mark { color: var(--accent); font-weight: 700; cursor: help; }

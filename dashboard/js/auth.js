@@ -72,6 +72,7 @@ function renderHeader(activePage) {
   const links = [
     { href: 'index.html',     label: 'Home' },
     { href: 'results.html',   label: 'Results' },
+    { href: 'analytics.html', label: 'Analytics' },
     { href: 'roster.html',    label: 'Roster' },
     { href: 'crews.html',     label: 'Crews' },
     { href: 'workspace.html', label: 'Workspace' },

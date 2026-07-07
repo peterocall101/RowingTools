@@ -30,13 +30,21 @@
     dateFrom: null,
     dateTo: null,
     sort: 'date-desc',
+    normalize: false,   // show times/GMT% normalised to calm conditions
   };
+
+  // Displayed time for a row under the current normalise setting (shared
+  // definition lives in metrics.js so Results and Analytics always agree).
+  function displayTimeMs(r) {
+    if (!filters.normalize) return r.time_ms;
+    return RTM.normaliseResultRow(r)?.timeMs ?? r.time_ms;
+  }
 
   async function loadRefs() {
     const [{ data: r }, { data: c }, { data: b }] = await Promise.all([
       sb.from('athletes').select('id, name').eq('group_id', RT.activeGroupId).is('deleted_at', null).order('name'),
       sb.from('crews').select('id, name').eq('group_id', RT.activeGroupId).is('deleted_at', null).order('created_at'),
-      sb.from('benchmarks').select('id, name, source').eq('group_id', RT.activeGroupId).is('deleted_at', null).order('created_at'),
+      sb.from('benchmarks').select('id, name').eq('group_id', RT.activeGroupId).is('deleted_at', null).order('created_at'),
     ]);
     roster = r || [];
     crews = c || [];
@@ -64,7 +72,7 @@
   }
 
   function applyFilters(rows) {
-    let result = rows;
+    let result = [...rows];   // copy so sorting never mutates allResults
 
     if (filters.athletes.size) {
       result = result.filter(r => (r.result_athletes || []).some(a => filters.athletes.has(a.athletes?.name)));
@@ -79,13 +87,14 @@
       });
     }
 
-    // Sort
+    // Sort. Time sorts compare the DISPLAYED time, so the order matches the
+    // column when "Normalise for wind" is on.
     if (filters.sort === 'date-asc') {
       result.sort((a, b) => new Date(a.performed_at) - new Date(b.performed_at));
-    } else if (filters.sort === 'time-fast') {
-      result.sort((a, b) => a.time_ms - b.time_ms);
-    } else if (filters.sort === 'time-slow') {
-      result.sort((a, b) => b.time_ms - a.time_ms);
+    } else if (filters.sort === 'time-fast' || filters.sort === 'time-slow') {
+      const shown = new Map(result.map(r => [r.id, displayTimeMs(r)]));
+      const dir = filters.sort === 'time-fast' ? 1 : -1;
+      result.sort((a, b) => (shown.get(a.id) - shown.get(b.id)) * dir);
     } else {
       result.sort((a, b) => new Date(b.performed_at) - new Date(a.performed_at));
     }
@@ -94,9 +103,11 @@
   }
 
   await loadRefs();
-  await render();
+  await refresh();
 
-  async function render() {
+  // Fetch from the DB, then draw. Filter changes only need render() - no
+  // point re-querying (and re-flashing the page) to narrow a list we have.
+  async function refresh() {
     const { data: rows, error } = await sb
       .from('results')
       .select('*, crew:crews(id,name), result_athletes(athlete_id, athletes(name))')
@@ -108,6 +119,11 @@
     if (error) { app.innerHTML = `<div class="error-box">${escapeHtml(error.message)}</div>`; return; }
 
     allResults = rows || [];
+    render();
+  }
+
+  function render() {
+    const scrollY = window.scrollY;   // full re-render; keep the user's place
     const filtered = applyFilters(allResults);
 
     const importBtn = `<button class="btn btn-ghost" id="import-btn">Import results</button>`;
@@ -131,6 +147,7 @@
         </div>
         <div style="display:flex; gap:10px">
           ${importBtn}
+          <a class="btn btn-ghost" href="piece.html">+ Water piece (map)</a>
           <button class="btn btn-primary" id="add-btn">+ Log result</button>
         </div>
       </div>
@@ -142,7 +159,7 @@
               <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:var(--ink-2)">ATHLETES</div>
               <div style="display:flex; flex-direction:column; gap:4px">${allAthletes.map(a => `
                 <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer">
-                  <input type="checkbox" class="filter-athlete-cb" value="${a}"> ${escapeHtml(a)}
+                  <input type="checkbox" class="filter-athlete-cb" value="${escapeHtml(a)}"${filters.athletes.has(a) ? ' checked' : ''}> ${escapeHtml(a)}
                 </label>`).join('')}</div>
             </div>
           ` : ''}
@@ -151,7 +168,7 @@
               <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:var(--ink-2)">CREWS</div>
               <div style="display:flex; flex-direction:column; gap:4px">${allCrews.map(c => `
                 <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer">
-                  <input type="checkbox" class="filter-crew-cb" value="${c}"> ${escapeHtml(c)}
+                  <input type="checkbox" class="filter-crew-cb" value="${escapeHtml(c)}"${filters.crews.has(c) ? ' checked' : ''}> ${escapeHtml(c)}
                 </label>`).join('')}</div>
             </div>
           ` : ''}
@@ -159,23 +176,26 @@
             <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:var(--ink-2)">TYPE</div>
             <div style="display:flex; flex-direction:column; gap:4px">${allTypes.map(t => `
               <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer">
-                <input type="checkbox" class="filter-type-cb" value="${t}"> ${escapeHtml(t)}
+                <input type="checkbox" class="filter-type-cb" value="${t}"${filters.types.has(t) ? ' checked' : ''}> ${escapeHtml(t)}
               </label>`).join('')}</div>
           </div>
           <div>
             <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:var(--ink-2)">SORT</div>
             <select id="filter-sort" class="input-select" style="width:100%">
-              <option value="date-desc">Newest first</option>
-              <option value="date-asc">Oldest first</option>
-              <option value="time-fast">Fastest</option>
-              <option value="time-slow">Slowest</option>
+              ${[['date-desc', 'Newest first'], ['date-asc', 'Oldest first'], ['time-fast', 'Fastest'], ['time-slow', 'Slowest']]
+                .map(([v, l]) => `<option value="${v}"${filters.sort === v ? ' selected' : ''}>${l}</option>`).join('')}
             </select>
+            <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; margin-top:10px">
+              <input type="checkbox" id="filter-norm"${filters.normalize ? ' checked' : ''}> Normalise for wind
+            </label>
             <button class="btn btn-ghost" id="clear-filters" style="width:100%; margin-top:8px; padding:7px 12px; font-size:12px">Clear all</button>
           </div>
         </div>
       </div>
 
       ${filtered.length ? tableHtml(filtered) : emptyHtml()}`;
+
+    window.scrollTo(0, scrollY);
 
     document.getElementById('add-btn').onclick = () => openForm();
     const addEmpty = document.getElementById('add-empty');
@@ -189,14 +209,17 @@
       filters.crews = new Set([...document.querySelectorAll('.filter-crew-cb:checked')].map(c => c.value));
       filters.types = new Set([...document.querySelectorAll('.filter-type-cb:checked')].map(c => c.value));
       filters.sort = document.getElementById('filter-sort').value;
+      filters.normalize = document.getElementById('filter-norm').checked;
       render();
     };
+    document.getElementById('filter-norm').onchange = updateFilters;
 
     document.querySelectorAll('.filter-athlete-cb, .filter-crew-cb, .filter-type-cb').forEach(cb => cb.onchange = updateFilters);
     document.getElementById('filter-sort').onchange = updateFilters;
     document.getElementById('clear-filters').onclick = () => {
       document.querySelectorAll('.filter-athlete-cb, .filter-crew-cb, .filter-type-cb').forEach(cb => cb.checked = false);
       document.getElementById('filter-sort').value = 'date-desc';
+      document.getElementById('filter-norm').checked = false;
       updateFilters();
     };
 
@@ -205,24 +228,25 @@
       benchmarkSel.onchange = async () => {
         try {
           await setActiveBenchmark(benchmarkSel.value);
-          await render();
+          // reload so GMT% is computed against the newly selected benchmark
+          activeBenchmark = await getActiveBenchmark(RT.activeGroupId);
         } catch (e) {
           toast(e.message || 'Could not set benchmark', 'error');
-          await render();
         }
+        render();
       };
     }
 
     app.querySelectorAll('[data-edit]').forEach(b =>
       b.onclick = () => {
-        const row = rows.find(r => r.id === b.dataset.edit);
+        const row = allResults.find(r => r.id === b.dataset.edit);
         row.source === 'public' ? openTagAthletes(row) : openForm(row);
       });
     app.querySelectorAll('[data-del]').forEach(b =>
-      b.onclick = () => removeResult(rows.find(r => r.id === b.dataset.del)));
+      b.onclick = () => removeResult(allResults.find(r => r.id === b.dataset.del)));
     app.querySelectorAll('[data-wx]').forEach(b =>
       b.onclick = () => {
-        const r = rows.find(x => x.id === b.dataset.wx);
+        const r = allResults.find(x => x.id === b.dataset.wx);
         const label = [r.crew_label, r.event].filter(Boolean).join(' - ') || 'Race';
         window.wxOpen(r.clock, label, r.boat_class, r.performed_at, r.venue);
       });
@@ -281,6 +305,14 @@
     const typePill = isPublic ? 'Race' : (r.piece_type === 'erg' ? 'Erg' : 'Water');
     const tagged = (r.result_athletes || []).map(x => x.athletes?.name).filter(Boolean);
 
+    // Conditions normalisation (single shared definition in metrics.js).
+    const norm = filters.normalize ? RTM.normaliseResultRow(r) : null;
+    const shownMs = norm ? norm.timeMs : r.time_ms;
+    const isNorm = !!norm;
+    const normMark = isNorm
+      ? ` <span class="norm-mark" title="Normalised to calm conditions - raw ${formatMs(r.time_ms)}">≈</span>`
+      : '';
+
     let who;
     if (isPublic) {
       const sub = [r.event, r.regatta].filter(Boolean).map(escapeHtml).join(' &middot; ');
@@ -298,25 +330,21 @@
 
     const dist = isPublic
       ? (r.boat_class ? `<span class="pill">${escapeHtml(r.boat_class)}</span>` : '<span class="muted">-</span>')
-      : `${r.distance_m.toLocaleString()} m`;
+      : (r.distance_m != null ? `${r.distance_m.toLocaleString()} m` : '<span class="muted">-</span>');
 
     let metric;
     if (isPublic) {
-      metric = r.pct != null ? `<strong>${r.pct}%</strong> <span class="muted">GMT</span>` : '<span class="muted">-</span>';
+      const pctShown = r.pct != null ? (isNorm ? Math.round(r.pct * norm.f * 10) / 10 : r.pct) : null;
+      metric = pctShown != null ? `<strong>${pctShown}%</strong> <span class="muted">GMT</span>${normMark}` : '<span class="muted">-</span>';
     } else {
-      // Manual result: show GMT% if boat_class is set and benchmark is active, else show split
-      if (r.boat_class && activeBenchmark?.wbt) {
-        const baseTime = activeBenchmark.wbt[r.boat_class];
-        const adjustment = activeBenchmark.adjustments?.[r.boat_class] || 0;
-        if (baseTime) {
-          const refTime = baseTime + adjustment;
-          const gmt = Math.round((r.time_ms / refTime) * 100 * 10) / 10;  // one decimal
-          metric = `<strong>${gmt}%</strong> <span class="muted">GMT</span>`;
-        } else {
-          metric = formatSplit(r.time_ms, r.distance_m);
-        }
+      // Manual result: GMT% if the active benchmark covers the boat class,
+      // else the /500m split. GMT% = reference / yours (matches the site).
+      const refTime = benchRefTime(activeBenchmark, r.boat_class);
+      if (refTime) {
+        const gmt = Math.round((refTime / shownMs) * 100 * 10) / 10;
+        metric = `<strong>${gmt}%</strong> <span class="muted">GMT</span>${normMark}`;
       } else {
-        metric = formatSplit(r.time_ms, r.distance_m);
+        metric = formatSplit(shownMs, r.distance_m) + normMark;
       }
     }
 
@@ -325,7 +353,7 @@
       <td><span class="pill">${typePill}</span></td>
       <td>${who}</td>
       <td>${dist}</td>
-      <td><strong>${formatMs(r.time_ms)}</strong>${r.rate ? ` <span class="muted">r${r.rate}</span>` : ''}</td>
+      <td><strong>${formatMs(shownMs)}</strong>${r.rate ? ` <span class="muted">r${r.rate}</span>` : ''}${normMark}</td>
       <td>${metric}</td>
       <td><div class="row-actions">
         <button class="icon-btn" data-edit="${r.id}">${isPublic ? 'Tag' : 'Edit'}</button>
@@ -370,12 +398,19 @@
         const picks = [...form.querySelectorAll('input[name="imp"]:checked')].map(c => currentEntries[parseInt(c.value, 10)]);
         if (!picks.length) throw new Error('Select at least one result.');
 
-        // Fetch race-time weather for each (best-effort) so it's cached on import,
-        // exactly the conditions the main site shows.
+        // Fetch race-time weather for each (best-effort) so it's cached on
+        // import. Deduped per venue/date/hour - a regatta's results mostly
+        // share one weather lookup, so N picks is not N fetches.
+        const wxCache = new Map();
+        const wxFor = (venue, date, clock) => {
+          const key = venue ? `${venue.lat},${venue.lon},${date},${clockToHour(clock)}` : 'none';
+          if (!wxCache.has(key)) wxCache.set(key, fetchRaceWeather(venue, date, clock));
+          return wxCache.get(key);
+        };
         const payload = (await Promise.all(picks.map(async e => {
           const time_ms = safeParse(e.time);
           if (time_ms == null) return null;
-          const weather = await fetchRaceWeather(e.venue, e.date, e.clock);
+          const weather = await wxFor(e.venue, e.date, e.clock);
           return {
             group_id: RT.activeGroupId,
             created_by: session.user.id,
@@ -404,7 +439,7 @@
         if (error) throw error;
         toast(`Imported ${payload.length} result${payload.length === 1 ? '' : 's'}`);
         close();
-        await render();
+        await refresh();
       },
     });
 
@@ -466,7 +501,7 @@
         }
         toast('Athletes tagged');
         close();
-        await render();
+        await refresh();
       },
     });
   }
@@ -589,7 +624,7 @@
 
         toast(editing ? 'Result updated' : 'Result logged');
         close();
-        await render();
+        await refresh();
       },
     });
 
@@ -611,12 +646,13 @@
     const { error } = await sb.from('results').update({ deleted_at: new Date().toISOString() }).eq('id', r.id);
     if (error) { toast(error.message, 'error'); return; }
     toast('Result deleted');
-    await render();
+    await refresh();
   }
 
   function safeParse(t) { try { return parseTimeToMs(t); } catch (e) { return null; } }
-
-  function fmtDate(d) {
-    return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  }
-})();
+})().catch(e => {
+  // Surface boot failures instead of sitting on "Loading..." forever.
+  console.error(e);
+  const app = document.getElementById('app');
+  if (app) app.innerHTML = `<div class="error-box">This page failed to load: ${escapeHtml(e.message || String(e))}</div>`;
+});
