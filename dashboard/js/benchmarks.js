@@ -43,7 +43,16 @@ async function getActiveBenchmark(groupId) {
 
   if (error || !data) return null;
 
-  const wbt = await loadWBT();
+  // WBT is an optional reference file. If it can't be loaded (offline, blocked
+  // fetch, missing file) fall back to an empty table so the benchmark still
+  // shows - GMT% just won't compute - rather than throwing and blanking the
+  // whole page. benchRefTime() already null-guards missing boat classes.
+  let wbt = {};
+  try {
+    wbt = await loadWBT();
+  } catch (e) {
+    console.warn('WBT reference unavailable; GMT% disabled for this benchmark.', e);
+  }
   const adjustments = {};
   (data.benchmark_adjustments || []).forEach(a => {
     adjustments[a.boat_class] = a.offset_ms || 0;
