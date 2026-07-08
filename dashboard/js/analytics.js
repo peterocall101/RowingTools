@@ -17,6 +17,11 @@
 (async function () {
   const app = document.getElementById('app');
 
+  // Pulled from metrics.js (global RTM) up front: the chart renderers below
+  // reference these, and they run during boot - declaring them at the bottom
+  // of the IIFE left them in the temporal dead zone when a render fired first.
+  const logSpace = RTM.logSpace, fmtDist = RTM.fmtDist;
+
   const session = await requireAuth();
   if (!session) return;
   await loadContext();
@@ -562,7 +567,6 @@
     };
   }
 
-  const logSpace = RTM.logSpace, fmtDist = RTM.fmtDist;
   function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; }
   function round1(x) { return Math.round(x * 10) / 10; }
   function round2(x) { return Math.round(x * 100) / 100; }
