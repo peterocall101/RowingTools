@@ -267,51 +267,28 @@
   }
 
   function tableHtml(rows) {
-    // Separate public (imports) from manual
-    const publicRows = rows.filter(r => r.source === 'public');
-    const manualRows = rows.filter(r => r.source !== 'public');
+    const thead = `<thead><tr><th>Date</th><th>Type</th><th>Crew / athletes</th><th>Dist</th><th>Time</th><th>Split / GMT%</th><th></th></tr></thead>`;
+    const table = rs => `<div class="table-wrap"><table class="data">${thead}<tbody>${rs.map(rowHtml).join('')}</tbody></table></div>`;
 
-    // Group public by regatta
-    const byRegatta = {};
-    publicRows.forEach(r => {
-      const key = r.regatta || 'Other';
-      if (!byRegatta[key]) byRegatta[key] = [];
-      byRegatta[key].push(r);
-    });
+    // Time sorts: one flat table so the fastest/slowest order is unbroken.
+    if (filters.sort === 'time-fast' || filters.sort === 'time-slow') {
+      return `<div class="result-section">${table(rows)}</div>`;
+    }
 
-    // Group manual by date
-    const byDate = {};
-    manualRows.forEach(r => {
-      const key = r.performed_at;
-      if (!byDate[key]) byDate[key] = [];
-      byDate[key].push(r);
-    });
-
-    const html = [];
-
-    // Render regatta sections
-    Object.entries(byRegatta).forEach(([regatta, rows]) => {
-      html.push(`<div class="result-section">
-        <h3 class="result-section-head">${escapeHtml(regatta)}</h3>
-        <div class="table-wrap"><table class="data">
-          <thead><tr><th>Date</th><th>Type</th><th>Crew / athletes</th><th>Dist</th><th>Time</th><th>Split / GMT%</th><th></th></tr></thead>
-          <tbody>${rows.map(rowHtml).join('')}</tbody>
-        </table></div>
-      </div>`);
-    });
-
-    // Render date sections
-    Object.entries(byDate).sort().reverse().forEach(([date, rows]) => {
-      html.push(`<div class="result-section">
-        <h3 class="result-section-head">${fmtDate(date)}</h3>
-        <div class="table-wrap"><table class="data">
-          <thead><tr><th>Date</th><th>Type</th><th>Crew / athletes</th><th>Dist</th><th>Time</th><th>Split / GMT%</th><th></th></tr></thead>
-          <tbody>${rows.map(rowHtml).join('')}</tbody>
-        </table></div>
-      </div>`);
-    });
-
-    return html.join('');
+    // Date sorts (the default): one unified chronological list split into
+    // per-day sections, in the order the rows already arrive (newest-first by
+    // default) - imported and manually logged results interleaved by date, not
+    // segregated by import method.
+    const sections = [];
+    let cur = null;
+    for (const r of rows) {
+      if (!cur || cur.key !== r.performed_at) { cur = { key: r.performed_at, rows: [] }; sections.push(cur); }
+      cur.rows.push(r);
+    }
+    return sections.map(s => `<div class="result-section">
+      <h3 class="result-section-head">${fmtDate(s.key)}</h3>
+      ${table(s.rows)}
+    </div>`).join('');
   }
 
   function rowHtml(r) {
