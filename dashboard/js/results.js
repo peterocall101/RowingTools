@@ -27,6 +27,25 @@
     return `<button class="rt-wx" data-wx="${r.id}">${WIND_SVG}<span>${escapeHtml(r.clock)}${sum}</span></button>`;
   }
 
+  // Contextual wind band for filtering "like-for-like" conditions. Classifies a
+  // row by the wind's HEADWIND component along its course (the rowing-relevant
+  // axis), not raw wind speed. Returns null when there's no weather or no course
+  // bearing to resolve head/tail against - those rows carry no band and drop out
+  // when a wind filter is active. Thresholds in m/s of headwind component.
+  const WIND_BAND_ORDER = ['Tailwind', 'Calm', 'Light headwind', 'Strong headwind'];
+  function windBand(r) {
+    const w = r.weather;
+    if (!w || w.wspd == null || w.wdir == null) return null;
+    const bearing = r.bearing ?? r.venue?.bearing ?? null;
+    if (bearing == null) return null;
+    const c = RTM.windComponents(w.wdir, w.wspd / 3.6, bearing);
+    if (!c) return null;
+    if (c.head < -0.75) return 'Tailwind';
+    if (c.head <= 0.75) return 'Calm';
+    if (c.head <= 2.5) return 'Light headwind';
+    return 'Strong headwind';
+  }
+
   const session = await requireAuth();
   if (!session) return;
   await loadContext();
@@ -41,6 +60,7 @@
     athletes: new Set(),
     crews: new Set(),
     types: new Set(),
+    wind: new Set(),    // headwind-band filter (contextual conditions)
     dateFrom: null,
     dateTo: null,
     sort: 'date-desc',
@@ -100,6 +120,9 @@
         return filters.types.has(type);
       });
     }
+    if (filters.wind.size) {
+      result = result.filter(r => filters.wind.has(windBand(r)));
+    }
 
     // Sort. Time sorts compare the DISPLAYED time, so the order matches the
     // column when "Normalise for wind" is on.
@@ -151,6 +174,8 @@
     const allAthletes = [...new Set(allResults.flatMap(r => (r.result_athletes || []).map(a => a.athletes?.name).filter(Boolean)))].sort();
     const allCrews = [...new Set(allResults.map(r => r.crew?.name).filter(Boolean))].sort();
     const allTypes = [...new Set(allResults.map(r => r.source === 'public' ? 'Race' : r.piece_type === 'erg' ? 'Erg' : 'Water'))].sort();
+    const presentBands = new Set(allResults.map(windBand).filter(Boolean));
+    const allWindBands = WIND_BAND_ORDER.filter(b => presentBands.has(b));
 
     app.innerHTML = `
       <div class="page-head">
@@ -193,14 +218,24 @@
                 <input type="checkbox" class="filter-type-cb" value="${t}"${filters.types.has(t) ? ' checked' : ''}> ${escapeHtml(t)}
               </label>`).join('')}</div>
           </div>
+          ${allWindBands.length ? `
+            <div>
+              <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:var(--ink-2)" title="Wind along the course at race time - headwind slows, tailwind helps. Rows without weather or a course bearing carry no band and drop out when a wind filter is on.">WIND</div>
+              <div style="display:flex; flex-direction:column; gap:4px">${allWindBands.map(b => `
+                <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer">
+                  <input type="checkbox" class="filter-wind-cb" value="${escapeHtml(b)}"${filters.wind.has(b) ? ' checked' : ''}> ${escapeHtml(b)}
+                </label>`).join('')}</div>
+            </div>
+          ` : ''}
           <div>
             <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:var(--ink-2)">SORT</div>
             <select id="filter-sort" class="input-select" style="width:100%">
               ${[['date-desc', 'Newest first'], ['date-asc', 'Oldest first'], ['time-fast', 'Fastest'], ['time-slow', 'Slowest']]
                 .map(([v, l]) => `<option value="${v}"${filters.sort === v ? ' selected' : ''}>${l}</option>`).join('')}
             </select>
-            <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; margin-top:10px">
-              <input type="checkbox" id="filter-norm"${filters.normalize ? ' checked' : ''}> Normalise for wind
+            <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; margin-top:10px"
+                   title="Rough estimate. Rewinds each time to its calm-water equivalent using an empirical wind table (and your recorded stream, where entered). Best-effort and geometry-limited on bendy courses - treat as indicative, not exact.">
+              <input type="checkbox" id="filter-norm"${filters.normalize ? ' checked' : ''}> Normalise for wind <span style="color:var(--ink-3)">(≈ estimate)</span>
             </label>
             <button class="btn btn-ghost" id="clear-filters" style="width:100%; margin-top:8px; padding:7px 12px; font-size:12px">Clear all</button>
           </div>
@@ -222,16 +257,17 @@
       filters.athletes = new Set([...document.querySelectorAll('.filter-athlete-cb:checked')].map(c => c.value));
       filters.crews = new Set([...document.querySelectorAll('.filter-crew-cb:checked')].map(c => c.value));
       filters.types = new Set([...document.querySelectorAll('.filter-type-cb:checked')].map(c => c.value));
+      filters.wind = new Set([...document.querySelectorAll('.filter-wind-cb:checked')].map(c => c.value));
       filters.sort = document.getElementById('filter-sort').value;
       filters.normalize = document.getElementById('filter-norm').checked;
       render();
     };
     document.getElementById('filter-norm').onchange = updateFilters;
 
-    document.querySelectorAll('.filter-athlete-cb, .filter-crew-cb, .filter-type-cb').forEach(cb => cb.onchange = updateFilters);
+    document.querySelectorAll('.filter-athlete-cb, .filter-crew-cb, .filter-type-cb, .filter-wind-cb').forEach(cb => cb.onchange = updateFilters);
     document.getElementById('filter-sort').onchange = updateFilters;
     document.getElementById('clear-filters').onclick = () => {
-      document.querySelectorAll('.filter-athlete-cb, .filter-crew-cb, .filter-type-cb').forEach(cb => cb.checked = false);
+      document.querySelectorAll('.filter-athlete-cb, .filter-crew-cb, .filter-type-cb, .filter-wind-cb').forEach(cb => cb.checked = false);
       document.getElementById('filter-sort').value = 'date-desc';
       document.getElementById('filter-norm').checked = false;
       updateFilters();
