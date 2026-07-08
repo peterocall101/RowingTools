@@ -5,10 +5,24 @@
   const COMMON_DISTANCES = [2000, 5000, 6000, 500, 1000, 1500];
   const WIND_SVG = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2"/><path d="M17.73 7.73A2.5 2.5 0 1 1 19.5 12H2"/><path d="M12.59 19.41A2 2 0 1 0 14 16H2"/></svg>';
 
-  // Conditions chip for a race row with a venue + clock time; opens the shared
-  // conditions.js modal (live weather + wind-vs-course), same as the main site.
+  // A result's location for the conditions modal, as {name,lat,lon,bearing,lanes}.
+  // Imported races carry a venue jsonb; water pieces logged on the map carry
+  // start/finish coords instead, so synthesise a venue from the course midpoint.
+  function resultVenue(r) {
+    if (r.venue && r.venue.lat != null) return r.venue;
+    if (r.start_lat != null) {
+      const lat = r.finish_lat != null ? (r.start_lat + r.finish_lat) / 2 : r.start_lat;
+      const lon = r.finish_lng != null ? (r.start_lng + r.finish_lng) / 2 : r.start_lng;
+      return { name: r.location_name || 'Water piece', lat, lon, bearing: r.bearing ?? 0, lanes: 1 };
+    }
+    return null;
+  }
+
+  // Conditions chip for any race/piece with a location + clock time; opens the
+  // shared conditions.js modal (live weather + wind-vs-course), same as the main
+  // site. Works for imported races and mapped water pieces alike.
   function conditionsChip(r) {
-    if (!r.clock || !r.venue) return '';
+    if (!r.clock || !resultVenue(r)) return '';
     const sum = r.weather ? ' &middot; ' + escapeHtml(weatherSummary(r.weather)) : '';
     return `<button class="rt-wx" data-wx="${r.id}">${WIND_SVG}<span>${escapeHtml(r.clock)}${sum}</span></button>`;
   }
@@ -247,8 +261,8 @@
     app.querySelectorAll('[data-wx]').forEach(b =>
       b.onclick = () => {
         const r = allResults.find(x => x.id === b.dataset.wx);
-        const label = [r.crew_label, r.event].filter(Boolean).join(' - ') || 'Race';
-        window.wxOpen(r.clock, label, r.boat_class, r.performed_at, r.venue);
+        const label = [r.crew_label || r.crew?.name, r.event || r.location_name].filter(Boolean).join(' - ') || 'Piece';
+        window.wxOpen(r.clock, label, r.boat_class, r.performed_at, resultVenue(r));
       });
   }
 
@@ -313,20 +327,22 @@
       ? ` <span class="norm-mark" title="Normalised to calm conditions - raw ${formatMs(r.time_ms)}">≈</span>`
       : '';
 
+    const chip = conditionsChip(r);
     let who;
     if (isPublic) {
       const sub = [r.event, r.regatta].filter(Boolean).map(escapeHtml).join(' &middot; ');
-      const chip = conditionsChip(r);
       who = `<strong>${escapeHtml(r.crew_label || r.crew?.name || '-')}</strong>`
           + (sub ? `<div class="muted">${sub}</div>` : '')
-          + (tagged.length ? `<div class="muted">with: ${escapeHtml(tagged.join(', '))}</div>` : '')
-          + (chip ? `<div>${chip}</div>` : '');
+          + (tagged.length ? `<div class="muted">with: ${escapeHtml(tagged.join(', '))}</div>` : '');
     } else if (r.crew?.name) {
       who = `<strong>${escapeHtml(r.crew.name)}</strong>`
           + (tagged.length ? `<div class="muted">${escapeHtml(tagged.join(', '))}</div>` : '');
     } else {
       who = tagged.length ? escapeHtml(tagged.join(', ')) : '<span class="muted">-</span>';
     }
+    // Conditions chip on any row that has a location + clock (mapped water
+    // pieces as well as imported races), not just public imports.
+    if (chip) who += `<div>${chip}</div>`;
 
     const dist = isPublic
       ? (r.boat_class ? `<span class="pill">${escapeHtml(r.boat_class)}</span>` : '<span class="muted">-</span>')
