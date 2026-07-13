@@ -8,23 +8,25 @@
 <link rel="canonical" href="https://rowingtools.co.uk/clubs/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Fraunces:opsz,wght@9..144,900&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 /* Always dark, to match the rest of the site. */
 :root{
   color-scheme:dark;
-  --bg:#0f0f0e;--bg2:#1a1a18;--bg3:#252523;
-  --text:#f0f0ee;--text2:#9ca3af;--text3:#6b7280;
-  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);
-  --shadow:0 1px 3px rgba(0,0,0,0.3),0 4px 12px rgba(0,0,0,0.2);
-  --r:10px;--rl:14px;
+  --bg:#0b0b0a;--bg2:#131311;--bg3:#1d1d1a;
+  --text:#f4f3ef;--text2:#a9a9a1;--text3:#85857c;
+  --border:rgba(244,243,239,0.14);--border2:rgba(244,243,239,0.30);
+  --shadow:none;
+  --r:0px;--rl:0px;
+  --red:#c8472b;--red-ink:#e8562f;
+  --mono:'Geist Mono','SFMono-Regular',Consolas,monospace;
 }
-body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);padding:0 1.5rem 3rem;max-width:1100px;margin:0 auto;line-height:1.6}
-.topbar{position:fixed;top:0;left:0;width:100%;height:3px;background:#c8472b;z-index:9999;pointer-events:none}
-.site-hdr{padding:2rem 0 1.25rem;margin-bottom:1.75rem;border-bottom:1px solid var(--border)}
-.brand-mark{font-family:'Fraunces',serif;font-weight:900;font-size:28px;letter-spacing:-0.04em;line-height:1;color:var(--text);text-decoration:none;display:inline-block;margin-bottom:4px}
-.brand-dot{color:#c8472b}
+body{font-family:'Archivo',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);padding:0 clamp(1.25rem,4vw,2.5rem) 3rem;max-width:1200px;margin:0 auto;line-height:1.6}
+.topbar{position:fixed;top:0;left:0;width:100%;height:3px;background:var(--red);z-index:9999;pointer-events:none}
+.site-hdr{padding:2.2rem 0 1.1rem;margin-bottom:1.75rem;border-bottom:1px solid var(--text)}
+.brand-mark{font-family:'Fraunces',serif;font-weight:900;font-size:26px;letter-spacing:-0.04em;line-height:1;color:var(--text);text-decoration:none;display:inline-block;margin-bottom:4px}
+.brand-dot{color:var(--red-ink)}
 .back-link{font-size:13px;color:var(--text3);text-decoration:none}
 .back-link:hover{color:var(--text2)}
 .page-title{font-size:22px;font-weight:700;margin-bottom:6px}
@@ -36,12 +38,12 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .club-card:hover{box-shadow:var(--shadow);border-color:var(--border2)}
 .club-card-name{font-weight:600;font-size:14px;margin-bottom:3px}
 .club-card-meta{font-size:12px;color:var(--text3)}
-.comp-badge{display:inline-block;font-size:9px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#c8472b;background:rgba(200,71,43,0.12);border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:middle}
+.comp-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--red-ink);background:rgba(200,71,43,0.12);border-radius:0;padding:1px 7px;margin-left:6px;vertical-align:middle;font-family:var(--mono)}
 .comp-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);margin-bottom:1.5rem;cursor:pointer}
 .comp-toggle input{width:auto;margin:0}
 .profile-hdr{margin-bottom:1.75rem}
 .profile-name-row{display:flex;align-items:center;gap:12px;margin-top:6px}
-.share-btn{background:none;border:1px solid var(--border2);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--text3);cursor:pointer;font-family:inherit;transition:all .15s}
+.share-btn{background:none;border:1px solid var(--border2);border-radius:0;padding:4px 10px;font-size:12px;color:var(--text3);cursor:pointer;font-family:inherit;transition:all .15s}
 .share-btn:hover{color:var(--text);border-color:var(--text3)}
 .share-btn.copied{color:#34d399;border-color:#34d399}
 .profile-name{font-size:26px;font-weight:700;margin-bottom:4px}
@@ -55,7 +57,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .reg-section{margin-bottom:1.5rem}
 .reg-hdr{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px}
 .reg-name{font-size:15px;font-weight:600}
-.reg-link{font-size:12px;color:#c8472b;text-decoration:none;border:1px solid rgba(200,71,43,0.3);border-radius:6px;padding:3px 10px;white-space:nowrap}
+.reg-link{font-size:12px;color:var(--red-ink);text-decoration:none;border:1px solid rgba(200,71,43,0.4);border-radius:0;padding:3px 10px;white-space:nowrap}
 .reg-link:hover{background:rgba(200,71,43,0.07)}
 .reg-table{width:100%;border-collapse:collapse;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
 .reg-table th{background:var(--bg3);color:var(--text3);font-weight:500;padding:7px 12px;text-align:left;font-size:11px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
@@ -69,11 +71,12 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 .wx-hint{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);margin-bottom:8px}
 .wx-hint svg{color:#ef8268;flex-shrink:0}
 .loading{text-align:center;color:var(--text3);padding:3rem;font-size:14px}
-.merged-note{font-size:12px;color:var(--text3);margin-top:6px;padding:6px 10px;background:var(--bg3);border-radius:6px;display:inline-block}
-.year-tabs{display:inline-flex;background:var(--bg3);border-radius:999px;padding:3px;gap:2px;margin-bottom:1.75rem}
-.year-tab{padding:9px 22px;font-size:14px;font-weight:500;border-radius:999px;border:none;background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;height:auto;transition:all .18s ease}
-.year-tab.active{background:var(--bg2);color:var(--text);box-shadow:0 1px 5px rgba(0,0,0,0.13)}
-.year-tab:hover:not(.active){color:var(--text)}
+.merged-note{font-size:12px;color:var(--text3);margin-top:6px;padding:6px 10px;background:var(--bg3);border-radius:0;display:inline-block}
+.year-tabs{display:inline-flex;background:none;border:1px solid var(--border2);border-radius:0;padding:0;gap:0;margin-bottom:1.75rem}
+.year-tab{padding:9px 22px;font-size:14px;font-weight:600;border-radius:0;border:none;background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;height:auto;transition:background .15s,color .15s}
+.year-tab+.year-tab{border-left:1px solid var(--border2)}
+.year-tab.active{background:var(--text);color:var(--bg);box-shadow:none}
+.year-tab:hover:not(.active){color:var(--text);background:var(--bg3)}
 .profile-main-row{display:flex;gap:1.5rem;align-items:flex-start;margin-bottom:2rem}
 .profile-main-row .stats-row{margin-bottom:0;flex:1;min-width:0}
 .rank-clickable{cursor:pointer}

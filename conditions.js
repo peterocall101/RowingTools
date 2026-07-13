@@ -12,7 +12,7 @@
   const css=`
 .wx-overlay{position:fixed;inset:0;background:rgba(5,5,5,.72);backdrop-filter:blur(6px);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .2s}
 .wx-overlay.show{display:flex;opacity:1}
-.wx-modal{background:linear-gradient(180deg,#16181c,#101012);border:1px solid rgba(255,255,255,.14);border-radius:20px;width:100%;max-width:820px;max-height:92vh;overflow:auto;box-shadow:0 40px 100px rgba(0,0,0,.6);transform:translateY(10px) scale(.98);transition:transform .25s ease;color:#f0f0ee;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.wx-modal{background:linear-gradient(180deg,#16181c,#101012);border:1px solid rgba(255,255,255,.14);border-radius:20px;width:100%;max-width:820px;max-height:92vh;overflow:auto;box-shadow:0 40px 100px rgba(0,0,0,.6);transform:translateY(10px) scale(.98);transition:transform .25s ease;color:#f0f0ee;font-family:'Archivo','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 .wx-overlay.show .wx-modal{transform:none}
 .wx-hdr{display:flex;align-items:flex-start;justify-content:space-between;padding:18px 22px 12px;gap:12px}
 .wx-hdr .t{font-weight:700;font-size:15px}
@@ -28,8 +28,8 @@
 .wx-rail{padding:8px 22px 20px;border-left:1px solid rgba(255,255,255,.07)}
 @media(max-width:680px){.wx-rail{border-left:none;border-top:1px solid rgba(255,255,255,.07)}}
 .wx-temprow{display:flex;align-items:center;gap:14px;margin-bottom:6px}
-.wx-temp{font-family:'Fraunces',serif;font-weight:900;font-size:46px;line-height:1;letter-spacing:-2px}
-.wx-temp span{font-size:20px;color:#6b7280;font-family:'Inter';font-weight:600}
+.wx-temp{font-family:inherit;font-weight:900;font-size:46px;line-height:1;letter-spacing:-2px}
+.wx-temp span{font-size:20px;color:#6b7280;font-family:inherit;font-weight:600}
 .wx-icon{font-size:34px;line-height:1}
 .wx-cond{font-size:12px;color:#9ca3af;font-weight:600;margin-bottom:16px}
 .wx-verdict{border-radius:12px;padding:12px 14px;margin-bottom:14px;border:1px solid rgba(255,255,255,.07)}
