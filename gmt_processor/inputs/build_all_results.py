@@ -8,6 +8,7 @@ from courses import venue_for
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 HEATMAPS = [
+    {'file': 'heatmap-brcc26.html',      'comp': 'brcc26',        'date': '2026-07-17'},
     {'file': 'heatmap-marlow26.html',    'comp': 'marlow26',      'date': '2026-06-20'},
     {'file': 'heatmap-reading26.html',   'comp': 'reading26',     'date': '2026-06-13'},
     {'file': 'heatmap-metsun26.html',    'comp': 'metsun26',      'date': '2026-05-31'},

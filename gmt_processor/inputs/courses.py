@@ -28,7 +28,7 @@ COMP_VENUE = {
     "wallingford25": "dorney", "wallingford26": "dorney",
     "reading26": "reading",
     "poplar26": "albert",
-    "nottm25": "holme", "nottm26": "holme", "brcc25": "holme",
+    "nottm25": "holme", "nottm26": "holme", "brcc25": "holme", "brcc26": "holme",
 }
 
 

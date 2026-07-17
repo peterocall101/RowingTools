@@ -26,6 +26,8 @@ COMP_DATES = {
     "metsat26": "2026-05-30", "metsun26": "2026-05-31",
     "brcc25": {"Friday": "2025-07-18", "Saturday": "2025-07-19",
                "Sunday": "2025-07-20", "Monday": "2025-07-21"},
+    "brcc26": {"Friday": "2026-07-17", "Saturday": "2026-07-18",
+               "Sunday": "2026-07-19", "Monday": "2026-07-20"},
 }
 
 def race_date(comp, day):
