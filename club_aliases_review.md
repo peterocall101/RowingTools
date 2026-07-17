@@ -1,16 +1,16 @@
 # Club Alias Review
-# 322 canonical clubs  |  68 merged groups  |  254 singletons
+# 318 canonical clubs  |  74 merged groups  |  244 singletons
 
-## Merged clubs (68 groups)
+## Merged clubs (74 groups)
 
 ### Aberdeen Schools Rowing Association
   = Aberdeen Schools Rowing Association
   ~ Aberdeen Schs RA
 
-### American School In London
+### American School in London
   ~ American School
-  = American School In London
-  ~ American School in London
+  = American School in London
+  ~ American School In London
 
 ### Auriol Kensington
   ~ Auriol Ken
@@ -82,8 +82,8 @@
   = George Heriot's School
   ~ George Heriots School
 
-### Glasgow
-  = Glasgow
+### Glasgow Rowing Club
+  ~ Glasgow
   ~ Glasgow Academy
 
 ### Grange School
@@ -120,8 +120,9 @@
   = King's College School
   ~ King`s College School
 
-### King's School Canterbury, The,
-  = King's School Canterbury, The,
+### King's School Canterbury
+  = King's School Canterbury
+  ~ King's School Canterbury, The,
   ~ The King's School Canterbury
 
 ### King's School Chester
@@ -162,6 +163,7 @@
   ~ Leander Club
 
 ### Loughborough Students
+  ~ Loughborough
   = Loughborough Students
   ~ Loughborough Students Rowing Ltd
 
@@ -169,9 +171,10 @@
   ~ Maidstone Inv
   = Maidstone Invicta
 
-### Mortlake AA
+### Mortlake Anglian & Alpha
   ~ Mortlake A & A
-  = Mortlake AA
+  ~ Mortlake AA
+  = Mortlake Anglian & Alpha
 
 ### Nottingham & Union
   ~ Nott'm & Union
@@ -201,6 +204,10 @@
   = Shandon
   ~ Shandon (IRL)
 
+### Shannon
+  ~ Shannon RC (IRL)
+  ~ Shannon, Ireland
+
 ### Shrewsbury School
   ~ Royal Shrewsbury School
   = Shrewsbury School
@@ -220,6 +227,14 @@
 ### Sons of the Thames
   ~ Sons of Thames
   = Sons of the Thames
+
+### Southampton Coalporters
+  ~ Coalporters
+  = Southampton Coalporters
+
+### Southampton University
+  ~ S'hampton University
+  = Southampton University
 
 ### St Andrew
   = St Andrew
@@ -247,13 +262,18 @@
   = St Peter's School
   ~ St. Peter`s School
 
-### Stratford-Upon-Avon
+### Star Club
+  ~ Star
+  = Star Club
+
+### Stratford-upon-Avon
   ~ Stratford upon Avon
   ~ Stratford-u-Avon
-  = Stratford-Upon-Avon
+  ~ Stratford-Upon-Avon
 
-### Sunderland, City of
-  = Sunderland, City of
+### Sunderland
+  = Sunderland
+  ~ Sunderland, City of
   ~ Sunderland, City of,
 
 ### The Windsor Boys' School
@@ -271,6 +291,10 @@
   = Tyne
   ~ Tyne Amateur
 
+### United Hospitals
+  ~ United Hosp
+  = United Hospitals
+
 ### University College London
   ~ University College Lon
   = University College London
@@ -285,10 +309,16 @@
 
 ### University of London
   ~ London University
+  ~ London, University of,
   = University of London
+
+### University of Warwick
+  = University of Warwick
+  ~ Warwick University
 
 ### University of West of England
   = University of West of England
+  ~ W England University
   ~ West of England, University of
   ~ West of England, University of,
 
@@ -296,36 +326,39 @@
   ~ Wolfson College (Ox)
   = Wolfson College (Oxford)
 
-## Near-duplicate candidates (18 pairs)
+## Near-duplicate candidates (19 pairs)
 
 <!-- Score 1.0 = identical tokens. Review each pair: if they are the same club,
      tell Claude which is the canonical name and it will update club_aliases.json. -->
 
-- [0.76] **Dublin University (IRL)**  vs  **Dublin University Ladies (IRL)**
-- [0.73] **St Paul's School**  vs  **St Paul's Girls' School**
-- [0.67] **Oxford University**  vs  **Oxford Brookes University**
+- [0.76] **Dublin University Ladies (IRL)**  vs  **Dublin University (IRL)**
+- [0.73] **St Paul's Girls' School**  vs  **St Paul's School**
+- [0.73] **Cardiff University**  vs  **Cardiff Met University**
+- [0.67] **Oxford Brookes University**  vs  **Oxford University**
 - [0.67] **King's College School**  vs  **King's College**
 - [0.67] **Bedford School**  vs  **Bedford Modern School**
-- [0.67] **Bedford Girls' School**  vs  **Bedford School**
-- [0.65] **Dublin University Ladies (IRL)**  vs  **University College Dublin Ladies (IRL)**
-- [0.64] **St Leonard's School**  vs  **St Edward's School**
-- [0.63] **University of Birmingham**  vs  **University of Nottingham**
-- [0.63] **King's School Worcester**  vs  **King's School Chester**
-- [0.62] **University of London**  vs  **University of Leeds**
-- [0.61] **Sydney University (AUS)**  vs  **Sydney (AUS)**
-- [0.61] **St Paul's School**  vs  **St Peter's School**
+- [0.67] **Bedford School**  vs  **Bedford Girls' School**
+- [0.65] **University College Dublin Ladies (IRL)**  vs  **Dublin University Ladies (IRL)**
+- [0.64] **St Edward's School**  vs  **St Leonard's School**
+- [0.63] **University of Nottingham**  vs  **University of Birmingham**
+- [0.63] **King's School Chester**  vs  **King's School Worcester**
+- [0.62] **University of Leeds**  vs  **University of London**
+- [0.61] **Sydney (AUS)**  vs  **Sydney University (AUS)**
+- [0.61] **St Peter's School**  vs  **St Paul's School**
 - [0.60] **University of Warwick**  vs  **University of York**
 - [0.60] **Bedford Girls' School**  vs  **Windsor Girls' School**
-- [0.60] **University College London**  vs  **University of London**
-- [0.60] **University of Surrey**  vs  **University of York**
+- [0.60] **University of London**  vs  **University College London**
+- [0.60] **University of York**  vs  **University of Surrey**
 - [0.60] **University of London**  vs  **University of York**
 
-## Singleton clubs (254 clubs)
+## Singleton clubs (244 clubs)
 
 - 1863 Club, The
 - 1877 Club
 - 1st & 3rd Trinity
+- A B Severn
 - AB Severn
+- Aberdeen
 - Abingdon School
 - Agecroft
 - Aramoho Whanganui RC, NZL
@@ -353,11 +386,11 @@
 - Canford School
 - Cantabrigian
 - Canterbury Pilgrims
+- Cardiff Met University
 - Cardiff University
 - Cheltenham College
 - City of Sheffield
 - Clydesdale
-- Coalporters
 - Commercial RC (IRL)
 - Cork BC (IRL)
 - Crabtree
@@ -405,10 +438,10 @@
 - Jeddah RC (KSA)
 - Jesus College
 - Kew House School
+- King's Cant
 - King's College
 - King's College, University of Queensland (AUS)
 - King's Rochester
-- King's School Canterbury
 - Kingston
 - L'boro Students
 - Lady E Holles
@@ -429,8 +462,6 @@
 - LMBC
 - London
 - London Otters
-- London, University of,
-- Loughborough
 - Lymington Amateur
 - Magdalen College School
 - Maidenhead
@@ -443,8 +474,8 @@
 - Minerva Bath
 - Molesey
 - Monkton Combe School
+- Monmouth
 - Monmouth Comp School
-- Mortlake Anglian & Alpha
 - Neptune RC (IRL)
 - Newark
 - Newcastle University
@@ -462,6 +493,7 @@
 - Oundle School
 - Pangbourne College
 - Pembroke Camb
+- Pengwern
 - Peterborough City
 - Peterhouse
 - Phillips Exeter Academy (USA)
@@ -490,18 +522,13 @@
 - Royal Grammar School. High Wycombe
 - Royal Holloway
 - RUMS
-- S'hampton University
 - Sabrina
 - Shanklin Sandown
-- Shannon RC (IRL)
-- Shannon, Ireland
 - Sheffield University
 - Shiplake College
 - Shoreham
 - Skibbereen (IRL)
 - South African Schools Rowing Union
-- Southampton Coalporters
-- Southampton University
 - St Cuthbert's
 - St Edward's Martyrs
 - St Hilda's College
@@ -511,14 +538,11 @@
 - St Mary's School BC, Cambridge
 - St Michaels Rowing Club (Limerick)
 - St Neots
-- Star
-- Star Club
 - Stourport
 - Stowe Sculling Club
 - Strathclyde Park
 - Strathclyde University
 - Sudbury
-- Sunderland
 - Surbiton High School
 - Surrey University
 - Swansea University
@@ -534,13 +558,12 @@
 - The Grange School, Hartford
 - Tiffin School
 - Trafford
+- Trent
 - Trentham
 - Twickenham
 - Tyne United
 - UCD Boat Club (IRL)
 - UK Armed Forces
-- United Hosp
-- United Hospitals
 - University College Cork (IRL)
 - University College Dublin Ladies (IRL)
 - University of British Columbia (CAN)
@@ -550,18 +573,16 @@
 - University of Nottingham
 - University of St Andrews
 - University of Surrey
-- University of Warwick
 - University of York
 - Upper Thames
+- Upton
 - Vesta
-- W England University
 - Wadham College
 - Walbrook
 - Wallingford
 - Walton
 - Warrington
-- Warwick
-- Warwick University
+- Warwick Boat Club  ← Warwick
 - Westminster School
 - Weybridge
 - Wimbleball
