@@ -4,31 +4,87 @@ Three-slide carousel for British Rowing Club Championships 2026 day 1:
   intro cover  ->  top-10 crews on one page  ->  closing slide.
 
 Reads the top results straight out of the generated brcc26 leaderboard page
-(no network call) and renders PNGs to exhibits/brcc26/ via Playwright, reusing
-render_carousel() and the shared visual theme (carousel-top10-template.html).
+(no network call) and renders PNGs via Playwright using the shared visual
+theme (carousel-top10-template.html).
+
+Two output shapes:
+  --format feed   1080x1350 (Instagram 4:5 carousel)   -> exhibits/brcc26/
+  --format story  1080x1920 (Instagram/TikTok 9:16)     -> exhibits/brcc26-story/
 
 Usage:
-    python run_brcc26_top10_carousel.py
-    python run_brcc26_top10_carousel.py --top 10 --heading "Day 1 · Top 10"
+    python run_brcc26_top10_carousel.py                       # feed carousel
+    python run_brcc26_top10_carousel.py --format story        # 9:16 stories
+    python run_brcc26_top10_carousel.py --heading "Day 2 · Top 10"
 
 Requires:
     pip install playwright && playwright install chromium
+    (set PW_CHROME=/path/to/chrome to use a pre-provisioned browser instead)
 """
 
 import argparse
 import csv as _csv
 import io as _io
 import json
+import os
 import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-from generate_carousel import render_carousel  # noqa: E402  (shared Playwright renderer)
+from playwright.sync_api import sync_playwright
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 TEMPLATE  = Path(__file__).parent / "carousel-top10-template.html"
 PAGE      = REPO_ROOT / "leaderboards" / "brcc26" / "index.html"
+
+# width x height of the phone/stage in CSS px; rendered at device_scale_factor 2.
+FORMATS = {
+    'feed':  {'w': 540, 'h': 675, 'dir': 'brcc26'},        # 1080x1350, Instagram 4:5
+    'story': {'w': 540, 'h': 960, 'dir': 'brcc26-story'},  # 1080x1920, 9:16
+}
+
+
+def render_carousel(template_path, inject_data, out_dir, fmt):
+    """Render each slide to a PNG. `fmt` selects the aspect ratio (feed/story)."""
+    spec = FORMATS[fmt]
+    out_dir.mkdir(parents=True, exist_ok=True)
+    launch_kwargs = {}
+    if os.environ.get('PW_CHROME'):
+        launch_kwargs['executable_path'] = os.environ['PW_CHROME']
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(**launch_kwargs)
+        page = browser.new_page(
+            viewport={'width': spec['w'], 'height': spec['h']},
+            device_scale_factor=2,
+        )
+        page.goto(template_path.resolve().as_uri())
+        page.wait_for_timeout(1800)  # fonts load
+
+        page.evaluate(f"window.__inject({json.dumps(inject_data)})")
+        page.wait_for_timeout(700)
+
+        # Fill the viewport edge-to-edge (no rounded phone frame in the export).
+        page.evaluate(f"""
+            const ph = document.querySelector('.phone');
+            if (ph) {{
+                ph.style.width = '{spec['w']}px';
+                ph.style.height = '{spec['h']}px';
+                ph.style.borderRadius = '0';
+                ph.style.border = 'none';
+                ph.style.boxShadow = 'none';
+            }}
+        """)
+
+        slide_count = page.evaluate("window.__slideCount()")
+        stage = page.locator('#stage')
+        for i in range(slide_count):
+            page.evaluate(f"window.__goTo({i})")
+            page.wait_for_timeout(250)
+            out_path = out_dir / f"slide-{str(i).zfill(2)}.png"
+            stage.screenshot(path=str(out_path))
+            print(f"  [{i+1}/{slide_count}] {out_path.name}")
+
+        browser.close()
 
 
 def norm_club(name):
@@ -82,6 +138,8 @@ def main():
     ap.add_argument('--subheading', default="By GMT% vs world best time")
     ap.add_argument('--footnote',
                     default="Full leaderboard &amp; GMT% analysis at rowingtools.co.uk/leaderboards/brcc26")
+    ap.add_argument('--format', choices=list(FORMATS), default='feed',
+                    help="feed = 1080x1350 (4:5), story = 1080x1920 (9:16). Default: feed")
     ap.add_argument('--out', default=None)
     args = ap.parse_args()
 
@@ -105,9 +163,9 @@ def main():
         'results':       results_to_csv(results),
     }
 
-    out_dir = Path(args.out) if args.out else REPO_ROOT / "exhibits" / "brcc26"
-    print(f"\nRendering to {out_dir} ...")
-    render_carousel(TEMPLATE, inject_data, out_dir)
+    out_dir = Path(args.out) if args.out else REPO_ROOT / "exhibits" / FORMATS[args.format]['dir']
+    print(f"\nRendering {args.format} ({FORMATS[args.format]['w']*2}x{FORMATS[args.format]['h']*2}) to {out_dir} ...")
+    render_carousel(TEMPLATE, inject_data, out_dir, args.format)
 
     pngs = sorted(out_dir.glob('slide-*.png'))
     print(f"\nDone. {len(pngs)} slides saved.")
