@@ -68,7 +68,10 @@ def normalize_event(n):
 
 def to_boat_class(ev):
     n = normalize_event(ev.strip())
-    if re.search(r'\bJ(?!18)\d{2}\b|\bU23\b|\bAR\b|\bBeg\b', n, re.I): return None
+    # J16, J18 and Beginner events are scored against the standard (senior) WBT
+    # for their boat class. J15 and below, U23 and adaptive have no comparable
+    # WBT, so they stay unscored.
+    if re.search(r'\bJ1[0-5]\b|\bU23\b|\bAR\b', n, re.I): return None
     is_w   = bool(re.match(r'W\b', n))
     is_lwt = bool(re.search(r'\bLwt\b', n, re.I))
     pfx    = ("L" if is_lwt else "") + ("W" if is_w else "M")

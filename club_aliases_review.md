@@ -1,7 +1,7 @@
 # Club Alias Review
-# 318 canonical clubs  |  74 merged groups  |  244 singletons
+# 321 canonical clubs  |  75 merged groups  |  246 singletons
 
-## Merged clubs (74 groups)
+## Merged clubs (75 groups)
 
 ### Aberdeen Schools Rowing Association
   = Aberdeen Schools Rowing Association
@@ -9,8 +9,8 @@
 
 ### American School in London
   ~ American School
-  = American School in London
   ~ American School In London
+  = American School in London
 
 ### Auriol Kensington
   ~ Auriol Ken
@@ -82,8 +82,8 @@
   = George Heriot's School
   ~ George Heriots School
 
-### Glasgow Rowing Club
-  ~ Glasgow
+### Glasgow
+  = Glasgow
   ~ Glasgow Academy
 
 ### Grange School
@@ -195,6 +195,10 @@
 ### Queen Elizabeth High School
   = Queen Elizabeth High School
   ~ Queen Elizabeth HS
+
+### Queen's Park Chester
+  = Queen's Park Chester
+  ~ Queens Park Chester
 
 ### RGS High Wycombe
   ~ RGS H Wycombe
@@ -332,27 +336,28 @@
      tell Claude which is the canonical name and it will update club_aliases.json. -->
 
 - [0.76] **Dublin University Ladies (IRL)**  vs  **Dublin University (IRL)**
-- [0.73] **St Paul's Girls' School**  vs  **St Paul's School**
+- [0.73] **St Paul's School**  vs  **St Paul's Girls' School**
 - [0.73] **Cardiff University**  vs  **Cardiff Met University**
 - [0.67] **Oxford Brookes University**  vs  **Oxford University**
-- [0.67] **King's College School**  vs  **King's College**
+- [0.67] **King's College**  vs  **King's College School**
 - [0.67] **Bedford School**  vs  **Bedford Modern School**
 - [0.67] **Bedford School**  vs  **Bedford Girls' School**
-- [0.65] **University College Dublin Ladies (IRL)**  vs  **Dublin University Ladies (IRL)**
-- [0.64] **St Edward's School**  vs  **St Leonard's School**
-- [0.63] **University of Nottingham**  vs  **University of Birmingham**
-- [0.63] **King's School Chester**  vs  **King's School Worcester**
-- [0.62] **University of Leeds**  vs  **University of London**
-- [0.61] **Sydney (AUS)**  vs  **Sydney University (AUS)**
-- [0.61] **St Peter's School**  vs  **St Paul's School**
-- [0.60] **University of Warwick**  vs  **University of York**
-- [0.60] **Bedford Girls' School**  vs  **Windsor Girls' School**
-- [0.60] **University of London**  vs  **University College London**
+- [0.65] **Dublin University Ladies (IRL)**  vs  **University College Dublin Ladies (IRL)**
+- [0.64] **St Leonard's School**  vs  **St Edward's School**
+- [0.63] **University of Birmingham**  vs  **University of Nottingham**
+- [0.63] **King's School Worcester**  vs  **King's School Chester**
+- [0.62] **University of London**  vs  **University of Leeds**
+- [0.61] **Sydney University (AUS)**  vs  **Sydney (AUS)**
+- [0.61] **St Paul's School**  vs  **St Peter's School**
+- [0.60] **Windsor Girls' School**  vs  **Bedford Girls' School**
+- [0.60] **University of York**  vs  **University of Warwick**
+- [0.60] **University College London**  vs  **University of London**
 - [0.60] **University of York**  vs  **University of Surrey**
-- [0.60] **University of London**  vs  **University of York**
+- [0.60] **University of York**  vs  **University of London**
 
-## Singleton clubs (244 clubs)
+## Singleton clubs (246 clubs)
 
+- 1863
 - 1863 Club, The
 - 1877 Club
 - 1st & 3rd Trinity
@@ -502,8 +507,8 @@
 - Plymouth University
 - Poplar Blackwall & District
 - Putney High School
+- Putney HS
 - Putney Town
-- Queen's Park Chester
 - Queens College (Ox)
 - Queens University Belfast (IRL)
 - Queens University. Ladies (IRL)
@@ -543,6 +548,7 @@
 - Strathclyde Park
 - Strathclyde University
 - Sudbury
+- Sunderland University
 - Surbiton High School
 - Surrey University
 - Swansea University
