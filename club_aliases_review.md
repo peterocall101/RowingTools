@@ -82,8 +82,8 @@
   = George Heriot's School
   ~ George Heriots School
 
-### Glasgow Rowing Club
-  ~ Glasgow
+### Glasgow
+  = Glasgow
   ~ Glasgow Academy
 
 ### Grange School
@@ -353,7 +353,7 @@
 - [0.60] **University of York**  vs  **University of Warwick**
 - [0.60] **University of London**  vs  **University College London**
 - [0.60] **University of York**  vs  **University of Surrey**
-- [0.60] **University of London**  vs  **University of York**
+- [0.60] **University of York**  vs  **University of London**
 
 ## Singleton clubs (248 clubs)
 
