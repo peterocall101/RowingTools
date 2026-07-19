@@ -378,14 +378,14 @@ function renderTop100(){
   const clubQ=normClub((document.getElementById('lb-club-filter').value||'').trim()).toLowerCase();
   const entries=[];
   for(const r of ROWS)for(const l of r.lanes)
-    if(l.pct!==null)entries.push({crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct});
+    if(l.pct!==null)entries.push({crew:l.crew,club:l.club,event:r.event,round:r.round,time:l.time,pct:l.pct,name:/1x$/.test(r.event)?(l.name||''):''});
   entries.sort((a,b)=>b.pct-a.pct);
   entries.forEach((e,i)=>e.rank=i+1);
   const filtered=clubQ?entries.filter(e=>normClub(e.club).toLowerCase()===clubQ):entries;
   let h='';
   filtered.forEach(e=>{
     const f=fg(e.pct);
-    h+=`<tr><td class="num">${rankBadge(e.rank)}</td><td><strong>${e.crew}</strong></td><td style="color:var(--text2)"><a href="/clubs/?club=${encodeURIComponent(normClub(e.club))}" style="color:inherit;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${e.club}</a></td><td style="color:var(--text3)">${e.event}</td><td style="color:var(--text3)">${e.round}</td><td class="num" style="color:var(--text2)">${e.time}</td><td class="num"><strong style="color:${f}">${e.pct.toFixed(1)}%</strong></td><td class="num"><button onclick="shareResult(this)" data-club="${e.club.replace(/"/g,'&quot;')}" data-event="${e.event.replace(/"/g,'&quot;')}" data-round="${e.round}" data-time="${e.time}" data-pct="${e.pct.toFixed(1)}" data-rank="${e.rank}" data-total="${entries.length}" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 6px;border-radius:4px" title="Download result card">&#x2197;</button></td></tr>`;
+    h+=`<tr><td class="num">${rankBadge(e.rank)}</td><td><strong>${e.name||e.crew}</strong></td><td style="color:var(--text2)"><a href="/clubs/?club=${encodeURIComponent(normClub(e.club))}" style="color:inherit;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${e.club}</a></td><td style="color:var(--text3)">${e.event}</td><td style="color:var(--text3)">${e.round}</td><td class="num" style="color:var(--text2)">${e.time}</td><td class="num"><strong style="color:${f}">${e.pct.toFixed(1)}%</strong></td><td class="num"><button onclick="shareResult(this)" data-club="${e.club.replace(/"/g,'&quot;')}" data-event="${e.event.replace(/"/g,'&quot;')}" data-round="${e.round}" data-time="${e.time}" data-pct="${e.pct.toFixed(1)}" data-rank="${e.rank}" data-total="${entries.length}" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 6px;border-radius:4px" title="Download result card">&#x2197;</button></td></tr>`;
   });
   document.getElementById('lb-body').innerHTML=h||'<tr><td colspan="8" style="color:#555;text-align:center;padding:20px">No results.</td></tr>';
 }
@@ -489,7 +489,7 @@ function downloadTop100CSV(){
   for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null)entries.push({crew:l.crew,club:normClub(l.club),event:r.event,round:r.round,time:l.time,pct:l.pct});
   entries.sort((a,b)=>b.pct-a.pct);
   const filtered=clubQ?entries.filter(e=>e.club.toLowerCase()===clubQ):entries;
-  dlCSV([['Crew','Club','Event','Round','Time','GMT%'],...filtered.map(e=>[e.crew,e.club,e.event,e.round,e.time,e.pct.toFixed(1)])],'heatmap-__COMP__-results.csv');
+  dlCSV([['Crew','Club','Event','Round','Time','GMT%'],...filtered.map(e=>[e.name||e.crew,e.club,e.event,e.round,e.time,e.pct.toFixed(1)])],'heatmap-__COMP__-results.csv');
 }
 function downloadClubLBCSV(){
   const ranked=buildClubMap();
