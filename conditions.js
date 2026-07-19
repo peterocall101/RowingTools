@@ -248,9 +248,11 @@
     const map=raceMap();
     document.querySelectorAll('#heatmap-out td.rnd').forEach(cell=>{
       if(cell.querySelector('.wx-mini')) return;
-      const round=cell.textContent.trim();
+      // Prefer explicit data-* keys (cells may also show the day/time label);
+      // fall back to text content for older pages that don't set them.
+      const round=(cell.dataset.round||cell.textContent).trim();
       const tbl=cell.closest('table');if(!tbl) return;
-      const cap=tbl.querySelector('caption');const event=cap?cap.textContent.trim():'';
+      const cap=tbl.querySelector('caption');const event=cap?(cap.dataset.event||cap.textContent).trim():'';
       const hit=map[event+'||'+round];if(!hit) return;
       cell.appendChild(mkBtn(hit,event+' · '+round));
     });

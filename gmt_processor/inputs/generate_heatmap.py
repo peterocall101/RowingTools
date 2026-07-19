@@ -36,14 +36,24 @@ def race_date(comp, day):
 
 # ── DATA FETCH ────────────────────────────────────────────────────────────────
 
+def _get(url, headers, tries=5):
+    """GET with retry/backoff - rowresults behind the proxy resets connections."""
+    for i in range(tries):
+        try:
+            return requests.get(url, headers=headers, timeout=20)
+        except requests.exceptions.RequestException:
+            if i == tries - 1:
+                raise
+            time.sleep(1.5 * (i + 1))
+
 def fetch_races(comp):
     ts = int(time.time() * 1000)
-    r  = requests.get(f"{BASE}/raceinfo.php?c={comp}&_={ts}", headers=HEADERS, timeout=15)
+    r  = _get(f"{BASE}/raceinfo.php?c={comp}&_={ts}", HEADERS)
     return r.json()["data"]
 
 def fetch_lanes(comp, race_num):
     url = f"{BASE}/results/{comp}/Race{race_num}.json"
-    r   = requests.get(url, headers={**HEADERS, "Referer": f"{BASE}/{comp}"}, timeout=15)
+    r   = _get(url, {**HEADERS, "Referer": f"{BASE}/{comp}"})
     return r.json() if r.status_code == 200 else None
 
 def clean_round(r):
@@ -139,11 +149,13 @@ def build_data(comp, bm_path):
             t   = parse_t(l.get("Finish"))
             if t and t > 1200: t = None  # bogus placeholder times (>20 min for 2000m)
             pct = round(wbt_t / t * 100, 1) if (wbt_t and t) else None
+            names = re.sub(r'\s+', ' ', (l.get("CrewNames") or "").replace("&nbsp;", " ")).strip()
             finishers.append({
                 "crew": (l.get("ClubName") or "?").strip(),
                 "club": (l.get("ClubName") or "").strip(),
                 "time": fmt_t(t) if t else "",
                 "pct":  pct,
+                "name": names,
             })
 
         ev_clean = re.sub(r'\s*(Championship|Academic|Club|Sch/Jun)\s*$', '', ev, flags=re.I).strip()
@@ -200,7 +212,6 @@ input:focus{border-color:#60a5fa}
 table{border-collapse:collapse;font-size:11px;margin-bottom:28px}
 caption{text-align:left;font-size:11px;font-weight:600;color:var(--text2);padding:0 0 6px;letter-spacing:.05em;text-transform:uppercase}
 caption .cap-when{color:var(--text3);font-weight:500;margin-left:6px}
-.rt{display:block;font-size:9px;color:var(--text3);font-weight:400;letter-spacing:0;text-transform:none;margin-top:2px}
 th{background:var(--bg2);color:var(--text3);font-weight:500;padding:5px 8px;border:1px solid rgba(255,255,255,0.05);text-align:center;white-space:nowrap;font-size:10px;letter-spacing:.04em;text-transform:uppercase}
 th.rh{text-align:left;width:80px}
 td{border:1px solid rgba(255,255,255,0.04);padding:0;vertical-align:top;min-width:80px;max-width:120px}
@@ -332,23 +343,24 @@ function renderHeatmap(rows,clubQ){
   let h='',tIdx=0;
   for(const[ev,races] of groups){
     const maxP=Math.min(Math.max(...races.map(r=>r.lanes.length)),8);
+    const isSingle=/1x$/.test(ev);
     const capDay=races[0].day?`<span class="cap-when">${races[0].day.slice(0,3)}</span>`:'';
     let th='<th class="rh">Round</th>';
     for(let i=1;i<=maxP;i++)th+=`<th>P${i}</th>`;
     let tb='';
     for(const r of races){
-      const when=r.clock?`<span class="rt">${(r.day&&r.day.slice(0,3)!==races[0].day?.slice(0,3))?r.day.slice(0,3)+' ':''}${r.clock}</span>`:'';
-      let cells=`<td class="rnd">${r.round}${when}</td>`;
+      let cells=`<td class="rnd" data-round="${r.round}">${r.round}</td>`;
       for(let i=0;i<maxP;i++){
         const l=r.lanes[i];
         if(!l){cells+='<td></td>';continue;}
         const b=bg(l.pct),f=fg(l.pct),p=l.pct!==null?l.pct.toFixed(1)+'%':'&#x2014;';
         const dim=clubQ&&normClub(l.club).toLowerCase()!==clubQ?'opacity:0.12;':'';
-        cells+=`<td style="background:${b};${dim}"><div class="cell"><span class="cn">${l.crew}</span><span class="cp" style="color:${f}">${p}</span><span class="ct">${l.time}</span></div></td>`;
+        const nm=(isSingle&&l.name)?`<span class="cc">${l.name}</span>`:'';
+        cells+=`<td style="background:${b};${dim}"><div class="cell"><span class="cn">${l.crew}</span>${nm}<span class="cp" style="color:${f}">${p}</span><span class="ct">${l.time}</span></div></td>`;
       }
       tb+=`<tr>${cells}</tr>`;
     }
-    h+=`<table style="animation:viewIn .55s ease ${Math.min(tIdx,25)*0.08}s both"><caption>${ev}${capDay}</caption><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table>`;tIdx++;
+    h+=`<table style="animation:viewIn .55s ease ${Math.min(tIdx,25)*0.08}s both"><caption data-event="${ev}">${ev}${capDay}</caption><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table>`;tIdx++;
   }
   document.getElementById('heatmap-out').innerHTML=h||'<p style="color:#555">No results.</p>';
 }
