@@ -489,7 +489,7 @@ function downloadTop100CSV(){
   for(const r of ROWS)for(const l of r.lanes)if(l.pct!==null)entries.push({crew:l.crew,club:normClub(l.club),event:r.event,round:r.round,time:l.time,pct:l.pct});
   entries.sort((a,b)=>b.pct-a.pct);
   const filtered=clubQ?entries.filter(e=>e.club.toLowerCase()===clubQ):entries;
-  dlCSV([['Crew','Club','Event','Round','Time','GMT%'],...filtered.map(e=>[e.crew,e.club,e.event,e.round,e.time,e.pct.toFixed(1)])],'heatmap-__COMP__-top250.csv');
+  dlCSV([['Crew','Club','Event','Round','Time','GMT%'],...filtered.map(e=>[e.crew,e.club,e.event,e.round,e.time,e.pct.toFixed(1)])],'heatmap-__COMP__-results.csv');
 }
 function downloadClubLBCSV(){
   const ranked=buildClubMap();
