@@ -149,14 +149,22 @@ def build_data(comp, bm_path):
         ev_clean = re.sub(r'\s*(Championship|Academic|Club|Sch/Jun)\s*$', '', ev, flags=re.I).strip()
         ev_clean = normalize_event(ev_clean)
         rows.append({"event": ev_clean, "round": round_, "lanes": finishers, "boat": boat or "",
-                     "clock": race.get("Time"), "date": race_date(comp, race.get("Day"))})
+                     "clock": race.get("Time"), "date": race_date(comp, race.get("Day")),
+                     "day": race.get("Day")})
         print(f"— {len(finishers)} finishers" + ("" if wbt_t else " (no WBT)"))
 
-    # Sort: men before women, then by event name, then final type A→B→C
+    # Order the heatmap chronologically: each event block appears when its
+    # earliest final started (date + clock), then finals within it run A→B→C.
+    def dt_key(r):
+        return f"{r.get('date') or '9999-99-99'} {r.get('clock') or '99:99'}"
+    event_first = {}
+    for r in rows:
+        ev, k = r["event"], dt_key(r)
+        if ev not in event_first or k < event_first[ev]:
+            event_first[ev] = k
     def sort_key(r):
-        w = 1 if r["event"].startswith("W ") else 0
         ft = ord(re.search(r'Final ([A-Z])', r["round"]).group(1)) if re.search(r'Final ([A-Z])', r["round"]) else 999
-        return (w, r["event"], ft)
+        return (event_first[r["event"]], r["event"], ft)
     rows.sort(key=sort_key)
     return rows
 
@@ -191,6 +199,8 @@ input{background:var(--bg2);border:1.5px solid var(--border2);color:var(--text);
 input:focus{border-color:#60a5fa}
 table{border-collapse:collapse;font-size:11px;margin-bottom:28px}
 caption{text-align:left;font-size:11px;font-weight:600;color:var(--text2);padding:0 0 6px;letter-spacing:.05em;text-transform:uppercase}
+caption .cap-when{color:var(--text3);font-weight:500;margin-left:6px}
+.rt{display:block;font-size:9px;color:var(--text3);font-weight:400;letter-spacing:0;text-transform:none;margin-top:2px}
 th{background:var(--bg2);color:var(--text3);font-weight:500;padding:5px 8px;border:1px solid rgba(255,255,255,0.05);text-align:center;white-space:nowrap;font-size:10px;letter-spacing:.04em;text-transform:uppercase}
 th.rh{text-align:left;width:80px}
 td{border:1px solid rgba(255,255,255,0.04);padding:0;vertical-align:top;min-width:80px;max-width:120px}
@@ -322,11 +332,13 @@ function renderHeatmap(rows,clubQ){
   let h='',tIdx=0;
   for(const[ev,races] of groups){
     const maxP=Math.min(Math.max(...races.map(r=>r.lanes.length)),8);
+    const capDay=races[0].day?`<span class="cap-when">${races[0].day.slice(0,3)}</span>`:'';
     let th='<th class="rh">Round</th>';
     for(let i=1;i<=maxP;i++)th+=`<th>P${i}</th>`;
     let tb='';
     for(const r of races){
-      let cells=`<td class="rnd">${r.round}</td>`;
+      const when=r.clock?`<span class="rt">${(r.day&&r.day.slice(0,3)!==races[0].day?.slice(0,3))?r.day.slice(0,3)+' ':''}${r.clock}</span>`:'';
+      let cells=`<td class="rnd">${r.round}${when}</td>`;
       for(let i=0;i<maxP;i++){
         const l=r.lanes[i];
         if(!l){cells+='<td></td>';continue;}
@@ -336,7 +348,7 @@ function renderHeatmap(rows,clubQ){
       }
       tb+=`<tr>${cells}</tr>`;
     }
-    h+=`<table style="animation:viewIn .55s ease ${Math.min(tIdx,25)*0.08}s both"><caption>${ev}</caption><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table>`;tIdx++;
+    h+=`<table style="animation:viewIn .55s ease ${Math.min(tIdx,25)*0.08}s both"><caption>${ev}${capDay}</caption><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table>`;tIdx++;
   }
   document.getElementById('heatmap-out').innerHTML=h||'<p style="color:#555">No results.</p>';
 }

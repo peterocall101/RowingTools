@@ -1,5 +1,5 @@
 # Club Alias Review
-# 323 canonical clubs  |  75 merged groups  |  248 singletons
+# 329 canonical clubs  |  75 merged groups  |  254 singletons
 
 ## Merged clubs (75 groups)
 
@@ -7,10 +7,10 @@
   = Aberdeen Schools Rowing Association
   ~ Aberdeen Schs RA
 
-### American School in London
+### American School In London
   ~ American School
-  ~ American School In London
-  = American School in London
+  ~ American School in London
+  = American School In London
 
 ### Auriol Kensington
   ~ Auriol Ken
@@ -330,32 +330,33 @@
   ~ Wolfson College (Ox)
   = Wolfson College (Oxford)
 
-## Near-duplicate candidates (19 pairs)
+## Near-duplicate candidates (20 pairs)
 
 <!-- Score 1.0 = identical tokens. Review each pair: if they are the same club,
      tell Claude which is the canonical name and it will update club_aliases.json. -->
 
-- [0.76] **Dublin University Ladies (IRL)**  vs  **Dublin University (IRL)**
+- [0.76] **Dublin University (IRL)**  vs  **Dublin University Ladies (IRL)**
 - [0.73] **St Paul's Girls' School**  vs  **St Paul's School**
 - [0.73] **Cardiff Met University**  vs  **Cardiff University**
 - [0.67] **Oxford University**  vs  **Oxford Brookes University**
-- [0.67] **King's College**  vs  **King's College School**
-- [0.67] **Bedford Modern School**  vs  **Bedford School**
+- [0.67] **King's College School**  vs  **King's College**
+- [0.67] **Bedford School**  vs  **Bedford Modern School**
 - [0.67] **Bedford Girls' School**  vs  **Bedford School**
-- [0.65] **University College Dublin Ladies (IRL)**  vs  **Dublin University Ladies (IRL)**
+- [0.65] **Dublin University Ladies (IRL)**  vs  **University College Dublin Ladies (IRL)**
 - [0.64] **St Edward's School**  vs  **St Leonard's School**
-- [0.63] **University of Birmingham**  vs  **University of Nottingham**
-- [0.63] **King's School Chester**  vs  **King's School Worcester**
-- [0.62] **University of London**  vs  **University of Leeds**
+- [0.63] **University of Nottingham**  vs  **University of Birmingham**
+- [0.63] **King's School Worcester**  vs  **King's School Chester**
+- [0.62] **University of Leeds**  vs  **University of London**
 - [0.61] **Sydney University (AUS)**  vs  **Sydney (AUS)**
-- [0.61] **St Peter's School**  vs  **St Paul's School**
-- [0.60] **Windsor Girls' School**  vs  **Bedford Girls' School**
-- [0.60] **University of York**  vs  **University of Warwick**
-- [0.60] **University of London**  vs  **University College London**
-- [0.60] **University of York**  vs  **University of Surrey**
+- [0.61] **St Paul's School**  vs  **St Peter's School**
+- [0.60] **University of Warwick**  vs  **University of York**
+- [0.60] **University of Chester**  vs  **University of Bristol**
+- [0.60] **Bedford Girls' School**  vs  **Windsor Girls' School**
+- [0.60] **University College London**  vs  **University of London**
 - [0.60] **University of York**  vs  **University of London**
+- [0.60] **University of Surrey**  vs  **University of York**
 
-## Singleton clubs (248 clubs)
+## Singleton clubs (254 clubs)
 
 - 1863
 - 1863 Club, The
@@ -394,6 +395,7 @@
 - Cardiff Met University
 - Cardiff University
 - Cheltenham College
+- Christ Church
 - City of Sheffield
 - Clydesdale
 - Commercial RC (IRL)
@@ -403,6 +405,7 @@
 - Cygnet
 - Deben
 - Derby
+- Doncaster
 - Dublin University (IRL)
 - Dublin University Ladies (IRL)
 - Dulwich College
@@ -426,6 +429,7 @@
 - Globe
 - Gloucester
 - Godolphin & Latymer School
+- Gorse
 - Green Lake (USA)
 - Greenbank
 - Greenbank Falmouth
@@ -437,6 +441,7 @@
 - Hexham
 - Ibstock Place School
 - Imperial College
+- Infinity
 - Inverness
 - Itchen Imperial
 - James Allen's Girls' School
@@ -575,6 +580,7 @@
 - University College Cork (IRL)
 - University College Dublin Ladies (IRL)
 - University of British Columbia (CAN)
+- University of Chester
 - University of Galway (IRL)
 - University of Glasgow, The
 - University of Leeds
@@ -604,4 +610,5 @@
 - Wycliffe Junior
 - Yarm School
 - York City
+- York St John University
 - York University
