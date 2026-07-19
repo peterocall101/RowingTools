@@ -336,25 +336,25 @@
      tell Claude which is the canonical name and it will update club_aliases.json. -->
 
 - [0.76] **Dublin University (IRL)**  vs  **Dublin University Ladies (IRL)**
-- [0.73] **St Paul's Girls' School**  vs  **St Paul's School**
+- [0.73] **St Paul's School**  vs  **St Paul's Girls' School**
 - [0.73] **Cardiff Met University**  vs  **Cardiff University**
-- [0.67] **Oxford University**  vs  **Oxford Brookes University**
+- [0.67] **Oxford Brookes University**  vs  **Oxford University**
 - [0.67] **King's College School**  vs  **King's College**
-- [0.67] **Bedford School**  vs  **Bedford Modern School**
+- [0.67] **Bedford Modern School**  vs  **Bedford School**
 - [0.67] **Bedford Girls' School**  vs  **Bedford School**
-- [0.65] **Dublin University Ladies (IRL)**  vs  **University College Dublin Ladies (IRL)**
-- [0.64] **St Edward's School**  vs  **St Leonard's School**
-- [0.63] **University of Nottingham**  vs  **University of Birmingham**
-- [0.63] **King's School Worcester**  vs  **King's School Chester**
+- [0.65] **University College Dublin Ladies (IRL)**  vs  **Dublin University Ladies (IRL)**
+- [0.64] **St Leonard's School**  vs  **St Edward's School**
+- [0.63] **University of Birmingham**  vs  **University of Nottingham**
+- [0.63] **King's School Chester**  vs  **King's School Worcester**
 - [0.62] **University of Leeds**  vs  **University of London**
-- [0.61] **Sydney University (AUS)**  vs  **Sydney (AUS)**
+- [0.61] **Sydney (AUS)**  vs  **Sydney University (AUS)**
 - [0.61] **St Paul's School**  vs  **St Peter's School**
 - [0.60] **University of Warwick**  vs  **University of York**
-- [0.60] **University of Chester**  vs  **University of Bristol**
+- [0.60] **University of Bristol**  vs  **University of Chester**
 - [0.60] **Bedford Girls' School**  vs  **Windsor Girls' School**
 - [0.60] **University College London**  vs  **University of London**
+- [0.60] **University of York**  vs  **University of Surrey**
 - [0.60] **University of York**  vs  **University of London**
-- [0.60] **University of Surrey**  vs  **University of York**
 
 ## Singleton clubs (254 clubs)
 
