@@ -146,16 +146,36 @@ function renderLog(snap) {
   refreshWeekCount();
 }
 
+// A set that opens with a value (pre-filled from last time, or restored) counts
+// as already the athlete's own, so mirroring from set 1 must not overwrite it.
+const held = v => (v === '' || v == null) ? '' : ' data-touched="1"';
+
 function setRowHTML(j, r, w, bw, timeOnly) {
   if (timeOnly) {
     return '<div class="setrow time"><span class="setno">' + (j + 1) + '</span>' +
-      '<input type="number" inputmode="decimal" class="in-r" value="' + esc(r || '') + '" placeholder="secs">' +
+      '<input type="number" inputmode="decimal" class="in-r" value="' + esc(r || '') + '"' + held(r) + ' placeholder="secs">' +
       '<button class="ghostx rm" title="Remove hold">×</button></div>';
   }
   return '<div class="setrow"><span class="setno">' + (j + 1) + '</span>' +
-    '<input type="number" inputmode="decimal" class="in-r" value="' + esc(r || '') + '" placeholder="–">' +
-    '<input type="number" inputmode="decimal" class="in-w" value="' + esc(w || '') + '" placeholder="' + (bw ? '+0' : '–') + '">' +
+    '<input type="number" inputmode="decimal" class="in-r" value="' + esc(r || '') + '"' + held(r) + ' placeholder="–">' +
+    '<input type="number" inputmode="decimal" class="in-w" value="' + esc(w || '') + '"' + held(w) + ' placeholder="' + (bw ? '+0' : '–') + '">' +
     '<button class="ghostx rm" title="Remove set">×</button></div>';
+}
+
+// Typing set 1 fills the sets below it, so a straight-across 3x8 @ 60kg is one
+// entry rather than six. Stops mirroring into any set you've typed into
+// yourself, and never touches sets pre-filled from last time.
+function fillDown(card) {
+  const rows = [...card.querySelectorAll('.setrow')];
+  if (rows.length < 2) return;
+  ['in-r', 'in-w'].forEach(cls => {
+    const first = rows[0].querySelector('.' + cls);
+    if (!first) return;
+    rows.slice(1).forEach(row => {
+      const el = row.querySelector('.' + cls);
+      if (el && !el.dataset.touched) el.value = first.value;
+    });
+  });
 }
 
 function addExercise(exId, scroll, rows) {
@@ -669,6 +689,15 @@ async function uploadTemplate(file) {
 }
 
 /* ================= events ================= */
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (!el.classList || !(el.classList.contains('in-r') || el.classList.contains('in-w'))) return;
+  const card = el.closest('.ex'), row = el.closest('.setrow');
+  if (!card || !row) return;
+  if (card.querySelector('.setrow') === row) fillDown(card);
+  else el.dataset.touched = '1';   // typed into by hand: stop mirroring set 1
+});
+
 document.addEventListener('click', async e => {
   const chip = e.target.closest('[data-chip]');
   if (chip) {
@@ -685,6 +714,7 @@ document.addEventListener('click', async e => {
     const rowsEl = card.querySelector('.rows');
     rowsEl.insertAdjacentHTML('beforeend',
       setRowHTML(rowsEl.children.length, '', '', card.dataset.bw === 'true', card.dataset.timeonly === 'true'));
+    fillDown(card);   // a 4th set starts from set 1 rather than blank
     return;
   }
   if (e.target.classList.contains('rm')) {
