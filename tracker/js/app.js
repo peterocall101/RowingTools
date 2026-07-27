@@ -392,13 +392,18 @@ function downscale(file) {
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
-      const MAX = 1568;
+      // 2576px on the long edge is the high-resolution ceiling current Claude
+      // vision models read at. Monitor split rows are small, dense digits, so
+      // resolution and JPEG quality are what accuracy actually hinges on here.
+      const MAX = 2576;
       let { width: w, height: h } = img;
       if (Math.max(w, h) > MAX) { const k = MAX / Math.max(w, h); w = Math.round(w * k); h = Math.round(h * k); }
       const c = document.createElement('canvas');
       c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h);
-      resolve(c.toDataURL('image/jpeg', 0.85).split(',')[1]);
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL('image/jpeg', 0.92).split(',')[1]);
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that image.')); };
     img.src = url;

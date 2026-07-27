@@ -13,9 +13,17 @@
 
 import Anthropic from "npm:@anthropic-ai/sdk";
 
-// Haiku keeps per-photo cost negligible for free-trial users; override with
-// PARSE_ERG_MODEL (e.g. "claude-opus-5") if extraction quality needs a bump.
-const MODEL = Deno.env.get("PARSE_ERG_MODEL") || "claude-haiku-4-5";
+// Reading a dense PM5 split table is a hard vision task, so this runs on a
+// top-tier model - accuracy matters more than the couple of pence per photo,
+// and a wrong split silently poisons the athlete's history. Set
+// PARSE_ERG_MODEL to "claude-sonnet-5" to trade some accuracy for cost.
+const MODEL = Deno.env.get("PARSE_ERG_MODEL") || "claude-opus-5";
+
+// Scratchpad for trialling a new reading rule without a redeploy:
+//   supabase secrets set PARSE_ERG_EXTRA_RULES="- On the RP3, ..." --project-ref <ref>
+// Appended to PROMPT below. Once a rule proves out, move it into PROMPT so it
+// lives in git, and clear the secret with `supabase secrets unset`.
+const EXTRA_RULES = (Deno.env.get("PARSE_ERG_EXTRA_RULES") || "").trim();
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -91,17 +99,53 @@ const ERG_TOOL: Anthropic.Tool = {
   },
 };
 
-const PROMPT = `This is a photo of a rowing machine monitor (a Concept2 PM5 or a RowPerfect screen).
-Read the workout data off the screen and record it with the record_erg_session tool.
+// ===================================================================
+// THE READING RULES. This is the file to edit when the parser misreads
+// a screen: add a rule, then `supabase functions deploy parse-erg`.
+// ===================================================================
+const PROMPT = `You are reading a photograph of a rowing machine monitor, usually a Concept2 PM5
+but sometimes a RowPerfect/RP3. Transcribe the workout exactly as displayed and record it with
+the record_erg_session tool. Take your time and read the digits carefully - the text is small
+and a misread split silently corrupts the athlete's training history.
 
-Rules:
-- Convert all clock values to seconds (1:48.1 means 108.1 seconds; 7:12.3 means 432.3).
-- Splits are always seconds per 500m.
-- A Concept2 summary screen typically shows total time, total metres, average /500m and rate at
-  the top, then one row per interval or split below - transcribe each row in order.
-- Only record what you can actually read. Omit any field that is not shown or not legible, and
-  add a warning describing what you could not read. Never invent plausible numbers.
-- Ignore anything on screen that is not workout data (menus, battery, logos).`;
+WHICH SCREEN IS THIS?
+Work out which of these you are looking at before transcribing:
+- A workout summary: one set of totals, no per-interval table.
+- A memory / interval list: a table with one row per interval or split.
+- A live, in-progress workout. Still transcribe it, and add a warning that the piece was
+  unfinished.
+
+READING A CONCEPT2 TABLE
+Columns run left to right and are typically: an index or elapsed time, distance in metres,
+pace written as /500m, stroke rate written as s/m or spm, and heart rate if a belt is paired.
+- The /500m column is a PACE (time to cover 500 metres), not the row's own elapsed time. Never
+  put a pace into time_s, and never put an elapsed time into split_s. Confusing these two is
+  the single most common mistake - check each row against its neighbours for consistency.
+- The table almost always contains a TOTAL or AVERAGE row for the whole piece, often at the
+  top or set apart by a rule. Use that row for the top-level totals only. Do NOT also record
+  it inside \`intervals\`, or every total will be double counted.
+- Rest rows - often prefixed "r:" or showing rest time/distance - are not work intervals.
+  Leave them out of \`intervals\` and note in warnings that rest rows were present.
+- Transcribe interval rows top to bottom, in the order shown.
+
+SANITY CHECKS BEFORE YOU ANSWER
+- Do the interval distances roughly sum to the total distance? If not, you have probably
+  either included the total row as an interval or missed a row - look again.
+- Is each pace plausible for rowing (about 1:20 to 2:30 per 500m)? A "pace" of 7:12 is almost
+  certainly an elapsed time you have put in the wrong field.
+- Is the total time roughly the sum of the interval times?
+If a check fails and you cannot resolve it from the image, say so in warnings.
+
+CONVERSIONS
+- Every clock value becomes seconds: 7:12.3 -> 432.3, 1:48.1 -> 108.1, 20:00 -> 1200.
+- Splits and paces are seconds per 500 metres. Distances are whole metres.
+
+WHEN YOU CANNOT READ SOMETHING
+Omit the field rather than guessing, and add a warning naming exactly what was unreadable and
+why (glare, cropped, blurred, obscured by a finger). Never invent a plausible number, and never
+calculate a value that is not shown - a blank field is easy for the athlete to fill in, a
+confidently wrong one is not. Ignore menus, battery icons, logos and anything else that is not
+workout data.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -120,11 +164,19 @@ Deno.serve(async (req) => {
 
   const client = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
 
+  // The API is stateless - nothing persists between photos, so the standing
+  // rules are re-sent on every request. PROMPT is their home; EXTRA_RULES lets
+  // a rule be trialled via `supabase secrets set` without a redeploy.
+  const system = EXTRA_RULES
+    ? PROMPT + "\n\nADDITIONAL RULES FROM THE OPERATOR\n" + EXTRA_RULES
+    : PROMPT;
+
   let response: Anthropic.Message;
   try {
     response = await client.messages.create({
       model: MODEL,
-      max_tokens: 2048,
+      max_tokens: 4096,
+      system,
       tools: [ERG_TOOL],
       tool_choice: { type: "tool", name: "record_erg_session" },
       messages: [
@@ -135,7 +187,7 @@ Deno.serve(async (req) => {
               type: "image",
               source: { type: "base64", media_type: mediaType, data: image },
             },
-            { type: "text", text: PROMPT },
+            { type: "text", text: "Transcribe this rowing machine monitor." },
           ],
         },
       ],
