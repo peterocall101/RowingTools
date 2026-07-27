@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in - RowingTools Tracker</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="theme-color" content="#0b0b0a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Fraunces:opsz,wght@9..144,900&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/app.css">
+<style>
+  .auth-wrap{max-width:400px;margin:0 auto;padding-top:8vh}
+  .auth-card{background:var(--bg2);border:1px solid var(--border);padding:1.75rem}
+  .auth-card h1{font-size:20px;margin-bottom:1.1rem}
+  .auth-card label{display:block;font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+    font-family:var(--mono);color:var(--text3);margin:0 0 5px}
+  .auth-card .field{margin-bottom:14px}
+  .auth-card input[type=email],.auth-card input[type=password],.auth-card input[type=text]{
+    width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border2);
+    border-radius:0;font-family:inherit;font-size:14px;padding:9px 10px;height:40px;outline:none}
+  .auth-card input:focus{border-color:var(--red-ink)}
+  .auth-card button[type=submit]{width:100%;background:var(--red);border-color:var(--red);
+    color:#fff;font-weight:700;height:42px;margin-top:4px}
+  .auth-card button[type=submit]:hover{background:var(--red-ink);border-color:var(--red-ink)}
+  .toggle{font-size:13px;color:var(--text2);margin-top:14px}
+  .toggle a{color:var(--text);cursor:pointer;text-decoration:underline}
+  .toggle a:hover{color:var(--red-ink)}
+  .consent{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--text2);margin-bottom:14px}
+  .consent input{margin-top:3px;accent-color:var(--red)}
+  .msg{display:none;margin-top:14px;padding:9px 12px;font-size:13px;font-family:var(--mono)}
+  .msg.err{background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.4)}
+  .msg.ok{background:rgba(52,211,153,.1);color:#34d399;border:1px solid rgba(52,211,153,.4)}
+  .auth-sub{font-size:13px;color:var(--text2);margin:-0.6rem 0 1.1rem;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="topbar"></div>
+<div class="auth-wrap">
+  <div class="brand" style="justify-content:center;margin-bottom:1.4rem">
+    <a href="/" style="text-decoration:none;color:inherit"><div class="brand-mark">Rowing<span class="brand-dot">.</span>Tools</div></a>
+  </div>
+  <div class="auth-card">
+    <h1 id="heading">Sign in</h1>
+    <p class="auth-sub" id="subtext">Your training log - weights and erg sessions, saved to your account.</p>
+    <form id="form" novalidate>
+      <div class="field" id="name-wrap" style="display:none">
+        <label for="name">Your name</label>
+        <input type="text" id="name" autocomplete="name" placeholder="e.g. Sam Rower">
+      </div>
+      <div class="field" id="email-wrap">
+        <label for="email">Email</label>
+        <input type="email" id="email" autocomplete="email" required placeholder="you@example.com">
+      </div>
+      <div class="field" id="pass-wrap">
+        <label for="password">Password</label>
+        <input type="password" id="password" autocomplete="current-password" placeholder="Password">
+      </div>
+      <div class="field" id="pass2-wrap" style="display:none">
+        <label for="password2">Confirm password</label>
+        <input type="password" id="password2" autocomplete="new-password" placeholder="Repeat password">
+      </div>
+      <div class="consent" id="consent-wrap" style="display:none">
+        <input type="checkbox" id="consent">
+        <span>I'm happy for RowingTools to store my training data against my account. It's only ever visible to me.</span>
+      </div>
+      <button type="submit" id="submit">Sign in</button>
+    </form>
+    <div class="toggle" id="toggle-wrap"><span id="toggle-text">New here?</span> <a id="toggle-link">Create an account</a></div>
+    <div class="toggle" id="forgot-wrap"><a id="forgot">Forgot password?</a></div>
+    <div class="msg err" id="error"></div>
+    <div class="msg ok" id="success"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const form = $('form'), heading = $('heading'), subEl = $('subtext'),
+        emailEl = $('email'), passEl = $('password'), pass2El = $('password2'),
+        nameEl = $('name'), consentEl = $('consent'), submitBtn = $('submit'),
+        errEl = $('error'), okEl = $('success');
+  const loginUrl = window.location.origin + window.location.pathname;
+
+  const showErr = m => { errEl.textContent = m; errEl.style.display = 'block'; okEl.style.display = 'none'; };
+  const showOk  = m => { okEl.textContent = m; okEl.style.display = 'block'; errEl.style.display = 'none'; };
+  const clearMsg = () => { errEl.style.display = 'none'; okEl.style.display = 'none'; };
+  const show = (id, on) => { $(id).style.display = on ? '' : 'none'; };
+
+  let mode = 'signin'; // signin | signup | forgot | setpass
+
+  // Password-recovery links land back here with a hash/code.
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const hasCode = new URLSearchParams(window.location.search).has('code');
+  let setPasswordMode = hash.get('type') === 'recovery' || hasCode;
+
+  sb.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY' && !setPasswordMode) { setPasswordMode = true; enterSetPass(); }
+  });
+
+  function setMode(m) {
+    mode = m; clearMsg();
+    const up = m === 'signup', fg = m === 'forgot';
+    heading.textContent = up ? 'Create your account' : (fg ? 'Reset password' : 'Sign in');
+    submitBtn.textContent = up ? 'Create account' : (fg ? 'Send reset link' : 'Sign in');
+    subEl.style.display = up ? '' : 'none';
+    show('name-wrap', up); show('pass-wrap', !fg); show('pass2-wrap', up);
+    show('consent-wrap', up); show('forgot-wrap', !fg);
+    $('toggle-text').textContent = up || fg ? 'Have an account?' : 'New here?';
+    $('toggle-link').textContent = up || fg ? 'Sign in' : 'Create an account';
+    passEl.autocomplete = up ? 'new-password' : 'current-password';
+    passEl.placeholder = up ? 'Choose a password (min 8 characters)' : 'Password';
+  }
+
+  function enterSetPass() {
+    mode = 'setpass'; clearMsg();
+    heading.textContent = 'Set a new password';
+    subEl.style.display = 'none';
+    show('email-wrap', false); show('name-wrap', false); show('consent-wrap', false);
+    show('pass-wrap', true); show('pass2-wrap', true);
+    show('toggle-wrap', false); show('forgot-wrap', false);
+    submitBtn.textContent = 'Save password';
+    passEl.placeholder = 'New password (min 8 characters)';
+  }
+
+  $('toggle-link').addEventListener('click', () => setMode(mode === 'signup' || mode === 'forgot' ? 'signin' : 'signup'));
+  $('forgot').addEventListener('click', () => setMode('forgot'));
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault(); clearMsg();
+    const email = emailEl.value.trim();
+
+    if (mode === 'setpass') {
+      if (passEl.value.length < 8) return showErr('Password must be at least 8 characters.');
+      if (passEl.value !== pass2El.value) return showErr('Passwords do not match.');
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) return showErr('Your link has expired or was already used. Request a new one.');
+      const { error } = await sb.auth.updateUser({ password: passEl.value });
+      if (error) return showErr(error.message);
+      window.location.replace('index.html');
+      return;
+    }
+
+    if (!email) return showErr('Enter your email.');
+
+    if (mode === 'forgot') {
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: loginUrl });
+      if (error) return showErr(error.message);
+      showOk('Check your email for the reset link.');
+      return;
+    }
+
+    if (mode === 'signup') {
+      const fullName = nameEl.value.trim();
+      if (!fullName) return showErr('Enter your name.');
+      if (passEl.value.length < 8) return showErr('Password must be at least 8 characters.');
+      if (passEl.value !== pass2El.value) return showErr('Passwords do not match.');
+      if (!consentEl.checked) return showErr('Please tick the consent box.');
+      const { data, error } = await sb.auth.signUp({
+        email, password: passEl.value,
+        options: { data: { display_name: fullName }, emailRedirectTo: loginUrl },
+      });
+      if (error) return showErr(error.message);
+      if (data.session) { window.location.replace('index.html'); return; }
+      showOk('Almost there - confirm your email via the link we just sent, then sign in.');
+      return;
+    }
+
+    const { error } = await sb.auth.signInWithPassword({ email, password: passEl.value });
+    if (error) return showErr(error.message);
+    window.location.replace('index.html');
+  });
+
+  (async () => {
+    if (setPasswordMode) { enterSetPass(); return; }
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) window.location.replace('index.html');
+  })();
+})();
+</script>
+</body>
+</html>
