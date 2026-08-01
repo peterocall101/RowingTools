@@ -85,6 +85,41 @@ create table public.tracker_erg_sessions (
 create index tracker_erg_profile_date_idx on public.tracker_erg_sessions (profile_id, date desc);
 
 -- ----------------------------------------------------------------
+-- Core routines - a timed circuit of named holds
+-- ----------------------------------------------------------------
+-- steps is an ORDERED list: [{"name": "Plank", "target_s": 60}, ...]. Order is
+-- the round order and repeats are expected - the same hold commonly appears as
+-- round 1 and round 4 - so this is a list, never a set keyed by name.
+create table public.tracker_core_routines (
+  id         uuid        primary key default gen_random_uuid(),
+  profile_id uuid        not null references public.profiles on delete cascade,
+  name       text        not null,
+  steps      jsonb       not null default '[]'::jsonb,
+  position   int         not null default 0,
+  retired    boolean     not null default false,
+  created_at timestamptz not null default now()
+);
+create index tracker_core_routines_profile_idx on public.tracker_core_routines (profile_id);
+
+-- One run through a routine. steps carries the target alongside the actual
+-- time, and routine_name is a snapshot, so a session stays readable after the
+-- routine it came from is renamed or deleted.
+-- steps: [{"name": "Plank", "target_s": 60, "actual_s": 72}, ...]
+create table public.tracker_core_sessions (
+  id           uuid        primary key default gen_random_uuid(),
+  profile_id   uuid        not null references public.profiles on delete cascade,
+  date         date        not null,
+  at           text,
+  routine_id   uuid        references public.tracker_core_routines on delete set null,
+  routine_name text,
+  steps        jsonb       not null default '[]'::jsonb,
+  notes        text,
+  created_at   timestamptz not null default now()
+);
+create index tracker_core_sessions_profile_date_idx
+  on public.tracker_core_sessions (profile_id, date desc);
+
+-- ----------------------------------------------------------------
 -- Plan / entitlement
 -- ----------------------------------------------------------------
 -- Everything in the tracker is free and unlimited EXCEPT reading erg photos,
@@ -131,7 +166,15 @@ create index tracker_erg_parses_profile_time_idx
 alter table public.tracker_exercises    enable row level security;
 alter table public.tracker_workouts     enable row level security;
 alter table public.tracker_erg_sessions enable row level security;
-alter table public.tracker_erg_parses   enable row level security;
+alter table public.tracker_erg_parses    enable row level security;
+alter table public.tracker_core_routines enable row level security;
+alter table public.tracker_core_sessions enable row level security;
+
+create policy "own core routines" on public.tracker_core_routines
+  for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
+
+create policy "own core sessions" on public.tracker_core_sessions
+  for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
 
 -- Read-only to the owner (so the UI can show "12 of 20 photos left today").
 -- No insert/update/delete policy at all: only the service role writes here,

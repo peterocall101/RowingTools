@@ -10,6 +10,8 @@ const S = {
   exercises: [],   // library rows (including retired - needed for history)
   workouts: [],    // weights sessions, sorted date+at desc
   ergs: [],        // erg sessions, sorted date+at desc
+  routines: [],    // core routine templates
+  coreSessions: [],// logged runs through a core routine
 };
 
 const PATTERN_ORDER = ['squat', 'pull', 'hinge', 'push', 'legs', 'shoulders', 'arms', 'core', 'other'];
@@ -91,17 +93,21 @@ function track(event, params) { if (typeof gtag === 'function') gtag('event', ev
 /* ================= data access ================= */
 async function loadAll() {
   const uid = S.session.user.id;
-  const [prof, ex, wk, erg] = await Promise.all([
+  const [prof, ex, wk, erg, rt, core] = await Promise.all([
     sb.from('profiles').select('*').eq('id', uid).single(),   // carries tracker_plan
     sb.from('tracker_exercises').select('*').order('position').order('created_at'),
     sb.from('tracker_workouts').select('*').order('date', { ascending: false }).limit(1000),
     sb.from('tracker_erg_sessions').select('*').order('date', { ascending: false }).limit(1000),
+    sb.from('tracker_core_routines').select('*').order('position').order('created_at'),
+    sb.from('tracker_core_sessions').select('*').order('date', { ascending: false }).limit(1000),
   ]);
   S.profile = prof.data;
   S.exercises = ex.data || [];
   S.workouts = sortDesc(wk.data || []);
   S.ergs = sortDesc(erg.data || []);
-  const errs = [prof.error, ex.error, wk.error, erg.error].filter(Boolean);
+  S.routines = (rt.data || []).filter(r => !r.retired).concat((rt.data || []).filter(r => r.retired));
+  S.coreSessions = sortDesc(core.data || []);
+  const errs = [prof.error, ex.error, wk.error, erg.error, rt.error, core.error].filter(Boolean);
   return errs.length ? errs[0].message : null;
 }
 
@@ -254,8 +260,10 @@ function refreshWeekCount() {
   const wk = mondayOf(date);
   const weights = S.workouts.filter(s => mondayOf(s.date) === wk).length;
   const ergs = S.ergs.filter(s => mondayOf(s.date) === wk).length;
+  const cores = S.coreSessions.filter(s => mondayOf(s.date) === wk).length;
   const today = S.workouts.filter(s => s.date === date).length;
-  $('weekcount').innerHTML = 'Week of ' + prettyDate(wk) + ' - <b>' + weights + '</b> weights · <b>' + ergs + '</b> erg' +
+  $('weekcount').innerHTML = 'Week of ' + prettyDate(wk) + ' - <b>' + weights + '</b> weights · <b>' +
+    ergs + '</b> erg' + (cores ? ' · <b>' + cores + '</b> core' : '') +
     (today ? ' · ' + today + ' already logged today' : '');
 }
 
@@ -495,6 +503,313 @@ async function handleErgPhoto(file) {
   openErgForm(out.session || {}, 'photo');
 }
 
+/* ================= core routines ================= */
+// A routine is an ORDERED list of named holds with a target time. Repeats are
+// normal (plank as round 1 and round 4), so steps are addressed by index, never
+// by name. RUN holds the in-progress attempt; the timer writes actual times
+// into it, and the athlete can override any of them by hand before saving.
+const RUN = { routineId: null, name: '', steps: [], idx: 0, running: false,
+              startedAt: 0, carried: 0, tick: null, wake: null };
+let editingRoutine = null;   // null = not editing, else {id|null, name, steps}
+
+const routineById = id => S.routines.find(r => r.id === id) || null;
+const stepsOf = r => Array.isArray(r && r.steps) ? r.steps : [];
+const totalTarget = steps => steps.reduce((a, s) => a + (Number(s.target_s) || 0), 0);
+
+function renderCoreTab() {
+  const pick = $('core-pick');
+  const live = S.routines.filter(r => !r.retired);
+  pick.innerHTML = live.length
+    ? live.map(r => '<option value="' + r.id + '">' + esc(r.name) + '</option>').join('')
+    : '<option value="">No routines yet</option>';
+  if (RUN.routineId && live.some(r => r.id === RUN.routineId)) pick.value = RUN.routineId;
+  $('core-edit').disabled = !live.length;
+
+  if (editingRoutine) { renderBuilder(); $('core-runner').innerHTML = ''; return; }
+  $('core-builder').innerHTML = '';
+  if (!live.length) {
+    $('core-runner').innerHTML = '<p class="placeholder">No core routines yet. Hit <b>New routine</b> ' +
+      'and list the holds in the order you do them, each with a target time. The same hold can ' +
+      'appear as often as you like - round 1 and round 4 are two entries, not one.</p>';
+    return;
+  }
+  loadRun(pick.value);
+}
+
+/* ---- builder ---- */
+function renderBuilder() {
+  const r = editingRoutine;
+  $('core-runner').innerHTML = '';
+  $('core-builder').innerHTML =
+    '<div class="lib-form"><h3>' + (r.id ? 'Edit routine' : 'New routine') + '</h3>' +
+    '<div class="fwide"><label>Routine name</label>' +
+      '<input type="text" id="cr-name" value="' + esc(r.name) + '" placeholder="e.g. Core circuit"></div>' +
+    '<div class="chead"><span>#</span><span>Exercise</span><span>Secs</span><span></span></div>' +
+    '<div id="cr-steps">' + r.steps.map(stepRowHTML).join('') + '</div>' +
+    '<button class="addset" id="cr-add">+ add exercise</button>' +
+    '<div class="fhint" style="margin:8px 0 12px">Total ' + fmtTime(totalTarget(r.steps)) +
+      ' over ' + r.steps.length + ' round' + (r.steps.length === 1 ? '' : 's') + '.</div>' +
+    '<button class="primary" id="cr-save" style="height:42px">Save routine</button>' +
+    '<button id="cr-cancel" style="width:100%;margin-top:8px">Cancel</button>' +
+    (r.id ? '<button id="cr-del" style="width:100%;margin-top:8px">Delete routine</button>' : '') +
+    '</div>';
+}
+function stepRowHTML(s, i) {
+  return '<div class="cstep"><span class="cno">' + (i + 1) + '</span>' +
+    '<input type="text" class="cs-name" value="' + esc(s.name || '') + '" placeholder="e.g. Plank" list="cr-names">' +
+    '<input type="number" class="cs-secs" inputmode="numeric" value="' + esc(s.target_s != null ? s.target_s : '') + '" placeholder="60">' +
+    '<span class="cops">' +
+      '<button data-cup="' + i + '" title="Move up">&uarr;</button>' +
+      '<button data-cdown="' + i + '" title="Move down">&darr;</button>' +
+      '<button data-cdup="' + i + '" title="Duplicate">&plus;</button>' +
+      '<button data-crm="' + i + '" title="Remove">&times;</button>' +
+    '</span></div>';
+}
+// Read the DOM back into state before any structural change, so half-typed
+// edits survive a reorder.
+function syncBuilderFromDOM() {
+  if (!editingRoutine) return;
+  editingRoutine.name = ($('cr-name') || {}).value || editingRoutine.name;
+  const rows = [...document.querySelectorAll('#cr-steps .cstep')];
+  if (rows.length) editingRoutine.steps = rows.map(el => ({
+    name: el.querySelector('.cs-name').value.trim(),
+    target_s: parseInt(el.querySelector('.cs-secs').value, 10) || 0,
+  }));
+}
+
+async function saveRoutine() {
+  syncBuilderFromDOM();
+  const r = editingRoutine;
+  const name = (r.name || '').trim();
+  const steps = r.steps.filter(s => s.name);
+  if (!name) { toast('core-msg', 'Give the routine a name.', 'warn'); return; }
+  if (!steps.length) { toast('core-msg', 'Add at least one exercise.', 'warn'); return; }
+
+  let error, saved;
+  if (r.id) {
+    ({ error } = await sb.from('tracker_core_routines').update({ name, steps }).eq('id', r.id));
+    if (!error) Object.assign(routineById(r.id), { name, steps });
+  } else {
+    const res = await sb.from('tracker_core_routines').insert({
+      profile_id: S.session.user.id, name, steps,
+      position: Math.max(0, ...S.routines.map(x => x.position)) + 1,
+    }).select().single();
+    error = res.error; saved = res.data;
+    if (!error) S.routines.push(saved);
+  }
+  if (error) { toast('core-msg', 'Save failed: ' + esc(error.message), 'err'); return; }
+  editingRoutine = null;
+  if (saved) RUN.routineId = saved.id;
+  renderCoreTab();
+  toast('core-msg', 'Routine saved.');
+}
+
+async function deleteRoutine(id) {
+  if (!confirm('Delete this routine? Sessions you have already logged are kept.')) return;
+  const used = S.coreSessions.some(c => c.routine_id === id);
+  let error;
+  if (used) {
+    ({ error } = await sb.from('tracker_core_routines').update({ retired: true }).eq('id', id));
+    if (!error) routineById(id).retired = true;
+  } else {
+    ({ error } = await sb.from('tracker_core_routines').delete().eq('id', id));
+    if (!error) S.routines = S.routines.filter(r => r.id !== id);
+  }
+  if (error) { toast('core-msg', 'Delete failed: ' + esc(error.message), 'err'); return; }
+  editingRoutine = null;
+  if (RUN.routineId === id) RUN.routineId = null;
+  renderCoreTab();
+  toast('core-msg', used ? 'Routine removed (past sessions kept).' : 'Routine deleted.');
+}
+
+/* ---- runner + timer ---- */
+function loadRun(routineId) {
+  const r = routineById(routineId);
+  if (!r) { $('core-runner').innerHTML = ''; return; }
+  stopTimer();
+  RUN.routineId = r.id;
+  RUN.name = r.name;
+  RUN.steps = stepsOf(r).map(s => ({ name: s.name, target_s: Number(s.target_s) || 0, actual_s: null }));
+  RUN.idx = 0; RUN.carried = 0; RUN.running = false;
+  renderRunner();
+}
+
+function renderRunner() {
+  const done = RUN.steps.every(s => s.actual_s != null);
+  $('core-runner').innerHTML =
+    '<div class="timer">' +
+      '<div class="timer-pos" id="tm-pos"></div>' +
+      '<div class="timer-step" id="tm-name"></div>' +
+      '<div class="timer-clock" id="tm-clock">0:00</div>' +
+      '<div class="timer-target" id="tm-target"></div>' +
+      '<div class="timer-bar"><i id="tm-bar"></i></div>' +
+      '<div class="timer-btns">' +
+        '<button class="go" id="tm-go">Start</button>' +
+        '<button id="tm-next">Next</button>' +
+        '<button id="tm-reset">Reset</button>' +
+      '</div>' +
+      (done ? '<div class="timer-done">Routine complete - check the times and save.</div>' : '') +
+    '</div>' +
+    '<div class="chead"><span>#</span><span>Exercise</span><span>Target</span><span>Actual</span></div>' +
+    '<div id="core-rows">' + RUN.steps.map(rowRunHTML).join('') + '</div>' +
+    '<div class="fwide" style="margin-top:12px"><label>Notes</label><input type="text" id="core-notes"></div>' +
+    '<button class="save" id="core-save">Save core session</button>';
+  paintTimer();
+}
+function rowRunHTML(s, i) {
+  return '<div class="crow' + (i === RUN.idx ? ' now' : '') + (s.actual_s != null ? ' done' : '') + '" data-crow="' + i + '">' +
+    '<span class="cno">' + (i + 1) + '</span>' +
+    '<span class="cname">' + esc(s.name) + '</span>' +
+    '<span class="ctar">' + (s.target_s ? s.target_s + 's' : '–') + '</span>' +
+    '<input type="number" inputmode="numeric" class="cs-actual" data-i="' + i + '" ' +
+      'value="' + (s.actual_s != null ? s.actual_s : '') + '" placeholder="' + (s.target_s || '') + '"></div>';
+}
+
+const elapsedNow = () => RUN.carried + (RUN.running ? (Date.now() - RUN.startedAt) / 1000 : 0);
+
+function paintTimer() {
+  const s = RUN.steps[RUN.idx];
+  const pos = $('tm-pos'); if (!pos) return;
+  if (!s) {
+    pos.textContent = 'Finished';
+    $('tm-name').textContent = RUN.name;
+    $('tm-clock').textContent = fmtClock(0);
+    $('tm-target').textContent = 'All ' + RUN.steps.length + ' rounds done';
+    $('tm-bar').style.width = '100%';
+    $('tm-go').textContent = 'Start';
+    return;
+  }
+  const el = elapsedNow(), left = (s.target_s || 0) - el;
+  pos.textContent = 'Round ' + (RUN.idx + 1) + ' of ' + RUN.steps.length;
+  $('tm-name').textContent = s.name;
+  const clock = $('tm-clock');
+  clock.textContent = (left < 0 ? '+' : '') + fmtClock(Math.abs(left));
+  clock.classList.toggle('over', left < 0);
+  $('tm-target').textContent = s.target_s ? 'Target ' + s.target_s + 's' : 'No target set';
+  $('tm-bar').style.width = s.target_s ? Math.min(100, (el / s.target_s) * 100) + '%' : '0%';
+  $('tm-go').textContent = RUN.running ? 'Pause' : (el > 0 ? 'Resume' : 'Start');
+}
+const fmtClock = sec => {
+  const t = Math.max(0, Math.floor(sec));
+  return Math.floor(t / 60) + ':' + pad(t % 60);
+};
+
+function startTimer() {
+  if (RUN.running || !RUN.steps[RUN.idx]) return;
+  RUN.running = true;
+  RUN.startedAt = Date.now();
+  RUN.tick = setInterval(() => {
+    const s = RUN.steps[RUN.idx];
+    // Auto-advance so a circuit runs hands-free; the athlete can still hit
+    // Next early or let it run over, and either way the real elapsed is kept.
+    if (s && s.target_s && elapsedNow() >= s.target_s) { nextStep(true); return; }
+    paintTimer();
+  }, 200);
+  keepAwake(true);
+  paintTimer();
+}
+function pauseTimer() {
+  if (!RUN.running) return;
+  RUN.carried = elapsedNow();
+  RUN.running = false;
+  clearInterval(RUN.tick); RUN.tick = null;
+  paintTimer();
+}
+function stopTimer() {
+  RUN.running = false;
+  if (RUN.tick) { clearInterval(RUN.tick); RUN.tick = null; }
+  RUN.carried = 0;
+  keepAwake(false);
+}
+
+function nextStep(auto) {
+  const s = RUN.steps[RUN.idx];
+  if (!s) return;
+  s.actual_s = Math.max(1, Math.round(elapsedNow() || s.target_s || 0));
+  const wasRunning = RUN.running;
+  if (RUN.tick) { clearInterval(RUN.tick); RUN.tick = null; }
+  RUN.running = false; RUN.carried = 0;
+  RUN.idx++;
+  beep(auto);
+  if (RUN.idx >= RUN.steps.length) { RUN.idx = RUN.steps.length; stopTimer(); renderRunner(); return; }
+  renderRunner();
+  if (wasRunning) startTimer();   // keep the circuit rolling
+}
+
+// Short tone + buzz so a round change lands without looking at the screen.
+function beep(strong) {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (Ctx) {
+      const ctx = new Ctx(), osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.frequency.value = strong ? 880 : 620;
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime + 0.26);
+      setTimeout(() => ctx.close(), 400);
+    }
+  } catch (e) { /* audio blocked until a gesture - not worth surfacing */ }
+  if (navigator.vibrate) navigator.vibrate(strong ? [90, 60, 90] : 60);
+}
+
+// Stop the phone locking mid-circuit. Silently unavailable on some browsers.
+async function keepAwake(on) {
+  try {
+    if (on && !RUN.wake && navigator.wakeLock) RUN.wake = await navigator.wakeLock.request('screen');
+    else if (!on && RUN.wake) { RUN.wake.release(); RUN.wake = null; }
+  } catch (e) { RUN.wake = null; }
+}
+
+async function saveCoreSession() {
+  // hand-typed overrides win over whatever the timer recorded
+  document.querySelectorAll('.cs-actual').forEach(inp => {
+    const v = parseInt(inp.value, 10);
+    RUN.steps[Number(inp.dataset.i)].actual_s = isNaN(v) ? null : v;
+  });
+  const steps = RUN.steps.filter(s => s.actual_s != null);
+  if (!steps.length) { toast('core-msg', 'Nothing to save - time at least one round, or type a number in.', 'warn'); return; }
+
+  const row = {
+    profile_id: S.session.user.id,
+    date: $('core-date').value || todayISO(),
+    at: nowHM(),
+    routine_id: RUN.routineId,
+    routine_name: RUN.name,
+    steps,
+    notes: ($('core-notes').value || '').trim() || null,
+  };
+  const { data, error } = await sb.from('tracker_core_sessions').insert(row).select().single();
+  if (error) { toast('core-msg', 'Save failed: ' + esc(error.message), 'err'); return; }
+  S.coreSessions.push(data); sortDesc(S.coreSessions);
+  track('core_saved', { rounds: steps.length });
+  stopTimer();
+  loadRun(RUN.routineId);
+  toast('core-msg', 'Saved - ' + steps.length + ' round' + (steps.length === 1 ? '' : 's') +
+    ', ' + fmtTime(steps.reduce((a, s) => a + s.actual_s, 0)) + ' of work.');
+  renderHistory(); renderSummary();
+}
+
+function histCoreHTML(s) {
+  const steps = Array.isArray(s.steps) ? s.steps : [];
+  const total = steps.reduce((a, x) => a + (x.actual_s || 0), 0);
+  const summary = esc(s.routine_name || 'Core') + ' · ' + steps.length +
+    ' round' + (steps.length === 1 ? '' : 's') + ' · ' + fmtTime(total);
+  const detail = '<div class="dsub">Rounds</div><div class="dtbl-wrap"><table class="dtbl">' +
+    '<thead><tr><th>#</th><th>Exercise</th><th>Target</th><th>Actual</th><th>Diff</th></tr></thead><tbody>' +
+    steps.map((x, i) => {
+      const d = (x.actual_s != null && x.target_s) ? x.actual_s - x.target_s : null;
+      return '<tr><td>' + (i + 1) + '</td><td>' + esc(x.name) + '</td>' +
+        '<td>' + (x.target_s ? x.target_s + 's' : '<span class="na">–</span>') + '</td>' +
+        '<td>' + (x.actual_s != null ? x.actual_s + 's' : '<span class="na">–</span>') + '</td>' +
+        '<td>' + (d === null ? '<span class="na">–</span>'
+          : '<span class="delta ' + (d >= 0 ? 'up' : 'down') + '">' + (d >= 0 ? '+' : '') + d + 's</span>') +
+        '</td></tr>';
+    }).join('') + '</tbody></table></div>' +
+    (s.notes ? '<div class="dnote">' + esc(s.notes) + '</div>' : '');
+  return entryHTML(s, 'core', 'core', summary, detail, 'c');
+}
+
 /* ================= summary ================= */
 function weeklyStats() {
   const weeks = {};
@@ -524,12 +839,19 @@ function renderSummary() {
     const e = ergWeeks[w] = ergWeeks[w] || { n: 0, meters: 0, time: 0 };
     e.n++; e.meters += s.distance_m || 0; e.time += s.total_time_s || 0;
   });
-  const keys = [...new Set([...Object.keys(weeks), ...Object.keys(ergWeeks)])].sort().reverse();
+  const coreWeeks = {};
+  S.coreSessions.forEach(s => {
+    const w = mondayOf(s.date);
+    const c = coreWeeks[w] = coreWeeks[w] || { n: 0, rounds: 0, time: 0 };
+    c.n++;
+    (Array.isArray(s.steps) ? s.steps : []).forEach(x => { c.rounds++; c.time += x.actual_s || 0; });
+  });
+  const keys = [...new Set([...Object.keys(weeks), ...Object.keys(ergWeeks), ...Object.keys(coreWeeks)])].sort().reverse();
   if (!keys.length) { el.innerHTML = '<p class="empty">Nothing to summarise yet - log a session first.</p>'; return; }
 
   el.innerHTML = keys.map((w, wi) => {
     const wk = weeks[w], prevKey = keys.slice(wi + 1).find(k => weeks[k]), prev = prevKey ? weeks[prevKey] : null;
-    const eg = ergWeeks[w];
+    const eg = ergWeeks[w], cw = coreWeeks[w];
     const sunday = new Date(w + 'T12:00:00'); sunday.setDate(sunday.getDate() + 6);
     const sunISO = sunday.getFullYear() + '-' + pad(sunday.getMonth() + 1) + '-' + pad(sunday.getDate());
 
@@ -539,6 +861,11 @@ function renderSummary() {
         '<span><b>' + eg.n + '</b>sessions</span>' +
         (eg.meters ? '<span><b>' + (eg.meters >= 10000 ? (eg.meters / 1000).toFixed(1) + 'k' : eg.meters) + '</b>m</span>' : '') +
         (eg.time ? '<span><b>' + fmtTime(eg.time) + '</b></span>' : '') + '</div></div>';
+    }
+    if (cw) {
+      body += '<div class="patlabel">Core</div><div class="srow"><div class="sname">Core work</div><div class="sstats">' +
+        '<span><b>' + cw.n + '</b>sessions</span><span><b>' + cw.rounds + '</b>rounds</span>' +
+        '<span><b>' + fmtTime(cw.time) + '</b></span></div></div>';
     }
     if (wk) {
       const ids = Object.keys(wk.ex).sort((a, b) => patIdx(patternOf(a)) - patIdx(patternOf(b)) || exName(a).localeCompare(exName(b)));
@@ -562,7 +889,8 @@ function renderSummary() {
         }).join('')).join('');
     }
     return '<div class="sumweek"><h4>' + shortDate(w) + ' - ' + shortDate(sunISO) + '</h4>' +
-      '<div class="meta">' + (wk ? wk.n + ' weights' : '0 weights') + (eg ? ' · ' + eg.n + ' erg' : '') + '</div>' + body + '</div>';
+      '<div class="meta">' + (wk ? wk.n + ' weights' : '0 weights') +
+      (eg ? ' · ' + eg.n + ' erg' : '') + (cw ? ' · ' + cw.n + ' core' : '') + '</div>' + body + '</div>';
   }).join('') +
   '<footer class="footer" style="margin-top:1rem"><span>Averages are per set across the week. ×n = sessions the exercise appeared in; the arrow compares average weight with the previous logged week.</span></footer>';
 }
@@ -573,6 +901,7 @@ function renderHistory() {
   const all = [
     ...S.workouts.map(r => ({ kind: 'w', r })),
     ...S.ergs.map(r => ({ kind: 'e', r })),
+    ...S.coreSessions.map(r => ({ kind: 'c', r })),
   ];
   if (!all.length) { el.innerHTML = '<p class="empty">No sessions logged yet.</p>'; return; }
 
@@ -582,7 +911,8 @@ function renderHistory() {
   el.innerHTML = Object.keys(weeks).sort().reverse().map(w => {
     const items = weeks[w].sort((a, b) => sortKey(b.r).localeCompare(sortKey(a.r)));
     return '<div class="weekgroup"><h4>Week of ' + prettyDate(w) + ' - ' + items.length + ' session' + (items.length > 1 ? 's' : '') + '</h4>' +
-      items.map(x => x.kind === 'w' ? histWorkoutHTML(x.r) : histErgHTML(x.r)).join('') + '</div>';
+      items.map(x => x.kind === 'w' ? histWorkoutHTML(x.r)
+                   : x.kind === 'c' ? histCoreHTML(x.r) : histErgHTML(x.r)).join('') + '</div>';
   }).join('');
 }
 const kg = n => Math.round(n).toLocaleString('en-GB');
@@ -605,8 +935,9 @@ function workoutTotals(s) {
 }
 
 // Collapsed by default: a scannable line per session, full detail on click.
-function entryHTML(s, isErg, kindLabel, summary, detail) {
-  return '<div class="entry' + (isErg ? ' erg' : '') + '">' +
+// delKey must match the table the session lives in - 'w', 'erg' or 'c'.
+function entryHTML(s, cls, kindLabel, summary, detail, delKey) {
+  return '<div class="entry' + (cls ? ' ' + cls : '') + '">' +
     '<button class="entry-toggle" aria-expanded="false">' +
       '<span class="chev" aria-hidden="true">▸</span>' +
       '<span class="entry-main">' +
@@ -617,7 +948,7 @@ function entryHTML(s, isErg, kindLabel, summary, detail) {
       '<span class="entry-kind">' + kindLabel + '</span>' +
     '</button>' +
     '<div class="entry-detail" hidden>' + detail +
-      '<button class="del" data-del-' + (isErg ? 'erg' : 'w') + '="' + s.id + '">Delete this session</button>' +
+      '<button class="del" data-del-' + delKey + '="' + s.id + '">Delete this session</button>' +
     '</div></div>';
 }
 
@@ -653,7 +984,7 @@ function histWorkoutHTML(s) {
         '</span></div>').join('') + '</div>';
   }).join('') + (s.notes ? '<div class="dnote">' + esc(s.notes) + '</div>' : '');
 
-  return entryHTML(s, false, 'weights', summary, detail);
+  return entryHTML(s, '', 'weights', summary, detail, 'w');
 }
 
 function histErgHTML(s) {
@@ -686,7 +1017,7 @@ function histErgHTML(s) {
     facts.map(([k, v]) => '<dt>' + k + '</dt><dd>' + v + '</dd>').join('') + '</dl>' +
     table + (s.notes ? '<div class="dnote">' + esc(s.notes) + '</div>' : '');
 
-  return entryHTML(s, true, 'erg', ergSummaryLine(s) || 'Erg session', detail);
+  return entryHTML(s, 'erg', 'erg', ergSummaryLine(s) || 'Erg session', detail, 'erg');
 }
 
 /* ================= library ================= */
@@ -866,11 +1197,19 @@ document.addEventListener('click', async e => {
   }
   if (e.target.classList.contains('ex-close')) { removeExercise(e.target.closest('.ex').dataset.id); return; }
   if (e.target.classList.contains('addset')) {
+    // .addset is shared styling, so route the other users of it first
     if (e.target.id === 'eg-addiv') {
       $('eg-ivs').insertAdjacentHTML('beforeend', ergIvRowHTML($('eg-ivs').children.length, {}));
       return;
     }
+    if (e.target.id === 'cr-add') {
+      syncBuilderFromDOM();
+      editingRoutine.steps.push({ name: '', target_s: 60 });
+      renderBuilder();
+      return;
+    }
     const card = e.target.closest('.ex');
+    if (!card) return;
     const rowsEl = card.querySelector('.rows');
     rowsEl.insertAdjacentHTML('beforeend',
       setRowHTML(rowsEl.children.length, '', '', card.dataset.bw === 'true', card.dataset.timeonly === 'true'));
@@ -895,6 +1234,33 @@ document.addEventListener('click', async e => {
     if (!error) { S.workouts = S.workouts.filter(s => s.id !== dw.dataset.delW); renderHistory(); renderSummary(); refreshWeekCount(); }
     return;
   }
+  const dc = e.target.closest('[data-del-c]');
+  if (dc) {
+    const { error } = await sb.from('tracker_core_sessions').delete().eq('id', dc.dataset.delC);
+    if (!error) { S.coreSessions = S.coreSessions.filter(s => s.id !== dc.dataset.delC); renderHistory(); renderSummary(); refreshWeekCount(); }
+    return;
+  }
+  // ---- core routine builder ----
+  const cUp = e.target.closest('[data-cup]'), cDn = e.target.closest('[data-cdown]'),
+        cDup = e.target.closest('[data-cdup]'), cRm = e.target.closest('[data-crm]');
+  if (cUp || cDn || cDup || cRm) {
+    syncBuilderFromDOM();
+    const st = editingRoutine.steps;
+    if (cUp) { const i = +cUp.dataset.cup; if (i > 0) st.splice(i - 1, 0, st.splice(i, 1)[0]); }
+    if (cDn) { const i = +cDn.dataset.cdown; if (i < st.length - 1) st.splice(i + 1, 0, st.splice(i, 1)[0]); }
+    if (cDup) { const i = +cDup.dataset.cdup; st.splice(i + 1, 0, { ...st[i] }); }
+    if (cRm) { st.splice(+cRm.dataset.crm, 1); }
+    renderBuilder();
+    return;
+  }
+  if (e.target.id === 'cr-save') { saveRoutine(); return; }
+  if (e.target.id === 'cr-cancel') { editingRoutine = null; renderCoreTab(); return; }
+  if (e.target.id === 'cr-del') { deleteRoutine(editingRoutine.id); return; }
+  // ---- timer ----
+  if (e.target.id === 'tm-go') { RUN.running ? pauseTimer() : startTimer(); return; }
+  if (e.target.id === 'tm-next') { nextStep(false); return; }
+  if (e.target.id === 'tm-reset') { stopTimer(); loadRun(RUN.routineId); return; }
+  if (e.target.id === 'core-save') { saveCoreSession(); return; }
   const de = e.target.closest('[data-del-erg]');
   if (de) {
     const { error } = await sb.from('tracker_erg_sessions').delete().eq('id', de.dataset.delErg);
@@ -924,7 +1290,9 @@ document.addEventListener('click', async e => {
 
   $('whoami').textContent = (S.profile && S.profile.display_name) || session.user.email || '';
   $('log-date').value = todayISO();
-  renderLog(); renderErgGate(); renderErgRecent(); renderSummary(); renderHistory(); renderLibrary();
+  $('core-date').value = todayISO();
+  renderLog(); renderErgGate(); renderErgRecent(); renderCoreTab();
+  renderSummary(); renderHistory(); renderLibrary();
 
   $('app-loading').style.display = 'none';
   $('app').style.display = '';
@@ -945,6 +1313,20 @@ document.addEventListener('click', async e => {
   $('erg-photo-btn').onclick = () => $('erg-file').click();
   $('erg-file').onchange = () => { if ($('erg-file').files[0]) { handleErgPhoto($('erg-file').files[0]); $('erg-file').value = ''; } };
   $('erg-manual-btn').onclick = () => openErgForm(null, 'manual');
+
+  $('core-pick').onchange = () => loadRun($('core-pick').value);
+  $('core-new').onclick = () => { editingRoutine = { id: null, name: '', steps: [{ name: '', target_s: 60 }] }; renderCoreTab(); };
+  $('core-edit').onclick = () => {
+    const r = routineById($('core-pick').value);
+    if (!r) return;
+    editingRoutine = { id: r.id, name: r.name, steps: stepsOf(r).map(s => ({ ...s })) };
+    renderCoreTab();
+  };
+  // A running timer must not survive leaving the tab, or it keeps counting and
+  // holding the wake lock against a circuit the athlete has walked away from.
+  document.querySelectorAll('.tabs .tab').forEach(t => t.addEventListener('click', () => {
+    if (t.dataset.panel !== 'p-core' && RUN.running) pauseTimer();
+  }));
 
   $('lx-save').onclick = saveLibExercise;
   $('lx-cancel').onclick = () => fillLibForm(null);
