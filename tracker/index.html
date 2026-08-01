@@ -113,6 +113,7 @@
   .lib-checks{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:13px;color:var(--text2)}
   .lib-checks label{display:flex;gap:6px;align-items:center;cursor:pointer}
   .lib-checks input{accent-color:var(--red)}
+  .fhint{font-size:11.5px;color:var(--text3);margin-top:4px;line-height:1.5}
   .lib-item{display:flex;justify-content:space-between;align-items:center;gap:10px;
     border-bottom:1px solid var(--border);padding:8px 2px}
   .lib-item .nm{font-weight:600;font-size:14px}
@@ -247,7 +248,8 @@
       <h3 id="lib-form-title">Add an exercise</h3>
       <div class="fgrid">
         <div style="grid-column:1/-1"><label>Name</label><input type="text" id="lx-name" placeholder="e.g. Back Squat"></div>
-        <div><label>Session group</label><input type="text" id="lx-session_group" list="session_group-list" placeholder="e.g. Session 1"><datalist id="session_group-list"></datalist></div>
+        <div><label>Session group(s)</label><input type="text" id="lx-session_group" list="session_group-list" placeholder="Session 1, Session 2"><datalist id="session_group-list"></datalist>
+          <div class="fhint">Separate with commas to put one exercise in several sessions.</div></div>
         <div><label>Type</label><select id="lx-pattern">
           <option value="squat">Squat</option><option value="pull">Pull</option><option value="hinge">Hinge</option>
           <option value="push">Push</option><option value="core">Core</option><option value="arms">Arms</option>

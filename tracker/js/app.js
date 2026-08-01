@@ -32,6 +32,26 @@ function mondayOf(iso) {
 const prettyDate = iso => new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 const shortDate = iso => new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
+// An exercise can sit in several sessions while staying ONE exercise with one
+// id, so its history, last-time prefill and bests are never split. Tolerates
+// rows written before session_groups became an array.
+const groupsOf = e => {
+  const g = e && e.session_groups;
+  if (Array.isArray(g)) return g.filter(Boolean);
+  return g ? [g] : ['Session 1'];
+};
+// Preserves first-seen order rather than sorting, so the athlete's own ordering
+// of their sessions survives.
+const allGroups = lib => {
+  const out = [];
+  lib.forEach(e => groupsOf(e).forEach(g => { if (!out.includes(g)) out.push(g); }));
+  return out;
+};
+const parseGroups = str => {
+  const list = String(str || '').split(',').map(s => s.trim().slice(0, 40)).filter(Boolean);
+  return list.length ? [...new Set(list)] : ['Session 1'];
+};
+
 const exById = id => S.exercises.find(e => e.id === id) || null;
 const exName = id => { const e = exById(id); return e ? e.name : '(deleted exercise)'; };
 const patternOf = id => { const e = exById(id); return e ? e.pattern : 'other'; };
@@ -122,9 +142,9 @@ function renderLog(snap) {
   if (!lib.length) {
     chipsEl.innerHTML = '<p class="placeholder">No exercises yet - set up your library in the <b>Exercises</b> tab first (or upload a crewmate\'s template there).</p>';
   } else {
-    const groupings = [...new Set(lib.map(e => e.session_group))];
+    const groupings = allGroups(lib);
     chipsEl.innerHTML = groupings.map(g => {
-      const inG = lib.filter(e => e.session_group === g);
+      const inG = lib.filter(e => groupsOf(e).includes(g));
       const pats = [...new Set(inG.map(e => e.pattern))].sort((a, b) => patIdx(a) - patIdx(b));
       return '<div class="picker-session">' + esc(g) + '</div>' +
         pats.map(p => '<div class="picker-row"><span class="rowlab">' + esc(p) + '</span><div class="chips">' +
@@ -193,7 +213,7 @@ function addExercise(exId, scroll, rows) {
   secBody.insertAdjacentHTML('beforeend',
     '<div class="ex" data-id="' + exId + '" data-timeonly="' + timeOnly + '" data-bw="' + !!m.bodyweight + '">' +
       '<div class="ex-head"><div><span class="ex-name">' + esc(m.name) + '</span>' +
-        '<div class="ex-note"><span class="src">' + esc(m.session_group) + '</span>' + (m.note ? ' · ' + esc(m.note) : '') + '</div></div>' +
+        '<div class="ex-note"><span class="src">' + esc(groupsOf(m).join(' · ')) + '</span>' + (m.note ? ' · ' + esc(m.note) : '') + '</div></div>' +
         '<button class="ghostx ex-close" title="Remove">×</button></div>' +
       '<div class="lastline' + (prev ? '' : ' none') + '">' +
         (prev ? 'Last (' + (prev.date === currentDate() ? 'earlier today' : prettyDate(prev.date)) + '): ' + setsToText(prev.sets[exId], m.unit)
@@ -674,22 +694,26 @@ let editingExId = null;
 
 function renderLibrary() {
   const lib = activeLibrary();
-  $('session_group-list').innerHTML = [...new Set(lib.map(e => e.session_group))].map(g => '<option value="' + esc(g) + '">').join('');
+  $('session_group-list').innerHTML = allGroups(lib).map(g => '<option value="' + esc(g) + '">').join('');
 
   const el = $('lib-list');
   if (!lib.length) {
     el.innerHTML = '<p class="placeholder">Your library is empty. Add your exercises above - name, which session they belong to, and the movement type - or upload a template below. The Weights tab builds itself from this list.</p>';
     return;
   }
-  const groupings = [...new Set(lib.map(e => e.session_group))];
+  const groupings = allGroups(lib);
   el.innerHTML = groupings.map(g =>
     '<div class="picker-session">' + esc(g) + '</div>' +
-    lib.filter(e => e.session_group === g)
+    lib.filter(e => groupsOf(e).includes(g))
       .sort((a, b) => patIdx(a.pattern) - patIdx(b.pattern) || a.position - b.position)
       .map(e =>
         '<div class="lib-item"><div><div class="nm">' + esc(e.name) + '</div>' +
         '<div class="meta">' + esc(e.pattern) + (e.unit === 'secs' ? ' · secs' : '') +
         (e.per_side ? ' · each side' : '') + (e.bodyweight ? ' · BW' : '') +
+        // it's the same exercise, listed here and elsewhere - say so, or the
+        // repeat looks like an accidental duplicate
+        (groupsOf(e).length > 1
+          ? ' · also in ' + esc(groupsOf(e).filter(x => x !== g).join(', ')) : '') +
         (e.note ? ' · ' + esc(e.note) : '') + '</div></div>' +
         '<div class="ops"><button class="ghost" data-edit="' + e.id + '" title="Edit" style="font-size:13px">✎</button>' +
         '<button class="ghost" data-del-ex="' + e.id + '" title="Delete">×</button></div></div>'
@@ -699,7 +723,7 @@ function renderLibrary() {
 
 function fillLibForm(e) {
   $('lx-name').value = e ? e.name : '';
-  $('lx-session_group').value = e ? e.session_group : ($('lx-session_group').value || '');
+  $('lx-session_group').value = e ? groupsOf(e).join(', ') : ($('lx-session_group').value || '');
   $('lx-pattern').value = e ? e.pattern : 'squat';
   $('lx-unit').value = e ? e.unit : 'reps';
   $('lx-note').value = e ? (e.note || '') : '';
@@ -714,10 +738,10 @@ function fillLibForm(e) {
 async function saveLibExercise() {
   const snap = snapshotLog();
   const name = $('lx-name').value.trim();
-  const session_group = $('lx-session_group').value.trim() || 'Session 1';
+  const session_groups = parseGroups($('lx-session_group').value);
   if (!name) { toast('lib-msg', 'Give it a name.', 'warn'); return; }
   const row = {
-    name, session_group,
+    name, session_groups,
     pattern: $('lx-pattern').value,
     unit: $('lx-unit').value,
     per_side: $('lx-perside').checked,
@@ -729,8 +753,15 @@ async function saveLibExercise() {
     ({ error } = await sb.from('tracker_exercises').update(row).eq('id', editingExId));
     if (!error) Object.assign(exById(editingExId), row);
   } else {
-    const dup = activeLibrary().find(e => e.name.toLowerCase() === name.toLowerCase() && e.session_group.toLowerCase() === session_group.toLowerCase());
-    if (dup) { toast('lib-msg', 'That exercise already exists in ' + esc(session_group) + '.', 'warn'); return; }
+    // One name = one exercise now. To put an existing lift in another session,
+    // edit it and add the group, rather than creating a second row that would
+    // split its history.
+    const dup = activeLibrary().find(e => e.name.toLowerCase() === name.toLowerCase());
+    if (dup) {
+      toast('lib-msg', esc(name) + ' is already in your library (' + esc(groupsOf(dup).join(', ')) +
+        '). Edit it to add another session rather than adding it twice.', 'warn');
+      return;
+    }
     row.profile_id = S.session.user.id;
     row.position = Math.max(0, ...S.exercises.map(e => e.position)) + 1;
     const res = await sb.from('tracker_exercises').insert(row).select().single();
@@ -762,7 +793,7 @@ async function deleteLibExercise(id) {
 /* ---- templates ---- */
 function downloadTemplate() {
   const lib = activeLibrary().map(e => ({
-    name: e.name, session_group: e.session_group, pattern: e.pattern, unit: e.unit,
+    name: e.name, session_groups: groupsOf(e), pattern: e.pattern, unit: e.unit,
     per_side: e.per_side, bodyweight: e.bodyweight, note: e.note, position: e.position,
   }));
   const payload = { app: 'rowingtools-tracker', kind: 'exercise-template', version: 1, exported: todayISO(), exercises: lib };
@@ -783,15 +814,17 @@ async function uploadTemplate(file) {
   if (!payload || payload.kind !== 'exercise-template' || !Array.isArray(payload.exercises)) {
     toast('lib-msg', 'That does not look like a RowingTools template file.', 'err'); return;
   }
-  const existing = new Set(activeLibrary().map(e => (e.name + '|' + e.session_group).toLowerCase()));
+  const existing = new Set(activeLibrary().map(e => e.name.trim().toLowerCase()));
   const posBase = Math.max(0, ...S.exercises.map(e => e.position)) + 1;
   const fresh = payload.exercises
     .filter(e => e && typeof e.name === 'string' && e.name.trim())
-    .filter(e => !existing.has((e.name + '|' + (e.session_group || 'Session 1')).toLowerCase()))
+    .filter(e => !existing.has(e.name.trim().toLowerCase()))
     .map((e, i) => ({
       profile_id: S.session.user.id,
       name: e.name.trim().slice(0, 80),
-      session_group: (e.session_group || 'Session 1').trim().slice(0, 40),
+      // accepts both shapes so an older exported template still imports
+      session_groups: parseGroups(
+        Array.isArray(e.session_groups) ? e.session_groups.join(',') : (e.session_groups || e.session_group)),
       pattern: PATTERN_ORDER.includes(e.pattern) ? e.pattern : 'other',
       unit: e.unit === 'secs' ? 'secs' : 'reps',
       per_side: !!e.per_side,
