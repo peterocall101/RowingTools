@@ -82,6 +82,12 @@
   .erg-actions button{flex:1;min-width:180px;height:60px;font-size:14px;font-weight:700}
   .erg-actions .photo-btn{background:var(--red);border-color:var(--red);color:#fff}
   .erg-actions .photo-btn:hover{background:var(--red-ink);border-color:var(--red-ink)}
+  .erg-actions button:disabled{opacity:.45;cursor:not-allowed}
+  .erg-actions .photo-btn:disabled:hover{background:var(--red);border-color:var(--red)}
+  .gate{border:1px solid var(--border2);border-left:3px solid var(--chalk,#fbbf24);padding:12px 14px;
+    margin-bottom:18px;display:flex;flex-direction:column;gap:5px}
+  .gate b{font-size:14px}
+  .gate span{font-size:13px;color:var(--text2);line-height:1.6}
   .erg-form{background:var(--bg2);border:1px solid var(--border);padding:14px;margin-bottom:18px}
   .erg-form h3{font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin:0 0 4px}
   .erg-form .hint{font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:12px}
@@ -132,11 +138,45 @@
   .weekgroup{margin-bottom:22px}
   .weekgroup h4{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);
     border-bottom:1px solid var(--border2);padding-bottom:5px;margin:0 0 10px;font-weight:500}
-  .entry{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--text);padding:10px 12px;margin-bottom:8px}
+  .entry{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--text);margin-bottom:8px}
   .entry.erg{border-left-color:var(--c-wbt)}
-  .entry-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-  .entry-head strong{font-size:14.5px;letter-spacing:.02em;text-transform:uppercase;font-weight:700}
+  .entry-toggle{display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;background:none;
+    border:none;border-radius:0;padding:10px 12px;height:auto;font-weight:400;color:var(--text)}
+  .entry-toggle:hover{background:var(--bg3);border:none}
+  .entry-toggle .chev{font-size:11px;color:var(--text3);transition:transform .15s;flex-shrink:0}
+  .entry-toggle[aria-expanded="true"] .chev{transform:rotate(90deg)}
+  .entry-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .entry-when{font-size:14.5px;letter-spacing:.02em;text-transform:uppercase;font-weight:700}
+  .entry-time{font-family:var(--mono);font-size:11px;color:var(--text3);font-weight:400;text-transform:none}
+  .entry-sum{font-family:var(--mono);font-size:12px;color:var(--text2)}
+  .entry-kind{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--text3);flex-shrink:0}
+  .entry-detail{padding:2px 12px 12px;border-top:1px solid var(--border)}
   .entry-date{font-family:var(--mono);font-size:11px;color:var(--text3)}
+  /* expanded detail */
+  .dex{padding:10px 0;border-bottom:1px solid var(--border)}
+  .dex:last-of-type{border-bottom:none}
+  .dex-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:5px}
+  .dex-name{font-weight:600;font-size:14px}
+  .dex-tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)}
+  .dex-stats{font-family:var(--mono);font-size:11px;color:var(--text3)}
+  .dset{display:flex;gap:10px;font-family:var(--mono);font-size:12.5px;color:var(--text2);padding:2px 0}
+  .dset-no{color:var(--text3);min-width:14px}
+  .dnote{font-size:12.5px;color:var(--text3);padding:10px 0 0;line-height:1.6}
+  .dsub{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--text3);margin:12px 0 6px}
+  .dfacts{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;margin:10px 0 0;font-size:13px}
+  .dfacts dt{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--text3);padding-top:2px}
+  .dfacts dd{margin:0;font-variant-numeric:tabular-nums}
+  .dtbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .dtbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+  .dtbl th{text-align:left;padding:4px 10px 4px 0;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--text3);font-weight:500;border-bottom:1px solid var(--border2);white-space:nowrap}
+  .dtbl td{padding:4px 10px 4px 0;border-bottom:1px solid var(--border);white-space:nowrap;
+    font-variant-numeric:tabular-nums}
+  .dtbl tr:last-child td{border-bottom:none}
+  .dtbl .na{color:var(--text3)}
   .entry table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
   .entry td{padding:3px 0;vertical-align:top}
   .entry td.sets{font-family:var(--mono);text-align:right;color:var(--text2);white-space:nowrap}
@@ -190,6 +230,7 @@
       <button id="erg-manual-btn">Enter manually</button>
       <input type="file" id="erg-file" accept="image/*" style="display:none">
     </div>
+    <div id="erg-gate"></div>
     <div id="erg-parse-status"></div>
     <div id="erg-form-holder"></div>
     <div id="erg-recent"></div>

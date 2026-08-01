@@ -82,11 +82,59 @@ create table public.tracker_erg_sessions (
 create index tracker_erg_profile_date_idx on public.tracker_erg_sessions (profile_id, date desc);
 
 -- ----------------------------------------------------------------
+-- Plan / entitlement
+-- ----------------------------------------------------------------
+-- Everything in the tracker is free and unlimited EXCEPT reading erg photos,
+-- which spends real money on the owner's Anthropic key. These two columns are
+-- the whole entitlement model until Stripe exists; the Edge Function is the
+-- only thing that enforces them, so a user editing their own profile row
+-- cannot grant themselves access (see the RLS note below).
+alter table public.profiles
+  add column if not exists tracker_plan text not null default 'free'
+    check (tracker_plan in ('free', 'trial', 'paid')),
+  add column if not exists tracker_trial_ends_at timestamptz;
+
+-- CRITICAL: the dashboard's "update own profile" RLS policy lets a user write
+-- their own profile row, which would let anyone set tracker_plan = 'paid' with
+-- one REST call. RLS cannot express "all columns except these two", so drop the
+-- blanket table-level UPDATE and grant it back column by column. Only the
+-- service role (used by the Edge Function and, later, the Stripe webhook) can
+-- write the plan columns. Add any future user-writable profile column here.
+revoke update on public.profiles from authenticated;
+grant  update (display_name, email, terms_accepted_at) on public.profiles to authenticated;
+
+-- ----------------------------------------------------------------
+-- Erg photo parse log - quota enforcement + cost visibility
+-- ----------------------------------------------------------------
+-- One row per call to the parse-erg Edge Function. Written by the function
+-- using the service role, so a user cannot tamper with their own quota.
+-- Rows are kept even when the parse fails, because a failed call still costs
+-- money. Purge anything older than the longest quota window if it ever grows.
+create table public.tracker_erg_parses (
+  id            uuid        primary key default gen_random_uuid(),
+  profile_id    uuid        not null references public.profiles on delete cascade,
+  created_at    timestamptz not null default now(),
+  model         text,
+  input_tokens  int,
+  output_tokens int,
+  ok            boolean     not null default true
+);
+create index tracker_erg_parses_profile_time_idx
+  on public.tracker_erg_parses (profile_id, created_at desc);
+
+-- ----------------------------------------------------------------
 -- RLS - owner-only on everything
 -- ----------------------------------------------------------------
 alter table public.tracker_exercises    enable row level security;
 alter table public.tracker_workouts     enable row level security;
 alter table public.tracker_erg_sessions enable row level security;
+alter table public.tracker_erg_parses   enable row level security;
+
+-- Read-only to the owner (so the UI can show "12 of 20 photos left today").
+-- No insert/update/delete policy at all: only the service role writes here,
+-- which is what stops a user from clearing their own quota.
+create policy "read own parse log" on public.tracker_erg_parses
+  for select using (profile_id = auth.uid());
 
 create policy "own exercises" on public.tracker_exercises
   for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());

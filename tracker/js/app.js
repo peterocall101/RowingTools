@@ -72,7 +72,7 @@ function track(event, params) { if (typeof gtag === 'function') gtag('event', ev
 async function loadAll() {
   const uid = S.session.user.id;
   const [prof, ex, wk, erg] = await Promise.all([
-    sb.from('profiles').select('*').eq('id', uid).single(),
+    sb.from('profiles').select('*').eq('id', uid).single(),   // carries tracker_plan
     sb.from('tracker_exercises').select('*').order('position').order('created_at'),
     sb.from('tracker_workouts').select('*').order('date', { ascending: false }).limit(1000),
     sb.from('tracker_erg_sessions').select('*').order('date', { ascending: false }).limit(1000),
@@ -385,6 +385,33 @@ function renderErgRecent() {
       '<button class="del" data-del-erg="' + s.id + '">Delete</button></div>').join('');
 }
 
+/* ---- entitlement: photo reading is the one paid feature ---- */
+// The server decides this too - this is only so free users see an honest
+// message up front instead of uploading a photo and being refused.
+function canReadPhotos() {
+  const p = S.profile || {};
+  if (p.tracker_plan === 'paid') return true;
+  return p.tracker_plan === 'trial' && p.tracker_trial_ends_at
+    && new Date(p.tracker_trial_ends_at) > new Date();
+}
+
+function renderErgGate() {
+  const wrap = $('erg-gate');
+  if (!wrap) return;
+  if (canReadPhotos()) {
+    $('erg-photo-btn').disabled = false;
+    $('erg-photo-btn').title = '';
+    wrap.innerHTML = '';
+    return;
+  }
+  $('erg-photo-btn').disabled = true;
+  $('erg-photo-btn').title = 'Part of the £5/month plan';
+  wrap.innerHTML =
+    '<div class="gate"><b>Reading erg photos is part of the £5/month plan.</b>' +
+    '<span>Logging weights and typing erg sessions in by hand is free, and always unlimited. ' +
+    'The photo reader turns a picture of the monitor into a full session, splits and all.</span></div>';
+}
+
 /* ---- photo capture -> Edge Function ---- */
 function downscale(file) {
   return new Promise((resolve, reject) => {
@@ -430,10 +457,16 @@ async function handleErgPhoto(file) {
     body: JSON.stringify({ image: b64, media_type: 'image/jpeg' }),
   });
   if (!resp.ok) {
-    const t = await resp.text();
-    toast('erg-parse-status', 'Photo parse failed (' + resp.status + '). ' + esc(t.slice(0, 200)) +
-      ' - you can still enter the session manually.', 'err');
-    track('erg_photo_failed', { status: resp.status });
+    let msg = '', reason = '';
+    try { const j = await resp.json(); msg = j.error || ''; reason = j.reason || ''; }
+    catch (e) { msg = 'Something went wrong reading the photo.'; }
+    // 402 = not on the plan, 429 = over quota. Both are expected states with a
+    // useful message, not crashes, so don't dress them up as errors.
+    const kind = (resp.status === 402 || resp.status === 429) ? 'warn' : 'err';
+    toast('erg-parse-status', esc(msg) +
+      (kind === 'err' ? ' You can still enter the session by hand.' : ''), kind);
+    track('erg_photo_failed', { status: resp.status, reason });
+    if (resp.status === 402) renderErgGate();
     return;
   }
   const out = await resp.json();
@@ -532,26 +565,108 @@ function renderHistory() {
       items.map(x => x.kind === 'w' ? histWorkoutHTML(x.r) : histErgHTML(x.r)).join('') + '</div>';
   }).join('');
 }
+const kg = n => Math.round(n).toLocaleString('en-GB');
+
+// Reps and volume ignore timed holds and unweighted sets, so a plank or a
+// bodyweight press-up can't distort a session's tonnage.
+function workoutTotals(s) {
+  let sets = 0, reps = 0, volume = 0, weighted = false;
+  Object.keys(s.sets).forEach(id => {
+    const timeOnly = (exById(id) || {}).unit === 'secs';
+    s.sets[id].forEach(r => {
+      sets++;
+      if (timeOnly) return;
+      const rv = parseFloat(r.r), wv = parseFloat(r.w);
+      if (!isNaN(rv)) reps += rv;
+      if (!isNaN(rv) && !isNaN(wv)) { volume += rv * wv; weighted = true; }
+    });
+  });
+  return { sets, reps, volume, weighted, exercises: Object.keys(s.sets).length };
+}
+
+// Collapsed by default: a scannable line per session, full detail on click.
+function entryHTML(s, isErg, kindLabel, summary, detail) {
+  return '<div class="entry' + (isErg ? ' erg' : '') + '">' +
+    '<button class="entry-toggle" aria-expanded="false">' +
+      '<span class="chev" aria-hidden="true">▸</span>' +
+      '<span class="entry-main">' +
+        '<span class="entry-when">' + prettyDate(s.date) +
+          (s.at ? ' <span class="entry-time">' + esc(s.at) + '</span>' : '') + '</span>' +
+        '<span class="entry-sum">' + summary + '</span>' +
+      '</span>' +
+      '<span class="entry-kind">' + kindLabel + '</span>' +
+    '</button>' +
+    '<div class="entry-detail" hidden>' + detail +
+      '<button class="del" data-del-' + (isErg ? 'erg' : 'w') + '="' + s.id + '">Delete this session</button>' +
+    '</div></div>';
+}
+
 function histWorkoutHTML(s) {
   const ids = Object.keys(s.sets).sort((a, b) => patIdx(patternOf(a)) - patIdx(patternOf(b)));
-  return '<div class="entry"><div class="entry-head"><strong>' + prettyDate(s.date) +
-    (s.at ? ' <span class="entry-date">' + s.at + '</span>' : '') + '</strong>' +
-    '<span class="entry-date">weights · ' + ids.length + ' exercises</span></div><table>' +
-    ids.map(id => { const m = exById(id) || {}; return '<tr><td>' + esc(exName(id)) + '</td><td class="sets">' +
-      setsToText(s.sets[id], m.unit) + '</td></tr>'; }).join('') +
-    '</table><button class="del" data-del-w="' + s.id + '">Delete</button></div>';
+  const t = workoutTotals(s);
+  const summary = t.exercises + ' exercise' + (t.exercises === 1 ? '' : 's') + ' · ' +
+    t.sets + ' set' + (t.sets === 1 ? '' : 's') +
+    (t.weighted ? ' · ' + kg(t.volume) + ' kg' : '');
+
+  const detail = ids.map(id => {
+    const m = exById(id) || {};
+    const timeOnly = m.unit === 'secs';
+    const rows = s.sets[id];
+    let vol = 0, reps = 0, hasW = false;
+    rows.forEach(r => {
+      const rv = parseFloat(r.r), wv = parseFloat(r.w);
+      if (!isNaN(rv)) reps += rv;
+      if (!isNaN(rv) && !isNaN(wv)) { vol += rv * wv; hasW = true; }
+    });
+    return '<div class="dex"><div class="dex-head">' +
+      '<span class="dex-name">' + esc(exName(id)) + (m.retired ? ' <span class="dex-tag">retired</span>' : '') + '</span>' +
+      '<span class="dex-stats">' + rows.length + (timeOnly ? ' hold' : ' set') + (rows.length === 1 ? '' : 's') +
+        (timeOnly ? '' : ' · ' + round1(reps) + ' reps' + (hasW ? ' · ' + kg(vol) + ' kg' : '')) +
+      '</span></div>' +
+      rows.map((r, i) => '<div class="dset"><span class="dset-no">' + (i + 1) + '</span><span>' +
+        (timeOnly
+          ? esc(r.r) + ' sec'
+          : esc(r.r) + (m.per_side ? ' reps each side' : ' reps') +
+            (r.w !== '' && r.w != null
+              ? (m.bodyweight ? ' + ' : ' × ') + esc(r.w) + ' kg'
+              : (m.bodyweight ? ' (bodyweight)' : ''))) +
+        '</span></div>').join('') + '</div>';
+  }).join('') + (s.notes ? '<div class="dnote">' + esc(s.notes) + '</div>' : '');
+
+  return entryHTML(s, false, 'weights', summary, detail);
 }
+
 function histErgHTML(s) {
-  return '<div class="entry erg"><div class="entry-head"><strong>' + prettyDate(s.date) +
-    (s.at ? ' <span class="entry-date">' + s.at + '</span>' : '') + '</strong>' +
-    '<span class="entry-date">erg · ' + esc(s.source) + '</span></div>' +
-    '<div class="erg-line">' + ergSummaryLine(s) + '</div>' +
-    (s.intervals && s.intervals.length ? '<div class="erg-line" style="color:var(--text3)">' +
-      s.intervals.map(iv => [iv.time_s != null ? fmtTime(iv.time_s) : null, iv.distance_m != null ? iv.distance_m + 'm' : null,
-        iv.split_s != null ? fmtTime(iv.split_s) : null, iv.rate != null ? 'r' + iv.rate : null]
-        .filter(Boolean).join('/')).join(' · ') + '</div>' : '') +
-    (s.notes ? '<div class="erg-line" style="color:var(--text3)">' + esc(s.notes) + '</div>' : '') +
-    '<button class="del" data-del-erg="' + s.id + '">Delete</button></div>';
+  const src = { photo: 'Read from a monitor photo', manual: 'Entered by hand', 'c2-logbook': 'Concept2 Logbook' };
+  const facts = [
+    s.session_type ? ['Session', esc(s.session_type)] : null,
+    s.erg_type ? ['Machine', s.erg_type === 'concept2' ? 'Concept2' : 'RowPerfect'] : null,
+    s.total_time_s != null ? ['Total time', fmtTime(s.total_time_s)] : null,
+    s.distance_m != null ? ['Distance', s.distance_m.toLocaleString('en-GB') + ' m'] : null,
+    s.avg_split_s != null ? ['Average split', fmtSplit(s.avg_split_s)] : null,
+    s.avg_rate != null ? ['Average rate', s.avg_rate + ' spm'] : null,
+    s.avg_hr != null ? ['Average HR', s.avg_hr + ' bpm'] : null,
+    ['Logged', src[s.source] || esc(s.source)],
+  ].filter(Boolean);
+
+  const iv = s.intervals || [];
+  const cell = v => v == null ? '<span class="na">–</span>' : v;
+  const table = iv.length
+    ? '<div class="dsub">Breakdown</div><div class="dtbl-wrap"><table class="dtbl">' +
+      '<thead><tr><th>#</th><th>Time</th><th>Dist</th><th>/500m</th><th>Rate</th><th>HR</th></tr></thead><tbody>' +
+      iv.map((r, i) => '<tr><td>' + (i + 1) + '</td>' +
+        '<td>' + cell(r.time_s != null ? fmtTime(r.time_s) : null) + '</td>' +
+        '<td>' + cell(r.distance_m != null ? r.distance_m + ' m' : null) + '</td>' +
+        '<td>' + cell(r.split_s != null ? fmtTime(r.split_s) : null) + '</td>' +
+        '<td>' + cell(r.rate) + '</td><td>' + cell(r.hr) + '</td></tr>').join('') +
+      '</tbody></table></div>'
+    : '<div class="dnote">No interval breakdown recorded for this piece.</div>';
+
+  const detail = '<dl class="dfacts">' +
+    facts.map(([k, v]) => '<dt>' + k + '</dt><dd>' + v + '</dd>').join('') + '</dl>' +
+    table + (s.notes ? '<div class="dnote">' + esc(s.notes) + '</div>' : '');
+
+  return entryHTML(s, true, 'erg', ergSummaryLine(s) || 'Erg session', detail);
 }
 
 /* ================= library ================= */
@@ -704,6 +819,13 @@ document.addEventListener('input', e => {
 });
 
 document.addEventListener('click', async e => {
+  const tog = e.target.closest('.entry-toggle');
+  if (tog) {
+    const open = tog.getAttribute('aria-expanded') === 'true';
+    tog.setAttribute('aria-expanded', String(!open));
+    tog.parentElement.querySelector('.entry-detail').hidden = open;
+    return;
+  }
   const chip = e.target.closest('[data-chip]');
   if (chip) {
     chip.getAttribute('aria-pressed') === 'true' ? removeExercise(chip.dataset.chip) : addExercise(chip.dataset.chip);
@@ -769,7 +891,7 @@ document.addEventListener('click', async e => {
 
   $('whoami').textContent = (S.profile && S.profile.display_name) || session.user.email || '';
   $('log-date').value = todayISO();
-  renderLog(); renderErgRecent(); renderSummary(); renderHistory(); renderLibrary();
+  renderLog(); renderErgGate(); renderErgRecent(); renderSummary(); renderHistory(); renderLibrary();
 
   $('app-loading').style.display = 'none';
   $('app').style.display = '';
