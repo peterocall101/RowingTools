@@ -12,7 +12,7 @@ strictly personal: every table is keyed by `profile_id` with owner-only RLS. No 
 
 | Path | What |
 |---|---|
-| `index.html` | The app - tabs: Weights / Erg / Summary / History / Exercises |
+| `index.html` | The app - tabs grouped as Record (Weights / Erg / Core), Review (Summary / History), Set up (Templates) |
 | `login.html` | Standalone signin/signup/forgot/recovery against the shared Supabase project |
 | `js/config.js` | Supabase URL + anon key + Edge Function endpoint |
 | `js/app.js` | All app logic |

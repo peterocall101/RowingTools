@@ -24,6 +24,21 @@
   .userline{font-family:var(--mono);font-size:11px;color:var(--text3);display:flex;gap:12px;align-items:baseline}
   .userline button{height:auto;padding:3px 10px;font-size:11px;font-family:var(--mono);font-weight:400}
 
+  /* grouped tabs */
+  .tabs.grouped{gap:10px 26px;align-items:flex-end}
+  .tabgrp{display:flex;flex-direction:column;gap:3px;position:relative}
+  .tabgrp+.tabgrp::before{content:"";position:absolute;left:-13px;top:15px;bottom:7px;width:1px;background:var(--border2)}
+  .tabgrp-lab{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--text3);padding:0 14px}
+  .tabgrp-tabs{display:flex}
+  .tabs.grouped .tab{padding:4px 14px 9px}
+  @media(max-width:559px){
+    .tabs.grouped{gap:10px 18px}
+    .tabgrp+.tabgrp::before{left:-9px}
+    .tabs.grouped .tab{padding:4px 10px 9px}
+    .tabgrp-lab{padding:0 10px}
+  }
+
   .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;margin-bottom:6px}
   input[type=date],input[type=time],input[type=number]{background:var(--bg);color:var(--text);
     border:1px solid var(--border2);border-radius:0;font-family:var(--mono);font-size:14px;
@@ -139,7 +154,11 @@
   .crow .ctar{font-family:var(--mono);font-size:12px;color:var(--text3);text-align:right}
   .crow input{width:100%;height:36px;font-size:14px}
   .crow.done .cname{color:var(--text2)}
-  /* library */
+  /* library / set-up sections */
+  .setup-sec{margin-bottom:38px}
+  .setup-head{font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin:0 0 4px;
+    border-bottom:2px solid var(--red-ink);padding-bottom:5px}
+  .setup-intro{font-size:12.5px;color:var(--text3);line-height:1.6;margin:0 0 14px}
   .lib-form{background:var(--bg2);border:1px solid var(--border);padding:14px;margin-bottom:20px}
   .lib-form h3{font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px}
   .lib-checks{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:13px;color:var(--text2)}
@@ -238,13 +257,28 @@
   <div id="app-loading" class="loading-app">Loading your training log&hellip;</div>
 
   <div id="app" style="display:none">
-  <nav class="tabs" role="tablist">
-    <button class="tab active" role="tab" data-panel="p-log">Weights</button>
-    <button class="tab" role="tab" data-panel="p-erg">Erg</button>
-    <button class="tab" role="tab" data-panel="p-core">Core</button>
-    <button class="tab" role="tab" data-panel="p-sum">Summary</button>
-    <button class="tab" role="tab" data-panel="p-hist">History</button>
-    <button class="tab" role="tab" data-panel="p-lib">Exercises</button>
+  <nav class="tabs grouped" role="tablist" aria-label="Tracker sections">
+    <div class="tabgrp" role="presentation">
+      <span class="tabgrp-lab" aria-hidden="true">Record</span>
+      <div class="tabgrp-tabs" role="presentation">
+        <button class="tab active" role="tab" aria-selected="true" aria-label="Record: Weights" data-panel="p-log">Weights</button>
+        <button class="tab" role="tab" aria-selected="false" aria-label="Record: Erg" data-panel="p-erg">Erg</button>
+        <button class="tab" role="tab" aria-selected="false" aria-label="Record: Core" data-panel="p-core">Core</button>
+      </div>
+    </div>
+    <div class="tabgrp" role="presentation">
+      <span class="tabgrp-lab" aria-hidden="true">Review</span>
+      <div class="tabgrp-tabs" role="presentation">
+        <button class="tab" role="tab" aria-selected="false" aria-label="Review: Summary" data-panel="p-sum">Summary</button>
+        <button class="tab" role="tab" aria-selected="false" aria-label="Review: History" data-panel="p-hist">History</button>
+      </div>
+    </div>
+    <div class="tabgrp" role="presentation">
+      <span class="tabgrp-lab" aria-hidden="true">Set up</span>
+      <div class="tabgrp-tabs" role="presentation">
+        <button class="tab" role="tab" aria-selected="false" aria-label="Set up: Templates" data-panel="p-lib">Templates</button>
+      </div>
+    </div>
   </nav>
 
   <section class="panel active" id="p-log">
@@ -275,10 +309,7 @@
     <div class="toolbar">
       <input type="date" id="core-date">
       <select id="core-pick" style="min-width:180px"></select>
-      <button id="core-edit">Edit</button>
-      <button id="core-new">New routine</button>
     </div>
-    <div id="core-builder"></div>
     <div id="core-runner"></div>
     <div id="core-msg"></div>
   </section>
@@ -290,35 +321,48 @@
   </section>
 
   <section class="panel" id="p-lib">
-    <div class="lib-form">
-      <h3 id="lib-form-title">Add an exercise</h3>
-      <div class="fgrid">
-        <div style="grid-column:1/-1"><label>Name</label><input type="text" id="lx-name" placeholder="e.g. Back Squat"></div>
-        <div><label>Session group(s)</label><input type="text" id="lx-session_group" list="session_group-list" placeholder="Session 1, Session 2"><datalist id="session_group-list"></datalist>
-          <div class="fhint">Separate with commas to put one exercise in several sessions.</div></div>
-        <div><label>Type</label><select id="lx-pattern">
-          <option value="squat">Squat</option><option value="pull">Pull</option><option value="hinge">Hinge</option>
-          <option value="push">Push</option><option value="core">Core</option><option value="arms">Arms</option>
-          <option value="shoulders">Shoulders</option><option value="legs">Legs</option><option value="other">Other</option>
-        </select></div>
-        <div><label>Measured in</label><select id="lx-unit"><option value="reps">Reps &amp; weight</option><option value="secs">Seconds (holds)</option></select></div>
+    <div class="setup-sec">
+      <h3 class="setup-head">Exercises</h3>
+      <p class="setup-intro">Your lifting library. The <b>Weights</b> tab builds its picker from this list.</p>
+      <div class="lib-form">
+        <h3 id="lib-form-title">Add an exercise</h3>
+        <div class="fgrid">
+          <div style="grid-column:1/-1"><label>Name</label><input type="text" id="lx-name" placeholder="e.g. Back Squat"></div>
+          <div><label>Session group(s)</label><input type="text" id="lx-session_group" list="session_group-list" placeholder="Session 1, Session 2"><datalist id="session_group-list"></datalist>
+            <div class="fhint">Separate with commas to put one exercise in several sessions.</div></div>
+          <div><label>Type</label><select id="lx-pattern">
+            <option value="squat">Squat</option><option value="pull">Pull</option><option value="hinge">Hinge</option>
+            <option value="push">Push</option><option value="core">Core</option><option value="arms">Arms</option>
+            <option value="shoulders">Shoulders</option><option value="legs">Legs</option><option value="other">Other</option>
+          </select></div>
+          <div><label>Measured in</label><select id="lx-unit"><option value="reps">Reps &amp; weight</option><option value="secs">Seconds (holds)</option></select></div>
+        </div>
+        <div class="fwide"><label>Cue / note (optional)</label><input type="text" id="lx-note" placeholder="e.g. Chest tall, knees out"></div>
+        <div class="lib-checks">
+          <label><input type="checkbox" id="lx-perside"> Reps are each side</label>
+          <label><input type="checkbox" id="lx-bw"> Bodyweight (+kg is added load)</label>
+        </div>
+        <button class="primary" id="lx-save" style="height:42px">Add exercise</button>
+        <button id="lx-cancel" style="display:none;width:100%;margin-top:8px">Cancel edit</button>
+        <div id="lib-msg"></div>
       </div>
-      <div class="fwide"><label>Cue / note (optional)</label><input type="text" id="lx-note" placeholder="e.g. Chest tall, knees out"></div>
-      <div class="lib-checks">
-        <label><input type="checkbox" id="lx-perside"> Reps are each side</label>
-        <label><input type="checkbox" id="lx-bw"> Bodyweight (+kg is added load)</label>
+      <div id="lib-list"></div>
+      <div class="tmpl-row">
+        <button id="tmpl-dl">&#8595; Download template</button>
+        <button id="tmpl-ul">&#8593; Upload a template</button>
+        <input type="file" id="tmpl-file" accept="application/json,.json" style="display:none">
       </div>
-      <button class="primary" id="lx-save" style="height:42px">Add exercise</button>
-      <button id="lx-cancel" style="display:none;width:100%;margin-top:8px">Cancel edit</button>
-      <div id="lib-msg"></div>
+      <p class="note">A template is a file of your exercise setup (no logged sessions). Send it to a crewmate; when they upload it, their picker matches yours.</p>
     </div>
-    <div id="lib-list"></div>
-    <div class="tmpl-row">
-      <button id="tmpl-dl">&#8595; Download template</button>
-      <button id="tmpl-ul">&#8593; Upload a template</button>
-      <input type="file" id="tmpl-file" accept="application/json,.json" style="display:none">
+
+    <div class="setup-sec">
+      <h3 class="setup-head">Core routines</h3>
+      <p class="setup-intro">Circuits of timed holds. Build one here, then run it against the timer in the <b>Core</b> tab.</p>
+      <div id="rt-builder"></div>
+      <div id="rt-list"></div>
+      <button id="rt-new" style="width:100%;margin-top:14px">+ New routine</button>
+      <div id="rt-msg"></div>
     </div>
-    <p class="note">A template is a file of your exercise setup (no logged sessions). Send it to a crewmate; when they upload it, their picker matches yours.</p>
   </section>
   </div>
 

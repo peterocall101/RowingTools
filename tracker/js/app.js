@@ -146,7 +146,7 @@ function renderLog(snap) {
   const chipsEl = $('chips');
 
   if (!lib.length) {
-    chipsEl.innerHTML = '<p class="placeholder">No exercises yet - set up your library in the <b>Exercises</b> tab first (or upload a crewmate\'s template there).</p>';
+    chipsEl.innerHTML = '<p class="placeholder">No exercises yet - set up your library in the <b>Templates</b> tab first (or upload a crewmate\'s template there).</p>';
   } else {
     const groupings = allGroups(lib);
     chipsEl.innerHTML = groupings.map(g => {
@@ -516,31 +516,49 @@ const routineById = id => S.routines.find(r => r.id === id) || null;
 const stepsOf = r => Array.isArray(r && r.steps) ? r.steps : [];
 const totalTarget = steps => steps.reduce((a, s) => a + (Number(s.target_s) || 0), 0);
 
+const liveRoutines = () => S.routines.filter(r => !r.retired);
+
+// Core tab = run a routine. Building and editing them lives in Set up > Templates.
 function renderCoreTab() {
   const pick = $('core-pick');
-  const live = S.routines.filter(r => !r.retired);
+  const live = liveRoutines();
   pick.innerHTML = live.length
     ? live.map(r => '<option value="' + r.id + '">' + esc(r.name) + '</option>').join('')
     : '<option value="">No routines yet</option>';
   if (RUN.routineId && live.some(r => r.id === RUN.routineId)) pick.value = RUN.routineId;
-  $('core-edit').disabled = !live.length;
 
-  if (editingRoutine) { renderBuilder(); $('core-runner').innerHTML = ''; return; }
-  $('core-builder').innerHTML = '';
   if (!live.length) {
-    $('core-runner').innerHTML = '<p class="placeholder">No core routines yet. Hit <b>New routine</b> ' +
-      'and list the holds in the order you do them, each with a target time. The same hold can ' +
-      'appear as often as you like - round 1 and round 4 are two entries, not one.</p>';
+    stopTimer();
+    RUN.routineId = null;
+    $('core-runner').innerHTML = '<p class="placeholder">No core routines yet. Open the ' +
+      '<b>Templates</b> tab and build one - list the holds in the order you do them, each with a ' +
+      'target time. The same hold can appear as often as you like - round 1 and round 4 are two ' +
+      'entries, not one.</p>';
     return;
   }
   loadRun(pick.value);
 }
 
-/* ---- builder ---- */
+/* ---- builder (Templates tab) ---- */
+function renderRoutines() {
+  const live = liveRoutines();
+  $('rt-list').innerHTML = live.length
+    ? live.map(r => {
+        const st = stepsOf(r);
+        return '<div class="lib-item"><div><div class="nm">' + esc(r.name) + '</div>' +
+          '<div class="meta">' + st.length + ' round' + (st.length === 1 ? '' : 's') +
+          ' · ' + fmtTime(totalTarget(st)) + '</div></div>' +
+          '<div class="ops"><button class="ghost" data-rt-edit="' + r.id + '" title="Edit" style="font-size:13px">✎</button>' +
+          '<button class="ghost" data-rt-del="' + r.id + '" title="Delete">×</button></div></div>';
+      }).join('')
+    : '<p class="placeholder">No core routines yet. Hit <b>New routine</b> below.</p>';
+  $('rt-new').style.display = editingRoutine ? 'none' : '';
+  if (editingRoutine) renderBuilder(); else $('rt-builder').innerHTML = '';
+}
+
 function renderBuilder() {
   const r = editingRoutine;
-  $('core-runner').innerHTML = '';
-  $('core-builder').innerHTML =
+  $('rt-builder').innerHTML =
     '<div class="lib-form"><h3>' + (r.id ? 'Edit routine' : 'New routine') + '</h3>' +
     '<div class="fwide"><label>Routine name</label>' +
       '<input type="text" id="cr-name" value="' + esc(r.name) + '" placeholder="e.g. Core circuit"></div>' +
@@ -582,8 +600,8 @@ async function saveRoutine() {
   const r = editingRoutine;
   const name = (r.name || '').trim();
   const steps = r.steps.filter(s => s.name);
-  if (!name) { toast('core-msg', 'Give the routine a name.', 'warn'); return; }
-  if (!steps.length) { toast('core-msg', 'Add at least one exercise.', 'warn'); return; }
+  if (!name) { toast('rt-msg', 'Give the routine a name.', 'warn'); return; }
+  if (!steps.length) { toast('rt-msg', 'Add at least one exercise.', 'warn'); return; }
 
   let error, saved;
   if (r.id) {
@@ -597,11 +615,11 @@ async function saveRoutine() {
     error = res.error; saved = res.data;
     if (!error) S.routines.push(saved);
   }
-  if (error) { toast('core-msg', 'Save failed: ' + esc(error.message), 'err'); return; }
+  if (error) { toast('rt-msg', 'Save failed: ' + esc(error.message), 'err'); return; }
   editingRoutine = null;
   if (saved) RUN.routineId = saved.id;
-  renderCoreTab();
-  toast('core-msg', 'Routine saved.');
+  renderRoutines(); renderCoreTab();
+  toast('rt-msg', 'Routine saved.');
 }
 
 async function deleteRoutine(id) {
@@ -615,11 +633,11 @@ async function deleteRoutine(id) {
     ({ error } = await sb.from('tracker_core_routines').delete().eq('id', id));
     if (!error) S.routines = S.routines.filter(r => r.id !== id);
   }
-  if (error) { toast('core-msg', 'Delete failed: ' + esc(error.message), 'err'); return; }
+  if (error) { toast('rt-msg', 'Delete failed: ' + esc(error.message), 'err'); return; }
   editingRoutine = null;
   if (RUN.routineId === id) RUN.routineId = null;
-  renderCoreTab();
-  toast('core-msg', used ? 'Routine removed (past sessions kept).' : 'Routine deleted.');
+  renderRoutines(); renderCoreTab();
+  toast('rt-msg', used ? 'Routine removed (past sessions kept).' : 'Routine deleted.');
 }
 
 /* ---- runner + timer ---- */
@@ -1254,8 +1272,19 @@ document.addEventListener('click', async e => {
     return;
   }
   if (e.target.id === 'cr-save') { saveRoutine(); return; }
-  if (e.target.id === 'cr-cancel') { editingRoutine = null; renderCoreTab(); return; }
+  if (e.target.id === 'cr-cancel') { editingRoutine = null; renderRoutines(); return; }
   if (e.target.id === 'cr-del') { deleteRoutine(editingRoutine.id); return; }
+  const rtEd = e.target.closest('[data-rt-edit]');
+  if (rtEd) {
+    const r = routineById(rtEd.dataset.rtEdit);
+    if (!r) return;
+    editingRoutine = { id: r.id, name: r.name, steps: stepsOf(r).map(s => ({ ...s })) };
+    renderRoutines();
+    $('rt-builder').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  const rtDel = e.target.closest('[data-rt-del]');
+  if (rtDel) { deleteRoutine(rtDel.dataset.rtDel); return; }
   // ---- timer ----
   if (e.target.id === 'tm-go') { RUN.running ? pauseTimer() : startTimer(); return; }
   if (e.target.id === 'tm-next') { nextStep(false); return; }
@@ -1292,7 +1321,7 @@ document.addEventListener('click', async e => {
   $('log-date').value = todayISO();
   $('core-date').value = todayISO();
   renderLog(); renderErgGate(); renderErgRecent(); renderCoreTab();
-  renderSummary(); renderHistory(); renderLibrary();
+  renderSummary(); renderHistory(); renderLibrary(); renderRoutines();
 
   $('app-loading').style.display = 'none';
   $('app').style.display = '';
@@ -1300,7 +1329,10 @@ document.addEventListener('click', async e => {
   // tabs
   document.querySelectorAll('.tabs .tab').forEach(tab => {
     tab.onclick = () => {
-      document.querySelectorAll('.tabs .tab').forEach(t => t.classList.toggle('active', t === tab));
+      document.querySelectorAll('.tabs .tab').forEach(t => {
+        t.classList.toggle('active', t === tab);
+        t.setAttribute('aria-selected', String(t === tab));
+      });
       document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === tab.dataset.panel));
     };
   });
@@ -1315,12 +1347,9 @@ document.addEventListener('click', async e => {
   $('erg-manual-btn').onclick = () => openErgForm(null, 'manual');
 
   $('core-pick').onchange = () => loadRun($('core-pick').value);
-  $('core-new').onclick = () => { editingRoutine = { id: null, name: '', steps: [{ name: '', target_s: 60 }] }; renderCoreTab(); };
-  $('core-edit').onclick = () => {
-    const r = routineById($('core-pick').value);
-    if (!r) return;
-    editingRoutine = { id: r.id, name: r.name, steps: stepsOf(r).map(s => ({ ...s })) };
-    renderCoreTab();
+  $('rt-new').onclick = () => {
+    editingRoutine = { id: null, name: '', steps: [{ name: '', target_s: 60 }] };
+    renderRoutines();
   };
   // A running timer must not survive leaving the tab, or it keeps counting and
   // holding the wake lock against a circuit the athlete has walked away from.
