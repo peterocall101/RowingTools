@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Training Tracker - RowingTools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="theme-color" content="#0b0b0a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Fraunces:opsz,wght@9..144,900&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/app.css">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-876ELQ9529"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-876ELQ9529');
+</script>
+<style>
+  .trk-wrap{max-width:760px;margin:0 auto}
+  .userline{font-family:var(--mono);font-size:11px;color:var(--text3);display:flex;gap:12px;align-items:baseline}
+  .userline button{height:auto;padding:3px 10px;font-size:11px;font-family:var(--mono);font-weight:400}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;margin-bottom:6px}
+  input[type=date],input[type=time],input[type=number]{background:var(--bg);color:var(--text);
+    border:1px solid var(--border2);border-radius:0;font-family:var(--mono);font-size:14px;
+    padding:7px 10px;height:38px;outline:none;color-scheme:dark}
+  input[type=date]:focus,input[type=time]:focus,input[type=number]:focus{border-color:var(--red-ink)}
+  .weekcount{font-family:var(--mono);font-size:11.5px;color:var(--text3);letter-spacing:.04em;margin:0 0 16px}
+  .weekcount b{color:var(--red-ink);font-weight:600}
+
+  .picker{border-top:1px solid var(--border2);border-bottom:1px solid var(--border2);padding:12px 0 14px;margin-bottom:22px}
+  .picker-head{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:9px}
+  .picker-session{font-size:13.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text);
+    border-bottom:1px solid var(--text);padding-bottom:3px;margin:18px 0 8px}
+  .picker-session:first-child{margin-top:0}
+  .picker-row{display:grid;grid-template-columns:52px 1fr;gap:8px;align-items:start;margin-bottom:7px}
+  .picker-row .rowlab{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding-top:10px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{background:var(--bg2);border:1px solid var(--border2);border-radius:0;padding:7px 11px;font-size:13.5px;
+    color:var(--text);display:flex;align-items:center;gap:7px;height:auto;font-weight:400}
+  .chip:hover{border-color:var(--text)}
+  .chip[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
+
+  .logsec{margin-bottom:24px;display:none}
+  .logsec.has{display:block}
+  .logsec h3{font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px;
+    border-bottom:2px solid var(--red-ink);padding-bottom:5px}
+  .logsec h3 span{font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.06em;color:var(--text3);float:right;padding-top:4px}
+  .placeholder{color:var(--text3);font-size:13.5px;font-style:italic;border:1px dashed var(--border2);
+    padding:20px 14px;text-align:center}
+
+  .ex{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--border2);padding:12px 13px;margin-bottom:10px}
+  .ex-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .ex-name{font-weight:700;font-size:15.5px}
+  .ex-note{color:var(--text2);font-size:13px;margin-top:1px}
+  .src{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)}
+  .lastline{font-family:var(--mono);font-size:11.5px;color:var(--text2);margin:6px 0 8px}
+  .lastline.none{color:var(--text3)}
+  .setrow{display:grid;grid-template-columns:22px 1fr 1fr 30px;gap:6px;align-items:center;margin-bottom:6px}
+  .setrow.time{grid-template-columns:22px 1fr 30px}
+  .setno{font-family:var(--mono);font-size:12px;color:var(--text3)}
+  .setrow input{width:100%;height:40px;font-size:15px}
+  .colhead{display:grid;grid-template-columns:22px 1fr 1fr 30px;gap:6px;margin-bottom:4px;
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3)}
+  .colhead.time{grid-template-columns:22px 1fr 30px}
+  .addset{border:1px dashed var(--border2);color:var(--text3);font-size:12.5px;padding:5px 10px;width:100%;height:auto;font-weight:400}
+  .addset:hover{border-color:var(--text);color:var(--text)}
+
+  .save,.primary{background:var(--red);color:#fff;border:1px solid var(--red);font-weight:700;
+    letter-spacing:.05em;text-transform:uppercase;width:100%;height:46px;margin-top:4px;font-size:14px}
+  .save:hover,.primary:hover{background:var(--red-ink);border-color:var(--red-ink)}
+  .toast{background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:10px 14px;font-size:13.5px;margin-top:12px}
+  .toast.warn{border-color:#fbbf24;color:#fbbf24}
+  .toast.err{border-color:#f87171;color:#f87171}
+
+  /* erg */
+  .erg-actions{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+  .erg-actions button{flex:1;min-width:180px;height:60px;font-size:14px;font-weight:700}
+  .erg-actions .photo-btn{background:var(--red);border-color:var(--red);color:#fff}
+  .erg-actions .photo-btn:hover{background:var(--red-ink);border-color:var(--red-ink)}
+  .erg-actions button:disabled{opacity:.45;cursor:not-allowed}
+  .erg-actions .photo-btn:disabled:hover{background:var(--red);border-color:var(--red)}
+  .gate{border:1px solid var(--border2);border-left:3px solid var(--chalk,#fbbf24);padding:12px 14px;
+    margin-bottom:18px;display:flex;flex-direction:column;gap:5px}
+  .gate b{font-size:14px}
+  .gate span{font-size:13px;color:var(--text2);line-height:1.6}
+  .erg-form{background:var(--bg2);border:1px solid var(--border);padding:14px;margin-bottom:18px}
+  .erg-form h3{font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin:0 0 4px}
+  .erg-form .hint{font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:12px}
+  .fgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px}
+  @media(min-width:560px){.fgrid{grid-template-columns:repeat(3,1fr)}}
+  .fgrid label,.fwide label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--text3);margin-bottom:4px}
+  .fgrid input,.fgrid select,.fwide input{width:100%}
+  .fwide{margin-bottom:10px}
+  .itbl{width:100%;border-collapse:collapse;margin:6px 0 8px;font-size:13px}
+  .itbl th{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);
+    text-align:left;padding:4px 4px;border-bottom:1px solid var(--border2);font-weight:500}
+  .itbl td{padding:3px 3px}
+  .itbl input{width:100%;height:36px;font-size:13px;font-family:var(--mono);padding:4px 6px}
+  .parse-note{font-family:var(--mono);font-size:11px;color:#fbbf24;margin-bottom:10px}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--red-ink);
+    border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:8px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* library */
+  .lib-form{background:var(--bg2);border:1px solid var(--border);padding:14px;margin-bottom:20px}
+  .lib-form h3{font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px}
+  .lib-checks{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:13px;color:var(--text2)}
+  .lib-checks label{display:flex;gap:6px;align-items:center;cursor:pointer}
+  .lib-checks input{accent-color:var(--red)}
+  .lib-item{display:flex;justify-content:space-between;align-items:center;gap:10px;
+    border-bottom:1px solid var(--border);padding:8px 2px}
+  .lib-item .nm{font-weight:600;font-size:14px}
+  .lib-item .meta{font-family:var(--mono);font-size:10.5px;color:var(--text3);letter-spacing:.04em}
+  .lib-item .ops{display:flex;gap:4px;flex-shrink:0}
+  .tmpl-row{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}
+  .tmpl-row button{flex:1;min-width:160px}
+
+  /* summary + history */
+  .sumweek{margin-bottom:26px}
+  .sumweek h4{font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin:0 0 2px;
+    border-top:2px solid var(--text);padding-top:7px}
+  .sumweek .meta{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.05em;margin-bottom:12px}
+  .patlabel{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:12px 0 5px}
+  .srow{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--border2);padding:9px 12px;margin-bottom:6px}
+  .sname{font-weight:600;font-size:14px}
+  .sstats{display:flex;gap:16px;margin-top:4px;font-family:var(--mono);font-size:12px;color:var(--text3);flex-wrap:wrap}
+  .sstats b{font-size:14px;font-weight:600;color:var(--text);margin-right:3px}
+  .delta{font-family:var(--mono);font-size:11px;margin-left:5px}
+  .delta.up{color:#34d399}.delta.down{color:#f87171}
+  @media(min-width:560px){.srow{display:flex;justify-content:space-between;align-items:baseline;gap:14px}.sstats{margin-top:0;flex:0 0 auto}}
+
+  .weekgroup{margin-bottom:22px}
+  .weekgroup h4{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);
+    border-bottom:1px solid var(--border2);padding-bottom:5px;margin:0 0 10px;font-weight:500}
+  .entry{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--text);margin-bottom:8px}
+  .entry.erg{border-left-color:var(--c-wbt)}
+  .entry-toggle{display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;background:none;
+    border:none;border-radius:0;padding:10px 12px;height:auto;font-weight:400;color:var(--text)}
+  .entry-toggle:hover{background:var(--bg3);border:none}
+  .entry-toggle .chev{font-size:11px;color:var(--text3);transition:transform .15s;flex-shrink:0}
+  .entry-toggle[aria-expanded="true"] .chev{transform:rotate(90deg)}
+  .entry-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .entry-when{font-size:14.5px;letter-spacing:.02em;text-transform:uppercase;font-weight:700}
+  .entry-time{font-family:var(--mono);font-size:11px;color:var(--text3);font-weight:400;text-transform:none}
+  .entry-sum{font-family:var(--mono);font-size:12px;color:var(--text2)}
+  .entry-kind{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--text3);flex-shrink:0}
+  .entry-detail{padding:2px 12px 12px;border-top:1px solid var(--border)}
+  .entry-date{font-family:var(--mono);font-size:11px;color:var(--text3)}
+  /* expanded detail */
+  .dex{padding:10px 0;border-bottom:1px solid var(--border)}
+  .dex:last-of-type{border-bottom:none}
+  .dex-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:5px}
+  .dex-name{font-weight:600;font-size:14px}
+  .dex-tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)}
+  .dex-stats{font-family:var(--mono);font-size:11px;color:var(--text3)}
+  .dset{display:flex;gap:10px;font-family:var(--mono);font-size:12.5px;color:var(--text2);padding:2px 0}
+  .dset-no{color:var(--text3);min-width:14px}
+  .dnote{font-size:12.5px;color:var(--text3);padding:10px 0 0;line-height:1.6}
+  .dsub{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--text3);margin:12px 0 6px}
+  .dfacts{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;margin:10px 0 0;font-size:13px}
+  .dfacts dt{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--text3);padding-top:2px}
+  .dfacts dd{margin:0;font-variant-numeric:tabular-nums}
+  .dtbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .dtbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+  .dtbl th{text-align:left;padding:4px 10px 4px 0;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--text3);font-weight:500;border-bottom:1px solid var(--border2);white-space:nowrap}
+  .dtbl td{padding:4px 10px 4px 0;border-bottom:1px solid var(--border);white-space:nowrap;
+    font-variant-numeric:tabular-nums}
+  .dtbl tr:last-child td{border-bottom:none}
+  .dtbl .na{color:var(--text3)}
+  .entry table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+  .entry td{padding:3px 0;vertical-align:top}
+  .entry td.sets{font-family:var(--mono);text-align:right;color:var(--text2);white-space:nowrap}
+  .entry .del{background:none;border:none;color:var(--text3);font-size:12px;text-decoration:underline;padding:6px 0 0;height:auto;font-weight:400}
+  .entry .del:hover{color:var(--red-ink);background:none}
+  .erg-line{font-family:var(--mono);font-size:12.5px;color:var(--text2);margin-top:6px}
+  .erg-line b{color:var(--text);font-weight:600}
+  .empty{padding:.75rem 0}
+  .ghostx{background:none;border:none;color:var(--text3);font-size:18px;line-height:1;padding:0 4px;height:auto;font-weight:400}
+  .ghostx:hover{color:var(--red-ink);background:none}
+  .loading-app{font-family:var(--mono);font-size:12px;color:var(--text3);padding:3rem 0;text-align:center}
+</style>
+</head>
+<body>
+<div class="topbar"></div>
+<div class="trk-wrap">
+  <header class="site-hdr">
+    <div class="brand">
+      <a href="/" style="text-decoration:none;color:inherit"><div class="brand-mark">Rowing<span class="brand-dot">.</span>Tools</div></a>
+      <h1 style="font-size:16px">Tracker</h1>
+    </div>
+    <div class="userline"><span id="whoami"></span><button id="signout">Sign out</button></div>
+  </header>
+
+  <div id="app-loading" class="loading-app">Loading your training log&hellip;</div>
+
+  <div id="app" style="display:none">
+  <nav class="tabs" role="tablist">
+    <button class="tab active" role="tab" data-panel="p-log">Weights</button>
+    <button class="tab" role="tab" data-panel="p-erg">Erg</button>
+    <button class="tab" role="tab" data-panel="p-sum">Summary</button>
+    <button class="tab" role="tab" data-panel="p-hist">History</button>
+    <button class="tab" role="tab" data-panel="p-lib">Exercises</button>
+  </nav>
+
+  <section class="panel active" id="p-log">
+    <div class="toolbar"><input type="date" id="log-date"></div>
+    <p class="weekcount" id="weekcount"></p>
+    <div class="picker">
+      <div class="picker-head">Tap what you're doing - it drops into its section below</div>
+      <div id="chips"></div>
+    </div>
+    <div id="log-sections"></div>
+    <button class="save" id="save-btn">Save session</button>
+    <div id="log-msg"></div>
+  </section>
+
+  <section class="panel" id="p-erg">
+    <div class="erg-actions">
+      <button class="photo-btn" id="erg-photo-btn">&#128247; &nbsp;Photo of the monitor</button>
+      <button id="erg-manual-btn">Enter manually</button>
+      <input type="file" id="erg-file" accept="image/*" style="display:none">
+    </div>
+    <div id="erg-gate"></div>
+    <div id="erg-parse-status"></div>
+    <div id="erg-form-holder"></div>
+    <div id="erg-recent"></div>
+  </section>
+
+  <section class="panel" id="p-sum"><div id="sum-body"></div></section>
+
+  <section class="panel" id="p-hist">
+    <div id="hist-body"></div>
+  </section>
+
+  <section class="panel" id="p-lib">
+    <div class="lib-form">
+      <h3 id="lib-form-title">Add an exercise</h3>
+      <div class="fgrid">
+        <div style="grid-column:1/-1"><label>Name</label><input type="text" id="lx-name" placeholder="e.g. Back Squat"></div>
+        <div><label>Session group</label><input type="text" id="lx-session_group" list="session_group-list" placeholder="e.g. Session 1"><datalist id="session_group-list"></datalist></div>
+        <div><label>Type</label><select id="lx-pattern">
+          <option value="squat">Squat</option><option value="pull">Pull</option><option value="hinge">Hinge</option>
+          <option value="push">Push</option><option value="core">Core</option><option value="arms">Arms</option>
+          <option value="shoulders">Shoulders</option><option value="legs">Legs</option><option value="other">Other</option>
+        </select></div>
+        <div><label>Measured in</label><select id="lx-unit"><option value="reps">Reps &amp; weight</option><option value="secs">Seconds (holds)</option></select></div>
+      </div>
+      <div class="fwide"><label>Cue / note (optional)</label><input type="text" id="lx-note" placeholder="e.g. Chest tall, knees out"></div>
+      <div class="lib-checks">
+        <label><input type="checkbox" id="lx-perside"> Reps are each side</label>
+        <label><input type="checkbox" id="lx-bw"> Bodyweight (+kg is added load)</label>
+      </div>
+      <button class="primary" id="lx-save" style="height:42px">Add exercise</button>
+      <button id="lx-cancel" style="display:none;width:100%;margin-top:8px">Cancel edit</button>
+      <div id="lib-msg"></div>
+    </div>
+    <div id="lib-list"></div>
+    <div class="tmpl-row">
+      <button id="tmpl-dl">&#8595; Download template</button>
+      <button id="tmpl-ul">&#8593; Upload a template</button>
+      <input type="file" id="tmpl-file" accept="application/json,.json" style="display:none">
+    </div>
+    <p class="note">A template is a file of your exercise setup (no logged sessions). Send it to a crewmate; when they upload it, their picker matches yours.</p>
+  </section>
+  </div>
+
+  <footer class="footer" style="margin-top:3rem"><span>RowingTools Tracker</span><a href="/">rowingtools.co.uk</a></footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
