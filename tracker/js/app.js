@@ -90,6 +90,110 @@ function toast(holderId, msg, cls) {
 
 function track(event, params) { if (typeof gtag === 'function') gtag('event', event, params || {}); }
 
+function selectTab(panelId) {
+  document.querySelectorAll('.tabs .tab').forEach(t => {
+    const on = t.dataset.panel === panelId;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', String(on));
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === panelId));
+}
+
+/* ================= offline saves =================
+   A gym basement has no signal. Every insert carries a client-generated id, so
+   a save that failed on the way out can be retried without risking a duplicate:
+   if the first attempt did land, the retry hits the primary key and we treat
+   that as success. Failed writes sit in a local outbox and go out on the next
+   connection. */
+function newId() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80;
+  const h = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+  return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);
+}
+
+// A transport failure is retryable; a rejected row is not, and queueing it
+// would mean retrying a bad write for ever.
+const looksOffline = err => !navigator.onLine ||
+  /failed to fetch|networkerror|network request failed|load failed|timeout|fetch failed/i
+    .test(String((err && err.message) || ''));
+
+// supabase-js normally hands a network failure back as an error object, but a
+// connection that drops mid-flight surfaces as the TypeError fetch() throws.
+// Narrow on purpose: anything else is a real bug and must still blow up.
+async function updateRow(table, patch, id) {
+  try { return await sb.from(table).update(patch).eq('id', id); }
+  catch (e) {
+    if (!(e instanceof TypeError)) throw e;
+    return { error: { message: e.message || 'Failed to fetch' } };
+  }
+}
+
+async function insertRow(table, row) {
+  try { return await sb.from(table).insert(row); }
+  catch (e) {
+    if (!(e instanceof TypeError)) throw e;
+    return { error: { message: e.message || 'Failed to fetch' } };
+  }
+}
+
+const outboxKey = () => 'rt-outbox-' + (S.session ? S.session.user.id : 'anon');
+function readJSON(key, fallback) {
+  const raw = localStorage.getItem(key);
+  if (!raw) return fallback;
+  // A truncated or corrupted value is not worth taking the page down for.
+  try { const v = JSON.parse(raw); return v == null ? fallback : v; }
+  catch (e) { if (e instanceof SyntaxError) return fallback; throw e; }
+}
+const readOutbox = () => readJSON(outboxKey(), []);
+function queueWrite(table, row) {
+  const q = readOutbox();
+  q.push({ table, row });
+  localStorage.setItem(outboxKey(), JSON.stringify(q));
+  paintSyncBadge();
+}
+
+let flushing = false;
+async function flushOutbox(loud) {
+  if (flushing) return 0;
+  const q = readOutbox();
+  if (!q.length) { paintSyncBadge(); return 0; }
+  flushing = true;
+  const left = [], dropped = [];
+  let sent = 0;
+  for (const item of q) {
+    const { error } = await insertRow(item.table, item.row);
+    // 23505 = unique violation: an earlier attempt did land after all
+    if (!error || error.code === '23505') { sent++; continue; }
+    // Still no connection: keep it and try again later. Anything else is the
+    // server refusing the row, and retrying that for ever would leave a badge
+    // stuck on screen with no way to clear it.
+    if (looksOffline(error)) left.push(item);
+    else dropped.push(error.message || 'rejected');
+  }
+  localStorage.setItem(outboxKey(), JSON.stringify(left));
+  flushing = false;
+  paintSyncBadge();
+  if (dropped.length) {
+    toast('log-msg', dropped.length + ' waiting session' + (dropped.length === 1 ? '' : 's') +
+      ' could not be saved and ' + (dropped.length === 1 ? 'has' : 'have') + ' been dropped: ' +
+      esc(dropped[0]), 'err');
+  } else if (sent && loud) {
+    toast('log-msg', 'Synced ' + sent + ' session' + (sent === 1 ? '' : 's') + ' that had been waiting.');
+  }
+  return sent;
+}
+
+function paintSyncBadge() {
+  const el = $('syncbadge');
+  if (!el) return;
+  const n = readOutbox().length;
+  el.innerHTML = n
+    ? '&#9888; ' + n + ' waiting to sync<button id="sync-now">retry</button>'
+    : '';
+}
+
 /* ================= data access ================= */
 async function loadAll() {
   const uid = S.session.user.id;
@@ -109,6 +213,38 @@ async function loadAll() {
   S.coreSessions = sortDesc(core.data || []);
   const errs = [prof.error, ex.error, wk.error, erg.error, rt.error, core.error].filter(Boolean);
   return errs.length ? errs[0].message : null;
+}
+
+/* ---- last good load, kept locally so the app still opens with no signal.
+   Without this the boot sequence dies on the first failed query and nothing
+   can be logged at all, which is exactly when you are standing in a gym
+   basement wanting to log something. ---- */
+const cacheKey = () => 'rt-cache-' + (S.session ? S.session.user.id : 'anon');
+const CACHE_WORKOUTS = 400, CACHE_SESSIONS = 200;
+
+function cacheData() {
+  const payload = {
+    profile: S.profile, exercises: S.exercises, routines: S.routines,
+    workouts: S.workouts.slice(0, CACHE_WORKOUTS),
+    ergs: S.ergs.slice(0, CACHE_SESSIONS),
+    coreSessions: S.coreSessions.slice(0, CACHE_SESSIONS),
+    at: Date.now(),
+  };
+  // Best-effort only: a full quota must not take a save down with it.
+  try { localStorage.setItem(cacheKey(), JSON.stringify(payload)); }
+  catch (e) { if (e.name !== 'QuotaExceededError' && e.name !== 'NS_ERROR_DOM_QUOTA_REACHED') throw e; }
+}
+
+function loadCached() {
+  const c = readJSON(cacheKey(), null);
+  if (!c || !Array.isArray(c.exercises)) return false;
+  S.profile = c.profile;
+  S.exercises = c.exercises;
+  S.routines = c.routines || [];
+  S.workouts = sortDesc(c.workouts || []);
+  S.ergs = sortDesc(c.ergs || []);
+  S.coreSessions = sortDesc(c.coreSessions || []);
+  return true;
 }
 
 /* ================= weights log ================= */
@@ -151,23 +287,26 @@ function restoreLog(snap) {
 const draftKey = () => 'rt-draft-' + (S.session ? S.session.user.id : 'anon');
 const DRAFT_TTL = 14 * 864e5;
 
-function readDrafts() {
-  const raw = localStorage.getItem(draftKey());
-  if (!raw) return {};
-  // A corrupted or half-written value is not worth taking the page down for.
-  try { return JSON.parse(raw) || {}; }
-  catch (e) { if (e instanceof SyntaxError) return {}; throw e; }
-}
+// Set while amending a session that is already in History. That is not a draft
+// of a new session, so drafting is suspended for the duration.
+let editingWorkoutId = null;
+// Sets belonging to exercises no longer in the library: they can't be shown as
+// cards, so they are held aside and written back untouched on save.
+let editingExtra = null;
+
+const readDrafts = () => readJSON(draftKey(), {});
 function writeDrafts(all) {
   Object.keys(all).forEach(d => { if (!all[d] || all[d].updated < Date.now() - DRAFT_TTL) delete all[d]; });
   localStorage.setItem(draftKey(), JSON.stringify(all));
 }
 function saveDraft() {
+  if (editingWorkoutId) { paintDraftLine(); return; }
   // everything on the page, filled or not - tapping four exercises up front is
   // setting the session up, and that shouldn't evaporate on a reload either
   const items = snapshotLog();
   const all = readDrafts(), date = currentDate();
-  if (items.length) all[date] = { items, updated: Date.now() };
+  const notes = $('log-notes') ? $('log-notes').value : '';
+  if (items.length || notes) all[date] = { items, notes, updated: Date.now() };
   else delete all[date];
   writeDrafts(all);
   paintDraftLine();
@@ -196,8 +335,94 @@ function paintDraftLine() {
   const draft = readDrafts()[currentDate()];
   el.innerHTML =
     '<span><b>' + done + '</b> done · <b>' + open + '</b> open · <b>' + sets + '</b> sets entered</span>' +
-    (draft ? '<span>Draft kept on this device <button id="draft-drop">discard</button></span>' : '');
+    (editingWorkoutId ? '' : draft ? '<span>Draft kept on this device <button id="draft-drop">discard</button></span>' : '');
 }
+
+/* ---- amending a session already in History ---- */
+function paintEditBar() {
+  const bar = $('edit-bar');
+  if (!bar) return;
+  if (!editingWorkoutId) {
+    bar.innerHTML = '';
+    $('cancel-edit').style.display = 'none';
+    $('save-btn').dataset.editing = '';
+    return;
+  }
+  const wk = S.workouts.find(x => x.id === editingWorkoutId);
+  const held = editingExtra ? Object.keys(editingExtra).length : 0;
+  bar.innerHTML = '<div class="editbar"><div><b>Editing a saved session</b>' +
+    '<span>' + (wk ? prettyDate(wk.date) + (wk.at ? ' · ' + esc(wk.at) : '') : '') +
+    ' · saving replaces it rather than adding another' +
+    (held ? ' · ' + held + ' retired exercise' + (held === 1 ? '' : 's') + ' kept as ' + (held === 1 ? 'it is' : 'they are') : '') +
+    '</span></div><button id="edit-cancel-top">Cancel</button></div>';
+  $('cancel-edit').style.display = '';
+  $('save-btn').dataset.editing = '1';
+}
+
+function startEditWorkout(id) {
+  const wk = S.workouts.find(x => x.id === id);
+  if (!wk) return;
+  editingWorkoutId = id;
+  editingExtra = {};
+  const snap = [];
+  Object.keys(wk.sets).forEach(exId => {
+    const m = exById(exId);
+    if (m && !m.retired) snap.push({ id: exId, rows: wk.sets[exId].map(r => ({ r: r.r, w: r.w })), saved: true });
+    else editingExtra[exId] = wk.sets[exId];   // can't be shown, must not be lost
+  });
+  $('log-date').value = wk.date;
+  renderLog(snap);
+  $('log-notes').value = wk.notes || '';
+  selectTab('p-log');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelEditWorkout() {
+  editingWorkoutId = null;
+  editingExtra = null;
+  $('log-date').value = todayISO();
+  $('log-notes').value = '';
+  renderLog();
+  toast('log-msg', 'Edit cancelled - the saved session is untouched.');
+}
+
+// The most recent saved session that used anything from this group. What
+// "repeat" means is: put the same exercises back on the page.
+function lastSessionForGroup(group, lib) {
+  const ids = new Set(lib.filter(e => groupsOf(e).includes(group)).map(e => e.id));
+  return S.workouts.find(w => Object.keys(w.sets).some(id => ids.has(id))) || null;
+}
+
+function repeatGroup(group) {
+  const lib = activeLibrary();
+  const last = lastSessionForGroup(group, lib);
+  if (!last) return;
+  const ids = new Set(lib.filter(e => groupsOf(e).includes(group)).map(e => e.id));
+  // in the order they were done, and each one pre-filled from its own last
+  // outing rather than from this session, which may be older for some lifts
+  let n = 0;
+  Object.keys(last.sets).forEach(id => { if (ids.has(id)) { addExercise(id, false); n++; } });
+  saveDraft();
+  track('repeat_session', { group, exercises: n });
+  toast('log-msg', n
+    ? 'Loaded the ' + n + ' exercises from ' + prettyDate(last.date) + ', with your last numbers ready to edit.'
+    : 'Nothing in that session is still in your library.');
+}
+
+// Exercises in the order they were last actually done. With a big library this
+// is the row you use; the session groups below it are for everything else.
+function recentExercises(lib, limit) {
+  const seen = [], byId = new Set(lib.map(e => e.id));
+  for (const w of S.workouts) {
+    for (const id of Object.keys(w.sets)) {
+      if (byId.has(id) && !seen.includes(id)) seen.push(id);
+    }
+    if (seen.length >= limit) break;
+  }
+  return seen.slice(0, limit).map(exById);
+}
+
+const chipHTML = e => '<button class="chip" aria-pressed="false" data-chip="' + e.id + '">' + esc(e.name) + '</button>';
 
 function renderLog(snap) {
   const lib = activeLibrary();
@@ -206,16 +431,23 @@ function renderLog(snap) {
   if (!lib.length) {
     chipsEl.innerHTML = '<p class="placeholder">No exercises yet - set up your library in the <b>Templates</b> tab first (or upload a crewmate\'s template there).</p>';
   } else {
+    const recent = recentExercises(lib, 10);
+    const recentHTML = recent.length
+      ? '<div class="picker-session">Recent</div>' +
+        '<div class="picker-row"><span class="rowlab">last used</span><div class="chips">' +
+        recent.map(chipHTML).join('') + '</div></div>'
+      : '';
     const groupings = allGroups(lib);
-    chipsEl.innerHTML = groupings.map(g => {
+    chipsEl.innerHTML = recentHTML + groupings.map(g => {
       const inG = lib.filter(e => groupsOf(e).includes(g));
       const pats = [...new Set(inG.map(e => e.pattern))].sort((a, b) => patIdx(a) - patIdx(b));
-      return '<div class="picker-session">' + esc(g) + '</div>' +
+      const last = lastSessionForGroup(g, lib);
+      return '<div class="picker-session"><span>' + esc(g) + '</span>' +
+        (last ? '<button class="repeat" data-repeat="' + esc(g) + '">&#8635; repeat ' + shortDate(last.date) + '</button>' : '') +
+        '</div>' +
         pats.map(p => '<div class="picker-row"><span class="rowlab">' + esc(p) + '</span><div class="chips">' +
-          inG.filter(e => e.pattern === p).map(e =>
-            '<button class="chip" aria-pressed="false" data-chip="' + e.id + '">' + esc(e.name) + '</button>'
-          ).join('') + '</div></div>').join('');
-    }).join('');
+          inG.filter(e => e.pattern === p).map(chipHTML).join('') + '</div></div>').join('');
+    }).join('') + '<p class="nomatch" id="chip-nomatch" hidden>Nothing in your library matches that.</p>';
   }
 
   const pats = [...new Set(lib.map(e => e.pattern))].sort((a, b) => patIdx(a) - patIdx(b));
@@ -226,30 +458,112 @@ function renderLog(snap) {
       '<span class="secnote"></span></h3><div class="secbody"></div></div>').join('');
 
   $('log-msg').innerHTML = '';
-  // an explicit snapshot (library edit mid-session) wins; otherwise pick up
-  // whatever draft belongs to the date now showing
-  const restore = (snap && snap.length) ? snap : ((readDrafts()[currentDate()] || {}).items || []);
+  // an explicit snapshot (library edit mid-session, or a session being amended)
+  // wins; otherwise pick up whatever draft belongs to the date now showing
+  const draft = editingWorkoutId ? null : readDrafts()[currentDate()];
+  const restore = (snap && snap.length) ? snap : ((draft || {}).items || []);
   if (restore.length) restoreLog(restore);
+  // unconditionally, or a note typed against one date follows you to the next
+  if (!snap && !editingWorkoutId && $('log-notes')) $('log-notes').value = (draft && draft.notes) || '';
+  filterChips();
   refreshWeekCount();
   updateSecNotes();
+  paintEditBar();
   // re-sync: a library edit can drop an exercise the draft still names
   saveDraft();
+}
+
+// Live filter over the picker. Hides chips, then any row and any session
+// heading left with nothing under it.
+function filterChips() {
+  const box = $('chip-search');
+  if (!box) return;
+  const q = box.value.trim().toLowerCase();
+  document.querySelectorAll('#chips .chip').forEach(c => {
+    c.hidden = !!q && !c.textContent.toLowerCase().includes(q);
+  });
+  document.querySelectorAll('#chips .picker-row').forEach(r => {
+    r.hidden = ![...r.querySelectorAll('.chip')].some(c => !c.hidden);
+  });
+  let anyRow = false;
+  document.querySelectorAll('#chips .picker-session').forEach(h => {
+    let n = h.nextElementSibling, any = false;
+    while (n && !n.classList.contains('picker-session')) {
+      if (n.classList.contains('picker-row') && !n.hidden) any = true;
+      n = n.nextElementSibling;
+    }
+    h.hidden = !any;
+    anyRow = anyRow || any;
+  });
+  const none = $('chip-nomatch');
+  if (none) none.hidden = anyRow || !q;
 }
 
 // A set that opens with a value (pre-filled from last time, or restored) counts
 // as already the athlete's own, so mirroring from set 1 must not overwrite it.
 const held = v => (v === '' || v == null) ? '' : ' data-touched="1"';
 
+// Weight and hold length get - / + either side of the field. Typing a number
+// on a phone mid-set is the thing that actually goes wrong, not the arithmetic.
+const WEIGHT_STEP = 2.5, SECS_STEP = 5;
+function stepperHTML(cls, val, ph, step) {
+  return '<span class="stepper" data-step="' + step + '">' +
+    '<button class="sdn" type="button" tabindex="-1" aria-label="Down ' + step + '">&minus;</button>' +
+    '<input type="number" inputmode="decimal" class="' + cls + '" value="' + esc(val || '') + '"' + held(val) +
+      ' placeholder="' + ph + '">' +
+    '<button class="sup" type="button" tabindex="-1" aria-label="Up ' + step + '">&plus;</button></span>';
+}
+
 function setRowHTML(j, r, w, bw, timeOnly) {
   if (timeOnly) {
     return '<div class="setrow time"><span class="setno">' + (j + 1) + '</span>' +
-      '<input type="number" inputmode="decimal" class="in-r" value="' + esc(r || '') + '"' + held(r) + ' placeholder="secs">' +
+      stepperHTML('in-r', r, 'secs', SECS_STEP) +
       '<button class="ghostx rm" title="Remove hold">×</button></div>';
   }
   return '<div class="setrow"><span class="setno">' + (j + 1) + '</span>' +
     '<input type="number" inputmode="decimal" class="in-r" value="' + esc(r || '') + '"' + held(r) + ' placeholder="–">' +
-    '<input type="number" inputmode="decimal" class="in-w" value="' + esc(w || '') + '"' + held(w) + ' placeholder="' + (bw ? '+0' : '–') + '">' +
+    stepperHTML('in-w', w, bw ? '+0' : '–', WEIGHT_STEP) +
     '<button class="ghostx rm" title="Remove set">×</button></div>';
+}
+
+/* ---- what you've already done, so the number is on the card and not in your
+   head. All of it is client-side already, so this costs nothing. ---- */
+function loggedSets(exId) {
+  const out = [];
+  S.workouts.forEach(w => (w.sets[exId] || []).forEach(r => {
+    const reps = parseFloat(r.r), wt = parseFloat(r.w);
+    if (!isNaN(reps)) out.push({ date: w.date, reps, wt: isNaN(wt) ? null : wt });
+  }));
+  return out;
+}
+const heaviest = arr => arr.reduce((a, x) => (a && a.wt >= x.wt) ? a : x, null);
+
+function bestLine(exId, atReps) {
+  const m = exById(exId) || {};
+  const all = loggedSets(exId);
+  if (!all.length) return '';
+  if (m.unit === 'secs') {
+    const b = all.reduce((a, x) => (a && a.reps >= x.reps) ? a : x, null);
+    return 'Longest hold: <b>' + round1(b.reps) + 's</b> · ' + shortDate(b.date);
+  }
+  const weighted = all.filter(x => x.wt != null);
+  if (!weighted.length) return '';
+  // the rep count you're on right now beats the all-time best for usefulness
+  const at = atReps ? weighted.filter(x => x.reps === atReps) : [];
+  if (at.length) {
+    const b = heaviest(at);
+    return 'Best at ' + round1(atReps) + ' reps: <b>' + round1(b.wt) + 'kg</b> · ' + shortDate(b.date);
+  }
+  const b = heaviest(weighted);
+  return 'Best: <b>' + round1(b.wt) + 'kg</b> × ' + round1(b.reps) + ' · ' + shortDate(b.date);
+}
+
+function refreshBest(card) {
+  const el = card.querySelector('.bestline');
+  if (!el) return;
+  const first = card.querySelector('.setrow .in-r');
+  const reps = first ? parseFloat(first.value) : NaN;
+  el.innerHTML = bestLine(card.dataset.id, isNaN(reps) ? null : reps);
 }
 
 // Typing set 1 fills the sets below it, so a straight-across 3x8 @ 60kg is one
@@ -290,6 +604,7 @@ function addExercise(exId, scroll, rows, saved) {
         '<div class="lastline' + (prev ? '' : ' none') + '">' +
           (prev ? 'Last (' + (prev.date === currentDate() ? 'earlier today' : prettyDate(prev.date)) + '): ' + setsToText(prev.sets[exId], m.unit)
                 : 'No history yet - first time in.') + '</div>' +
+        '<div class="bestline"></div>' +
         (timeOnly
           ? '<div class="colhead time"><span>#</span><span>Seconds</span><span></span></div>'
           : '<div class="colhead"><span>#</span><span>' + unitLabel + '</span><span>Weight kg</span><span></span></div>') +
@@ -301,6 +616,7 @@ function addExercise(exId, scroll, rows, saved) {
     '</div>');
 
   const card = secBody.querySelector('[data-id="' + exId + '"]');
+  refreshBest(card);
   if (saved) collapseExercise(card, true);
   document.querySelectorAll('[data-chip="' + exId + '"]').forEach(c => c.setAttribute('aria-pressed', 'true'));
   updateSecNotes();
@@ -350,9 +666,10 @@ function updateSecNotes() {
   const empty = $('log-empty');
   if (empty) empty.style.display = any ? 'none' : 'block';
   const btn = $('save-btn');
+  const verb = editingWorkoutId ? 'Update session' : 'Save session';
   if (btn) btn.textContent = any
-    ? 'Save session · ' + any + ' exercise' + (any === 1 ? '' : 's') + ', ' + sets + ' set' + (sets === 1 ? '' : 's')
-    : 'Save session';
+    ? verb + ' · ' + any + ' exercise' + (any === 1 ? '' : 's') + ', ' + sets + ' set' + (sets === 1 ? '' : 's')
+    : verb;
 }
 
 function refreshWeekCount() {
@@ -368,29 +685,58 @@ function refreshWeekCount() {
 }
 
 async function saveWorkout() {
-  const date = currentDate(), sets = {};
+  const date = currentDate(), sets = Object.assign({}, editingExtra || {});
+  const notes = ($('log-notes').value || '').trim() || null;
   let total = 0, skipped = 0;
   document.querySelectorAll('#log-sections .ex').forEach(card => {
     const rows = cardRows(card).map(x => ({ r: x.r.trim(), w: x.w.trim() })).filter(x => x.r !== '');
     if (rows.length) { sets[card.dataset.id] = rows; total += rows.length; }
     else skipped++;
   });
-  if (!total) { toast('log-msg', 'Nothing to save - add an exercise and enter at least one set.', 'warn'); return; }
+  if (!total && !Object.keys(sets).length) {
+    toast('log-msg', 'Nothing to save - add an exercise and enter at least one set.', 'warn'); return;
+  }
 
-  const at = nowHM();
-  const { data, error } = await sb.from('tracker_workouts')
-    .insert({ profile_id: S.session.user.id, date, at, sets }).select().single();
-  if (error) { toast('log-msg', 'Save failed: ' + esc(error.message), 'err'); return; }
+  // ---- amending a session that is already in History ----
+  if (editingWorkoutId) {
+    const id = editingWorkoutId;
+    const { error } = await updateRow('tracker_workouts', { date, sets, notes }, id);
+    if (error) { toast('log-msg', 'Update failed: ' + esc(error.message), 'err'); return; }
+    Object.assign(S.workouts.find(x => x.id === id), { date, sets, notes });
+    sortDesc(S.workouts);
+    track('workout_edited', { exercises: Object.keys(sets).length, sets: total });
+    editingWorkoutId = null; editingExtra = null;
+    cacheData();
+    $('log-date').value = todayISO();
+    $('log-notes').value = '';
+    renderLog(); renderSummary(); renderProgress(); renderHistory();
+    toast('log-msg', 'Session updated - ' + prettyDate(date) + ' · ' + Object.keys(sets).length +
+      ' exercises, ' + total + ' sets.');
+    return;
+  }
 
-  S.workouts.push(data); sortDesc(S.workouts);
-  track('workout_saved', { exercises: Object.keys(sets).length, sets: total });
+  // id is generated here, not by the database, so a save that fails on the way
+  // out can be retried later without risking a second copy
+  const row = { id: newId(), profile_id: S.session.user.id, date, at: nowHM(), sets, notes };
+  const { error } = await insertRow('tracker_workouts', row);
+  const queued = error && looksOffline(error);
+  if (error && !queued) { toast('log-msg', 'Save failed: ' + esc(error.message), 'err'); return; }
+  if (queued) queueWrite('tracker_workouts', row);
+
+  S.workouts.push(row); sortDesc(S.workouts);
+  track('workout_saved', { exercises: Object.keys(sets).length, sets: total, queued: !!queued });
   const nToday = S.workouts.filter(x => x.date === date).length;
+  cacheData();
   clearDraft(date);
+  $('log-notes').value = '';   // or renderLog would draft it straight back
   renderLog();
-  toast('log-msg', 'Saved - ' + prettyDate(date) + ' ' + at + ' · ' + Object.keys(sets).length +
+  toast('log-msg',
+    (queued ? 'Saved on this device - no connection, so it will sync as soon as you are back online. ' : 'Saved - ') +
+    prettyDate(date) + ' ' + row.at + ' · ' + Object.keys(sets).length +
     ' exercises, ' + total + ' sets' + (nToday > 1 ? ' · entry ' + nToday + ' today' : '') + '.' +
-    (skipped ? ' ' + skipped + ' exercise' + (skipped === 1 ? ' was' : 's were') + ' empty and left out.' : ''));
-  renderSummary(); renderHistory();
+    (skipped ? ' ' + skipped + ' exercise' + (skipped === 1 ? ' was' : 's were') + ' empty and left out.' : ''),
+    queued ? 'warn' : '');
+  renderSummary(); renderProgress(); renderHistory();
 }
 
 /* ================= erg ================= */
@@ -434,9 +780,51 @@ function ergIvRowHTML(i, r) {
     '<td><input type="number" class="iv-hr" value="' + esc(r.hr != null ? r.hr : '') + '" inputmode="numeric"></td>' +
     '<td><button class="ghostx iv-rm" title="Remove">×</button></td></tr>';
 }
-function openErgForm(data, source) {
+function openErgForm(data, source, quiet) {
   $('erg-form-holder').innerHTML = ergFormHTML(data, source);
-  $('erg-form-holder').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (!quiet) $('erg-form-holder').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ---- an open confirm card survives leaving the page. A photo parse costs real
+   money, so losing one to a stray tab switch is the expensive kind of mistake.
+   Raw field values are stored rather than parsed numbers, so a half-typed
+   "7:" is still there when you come back. ---- */
+const ergDraftKey = () => 'rt-ergdraft-' + (S.session ? S.session.user.id : 'anon');
+const ERG_FIELDS = ['eg-date', 'eg-type', 'eg-session', 'eg-time', 'eg-dist', 'eg-split', 'eg-rate', 'eg-hr', 'eg-notes'];
+const IV_FIELDS = ['iv-time', 'iv-dist', 'iv-split', 'iv-rate', 'iv-hr'];
+
+function ergSnapshot() {
+  const f = $('erg-form');
+  if (!f) return null;
+  return {
+    source: f.dataset.source,
+    fields: ERG_FIELDS.reduce((o, id) => { o[id] = $(id) ? $(id).value : ''; return o; }, {}),
+    intervals: [...document.querySelectorAll('#eg-ivs tr')].map(tr =>
+      IV_FIELDS.reduce((o, c) => { o[c] = tr.querySelector('.' + c).value; return o; }, {})),
+    updated: Date.now(),
+  };
+}
+function saveErgDraft() {
+  const snap = ergSnapshot();
+  if (snap) localStorage.setItem(ergDraftKey(), JSON.stringify(snap));
+  else localStorage.removeItem(ergDraftKey());
+}
+const clearErgDraft = () => localStorage.removeItem(ergDraftKey());
+let ergDraftTimer = null;
+const queueErgDraft = () => { clearTimeout(ergDraftTimer); ergDraftTimer = setTimeout(saveErgDraft, 500); };
+
+function restoreErgForm() {
+  const snap = readJSON(ergDraftKey(), null);
+  if (!snap || !snap.fields) return false;
+  openErgForm({ intervals: snap.intervals.map(() => ({})) }, snap.source, true);
+  Object.keys(snap.fields).forEach(id => { if ($(id)) $(id).value = snap.fields[id]; });
+  [...document.querySelectorAll('#eg-ivs tr')].forEach((tr, i) => {
+    const r = snap.intervals[i];
+    if (r) IV_FIELDS.forEach(c => { tr.querySelector('.' + c).value = r[c]; });
+  });
+  toast('erg-parse-status', 'Picked up the session you had open' +
+    (snap.source === 'photo' ? ' from your photo' : '') + '. Check it over and save, or discard it.', 'warn');
+  return true;
 }
 
 async function saveErg() {
@@ -466,6 +854,7 @@ async function saveErg() {
   }
 
   const row = {
+    id: newId(),
     profile_id: S.session.user.id,
     date: $('eg-date').value || todayISO(),
     at: nowHM(),
@@ -478,15 +867,21 @@ async function saveErg() {
     intervals: intervals.length ? intervals : null,
     notes: $('eg-notes').value.trim() || null,
   };
-  const { data, error } = await sb.from('tracker_erg_sessions').insert(row).select().single();
-  if (error) { toast('erg-parse-status', 'Save failed: ' + esc(error.message), 'err'); return; }
+  const { error } = await insertRow('tracker_erg_sessions', row);
+  const queued = error && looksOffline(error);
+  if (error && !queued) { toast('erg-parse-status', 'Save failed: ' + esc(error.message), 'err'); return; }
+  if (queued) queueWrite('tracker_erg_sessions', row);
 
-  S.ergs.push(data); sortDesc(S.ergs);
-  track('erg_saved', { source: row.source, intervals: intervals.length });
+  S.ergs.push(row); sortDesc(S.ergs);
+  track('erg_saved', { source: row.source, intervals: intervals.length, queued: !!queued });
   $('erg-form-holder').innerHTML = '';
-  toast('erg-parse-status', 'Saved - ' + prettyDate(row.date) +
+  cacheData();
+  clearErgDraft();
+  toast('erg-parse-status',
+    (queued ? 'Saved on this device - it will sync when you are back online. ' : 'Saved - ') +
+    prettyDate(row.date) +
     (row.session_type ? ' · ' + esc(row.session_type) : '') +
-    (row.distance_m ? ' · ' + row.distance_m + 'm' : '') + '.');
+    (row.distance_m ? ' · ' + row.distance_m + 'm' : '') + '.', queued ? 'warn' : '');
   renderErgRecent(); renderSummary(); renderHistory(); refreshWeekCount();
 }
 
@@ -635,6 +1030,7 @@ function renderCoreTab() {
     ? live.map(r => '<option value="' + r.id + '">' + esc(r.name) + '</option>').join('')
     : '<option value="">No routines yet</option>';
   if (RUN.routineId && live.some(r => r.id === RUN.routineId)) pick.value = RUN.routineId;
+  $('core-edit-rt').disabled = !live.length;
 
   if (!live.length) {
     stopTimer();
@@ -791,6 +1187,7 @@ function renderRunner() {
       '<div class="timer-bar"><i id="tm-bar"></i></div>' +
       '<div class="timer-btns">' +
         '<button class="go" id="tm-go">Start</button>' +
+        '<button id="tm-back"' + (RUN.idx <= 0 ? ' disabled' : '') + '>&larr; Back</button>' +
         '<button id="tm-next">Next</button>' +
         '<button id="tm-reset">Reset</button>' +
       '</div>' +
@@ -955,6 +1352,25 @@ function nextStep() {
   if (autoNext()) startTimer();   // countdown, then straight into the next round
 }
 
+// Next is one tap and there is no undo, so there has to be a way back. The
+// round you return to is un-recorded so it can be timed again, and its rest
+// comes back off the running total with it.
+function prevStep() {
+  if (RUN.idx <= 0) return;
+  syncActualsFromDOM();
+  cancelCountdown();
+  if (RUN.tick) { clearInterval(RUN.tick); RUN.tick = null; }
+  RUN.running = false; RUN.carried = 0;
+  RUN.idx--;
+  const s = RUN.steps[RUN.idx];
+  if (s) {
+    RUN.restAccum = Math.max(0, RUN.restAccum - (s.rest_s || 0));
+    s.actual_s = null; s.rest_s = 0; s.beeped = false;
+  }
+  RUN.idleSince = Date.now();
+  renderRunner();
+}
+
 // Hand-typed actuals and notes must survive the re-render that every round
 // change causes.
 function syncActualsFromDOM() {
@@ -1009,6 +1425,7 @@ async function saveCoreSession() {
   if (!steps.length) { toast('core-msg', 'Nothing to save - time at least one round, or type a number in.', 'warn'); return; }
 
   const row = {
+    id: newId(),
     profile_id: S.session.user.id,
     date: $('core-date').value || todayISO(),
     at: nowHM(),
@@ -1017,15 +1434,22 @@ async function saveCoreSession() {
     steps,
     notes: (RUN.notes || '').trim() || null,
   };
-  const { data, error } = await sb.from('tracker_core_sessions').insert(row).select().single();
-  if (error) { toast('core-msg', 'Save failed: ' + esc(error.message), 'err'); return; }
-  S.coreSessions.push(data); sortDesc(S.coreSessions);
+  const { error } = await insertRow('tracker_core_sessions', row);
+  const queued = error && looksOffline(error);
+  if (error && !queued) { toast('core-msg', 'Save failed: ' + esc(error.message), 'err'); return; }
+  if (queued) queueWrite('tracker_core_sessions', row);
+
+  S.coreSessions.push(row); sortDesc(S.coreSessions);
   const t = coreTotals(steps);
-  track('core_saved', { rounds: steps.length, work_s: t.work, rest_s: t.rest });
+  cacheData();
+  track('core_saved', { rounds: steps.length, work_s: t.work, rest_s: t.rest, queued: !!queued });
   stopTimer();
   loadRun(RUN.routineId);
-  toast('core-msg', 'Saved - ' + steps.length + ' round' + (steps.length === 1 ? '' : 's') +
-    ' · ' + fmtTime(t.total) + ' total (' + fmtTime(t.work) + ' work, ' + fmtTime(t.rest) + ' reset).');
+  toast('core-msg',
+    (queued ? 'Saved on this device - it will sync when you are back online. ' : 'Saved - ') +
+    steps.length + ' round' + (steps.length === 1 ? '' : 's') +
+    ' · ' + fmtTime(t.total) + ' total (' + fmtTime(t.work) + ' work, ' + fmtTime(t.rest) + ' reset).',
+    queued ? 'warn' : '');
   renderHistory(); renderSummary();
 }
 
@@ -1143,6 +1567,230 @@ function renderSummary() {
   '<footer class="footer" style="margin-top:1rem"><span>Averages are per set across the week. ×n = sessions the exercise appeared in; the arrow compares average weight with the previous logged week.</span></footer>';
 }
 
+/* ================= progress =================
+   One lift, one measure, one axis. Two measures of different scale is two
+   charts, never two y-scales on the same one. */
+const REP_METRICS = [
+  { k: 'top', label: 'Heaviest set', unit: 'kg' },
+  { k: 'e1rm', label: 'Estimated 1RM', unit: 'kg' },
+  { k: 'volume', label: 'Session volume', unit: 'kg' },
+];
+const SEC_METRICS = [
+  { k: 'top', label: 'Longest hold', unit: 's' },
+  { k: 'volume', label: 'Total time held', unit: 's' },
+];
+const metricsFor = m => (m && m.unit === 'secs') ? SEC_METRICS : REP_METRICS;
+// Epley. Named on the chart, because an estimate presented as a measurement is
+// worse than no estimate.
+const e1rm = (w, reps) => w * (1 + reps / 30);
+
+function progressSeries(exId, metric) {
+  const m = exById(exId) || {};
+  const timeOnly = m.unit === 'secs';
+  const pts = [];
+  [...S.workouts].reverse().forEach(w => {
+    const rows = w.sets[exId];
+    if (!rows || !rows.length) return;
+    const sets = rows.map(r => ({ reps: parseFloat(r.r), wt: parseFloat(r.w) })).filter(x => !isNaN(x.reps));
+    if (!sets.length) return;
+    let v = null;
+    if (timeOnly) {
+      v = metric === 'volume' ? sets.reduce((a, s) => a + s.reps, 0) : Math.max(...sets.map(s => s.reps));
+    } else {
+      const wt = sets.filter(s => !isNaN(s.wt));
+      if (!wt.length) return;                      // bodyweight-only day: nothing to plot
+      if (metric === 'volume') v = wt.reduce((a, s) => a + s.reps * s.wt, 0);
+      else if (metric === 'e1rm') v = Math.max(...wt.map(s => e1rm(s.wt, s.reps)));
+      else v = Math.max(...wt.map(s => s.wt));
+    }
+    if (v == null || !isFinite(v) || v <= 0) return;
+    pts.push({ date: w.date, v: round1(v), sets, id: w.id });
+  });
+  return pts;
+}
+
+// plotted point positions, for the hover layer
+let chartPts = [];
+
+const niceStep = span => {
+  const raw = span / 4, pow = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / pow;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * pow;
+};
+
+// Rendered at a measured pixel width rather than scaled from a viewBox, so the
+// axis labels stay 10px on a phone instead of shrinking to nothing.
+function chartHTML(pts, unit, W) {
+  // top padding leaves room for the value label that sits above the top point
+  const H = 250, P = { t: 30, r: 14, b: 28, l: 46 };
+  const iw = Math.max(40, W - P.l - P.r), ih = H - P.t - P.b;
+  const ts = pts.map(p => new Date(p.date + 'T12:00:00').getTime());
+  const t0 = ts[0], t1 = ts[ts.length - 1], span = (t1 - t0) || 1;
+  const vs = pts.map(p => p.v);
+  const lo = Math.min(...vs), hi = Math.max(...vs);
+  const step = niceStep((hi - lo) || hi || 1);
+  let y0 = Math.max(0, Math.floor(lo / step) * step - (hi === lo ? step : 0));
+  let y1 = Math.ceil(hi / step) * step + (hi === lo ? step : 0);
+  // a lowest point sitting exactly on the axis line reads as falling off it
+  if (lo === y0 && y0 > 0) y0 = Math.max(0, y0 - step);
+  if (y1 === y0) y1 = y0 + step;
+  // Time-scaled, so a month off training shows as a gap. Two sessions on the
+  // same date would otherwise land on one x, so that case falls back to even
+  // spacing by session.
+  const xs = (t1 === t0)
+    ? pts.map((_, i) => P.l + (pts.length === 1 ? iw / 2 : (i / (pts.length - 1)) * iw))
+    : ts.map(t => P.l + ((t - t0) / span) * iw);
+  const Y = v => P.t + ih - ((v - y0) / (y1 - y0)) * ih;
+  const xy = pts.map((p, i) => [xs[i], Y(p.v)]);
+
+  const grid = [];
+  for (let v = y0; v <= y1 + 1e-9; v += step) {
+    grid.push('<line class="cgrid" x1="' + P.l + '" y1="' + Y(v).toFixed(1) + '" x2="' + (P.l + iw) + '" y2="' + Y(v).toFixed(1) + '"/>' +
+      '<text class="ctick" x="' + (P.l - 8) + '" y="' + (Y(v) + 3.5).toFixed(1) + '" text-anchor="end">' + round1(v) + '</text>');
+  }
+
+  const line = xy.map(([x, y], i) => (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1)).join(' ');
+  const area = line + ' L' + xy[xy.length - 1][0].toFixed(1) + ' ' + (P.t + ih) + ' L' + xy[0][0].toFixed(1) + ' ' + (P.t + ih) + ' Z';
+
+  // Label the latest, the peak and the start - in that order of priority, and
+  // only where there is room. A number on every point is noise, and two numbers
+  // on top of each other are worse than one.
+  const GAP = 46;
+  const iMax = vs.indexOf(hi);
+  const marked = [];
+  [pts.length - 1, iMax, 0].forEach(i => {
+    if (i < 0 || marked.includes(i)) return;
+    if (marked.some(j => Math.abs(xs[j] - xs[i]) < GAP)) return;
+    marked.push(i);
+  });
+  const labels = marked.sort((a, b) => a - b).map(i => {
+    const [x, y] = xy[i];
+    const anchor = i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle';
+    const dx = i === 0 ? -3 : i === pts.length - 1 ? 3 : 0;
+    return '<text class="clab" x="' + (x + dx).toFixed(1) + '" y="' + (y - 12).toFixed(1) + '" text-anchor="' + anchor + '">' +
+      round1(pts[i].v) + unit + '</text>';
+  }).join('');
+
+  const ends = xy[xy.length - 1][0] - xy[0][0] < GAP ? [pts.length - 1] : [0, pts.length - 1];
+  const xlabs = ends.map(i =>
+    '<text class="ctick" x="' + xy[i][0].toFixed(1) + '" y="' + (H - 8) + '" text-anchor="' +
+      (i === 0 ? 'start' : 'end') + '">' + shortDate(pts[i].date) + '</text>').join('');
+
+  chartPts = pts.map((p, i) => ({ x: +xy[i][0].toFixed(1), y: +xy[i][1].toFixed(1), d: p.date, v: p.v }));
+  return '<div class="chartwrap" id="chartwrap">' +
+    '<svg width="' + W + '" height="' + H + '" role="img" aria-label="Progress over time; the same numbers are in the table below">' +
+      grid.join('') +
+      '<path class="carea" d="' + area + '"/>' +
+      '<path class="cline" d="' + line + '"/>' +
+      '<line class="caxis" x1="' + P.l + '" y1="' + (P.t + ih) + '" x2="' + (P.l + iw) + '" y2="' + (P.t + ih) + '"/>' +
+      '<line class="ccross" id="ch-cross" x1="0" y1="' + P.t + '" x2="0" y2="' + (P.t + ih) + '" style="display:none"/>' +
+      xy.map(([x, y]) => '<circle class="cdot" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="4.5"/>').join('') +
+      '<circle class="cdot-hi" id="ch-hi" cx="0" cy="0" r="6.5" style="display:none"/>' +
+      labels + xlabs +
+      '<rect id="ch-hit" x="' + P.l + '" y="' + P.t + '" width="' + iw + '" height="' + ih + '" fill="transparent"/>' +
+    '</svg><div class="ctip" id="ch-tip" style="display:none"></div></div>';
+}
+
+function renderProgress() {
+  const body = $('prog-body'), pick = $('prog-pick'), mSel = $('prog-metric');
+  if (!body) return;
+
+  // only lifts that have actually been logged; retired ones still count, since
+  // their history is the point of this tab
+  const done = new Set();
+  S.workouts.forEach(w => Object.keys(w.sets).forEach(id => done.add(id)));
+  const opts = S.exercises.filter(e => done.has(e.id));
+  if (!opts.length) {
+    pick.innerHTML = '<option value="">Nothing logged yet</option>';
+    mSel.innerHTML = '';
+    body.innerHTML = '<p class="empty">Log a few weights sessions and this fills in - one lift at a time, so you can see whether it is actually moving.</p>';
+    return;
+  }
+
+  const keep = pick.value;
+  pick.innerHTML = opts.map(e => '<option value="' + e.id + '">' + esc(e.name) +
+    (e.retired ? ' (retired)' : '') + '</option>').join('');
+  if (keep && opts.some(e => e.id === keep)) pick.value = keep;
+
+  const m = exById(pick.value) || {};
+  const metrics = metricsFor(m);
+  const keepM = mSel.value;
+  mSel.innerHTML = metrics.map(x => '<option value="' + x.k + '">' + x.label + '</option>').join('');
+  if (keepM && metrics.some(x => x.k === keepM)) mSel.value = keepM;
+  const metric = metrics.find(x => x.k === mSel.value) || metrics[0];
+
+  const pts = progressSeries(pick.value, metric.k);
+  const title = '<div class="prog-head"><span class="prog-title">' + esc(m.name || '') + '</span></div>' +
+    '<div class="prog-sub">' + esc(metric.label) + ' by session' +
+    (metric.k === 'e1rm' ? ' · Epley estimate from your heaviest set, not a tested max' : '') + '</div>';
+
+  if (!pts.length) {
+    body.innerHTML = title + '<p class="empty">No sets with a weight recorded for this one yet.</p>';
+    return;
+  }
+
+  const vs = pts.map(p => p.v);
+  const best = Math.max(...vs), bestAt = pts[vs.indexOf(best)];
+  const change = round1(pts[pts.length - 1].v - pts[0].v);
+  const tiles =
+    '<div class="prog-tiles">' +
+      '<div><div class="tile-lab">Latest</div><div class="tile-val">' + round1(pts[pts.length - 1].v) + metric.unit +
+        '</div><div class="tile-note">' + shortDate(pts[pts.length - 1].date) + '</div></div>' +
+      '<div><div class="tile-lab">Best</div><div class="tile-val">' + round1(best) + metric.unit +
+        '</div><div class="tile-note">' + shortDate(bestAt.date) + '</div></div>' +
+      '<div><div class="tile-lab">Since ' + shortDate(pts[0].date) + '</div>' +
+        '<div class="tile-val ' + (change > 0 ? 'up' : change < 0 ? 'down' : '') + '">' +
+        (change > 0 ? '+' : '') + change + metric.unit + '</div>' +
+        '<div class="tile-note">' + pts.length + ' session' + (pts.length === 1 ? '' : 's') + '</div></div>' +
+    '</div>';
+
+  const chart = pts.length > 1
+    ? chartHTML(pts, metric.unit, Math.max(300, body.clientWidth || 620)) +
+      '<p class="chart-note">Tap or hover the chart for a session. Every session is in the table below.</p>'
+    : '<p class="chart-note">One session so far - the chart starts once there are two.</p>';
+
+  const table = '<div class="dtbl-wrap"><table class="dtbl">' +
+    '<thead><tr><th>Date</th><th>' + esc(metric.label) + '</th><th>Change</th><th>Sets</th></tr></thead><tbody>' +
+    [...pts].reverse().map((p, i, arr) => {
+      const prev = arr[i + 1];
+      const d = prev ? round1(p.v - prev.v) : null;
+      return '<tr><td>' + shortDate(p.date) + '</td>' +
+        '<td>' + round1(p.v) + metric.unit + '</td>' +
+        '<td>' + (d === null || d === 0 ? '<span class="na">–</span>'
+          : '<span class="delta ' + (d > 0 ? 'up' : 'down') + '">' + (d > 0 ? '+' : '') + d + '</span>') + '</td>' +
+        '<td>' + esc(p.sets.map(s => (isNaN(s.wt) ? s.reps + (m.unit === 'secs' ? 's' : '')
+          : s.reps + '×' + s.wt + 'kg')).join('  ')) + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+
+  body.innerHTML = title + tiles + chart + table;
+  wireChart(metric.unit);
+}
+
+// Crosshair + tooltip. A chart on a page is interactive by default; the hit
+// target is the whole plot, not the 9px dots.
+function wireChart(unit) {
+  const wrap = $('chartwrap');
+  if (!wrap || !chartPts.length) return;
+  const pts = chartPts;
+  const hit = $('ch-hit'), cross = $('ch-cross'), hi = $('ch-hi'), tip = $('ch-tip');
+  const move = ev => {
+    const r = wrap.getBoundingClientRect();
+    const px = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
+    let near = pts[0];
+    pts.forEach(p => { if (Math.abs(p.x - px) < Math.abs(near.x - px)) near = p; });
+    cross.setAttribute('x1', near.x); cross.setAttribute('x2', near.x);
+    cross.style.display = ''; hi.style.display = '';
+    hi.setAttribute('cx', near.x); hi.setAttribute('cy', near.y);
+    tip.innerHTML = '<span class="tdate">' + prettyDate(near.d) + '</span><br><b>' + near.v + unit + '</b>';
+    tip.style.display = '';
+    tip.style.left = Math.min(r.width - 8, Math.max(8, near.x)) + 'px';
+    tip.style.top = (near.y - 12) + 'px';
+  };
+  const leave = () => { cross.style.display = 'none'; hi.style.display = 'none'; tip.style.display = 'none'; };
+  hit.addEventListener('pointermove', move);
+  hit.addEventListener('pointerdown', move);
+  hit.addEventListener('pointerleave', leave);
+}
+
 /* ================= history ================= */
 function renderHistory() {
   const el = $('hist-body');
@@ -1184,7 +1832,7 @@ function workoutTotals(s) {
 
 // Collapsed by default: a scannable line per session, full detail on click.
 // delKey must match the table the session lives in - 'w', 'erg' or 'c'.
-function entryHTML(s, cls, kindLabel, summary, detail, delKey) {
+function entryHTML(s, cls, kindLabel, summary, detail, delKey, editKey) {
   return '<div class="entry' + (cls ? ' ' + cls : '') + '">' +
     '<button class="entry-toggle" aria-expanded="false">' +
       '<span class="chev" aria-hidden="true">▸</span>' +
@@ -1196,6 +1844,7 @@ function entryHTML(s, cls, kindLabel, summary, detail, delKey) {
       '<span class="entry-kind">' + kindLabel + '</span>' +
     '</button>' +
     '<div class="entry-detail" hidden>' + detail +
+      (editKey ? '<button class="del" data-' + editKey + '="' + s.id + '">Edit this session</button>' : '') +
       '<button class="del" data-del-' + delKey + '="' + s.id + '">Delete this session</button>' +
     '</div></div>';
 }
@@ -1232,7 +1881,7 @@ function histWorkoutHTML(s) {
         '</span></div>').join('') + '</div>';
   }).join('') + (s.notes ? '<div class="dnote">' + esc(s.notes) + '</div>' : '');
 
-  return entryHTML(s, '', 'weights', summary, detail, 'w');
+  return entryHTML(s, '', 'weights', summary, detail, 'w', 'edit-w');
 }
 
 function histErgHTML(s) {
@@ -1423,13 +2072,22 @@ async function uploadTemplate(file) {
 /* ================= events ================= */
 document.addEventListener('input', e => {
   const el = e.target;
-  if (!el.classList || !(el.classList.contains('in-r') || el.classList.contains('in-w'))) return;
+  if (!el.classList) return;
+  if (el.id === 'chip-search') { filterChips(); return; }
+  if (el.id === 'log-notes') { queueDraft(); return; }
+  if (el.closest && el.closest('#erg-form')) { queueErgDraft(); return; }
+  if (!(el.classList.contains('in-r') || el.classList.contains('in-w'))) return;
   const card = el.closest('.ex'), row = el.closest('.setrow');
   if (!card || !row) return;
   if (card.querySelector('.setrow') === row) fillDown(card);
   else el.dataset.touched = '1';   // typed into by hand: stop mirroring set 1
+  refreshBest(card);
   updateSecNotes();
   queueDraft();
+});
+// selects don't fire input in every browser
+document.addEventListener('change', e => {
+  if (e.target.closest && e.target.closest('#erg-form')) queueErgDraft();
 });
 
 document.addEventListener('click', async e => {
@@ -1440,6 +2098,19 @@ document.addEventListener('click', async e => {
     tog.parentElement.querySelector('.entry-detail').hidden = open;
     return;
   }
+  // steppers: nudge the field, then let the normal input path do fill-down,
+  // the PB line and the draft
+  if (e.target.classList.contains('sdn') || e.target.classList.contains('sup')) {
+    const wrap = e.target.closest('.stepper'), inp = wrap.querySelector('input');
+    const step = parseFloat(wrap.dataset.step) || 1;
+    const cur = parseFloat(inp.value);
+    const next = (isNaN(cur) ? 0 : cur) + (e.target.classList.contains('sup') ? step : -step);
+    inp.value = Math.max(0, Math.round(next * 100) / 100);
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+    return;
+  }
+  const rep = e.target.closest('[data-repeat]');
+  if (rep) { repeatGroup(rep.dataset.repeat); return; }
   const chip = e.target.closest('[data-chip]');
   if (chip) {
     chip.getAttribute('aria-pressed') === 'true' ? removeExercise(chip.dataset.chip) : addExercise(chip.dataset.chip, false);
@@ -1469,13 +2140,19 @@ document.addEventListener('click', async e => {
   if (e.target.id === 'draft-drop') {
     if (!confirm('Throw away what you have entered for this date? Sessions you have already saved are kept.')) return;
     clearDraft(currentDate());
+    $('log-notes').value = '';
     renderLog();
     return;
   }
+  if (e.target.id === 'edit-cancel-top' || e.target.id === 'cancel-edit') { cancelEditWorkout(); return; }
+  const ew = e.target.closest('[data-edit-w]');
+  if (ew) { startEditWorkout(ew.dataset.editW); return; }
+  if (e.target.id === 'sync-now') { flushOutbox(true); return; }
   if (e.target.classList.contains('addset')) {
     // .addset is shared styling, so route the other users of it first
     if (e.target.id === 'eg-addiv') {
       $('eg-ivs').insertAdjacentHTML('beforeend', ergIvRowHTML($('eg-ivs').children.length, {}));
+      saveErgDraft();
       return;
     }
     if (e.target.id === 'cr-add') {
@@ -1504,6 +2181,7 @@ document.addEventListener('click', async e => {
     const tb = e.target.closest('tbody');
     e.target.closest('tr').remove();
     [...tb.children].forEach((tr, i) => tr.querySelector('.setno').textContent = i + 1);
+    saveErgDraft();
     return;
   }
   // Deleting a logged session cannot be undone, and the button sits one tap
@@ -1512,7 +2190,7 @@ document.addEventListener('click', async e => {
   if (dw) {
     if (!confirm('Delete this weights session for good?')) return;
     const { error } = await sb.from('tracker_workouts').delete().eq('id', dw.dataset.delW);
-    if (!error) { S.workouts = S.workouts.filter(s => s.id !== dw.dataset.delW); renderHistory(); renderSummary(); refreshWeekCount(); }
+    if (!error) { S.workouts = S.workouts.filter(s => s.id !== dw.dataset.delW); renderHistory(); renderSummary(); renderProgress(); refreshWeekCount(); }
     return;
   }
   const dc = e.target.closest('[data-del-c]');
@@ -1552,6 +2230,7 @@ document.addEventListener('click', async e => {
   // ---- timer ----
   if (e.target.id === 'tm-go') { RUN.running ? pauseTimer() : startTimer(); return; }
   if (e.target.id === 'tm-next') { nextStep(); return; }
+  if (e.target.id === 'tm-back') { prevStep(); return; }
   if (e.target.id === 'tm-reset') {
     if (RUN.started && !confirm('Start this routine again from round 1? The times recorded so far are lost.')) return;
     stopTimer(); loadRun(RUN.routineId); return;
@@ -1570,7 +2249,13 @@ document.addEventListener('click', async e => {
   const dx = e.target.closest('[data-del-ex]');
   if (dx) { deleteLibExercise(dx.dataset.delEx); return; }
   if (e.target.id === 'eg-save') { saveErg(); return; }
-  if (e.target.id === 'eg-cancel') { $('erg-form-holder').innerHTML = ''; return; }
+  if (e.target.id === 'eg-cancel') {
+    if (!confirm('Discard this session without saving it?')) return;
+    $('erg-form-holder').innerHTML = '';
+    clearErgDraft();
+    $('erg-parse-status').innerHTML = '';
+    return;
+  }
 });
 
 /* ================= boot ================= */
@@ -1580,59 +2265,100 @@ document.addEventListener('click', async e => {
   S.session = session;
 
   const err = await loadAll();
+  let fromCache = false;
   if (err) {
-    $('app-loading').innerHTML = 'Could not load your data: ' + esc(err) +
-      '<br><br>If the tracker tables have not been created yet, run tracker/supabase/tracker_schema.sql in the Supabase SQL editor.';
-    return;
+    // No connection is not a fatal error - fall back to the last good load so
+    // sessions can still be logged and queued. A real error still stops here.
+    if (looksOffline({ message: err }) && loadCached()) fromCache = true;
+    else {
+      $('app-loading').innerHTML = 'Could not load your data: ' + esc(err) +
+        '<br><br>If the tracker tables have not been created yet, run tracker/supabase/tracker_schema.sql in the Supabase SQL editor.';
+      return;
+    }
+  } else {
+    cacheData();
   }
 
   $('whoami').textContent = (S.profile && S.profile.display_name) || session.user.email || '';
   $('log-date').value = todayISO();
   $('core-date').value = todayISO();
   renderLog(); renderErgGate(); renderErgRecent(); renderCoreTab();
-  renderSummary(); renderHistory(); renderLibrary(); renderRoutines();
+  renderSummary(); renderProgress(); renderHistory(); renderLibrary(); renderRoutines();
+  restoreErgForm();
+  paintSyncBadge();
+  if (fromCache) {
+    toast('log-msg', 'No connection - showing your training log from this device. ' +
+      'Anything you log now is kept here and syncs when you are back online.', 'warn');
+  }
+  // Rows flushed at boot are on the server but not in what was just loaded, so
+  // pull again rather than leaving the athlete looking at a log that is missing
+  // the session they logged offline.
+  flushOutbox(true).then(async n => {
+    if (!n) return;
+    const e2 = await loadAll();
+    if (e2) return;
+    cacheData();
+    renderLog(snapshotLog()); renderErgRecent(); renderSummary();
+    renderProgress(); renderHistory(); refreshWeekCount();
+  });
 
   $('app-loading').style.display = 'none';
   $('app').style.display = '';
 
   // tabs
   document.querySelectorAll('.tabs .tab').forEach(tab => {
-    tab.onclick = () => {
-      document.querySelectorAll('.tabs .tab').forEach(t => {
-        t.classList.toggle('active', t === tab);
-        t.setAttribute('aria-selected', String(t === tab));
-      });
-      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === tab.dataset.panel));
-    };
+    tab.addEventListener('click', () => {
+      selectTab(tab.dataset.panel);
+      // the chart is sized in real pixels, so it can only be drawn once its
+      // panel is on screen and has a width
+      if (tab.dataset.panel === 'p-prog') renderProgress();
+      // A running timer must not survive leaving the tab, or it keeps counting
+      // and holding the wake lock against a circuit that has been walked away from.
+      if (tab.dataset.panel !== 'p-core') { cancelCountdown(); if (RUN.running) pauseTimer(); }
+    });
   });
 
   // A date change re-derives every "last time" line, so the log rebuilds -
-  // picking up whatever draft belongs to the date you moved to.
-  $('log-date').onchange = () => renderLog();
+  // picking up whatever draft belongs to the date you moved to. While amending
+  // a saved session the date is part of what is being edited, so keep the sets.
+  $('log-date').onchange = () => renderLog(editingWorkoutId ? snapshotLog() : null);
   $('save-btn').onclick = saveWorkout;
   $('signout').onclick = async () => { await sb.auth.signOut(); window.location.replace('login.html'); };
 
   $('erg-photo-btn').onclick = () => $('erg-file').click();
   $('erg-file').onchange = () => { if ($('erg-file').files[0]) { handleErgPhoto($('erg-file').files[0]); $('erg-file').value = ''; } };
-  $('erg-manual-btn').onclick = () => openErgForm(null, 'manual');
+  $('erg-manual-btn').onclick = () => { openErgForm(null, 'manual'); saveErgDraft(); };
 
   $('core-pick').onchange = () => loadRun($('core-pick').value);
+  $('core-edit-rt').onclick = () => {
+    const r = routineById($('core-pick').value);
+    if (!r) return;
+    editingRoutine = { id: r.id, name: r.name, steps: stepsOf(r).map(s => ({ ...s })) };
+    renderRoutines();
+    selectTab('p-lib');
+    $('rt-builder').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   $('rt-new').onclick = () => {
     editingRoutine = { id: null, name: '', steps: [{ name: '', target_s: 60 }] };
     renderRoutines();
   };
-  // A running timer must not survive leaving the tab, or it keeps counting and
-  // holding the wake lock against a circuit the athlete has walked away from.
-  document.querySelectorAll('.tabs .tab').forEach(t => t.addEventListener('click', () => {
-    if (t.dataset.panel === 'p-core') return;
-    cancelCountdown();
-    if (RUN.running) pauseTimer();
-  }));
 
-  // Last line of defence for the draft: a phone can kill the tab without ever
+  $('prog-pick').onchange = () => { $('prog-metric').value = ''; renderProgress(); };
+  $('prog-metric').onchange = renderProgress;
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (document.getElementById('p-prog').classList.contains('active')) renderProgress();
+    }, 250);
+  });
+
+  // Last line of defence for the drafts: a phone can kill the tab without ever
   // firing another input event.
-  window.addEventListener('beforeunload', () => { clearTimeout(draftTimer); saveDraft(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) saveDraft(); });
+  const flushDrafts = () => { clearTimeout(draftTimer); clearTimeout(ergDraftTimer); saveDraft(); saveErgDraft(); };
+  window.addEventListener('beforeunload', flushDrafts);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) flushDrafts(); });
+  window.addEventListener('online', () => flushOutbox(true));
 
   $('lx-save').onclick = saveLibExercise;
   $('lx-cancel').onclick = () => fillLibForm(null);

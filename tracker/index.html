@@ -20,6 +20,10 @@
   gtag('config', 'G-876ELQ9529');
 </script>
 <style>
+  /* The UA rule for [hidden] is user-agent origin, so ANY author `display`
+     beats it - .chip{display:flex} and friends would render hidden elements.
+     Everything here that hides by setting the property depends on this. */
+  [hidden]{display:none !important}
   .trk-wrap{max-width:760px;margin:0 auto}
   .userline{font-family:var(--mono);font-size:11px;color:var(--text3);display:flex;gap:12px;align-items:baseline}
   .userline button{height:auto;padding:3px 10px;font-size:11px;font-family:var(--mono);font-weight:400}
@@ -50,8 +54,17 @@
   .picker{border-top:1px solid var(--border2);border-bottom:1px solid var(--border2);padding:12px 0 14px;margin-bottom:22px}
   .picker-head{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:9px}
   .picker-session{font-size:13.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text);
-    border-bottom:1px solid var(--text);padding-bottom:3px;margin:18px 0 8px}
+    border-bottom:1px solid var(--text);padding-bottom:3px;margin:18px 0 8px;
+    display:flex;justify-content:space-between;align-items:baseline;gap:10px}
   .picker-session:first-child{margin-top:0}
+  .picker-session[hidden]{display:none}
+  .repeat{background:none;border:1px solid var(--border2);color:var(--text2);font-family:var(--mono);
+    font-size:10.5px;letter-spacing:.06em;text-transform:none;padding:3px 9px;height:auto;font-weight:400;flex-shrink:0}
+  .repeat:hover{border-color:var(--red-ink);color:var(--red-ink);background:none}
+  .chipsearch{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:0;
+    font-family:var(--mono);font-size:13px;padding:8px 10px;height:38px;outline:none;margin-bottom:11px}
+  .chipsearch:focus{border-color:var(--red-ink)}
+  .nomatch{font-family:var(--mono);font-size:11.5px;color:var(--text3);padding:8px 0}
   .picker-row{display:grid;grid-template-columns:52px 1fr;gap:8px;align-items:start;margin-bottom:7px}
   .picker-row .rowlab{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding-top:10px}
   .chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -73,15 +86,25 @@
   .ex-name{font-weight:700;font-size:15.5px}
   .ex-note{color:var(--text2);font-size:13px;margin-top:1px}
   .src{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)}
-  .lastline{font-family:var(--mono);font-size:11.5px;color:var(--text2);margin:6px 0 8px}
+  .lastline{font-family:var(--mono);font-size:11.5px;color:var(--text2);margin:6px 0 3px}
   .lastline.none{color:var(--text3)}
-  .setrow{display:grid;grid-template-columns:22px 1fr 1fr 30px;gap:6px;align-items:center;margin-bottom:6px}
-  .setrow.time{grid-template-columns:22px 1fr 30px}
+  .bestline{font-family:var(--mono);font-size:11.5px;color:var(--text3);margin:0 0 8px}
+  .bestline:empty{display:none}
+  .bestline b{color:var(--c-hrr);font-weight:600}
+  .setrow{display:grid;grid-template-columns:20px minmax(0,1fr) minmax(0,1.45fr) 24px;gap:6px;align-items:center;margin-bottom:6px}
+  .setrow.time{grid-template-columns:20px minmax(0,1fr) 24px}
   .setno{font-family:var(--mono);font-size:12px;color:var(--text3)}
   .setrow input{width:100%;height:40px;font-size:15px}
-  .colhead{display:grid;grid-template-columns:22px 1fr 1fr 30px;gap:6px;margin-bottom:4px;
+  .colhead{display:grid;grid-template-columns:20px minmax(0,1fr) minmax(0,1.45fr) 24px;gap:6px;margin-bottom:4px;
     font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3)}
-  .colhead.time{grid-template-columns:22px 1fr 30px}
+  .colhead.time{grid-template-columns:20px minmax(0,1fr) 24px}
+  /* stepper: hitting +/- beats typing on a phone with chalk on your hands */
+  .stepper{display:flex;align-items:stretch;min-width:0}
+  .stepper input{flex:1;min-width:0;text-align:center;border-left:none;border-right:none}
+  .stepper button{flex:0 0 34px;width:34px;height:40px;padding:0;font-size:18px;line-height:1;font-weight:500;
+    border:1px solid var(--border2);background:var(--bg3);color:var(--text2);border-radius:0}
+  .stepper button:hover{color:var(--text);border-color:var(--text);background:var(--bg3)}
+  .stepper button:active{background:var(--red-dim)}
   .addset{border:1px dashed var(--border2);color:var(--text3);font-size:12.5px;padding:5px 10px;width:100%;height:auto;font-weight:400}
   .addset:hover{border-color:var(--text);color:var(--text)}
 
@@ -104,6 +127,17 @@
   .draftline button{background:none;border:none;color:var(--text3);font-size:11px;font-family:var(--mono);
     text-decoration:underline;padding:0;height:auto;font-weight:400;letter-spacing:.04em}
   .draftline button:hover{color:var(--red-ink);background:none}
+  /* editing a session already in History, rather than logging a new one */
+  .editbar{border:1px solid var(--c-hwr);border-left-width:3px;background:var(--bg2);padding:10px 13px;margin-bottom:16px;
+    display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .editbar b{font-size:13.5px}
+  .editbar span{font-family:var(--mono);font-size:11px;color:var(--text3);display:block;margin-top:2px}
+  .editbar button{font-size:12px;padding:5px 12px;height:auto;font-weight:400;flex-shrink:0}
+  /* writes that could not reach the server yet */
+  .syncbadge{font-family:var(--mono);font-size:11px;color:var(--c-hwr);letter-spacing:.04em}
+  .syncbadge button{background:none;border:none;color:var(--c-hwr);font-family:var(--mono);font-size:11px;
+    text-decoration:underline;padding:0 0 0 6px;height:auto;font-weight:400}
+  .syncbadge button:hover{background:none;color:var(--red-ink)}
 
   .save,.primary{background:var(--red);color:#fff;border:1px solid var(--red);font-weight:700;
     letter-spacing:.05em;text-transform:uppercase;width:100%;height:46px;margin-top:4px;font-size:14px}
@@ -220,6 +254,36 @@
   .delta.up{color:#34d399}.delta.down{color:#f87171}
   @media(min-width:560px){.srow{display:flex;justify-content:space-between;align-items:baseline;gap:14px}.sstats{margin-top:0;flex:0 0 auto}}
 
+  /* progress chart - one lift, one measure, one axis */
+  .progbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+  .progbar select{min-width:150px;flex:1}
+  .prog-head{display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:2px}
+  .prog-title{font-size:16px;font-weight:800;letter-spacing:-0.01em}
+  .prog-sub{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.04em;margin-bottom:14px}
+  .prog-tiles{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:18px;
+    border-top:1px solid var(--border2);border-bottom:1px solid var(--border2);padding:12px 0}
+  .tile-lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text3)}
+  .tile-val{font-family:var(--mono);font-size:24px;font-weight:500;line-height:1.15;font-variant-numeric:tabular-nums}
+  .tile-note{font-family:var(--mono);font-size:10.5px;color:var(--text3)}
+  .tile-val.up{color:var(--c-hrr)}.tile-val.down{color:#f87171}
+  .chartwrap{position:relative;margin-bottom:6px;touch-action:pan-y}
+  .chartwrap svg{display:block}
+  .cgrid{stroke:var(--border);stroke-width:1}
+  .caxis{stroke:var(--border2);stroke-width:1}
+  .ctick{font-family:var(--mono);font-size:10px;fill:var(--text3)}
+  .cline{fill:none;stroke:var(--red-ink);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+  .carea{fill:var(--red-dim);stroke:none}
+  .cdot{fill:var(--red-ink);stroke:var(--bg2);stroke-width:2}
+  .cdot-hi{fill:var(--bg2);stroke:var(--red-ink);stroke-width:2}
+  .clab{font-family:var(--mono);font-size:10.5px;fill:var(--text2);font-variant-numeric:tabular-nums}
+  .ccross{stroke:var(--border2);stroke-width:1;stroke-dasharray:3 3}
+  .ctip{position:absolute;pointer-events:none;background:var(--bg3);border:1px solid var(--border2);
+    padding:7px 10px;font-family:var(--mono);font-size:11.5px;line-height:1.55;white-space:nowrap;
+    transform:translate(-50%,-100%);z-index:5;color:var(--text)}
+  .ctip b{color:var(--text);font-weight:600}
+  .ctip .tdate{color:var(--text3);font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+  .chart-note{font-family:var(--mono);font-size:10.5px;color:var(--text3);margin:0 0 20px}
+
   .weekgroup{margin-bottom:22px}
   .weekgroup h4{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);
     border-bottom:1px solid var(--border2);padding-bottom:5px;margin:0 0 10px;font-weight:500}
@@ -284,7 +348,7 @@
       <a href="/" style="text-decoration:none;color:inherit"><div class="brand-mark">Rowing<span class="brand-dot">.</span>Tools</div></a>
       <h1 style="font-size:16px">Tracker</h1>
     </div>
-    <div class="userline"><span id="whoami"></span><button id="signout">Sign out</button></div>
+    <div class="userline"><span id="whoami"></span><span class="syncbadge" id="syncbadge"></span><button id="signout">Sign out</button></div>
   </header>
 
   <div id="app-loading" class="loading-app">Loading your training log&hellip;</div>
@@ -303,6 +367,7 @@
       <span class="tabgrp-lab" aria-hidden="true">Review</span>
       <div class="tabgrp-tabs" role="presentation">
         <button class="tab" role="tab" aria-selected="false" aria-label="Review: Summary" data-panel="p-sum">Summary</button>
+        <button class="tab" role="tab" aria-selected="false" aria-label="Review: Progress" data-panel="p-prog">Progress</button>
         <button class="tab" role="tab" aria-selected="false" aria-label="Review: History" data-panel="p-hist">History</button>
       </div>
     </div>
@@ -317,13 +382,18 @@
   <section class="panel active" id="p-log">
     <div class="toolbar"><input type="date" id="log-date"></div>
     <p class="weekcount" id="weekcount"></p>
+    <div id="edit-bar"></div>
     <div class="picker">
       <div class="picker-head">Tap what you're doing - it drops into its section below. Tap as many as you like; the page stays put.</div>
+      <input type="search" id="chip-search" class="chipsearch" placeholder="Filter exercises&hellip;" autocomplete="off">
       <div id="chips"></div>
     </div>
     <div class="draftline" id="draft-line"></div>
     <div id="log-sections"></div>
+    <div class="fwide"><label>Session notes</label>
+      <input type="text" id="log-notes" placeholder="How it felt, niggles, anything worth remembering"></div>
     <button class="save" id="save-btn">Save session</button>
+    <button id="cancel-edit" style="width:100%;margin-top:8px;display:none">Cancel edit</button>
     <div id="log-msg"></div>
   </section>
 
@@ -343,12 +413,21 @@
     <div class="toolbar">
       <input type="date" id="core-date">
       <select id="core-pick" style="min-width:180px"></select>
+      <button id="core-edit-rt">&#9998; Edit this routine</button>
     </div>
     <div id="core-runner"></div>
     <div id="core-msg"></div>
   </section>
 
   <section class="panel" id="p-sum"><div id="sum-body"></div></section>
+
+  <section class="panel" id="p-prog">
+    <div class="progbar">
+      <select id="prog-pick"></select>
+      <select id="prog-metric"></select>
+    </div>
+    <div id="prog-body"></div>
+  </section>
 
   <section class="panel" id="p-hist">
     <div id="hist-body"></div>
@@ -403,6 +482,13 @@
   <footer class="footer" style="margin-top:3rem"><span>RowingTools Tracker</span><a href="/">rowingtools.co.uk</a></footer>
 </div>
 
+<script>
+// Cache the app shell so the tracker opens in a gym basement with no signal.
+// Saves made offline queue locally and sync when the connection returns.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
+}
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>

@@ -12,7 +12,7 @@ strictly personal: every table is keyed by `profile_id` with owner-only RLS. No 
 
 | Path | What |
 |---|---|
-| `index.html` | The app - tabs grouped as Record (Weights / Erg / Core), Review (Summary / History), Set up (Templates) |
+| `index.html` | The app - tabs grouped as Record (Weights / Erg / Core), Review (Summary / Progress / History), Set up (Templates) |
 | `login.html` | Standalone signin/signup/forgot/recovery against the shared Supabase project |
 | `js/config.js` | Supabase URL + anon key + Edge Function endpoint |
 | `js/app.js` | All app logic |
@@ -75,9 +75,55 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   saved session carries its real length: `sum(actual_s) + sum(rest_s)`.
 - **A per-side core step runs twice.** `per_side` on a routine step expands into two rounds in
   the runner, left then right, separately timed and separately saved with `side: "L"/"R"`.
+- **Every insert carries a client-generated `id`.** That is what makes an offline retry safe: if
+  the first attempt did reach the server, the retry hits the primary key and a `23505` is treated
+  as success. Failed writes go into a local outbox and flush on the `online` event, on boot, and
+  on demand from the badge in the header. Only *transport* failures queue - a row the database
+  rejected is a bug, not a retry, or the app would retry a bad write for ever.
+- **A session already in History can be amended in place.** Editing loads it back into the log,
+  suspends drafting (it is not a draft of a new session), and saves with `update`, not `insert`.
+  Sets belonging to retired exercises can't be rendered as cards, so they are held aside and
+  written back untouched - editing a session must never silently drop part of it.
+- **Best-so-far is shown on the card, not asked for.** The number you want between sets is
+  "what did I do for this many reps last time", and it is already in memory client-side. It
+  narrows to the rep count currently in set 1 and falls back to the all-time heaviest set.
+  This is deliberately not the AI-question feature: an instant, always-correct number beats a
+  conversational one you have to type for.
+- **Progress is one lift, one measure, one axis.** Never two y-scales. Reps-and-weight exercises
+  offer heaviest set / estimated 1RM (Epley, labelled as an estimate) / session volume; timed
+  holds offer longest hold / total time held. The chart is drawn at a measured pixel width
+  rather than scaled from a `viewBox`, so axis labels stay legible on a phone, and it re-renders
+  on resize and when its tab is opened. Every plotted session is also in the table below it.
 - **Erg photo parses are never auto-saved**: the parsed numbers land in an editable
   confirmation card first. `source` on each erg row records `photo` / `manual` (and later
   `c2-logbook` for the planned Concept2 Logbook API sync).
+
+## Offline
+
+Three pieces have to line up, and all three are load-bearing - drop any one and the app is a dead
+error page in a gym basement:
+
+1. **The shell is cached.** The tracker registers the site service worker (`/sw.js`). `sw.js`
+   caches same-origin GETs, **plus cross-origin requests that have a request `destination`** -
+   scripts, styles, fonts. A data fetch has an empty destination, which is exactly the
+   discriminator wanted here: the Supabase client script from jsDelivr is cached (without it
+   `sb` is never created and nothing loads at all), while a signed-in athlete's Supabase reads
+   never land in a cache that outlives the session or is shared with whoever next picks up the
+   device.
+2. **The last good load is kept locally.** `loadAll()` failing used to end the boot sequence. Now
+   a *transport* failure falls back to a localStorage snapshot of the last successful load, so
+   the library, history and routines are all still there. A real error (missing tables, RLS)
+   still stops with the original message. The snapshot is refreshed after every save, so a
+   session logged offline survives a reload.
+3. **Writes queue.** See the client-generated `id` note above.
+
+A queue drained at boot re-reads from the server afterwards - the rows were not in the load that
+had just finished, and leaving the athlete looking at a log missing the session they logged
+offline is how a session gets entered twice.
+
+What works offline: opening the app, and logging weights, erg and core sessions. What does not:
+first sign-in, erg photo parsing (it needs the Edge Function), and *amending* a saved session -
+edits go straight to `update` and are not queued.
 
 ## Not built yet (by design)
 
