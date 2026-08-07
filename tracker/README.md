@@ -32,8 +32,9 @@ strictly personal: every table is keyed by `profile_id` with owner-only RLS. No 
    supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref tbhujqdflswhgxtioznb
    ```
 
-   The function uses `claude-haiku-4-5` (fractions of a penny per photo). To trade cost for
-   extraction quality: `supabase secrets set PARSE_ERG_MODEL=claude-opus-5 ...`.
+   The function uses `claude-opus-5` (roughly 5p per photo - the split rows are small, dense
+   digits and accuracy was worth the money). To trade accuracy for cost:
+   `supabase secrets set PARSE_ERG_MODEL=claude-sonnet-5 ...`.
 
 3. **Push to `main`.** GitHub Pages serves `/tracker/` automatically. The page is `noindex`
    and not linked from the public site yet - share the URL directly while testing.
@@ -57,6 +58,23 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
 - **Deleting a used exercise retires it** (soft delete) so old sessions still classify
   correctly in History/Summary; never-used exercises hard-delete.
 - **Every save is a new row** (date + time), never an overwrite - two sessions in a day is normal.
+- **The weights log is a draft until you save it.** What is on the page is mirrored into
+  `localStorage` (keyed by user and by date) on every change, so a refresh, a locked phone or a
+  tab switch loses nothing, and flipping the date picker moves between drafts rather than
+  binning one. It is deliberately device-local: it is a working copy, not history, so it never
+  reaches the database until **Save session**. Drafts older than a fortnight are pruned.
+  Cross-device drafts would need a `draft` flag column on `tracker_workouts`.
+- **Exercises are closed off one at a time.** "Done with this exercise" collapses a card to its
+  one-line summary, with **Edit** to reopen it - you fill the session in as you do it, not from
+  memory at the end. Collapsing is display-only; the inputs stay in the DOM, so the save reads
+  the same values either way.
+- **The core timer counts up and never auto-advances.** Holding longer than target is a result,
+  not something to truncate: the clock keeps running past the target (one beep as it passes),
+  and you call the round with **Next**. Starting a round runs a 5-second countdown first
+  (skippable). Time not spent working is recorded as `rest_s` on the round just finished, so a
+  saved session carries its real length: `sum(actual_s) + sum(rest_s)`.
+- **A per-side core step runs twice.** `per_side` on a routine step expands into two rounds in
+  the runner, left then right, separately timed and separately saved with `side: "L"/"R"`.
 - **Erg photo parses are never auto-saved**: the parsed numbers land in an editable
   confirmation card first. `source` on each erg row records `photo` / `manual` (and later
   `c2-logbook` for the planned Concept2 Logbook API sync).

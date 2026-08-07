@@ -123,22 +123,80 @@ function setsToText(rows, unit) {
   return rows.map(r => r.w !== '' && r.w != null ? r.r + u + '×' + r.w + 'kg' : r.r + u).join('  ');
 }
 
+const cardRows = card => [...card.querySelectorAll('.setrow')].map(row => ({
+  r: row.querySelector('.in-r').value,
+  w: row.querySelector('.in-w') ? row.querySelector('.in-w').value : '',
+}));
+
 // What is currently open in the log, so editing the library doesn't discard
-// a session the athlete is halfway through entering.
+// a session the athlete is halfway through entering. Also the draft payload.
 function snapshotLog() {
   return [...document.querySelectorAll('#log-sections .ex')].map(card => ({
     id: card.dataset.id,
-    rows: [...card.querySelectorAll('.setrow')].map(row => ({
-      r: row.querySelector('.in-r').value,
-      w: row.querySelector('.in-w') ? row.querySelector('.in-w').value : '',
-    })),
+    rows: cardRows(card),
+    saved: card.dataset.saved === '1',
   }));
 }
 function restoreLog(snap) {
   snap.forEach(item => {
     if (!exById(item.id) || exById(item.id).retired) return;
-    addExercise(item.id, false, item.rows);
+    addExercise(item.id, false, item.rows, item.saved);
   });
+}
+
+/* ---- draft: a half-entered session survives a refresh, a locked phone or a
+   tab switch. Local only - it is the working copy, not history, so it never
+   touches the database until "Save session". Keyed by date, so flipping the
+   date picker moves between drafts instead of binning one. ---- */
+const draftKey = () => 'rt-draft-' + (S.session ? S.session.user.id : 'anon');
+const DRAFT_TTL = 14 * 864e5;
+
+function readDrafts() {
+  const raw = localStorage.getItem(draftKey());
+  if (!raw) return {};
+  // A corrupted or half-written value is not worth taking the page down for.
+  try { return JSON.parse(raw) || {}; }
+  catch (e) { if (e instanceof SyntaxError) return {}; throw e; }
+}
+function writeDrafts(all) {
+  Object.keys(all).forEach(d => { if (!all[d] || all[d].updated < Date.now() - DRAFT_TTL) delete all[d]; });
+  localStorage.setItem(draftKey(), JSON.stringify(all));
+}
+function saveDraft() {
+  // everything on the page, filled or not - tapping four exercises up front is
+  // setting the session up, and that shouldn't evaporate on a reload either
+  const items = snapshotLog();
+  const all = readDrafts(), date = currentDate();
+  if (items.length) all[date] = { items, updated: Date.now() };
+  else delete all[date];
+  writeDrafts(all);
+  paintDraftLine();
+}
+function clearDraft(date) {
+  const all = readDrafts();
+  delete all[date];
+  writeDrafts(all);
+}
+let draftTimer = null;
+const queueDraft = () => { clearTimeout(draftTimer); draftTimer = setTimeout(saveDraft, 500); };
+
+// Live read-out of what's queued: how much is entered, how much is still open,
+// and confirmation that it is being held somewhere.
+function paintDraftLine() {
+  const el = $('draft-line');
+  if (!el) return;
+  const cards = [...document.querySelectorAll('#log-sections .ex')];
+  if (!cards.length) { el.innerHTML = ''; return; }
+  let done = 0, open = 0, sets = 0;
+  cards.forEach(card => {
+    const filled = cardRows(card).filter(r => r.r !== '').length;
+    sets += filled;
+    if (card.dataset.saved === '1') done++; else open++;
+  });
+  const draft = readDrafts()[currentDate()];
+  el.innerHTML =
+    '<span><b>' + done + '</b> done · <b>' + open + '</b> open · <b>' + sets + '</b> sets entered</span>' +
+    (draft ? '<span>Draft kept on this device <button id="draft-drop">discard</button></span>' : '');
 }
 
 function renderLog(snap) {
@@ -168,8 +226,14 @@ function renderLog(snap) {
       '<span class="secnote"></span></h3><div class="secbody"></div></div>').join('');
 
   $('log-msg').innerHTML = '';
-  if (snap && snap.length) restoreLog(snap);
+  // an explicit snapshot (library edit mid-session) wins; otherwise pick up
+  // whatever draft belongs to the date now showing
+  const restore = (snap && snap.length) ? snap : ((readDrafts()[currentDate()] || {}).items || []);
+  if (restore.length) restoreLog(restore);
   refreshWeekCount();
+  updateSecNotes();
+  // re-sync: a library edit can drop an exercise the draft still names
+  saveDraft();
 }
 
 // A set that opens with a value (pre-filled from last time, or restored) counts
@@ -204,7 +268,7 @@ function fillDown(card) {
   });
 }
 
-function addExercise(exId, scroll, rows) {
+function addExercise(exId, scroll, rows, saved) {
   const m = exById(exId);
   if (!m) return;
   const secBody = document.querySelector('.logsec[data-sec="' + esc(m.pattern) + '"] .secbody');
@@ -219,21 +283,50 @@ function addExercise(exId, scroll, rows) {
   secBody.insertAdjacentHTML('beforeend',
     '<div class="ex" data-id="' + exId + '" data-timeonly="' + timeOnly + '" data-bw="' + !!m.bodyweight + '">' +
       '<div class="ex-head"><div><span class="ex-name">' + esc(m.name) + '</span>' +
+        (m.per_side ? '<span class="tagps">each side</span>' : '') +
         '<div class="ex-note"><span class="src">' + esc(groupsOf(m).join(' · ')) + '</span>' + (m.note ? ' · ' + esc(m.note) : '') + '</div></div>' +
         '<button class="ghostx ex-close" title="Remove">×</button></div>' +
-      '<div class="lastline' + (prev ? '' : ' none') + '">' +
-        (prev ? 'Last (' + (prev.date === currentDate() ? 'earlier today' : prettyDate(prev.date)) + '): ' + setsToText(prev.sets[exId], m.unit)
-              : 'No history yet - first time in.') + '</div>' +
-      (timeOnly
-        ? '<div class="colhead time"><span>#</span><span>Seconds</span><span></span></div>'
-        : '<div class="colhead"><span>#</span><span>' + unitLabel + '</span><span>Weight kg</span><span></span></div>') +
-      '<div class="rows">' + start.map((r, j) => setRowHTML(j, r.r, r.w, m.bodyweight, timeOnly)).join('') + '</div>' +
-      '<button class="addset">+ add ' + (timeOnly ? 'hold' : 'set') + '</button>' +
+      '<div class="ex-body">' +
+        '<div class="lastline' + (prev ? '' : ' none') + '">' +
+          (prev ? 'Last (' + (prev.date === currentDate() ? 'earlier today' : prettyDate(prev.date)) + '): ' + setsToText(prev.sets[exId], m.unit)
+                : 'No history yet - first time in.') + '</div>' +
+        (timeOnly
+          ? '<div class="colhead time"><span>#</span><span>Seconds</span><span></span></div>'
+          : '<div class="colhead"><span>#</span><span>' + unitLabel + '</span><span>Weight kg</span><span></span></div>') +
+        '<div class="rows">' + start.map((r, j) => setRowHTML(j, r.r, r.w, m.bodyweight, timeOnly)).join('') + '</div>' +
+        '<button class="addset">+ add ' + (timeOnly ? 'hold' : 'set') + '</button>' +
+        '<button class="exdone">&check; Done with this exercise</button>' +
+      '</div>' +
+      '<div class="ex-done" hidden><span class="done-sets"></span><button class="exedit">Edit</button></div>' +
     '</div>');
 
+  const card = secBody.querySelector('[data-id="' + exId + '"]');
+  if (saved) collapseExercise(card, true);
   document.querySelectorAll('[data-chip="' + exId + '"]').forEach(c => c.setAttribute('aria-pressed', 'true'));
   updateSecNotes();
-  if (scroll !== false) secBody.querySelector('[data-id="' + exId + '"]').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Deliberately no scroll: you often tap four or five exercises up front, and
+  // being thrown down the page after each one makes that impossible.
+  if (scroll === true) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// Collapsing is only a display state - the inputs stay in the DOM, so the
+// session save and the draft keep seeing the same values either way.
+function collapseExercise(card, on) {
+  if (on) {
+    const m = exById(card.dataset.id) || {};
+    const rows = cardRows(card).filter(r => r.r !== '');
+    card.querySelector('.done-sets').textContent =
+      setsToText(rows, m.unit) + (m.per_side ? '  (each side)' : '');
+  }
+  card.dataset.saved = on ? '1' : '';
+  card.querySelector('.ex-body').hidden = on;
+  card.querySelector('.ex-done').hidden = !on;
+}
+
+function flashCard(card) {
+  card.classList.remove('ex-flash');
+  void card.offsetWidth;   // restart the animation
+  card.classList.add('ex-flash');
 }
 
 function removeExercise(exId) {
@@ -241,18 +334,25 @@ function removeExercise(exId) {
   if (card) card.remove();
   document.querySelectorAll('[data-chip="' + exId + '"]').forEach(c => c.setAttribute('aria-pressed', 'false'));
   updateSecNotes();
+  saveDraft();
 }
 
 function updateSecNotes() {
-  let any = 0;
+  let any = 0, sets = 0;
   document.querySelectorAll('.logsec').forEach(sec => {
-    const n = sec.querySelectorAll('.ex').length;
+    const cards = [...sec.querySelectorAll('.ex')];
+    const n = cards.length, done = cards.filter(c => c.dataset.saved === '1').length;
     any += n;
+    cards.forEach(c => { sets += cardRows(c).filter(r => r.r !== '').length; });
     sec.classList.toggle('has', n > 0);
-    sec.querySelector('.secnote').textContent = n ? n + ' in session' : '';
+    sec.querySelector('.secnote').textContent = n ? (done ? done + ' of ' + n + ' done' : n + ' in session') : '';
   });
   const empty = $('log-empty');
   if (empty) empty.style.display = any ? 'none' : 'block';
+  const btn = $('save-btn');
+  if (btn) btn.textContent = any
+    ? 'Save session · ' + any + ' exercise' + (any === 1 ? '' : 's') + ', ' + sets + ' set' + (sets === 1 ? '' : 's')
+    : 'Save session';
 }
 
 function refreshWeekCount() {
@@ -269,13 +369,11 @@ function refreshWeekCount() {
 
 async function saveWorkout() {
   const date = currentDate(), sets = {};
-  let total = 0;
+  let total = 0, skipped = 0;
   document.querySelectorAll('#log-sections .ex').forEach(card => {
-    const rows = [...card.querySelectorAll('.setrow')].map(row => ({
-      r: row.querySelector('.in-r').value.trim(),
-      w: row.querySelector('.in-w') ? row.querySelector('.in-w').value.trim() : '',
-    })).filter(x => x.r !== '');
+    const rows = cardRows(card).map(x => ({ r: x.r.trim(), w: x.w.trim() })).filter(x => x.r !== '');
     if (rows.length) { sets[card.dataset.id] = rows; total += rows.length; }
+    else skipped++;
   });
   if (!total) { toast('log-msg', 'Nothing to save - add an exercise and enter at least one set.', 'warn'); return; }
 
@@ -287,9 +385,11 @@ async function saveWorkout() {
   S.workouts.push(data); sortDesc(S.workouts);
   track('workout_saved', { exercises: Object.keys(sets).length, sets: total });
   const nToday = S.workouts.filter(x => x.date === date).length;
+  clearDraft(date);
   renderLog();
   toast('log-msg', 'Saved - ' + prettyDate(date) + ' ' + at + ' · ' + Object.keys(sets).length +
-    ' exercises, ' + total + ' sets' + (nToday > 1 ? ' · entry ' + nToday + ' today' : '') + '.');
+    ' exercises, ' + total + ' sets' + (nToday > 1 ? ' · entry ' + nToday + ' today' : '') + '.' +
+    (skipped ? ' ' + skipped + ' exercise' + (skipped === 1 ? ' was' : 's were') + ' empty and left out.' : ''));
   renderSummary(); renderHistory();
 }
 
@@ -402,15 +502,13 @@ function ergSummaryLine(s) {
   return bits.join(' · ');
 }
 
+// Same collapsible card as History, rather than a second layout that has to be
+// kept in step with it.
 function renderErgRecent() {
   const recent = S.ergs.slice(0, 6);
   $('erg-recent').innerHTML = !recent.length
     ? '<p class="empty">No erg sessions logged yet.</p>'
-    : '<div class="patlabel">Recent</div>' + recent.map(s =>
-      '<div class="entry erg"><div class="entry-head"><strong>' + prettyDate(s.date) + '</strong>' +
-      '<span class="entry-date">' + esc(s.erg_type || '') + ' · ' + esc(s.source) + '</span></div>' +
-      '<div class="erg-line">' + ergSummaryLine(s) + '</div>' +
-      '<button class="del" data-del-erg="' + s.id + '">Delete</button></div>').join('');
+    : '<div class="patlabel">Recent</div>' + recent.map(histErgHTML).join('');
 }
 
 /* ---- entitlement: photo reading is the one paid feature ---- */
@@ -509,12 +607,23 @@ async function handleErgPhoto(file) {
 // by name. RUN holds the in-progress attempt; the timer writes actual times
 // into it, and the athlete can override any of them by hand before saving.
 const RUN = { routineId: null, name: '', steps: [], idx: 0, running: false,
-              startedAt: 0, carried: 0, tick: null, wake: null };
+              startedAt: 0, carried: 0, tick: null, wake: null,
+              // countdown before a round, and the rest clock between rounds
+              counting: false, countEnd: 0, countTick: null, lastCount: 0,
+              started: false, idleSince: 0, restAccum: 0 };
 let editingRoutine = null;   // null = not editing, else {id|null, name, steps}
+
+const COUNTDOWN_S = 5;
+const AUTONEXT_KEY = 'rt-core-autonext';
+const autoNext = () => localStorage.getItem(AUTONEXT_KEY) === '1';
 
 const routineById = id => S.routines.find(r => r.id === id) || null;
 const stepsOf = r => Array.isArray(r && r.steps) ? r.steps : [];
-const totalTarget = steps => steps.reduce((a, s) => a + (Number(s.target_s) || 0), 0);
+// A per-side step is two rounds of the same target, so both the round count and
+// the total target have to double for it.
+const roundCount = steps => steps.reduce((a, s) => a + (s.per_side ? 2 : 1), 0);
+const totalTarget = steps => steps.reduce((a, s) => a + (Number(s.target_s) || 0) * (s.per_side ? 2 : 1), 0);
+const stepLabel = s => s.name + (s.side ? ' (' + s.side + ')' : '');
 
 const liveRoutines = () => S.routines.filter(r => !r.retired);
 
@@ -544,9 +653,10 @@ function renderRoutines() {
   const live = liveRoutines();
   $('rt-list').innerHTML = live.length
     ? live.map(r => {
-        const st = stepsOf(r);
+        const st = stepsOf(r), n = roundCount(st);
         return '<div class="lib-item"><div><div class="nm">' + esc(r.name) + '</div>' +
-          '<div class="meta">' + st.length + ' round' + (st.length === 1 ? '' : 's') +
+          '<div class="meta">' + n + ' round' + (n === 1 ? '' : 's') +
+          (n !== st.length ? ' (' + st.length + ' exercises, sides counted)' : '') +
           ' · ' + fmtTime(totalTarget(st)) + '</div></div>' +
           '<div class="ops"><button class="ghost" data-rt-edit="' + r.id + '" title="Edit" style="font-size:13px">✎</button>' +
           '<button class="ghost" data-rt-del="' + r.id + '" title="Delete">×</button></div></div>';
@@ -562,11 +672,12 @@ function renderBuilder() {
     '<div class="lib-form"><h3>' + (r.id ? 'Edit routine' : 'New routine') + '</h3>' +
     '<div class="fwide"><label>Routine name</label>' +
       '<input type="text" id="cr-name" value="' + esc(r.name) + '" placeholder="e.g. Core circuit"></div>' +
-    '<div class="chead"><span>#</span><span>Exercise</span><span>Secs</span><span></span></div>' +
+    '<div class="chead"><span>#</span><span>Exercise</span><span>Secs</span><span title="Each side">E/S</span><span></span></div>' +
     '<div id="cr-steps">' + r.steps.map(stepRowHTML).join('') + '</div>' +
     '<button class="addset" id="cr-add">+ add exercise</button>' +
     '<div class="fhint" style="margin:8px 0 12px">Total ' + fmtTime(totalTarget(r.steps)) +
-      ' over ' + r.steps.length + ' round' + (r.steps.length === 1 ? '' : 's') + '.</div>' +
+      ' over ' + roundCount(r.steps) + ' round' + (roundCount(r.steps) === 1 ? '' : 's') +
+      '. Tick <b>E/S</b> for a side-specific hold - it runs twice, left then right.</div>' +
     '<button class="primary" id="cr-save" style="height:42px">Save routine</button>' +
     '<button id="cr-cancel" style="width:100%;margin-top:8px">Cancel</button>' +
     (r.id ? '<button id="cr-del" style="width:100%;margin-top:8px">Delete routine</button>' : '') +
@@ -576,6 +687,8 @@ function stepRowHTML(s, i) {
   return '<div class="cstep"><span class="cno">' + (i + 1) + '</span>' +
     '<input type="text" class="cs-name" value="' + esc(s.name || '') + '" placeholder="e.g. Plank" list="cr-names">' +
     '<input type="number" class="cs-secs" inputmode="numeric" value="' + esc(s.target_s != null ? s.target_s : '') + '" placeholder="60">' +
+    '<span class="cps"><input type="checkbox" class="cs-side" title="Each side - runs twice"' +
+      (s.per_side ? ' checked' : '') + '></span>' +
     '<span class="cops">' +
       '<button data-cup="' + i + '" title="Move up">&uarr;</button>' +
       '<button data-cdown="' + i + '" title="Move down">&darr;</button>' +
@@ -592,6 +705,7 @@ function syncBuilderFromDOM() {
   if (rows.length) editingRoutine.steps = rows.map(el => ({
     name: el.querySelector('.cs-name').value.trim(),
     target_s: parseInt(el.querySelector('.cs-secs').value, 10) || 0,
+    per_side: el.querySelector('.cs-side').checked,
   }));
 }
 
@@ -647,13 +761,27 @@ function loadRun(routineId) {
   stopTimer();
   RUN.routineId = r.id;
   RUN.name = r.name;
-  RUN.steps = stepsOf(r).map(s => ({ name: s.name, target_s: Number(s.target_s) || 0, actual_s: null }));
+  // A per-side hold becomes two rounds. They are separate rounds all the way
+  // through - separately timed, separately saved - because that is how they
+  // are actually done.
+  RUN.steps = [];
+  stepsOf(r).forEach(s => {
+    const t = Number(s.target_s) || 0;
+    if (s.per_side) {
+      RUN.steps.push({ name: s.name, side: 'L', target_s: t, actual_s: null, rest_s: 0 });
+      RUN.steps.push({ name: s.name, side: 'R', target_s: t, actual_s: null, rest_s: 0 });
+    } else {
+      RUN.steps.push({ name: s.name, target_s: t, actual_s: null, rest_s: 0 });
+    }
+  });
   RUN.idx = 0; RUN.carried = 0; RUN.running = false;
+  RUN.started = false; RUN.idleSince = 0; RUN.restAccum = 0; RUN.notes = '';
   renderRunner();
 }
 
 function renderRunner() {
   const done = RUN.steps.every(s => s.actual_s != null);
+  const notes = RUN.notes || '';   // every round change re-renders this away
   $('core-runner').innerHTML =
     '<div class="timer">' +
       '<div class="timer-pos" id="tm-pos"></div>' +
@@ -666,109 +794,195 @@ function renderRunner() {
         '<button id="tm-next">Next</button>' +
         '<button id="tm-reset">Reset</button>' +
       '</div>' +
+      '<label class="timer-opt"><input type="checkbox" id="tm-auto"' + (autoNext() ? ' checked' : '') + '>' +
+        'Roll straight into the next round</label>' +
+      '<div class="timer-tot" id="tm-tot"></div>' +
       (done ? '<div class="timer-done">Routine complete - check the times and save.</div>' : '') +
     '</div>' +
-    '<div class="chead"><span>#</span><span>Exercise</span><span>Target</span><span>Actual</span></div>' +
+    '<div class="chead run"><span>#</span><span>Exercise</span><span>Target</span><span>Actual</span><span>Reset</span></div>' +
     '<div id="core-rows">' + RUN.steps.map(rowRunHTML).join('') + '</div>' +
-    '<div class="fwide" style="margin-top:12px"><label>Notes</label><input type="text" id="core-notes"></div>' +
+    '<div class="fwide" style="margin-top:12px"><label>Notes</label>' +
+      '<input type="text" id="core-notes" value="' + esc(notes) + '"></div>' +
     '<button class="save" id="core-save">Save core session</button>';
   paintTimer();
 }
 function rowRunHTML(s, i) {
   return '<div class="crow' + (i === RUN.idx ? ' now' : '') + (s.actual_s != null ? ' done' : '') + '" data-crow="' + i + '">' +
     '<span class="cno">' + (i + 1) + '</span>' +
-    '<span class="cname">' + esc(s.name) + '</span>' +
+    '<span class="cname">' + esc(s.name) + (s.side ? ' <span class="cside">' + s.side + '</span>' : '') + '</span>' +
     '<span class="ctar">' + (s.target_s ? s.target_s + 's' : '–') + '</span>' +
     '<input type="number" inputmode="numeric" class="cs-actual" data-i="' + i + '" ' +
-      'value="' + (s.actual_s != null ? s.actual_s : '') + '" placeholder="' + (s.target_s || '') + '"></div>';
+      'value="' + (s.actual_s != null ? s.actual_s : '') + '" placeholder="' + (s.target_s || '') + '">' +
+    '<span class="crest">' + (s.rest_s ? s.rest_s + 's' : '–') + '</span></div>';
 }
 
 const elapsedNow = () => RUN.carried + (RUN.running ? (Date.now() - RUN.startedAt) / 1000 : 0);
+// Work is time on the clock; reset is everything else once the circuit has
+// begun - the shuffle between holds, and any pause. Together they are how long
+// the session actually took, which is the number that gets away from you.
+const workNow = () => RUN.steps.reduce((a, s) => a + (s.actual_s || 0), 0) + elapsedNow();
+const restNow = () => RUN.restAccum + (RUN.idleSince ? (Date.now() - RUN.idleSince) / 1000 : 0);
 
 function paintTimer() {
   const s = RUN.steps[RUN.idx];
   const pos = $('tm-pos'); if (!pos) return;
-  if (!s) {
+  const clock = $('tm-clock'), bar = $('tm-bar'), go = $('tm-go');
+  clock.classList.toggle('count', RUN.counting);
+
+  if (RUN.counting) {
+    const left = Math.max(0, Math.ceil((RUN.countEnd - Date.now()) / 1000));
+    pos.textContent = 'Get set - round ' + (RUN.idx + 1) + ' of ' + RUN.steps.length;
+    $('tm-name').textContent = s ? stepLabel(s) : RUN.name;
+    clock.textContent = String(left);
+    clock.classList.remove('over');
+    $('tm-target').textContent = s && s.target_s ? 'Target ' + s.target_s + 's' : 'No target set';
+    bar.style.width = '0%'; bar.classList.remove('over');
+    go.textContent = 'Skip';
+  } else if (!s) {
     pos.textContent = 'Finished';
     $('tm-name').textContent = RUN.name;
-    $('tm-clock').textContent = fmtClock(0);
+    clock.textContent = fmtClock(0);
+    clock.classList.remove('over');
     $('tm-target').textContent = 'All ' + RUN.steps.length + ' rounds done';
-    $('tm-bar').style.width = '100%';
-    $('tm-go').textContent = 'Start';
-    return;
+    bar.style.width = '100%'; bar.classList.remove('over');
+    go.textContent = 'Start';
+  } else {
+    // Counts UP, and keeps counting past the target rather than jumping on -
+    // holding longer than planned is a result, not a mistake to be truncated.
+    const el = elapsedNow(), over = (s.target_s || 0) && el > s.target_s;
+    pos.textContent = 'Round ' + (RUN.idx + 1) + ' of ' + RUN.steps.length;
+    $('tm-name').textContent = stepLabel(s);
+    clock.textContent = fmtClock(el);
+    clock.classList.toggle('over', !!over);
+    $('tm-target').innerHTML = s.target_s
+      ? 'Target ' + s.target_s + 's' + (over ? ' · <b>+' + Math.floor(el - s.target_s) + 's over</b>' : '')
+      : 'No target - tap Next when you are done';
+    bar.style.width = s.target_s ? Math.min(100, (el / s.target_s) * 100) + '%' : '0%';
+    bar.classList.toggle('over', !!over);
+    go.textContent = RUN.running ? 'Pause' : (el > 0 ? 'Resume' : 'Start');
+    // one cue as the target passes, then it is on you to call it
+    if (over && !s.beeped && RUN.running) { s.beeped = true; beep(true); }
   }
-  const el = elapsedNow(), left = (s.target_s || 0) - el;
-  pos.textContent = 'Round ' + (RUN.idx + 1) + ' of ' + RUN.steps.length;
-  $('tm-name').textContent = s.name;
-  const clock = $('tm-clock');
-  clock.textContent = (left < 0 ? '+' : '') + fmtClock(Math.abs(left));
-  clock.classList.toggle('over', left < 0);
-  $('tm-target').textContent = s.target_s ? 'Target ' + s.target_s + 's' : 'No target set';
-  $('tm-bar').style.width = s.target_s ? Math.min(100, (el / s.target_s) * 100) + '%' : '0%';
-  $('tm-go').textContent = RUN.running ? 'Pause' : (el > 0 ? 'Resume' : 'Start');
+  paintTotals();
+}
+function paintTotals() {
+  const el = $('tm-tot'); if (!el) return;
+  if (!RUN.started) { el.innerHTML = 'Not started · ' + RUN.steps.length + ' rounds, ' +
+    fmtClock(RUN.steps.reduce((a, s) => a + (s.target_s || 0), 0)) + ' of work planned'; return; }
+  const w = workNow(), r = restNow();
+  el.innerHTML = 'Session <b>' + fmtClock(w + r) + '</b> · work <b>' + fmtClock(w) +
+    '</b> · reset <b>' + fmtClock(r) + '</b>';
 }
 const fmtClock = sec => {
   const t = Math.max(0, Math.floor(sec));
   return Math.floor(t / 60) + ':' + pad(t % 60);
 };
 
-function startTimer() {
+/* ---- timer engine ---- */
+function startTimer(skipCountdown) {
   if (RUN.running || !RUN.steps[RUN.idx]) return;
-  RUN.running = true;
-  RUN.startedAt = Date.now();
-  RUN.tick = setInterval(() => {
-    const s = RUN.steps[RUN.idx];
-    // Auto-advance so a circuit runs hands-free; the athlete can still hit
-    // Next early or let it run over, and either way the real elapsed is kept.
-    if (s && s.target_s && elapsedNow() >= s.target_s) { nextStep(true); return; }
-    paintTimer();
-  }, 200);
+  if (RUN.counting) { cancelCountdown(); beginRound(); return; }
+  if (skipCountdown || !COUNTDOWN_S) { beginRound(); return; }
+  RUN.counting = true;
+  RUN.countEnd = Date.now() + COUNTDOWN_S * 1000;
+  RUN.lastCount = COUNTDOWN_S + 1;
   keepAwake(true);
+  RUN.countTick = setInterval(() => {
+    const left = Math.ceil((RUN.countEnd - Date.now()) / 1000);
+    if (left <= 0) { cancelCountdown(); beginRound(); return; }
+    if (left !== RUN.lastCount) { RUN.lastCount = left; beep(false); }
+    paintTimer();
+  }, 80);
   paintTimer();
 }
+function cancelCountdown() {
+  RUN.counting = false;
+  if (RUN.countTick) { clearInterval(RUN.countTick); RUN.countTick = null; }
+}
+function beginRound() {
+  absorbIdle();
+  RUN.started = true;
+  RUN.running = true;
+  RUN.startedAt = Date.now();
+  RUN.tick = setInterval(paintTimer, 200);
+  keepAwake(true);
+  beep(true);
+  paintTimer();
+}
+// Everything between working - the reset shuffle, a pause - lands on the round
+// that has just been done, so the saved session's rounds still add up to the
+// session length shown here.
+function absorbIdle() {
+  if (!RUN.idleSince) return;
+  const secs = (Date.now() - RUN.idleSince) / 1000;
+  RUN.idleSince = 0;
+  if (!RUN.started) return;          // waiting to start is not resting
+  RUN.restAccum += secs;
+  const s = RUN.steps[Math.max(0, RUN.idx - 1)];
+  if (s) s.rest_s = (s.rest_s || 0) + Math.round(secs);
+}
 function pauseTimer() {
+  cancelCountdown();
   if (!RUN.running) return;
   RUN.carried = elapsedNow();
   RUN.running = false;
   clearInterval(RUN.tick); RUN.tick = null;
+  RUN.idleSince = Date.now();
   paintTimer();
 }
 function stopTimer() {
+  cancelCountdown();
   RUN.running = false;
   if (RUN.tick) { clearInterval(RUN.tick); RUN.tick = null; }
   RUN.carried = 0;
+  RUN.idleSince = 0;
   keepAwake(false);
 }
 
-function nextStep(auto) {
+function nextStep() {
   const s = RUN.steps[RUN.idx];
   if (!s) return;
+  syncActualsFromDOM();
   s.actual_s = Math.max(1, Math.round(elapsedNow() || s.target_s || 0));
-  const wasRunning = RUN.running;
+  cancelCountdown();
   if (RUN.tick) { clearInterval(RUN.tick); RUN.tick = null; }
   RUN.running = false; RUN.carried = 0;
   RUN.idx++;
-  beep(auto);
+  RUN.idleSince = Date.now();   // the reset clock starts here
+  beep(true);
   if (RUN.idx >= RUN.steps.length) { RUN.idx = RUN.steps.length; stopTimer(); renderRunner(); return; }
   renderRunner();
-  if (wasRunning) startTimer();   // keep the circuit rolling
+  if (autoNext()) startTimer();   // countdown, then straight into the next round
+}
+
+// Hand-typed actuals and notes must survive the re-render that every round
+// change causes.
+function syncActualsFromDOM() {
+  document.querySelectorAll('.cs-actual').forEach(inp => {
+    const v = parseInt(inp.value, 10);
+    const s = RUN.steps[Number(inp.dataset.i)];
+    if (s) s.actual_s = isNaN(v) ? null : v;
+  });
+  if ($('core-notes')) RUN.notes = $('core-notes').value;
 }
 
 // Short tone + buzz so a round change lands without looking at the screen.
+// One context, reused: a five-second countdown is five beeps, and browsers cap
+// how many AudioContexts a page may open.
+let audioCtx = null;
 function beep(strong) {
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (Ctx) {
-      const ctx = new Ctx(), osc = ctx.createOscillator(), gain = ctx.createGain();
-      osc.frequency.value = strong ? 880 : 620;
-      gain.gain.setValueAtTime(0.18, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.start(); osc.stop(ctx.currentTime + 0.26);
-      setTimeout(() => ctx.close(), 400);
-    }
-  } catch (e) { /* audio blocked until a gesture - not worth surfacing */ }
-  if (navigator.vibrate) navigator.vibrate(strong ? [90, 60, 90] : 60);
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (Ctx) {
+    if (!audioCtx) audioCtx = new Ctx();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+    osc.frequency.value = strong ? 880 : 620;
+    gain.gain.setValueAtTime(strong ? 0.18 : 0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + (strong ? 0.25 : 0.13));
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + (strong ? 0.26 : 0.14));
+  }
+  if (navigator.vibrate) navigator.vibrate(strong ? [90, 60, 90] : 40);
 }
 
 // Stop the phone locking mid-circuit. Silently unavailable on some browsers.
@@ -779,13 +993,19 @@ async function keepAwake(on) {
   } catch (e) { RUN.wake = null; }
 }
 
+// Work, reset and the session total for a saved core session. rest_s lives on
+// each round rather than in a column of its own, so the shape stays inside the
+// existing steps jsonb.
+function coreTotals(steps) {
+  const work = steps.reduce((a, s) => a + (s.actual_s || 0), 0);
+  const rest = steps.reduce((a, s) => a + (s.rest_s || 0), 0);
+  return { work, rest, total: work + rest };
+}
+
 async function saveCoreSession() {
-  // hand-typed overrides win over whatever the timer recorded
-  document.querySelectorAll('.cs-actual').forEach(inp => {
-    const v = parseInt(inp.value, 10);
-    RUN.steps[Number(inp.dataset.i)].actual_s = isNaN(v) ? null : v;
-  });
-  const steps = RUN.steps.filter(s => s.actual_s != null);
+  syncActualsFromDOM();   // hand-typed overrides win over whatever the timer recorded
+  const steps = RUN.steps.filter(s => s.actual_s != null)
+    .map(s => ({ name: s.name, side: s.side || null, target_s: s.target_s, actual_s: s.actual_s, rest_s: s.rest_s || 0 }));
   if (!steps.length) { toast('core-msg', 'Nothing to save - time at least one round, or type a number in.', 'warn'); return; }
 
   const row = {
@@ -795,34 +1015,41 @@ async function saveCoreSession() {
     routine_id: RUN.routineId,
     routine_name: RUN.name,
     steps,
-    notes: ($('core-notes').value || '').trim() || null,
+    notes: (RUN.notes || '').trim() || null,
   };
   const { data, error } = await sb.from('tracker_core_sessions').insert(row).select().single();
   if (error) { toast('core-msg', 'Save failed: ' + esc(error.message), 'err'); return; }
   S.coreSessions.push(data); sortDesc(S.coreSessions);
-  track('core_saved', { rounds: steps.length });
+  const t = coreTotals(steps);
+  track('core_saved', { rounds: steps.length, work_s: t.work, rest_s: t.rest });
   stopTimer();
   loadRun(RUN.routineId);
   toast('core-msg', 'Saved - ' + steps.length + ' round' + (steps.length === 1 ? '' : 's') +
-    ', ' + fmtTime(steps.reduce((a, s) => a + s.actual_s, 0)) + ' of work.');
+    ' · ' + fmtTime(t.total) + ' total (' + fmtTime(t.work) + ' work, ' + fmtTime(t.rest) + ' reset).');
   renderHistory(); renderSummary();
 }
 
 function histCoreHTML(s) {
   const steps = Array.isArray(s.steps) ? s.steps : [];
-  const total = steps.reduce((a, x) => a + (x.actual_s || 0), 0);
+  const t = coreTotals(steps);
   const summary = esc(s.routine_name || 'Core') + ' · ' + steps.length +
-    ' round' + (steps.length === 1 ? '' : 's') + ' · ' + fmtTime(total);
-  const detail = '<div class="dsub">Rounds</div><div class="dtbl-wrap"><table class="dtbl">' +
-    '<thead><tr><th>#</th><th>Exercise</th><th>Target</th><th>Actual</th><th>Diff</th></tr></thead><tbody>' +
+    ' round' + (steps.length === 1 ? '' : 's') + ' · ' + fmtTime(t.total) +
+    (t.rest ? ' (' + fmtTime(t.work) + ' work)' : '');
+  const facts = '<dl class="dfacts">' +
+    '<dt>Session length</dt><dd>' + fmtTime(t.total) + '</dd>' +
+    '<dt>Time working</dt><dd>' + fmtTime(t.work) + '</dd>' +
+    '<dt>Time resetting</dt><dd>' + fmtTime(t.rest) +
+      (t.total ? ' (' + Math.round((t.rest / t.total) * 100) + '%)' : '') + '</dd></dl>';
+  const detail = facts + '<div class="dsub">Rounds</div><div class="dtbl-wrap"><table class="dtbl">' +
+    '<thead><tr><th>#</th><th>Exercise</th><th>Target</th><th>Actual</th><th>Diff</th><th>Reset</th></tr></thead><tbody>' +
     steps.map((x, i) => {
       const d = (x.actual_s != null && x.target_s) ? x.actual_s - x.target_s : null;
-      return '<tr><td>' + (i + 1) + '</td><td>' + esc(x.name) + '</td>' +
+      return '<tr><td>' + (i + 1) + '</td><td>' + esc(x.name) + (x.side ? ' (' + esc(x.side) + ')' : '') + '</td>' +
         '<td>' + (x.target_s ? x.target_s + 's' : '<span class="na">–</span>') + '</td>' +
         '<td>' + (x.actual_s != null ? x.actual_s + 's' : '<span class="na">–</span>') + '</td>' +
         '<td>' + (d === null ? '<span class="na">–</span>'
           : '<span class="delta ' + (d >= 0 ? 'up' : 'down') + '">' + (d >= 0 ? '+' : '') + d + 's</span>') +
-        '</td></tr>';
+        '</td><td>' + (x.rest_s ? x.rest_s + 's' : '<span class="na">–</span>') + '</td></tr>';
     }).join('') + '</tbody></table></div>' +
     (s.notes ? '<div class="dnote">' + esc(s.notes) + '</div>' : '');
   return entryHTML(s, 'core', 'core', summary, detail, 'c');
@@ -860,9 +1087,11 @@ function renderSummary() {
   const coreWeeks = {};
   S.coreSessions.forEach(s => {
     const w = mondayOf(s.date);
-    const c = coreWeeks[w] = coreWeeks[w] || { n: 0, rounds: 0, time: 0 };
+    const c = coreWeeks[w] = coreWeeks[w] || { n: 0, rounds: 0, time: 0, rest: 0 };
     c.n++;
-    (Array.isArray(s.steps) ? s.steps : []).forEach(x => { c.rounds++; c.time += x.actual_s || 0; });
+    (Array.isArray(s.steps) ? s.steps : []).forEach(x => {
+      c.rounds++; c.time += x.actual_s || 0; c.rest += x.rest_s || 0;
+    });
   });
   const keys = [...new Set([...Object.keys(weeks), ...Object.keys(ergWeeks), ...Object.keys(coreWeeks)])].sort().reverse();
   if (!keys.length) { el.innerHTML = '<p class="empty">Nothing to summarise yet - log a session first.</p>'; return; }
@@ -883,7 +1112,8 @@ function renderSummary() {
     if (cw) {
       body += '<div class="patlabel">Core</div><div class="srow"><div class="sname">Core work</div><div class="sstats">' +
         '<span><b>' + cw.n + '</b>sessions</span><span><b>' + cw.rounds + '</b>rounds</span>' +
-        '<span><b>' + fmtTime(cw.time) + '</b></span></div></div>';
+        '<span><b>' + fmtTime(cw.time) + '</b>work</span>' +
+        (cw.rest ? '<span><b>' + fmtTime(cw.rest) + '</b>reset</span>' : '') + '</div></div>';
     }
     if (wk) {
       const ids = Object.keys(wk.ex).sort((a, b) => patIdx(patternOf(a)) - patIdx(patternOf(b)) || exName(a).localeCompare(exName(b)));
@@ -1198,6 +1428,8 @@ document.addEventListener('input', e => {
   if (!card || !row) return;
   if (card.querySelector('.setrow') === row) fillDown(card);
   else el.dataset.touched = '1';   // typed into by hand: stop mirroring set 1
+  updateSecNotes();
+  queueDraft();
 });
 
 document.addEventListener('click', async e => {
@@ -1210,10 +1442,36 @@ document.addEventListener('click', async e => {
   }
   const chip = e.target.closest('[data-chip]');
   if (chip) {
-    chip.getAttribute('aria-pressed') === 'true' ? removeExercise(chip.dataset.chip) : addExercise(chip.dataset.chip);
+    chip.getAttribute('aria-pressed') === 'true' ? removeExercise(chip.dataset.chip) : addExercise(chip.dataset.chip, false);
+    saveDraft();
     return;
   }
   if (e.target.classList.contains('ex-close')) { removeExercise(e.target.closest('.ex').dataset.id); return; }
+  // finish an exercise as you finish it, rather than holding the whole session
+  // in your head until the end
+  if (e.target.classList.contains('exdone')) {
+    const card = e.target.closest('.ex');
+    if (!cardRows(card).some(r => r.r !== '')) {
+      flashCard(card);
+      toast('log-msg', 'Enter at least one set before closing that exercise off.', 'warn');
+      return;
+    }
+    collapseExercise(card, true);
+    updateSecNotes(); saveDraft();
+    $('log-msg').innerHTML = '';
+    return;
+  }
+  if (e.target.classList.contains('exedit')) {
+    collapseExercise(e.target.closest('.ex'), false);
+    updateSecNotes(); saveDraft();
+    return;
+  }
+  if (e.target.id === 'draft-drop') {
+    if (!confirm('Throw away what you have entered for this date? Sessions you have already saved are kept.')) return;
+    clearDraft(currentDate());
+    renderLog();
+    return;
+  }
   if (e.target.classList.contains('addset')) {
     // .addset is shared styling, so route the other users of it first
     if (e.target.id === 'eg-addiv') {
@@ -1232,12 +1490,14 @@ document.addEventListener('click', async e => {
     rowsEl.insertAdjacentHTML('beforeend',
       setRowHTML(rowsEl.children.length, '', '', card.dataset.bw === 'true', card.dataset.timeonly === 'true'));
     fillDown(card);   // a 4th set starts from set 1 rather than blank
+    updateSecNotes(); saveDraft();
     return;
   }
   if (e.target.classList.contains('rm')) {
     const rowsEl = e.target.closest('.rows');
     e.target.closest('.setrow').remove();
     [...rowsEl.children].forEach((row, i) => row.querySelector('.setno').textContent = i + 1);
+    updateSecNotes(); saveDraft();
     return;
   }
   if (e.target.classList.contains('iv-rm')) {
@@ -1246,14 +1506,18 @@ document.addEventListener('click', async e => {
     [...tb.children].forEach((tr, i) => tr.querySelector('.setno').textContent = i + 1);
     return;
   }
+  // Deleting a logged session cannot be undone, and the button sits one tap
+  // away from the session you were reading. Always ask.
   const dw = e.target.closest('[data-del-w]');
   if (dw) {
+    if (!confirm('Delete this weights session for good?')) return;
     const { error } = await sb.from('tracker_workouts').delete().eq('id', dw.dataset.delW);
     if (!error) { S.workouts = S.workouts.filter(s => s.id !== dw.dataset.delW); renderHistory(); renderSummary(); refreshWeekCount(); }
     return;
   }
   const dc = e.target.closest('[data-del-c]');
   if (dc) {
+    if (!confirm('Delete this core session for good?')) return;
     const { error } = await sb.from('tracker_core_sessions').delete().eq('id', dc.dataset.delC);
     if (!error) { S.coreSessions = S.coreSessions.filter(s => s.id !== dc.dataset.delC); renderHistory(); renderSummary(); refreshWeekCount(); }
     return;
@@ -1287,11 +1551,16 @@ document.addEventListener('click', async e => {
   if (rtDel) { deleteRoutine(rtDel.dataset.rtDel); return; }
   // ---- timer ----
   if (e.target.id === 'tm-go') { RUN.running ? pauseTimer() : startTimer(); return; }
-  if (e.target.id === 'tm-next') { nextStep(false); return; }
-  if (e.target.id === 'tm-reset') { stopTimer(); loadRun(RUN.routineId); return; }
+  if (e.target.id === 'tm-next') { nextStep(); return; }
+  if (e.target.id === 'tm-reset') {
+    if (RUN.started && !confirm('Start this routine again from round 1? The times recorded so far are lost.')) return;
+    stopTimer(); loadRun(RUN.routineId); return;
+  }
+  if (e.target.id === 'tm-auto') { localStorage.setItem(AUTONEXT_KEY, e.target.checked ? '1' : '0'); return; }
   if (e.target.id === 'core-save') { saveCoreSession(); return; }
   const de = e.target.closest('[data-del-erg]');
   if (de) {
+    if (!confirm('Delete this erg session for good?')) return;
     const { error } = await sb.from('tracker_erg_sessions').delete().eq('id', de.dataset.delErg);
     if (!error) { S.ergs = S.ergs.filter(s => s.id !== de.dataset.delErg); renderHistory(); renderSummary(); renderErgRecent(); refreshWeekCount(); }
     return;
@@ -1337,7 +1606,8 @@ document.addEventListener('click', async e => {
     };
   });
 
-  // A date change re-derives every "last time" line, so the log resets.
+  // A date change re-derives every "last time" line, so the log rebuilds -
+  // picking up whatever draft belongs to the date you moved to.
   $('log-date').onchange = () => renderLog();
   $('save-btn').onclick = saveWorkout;
   $('signout').onclick = async () => { await sb.auth.signOut(); window.location.replace('login.html'); };
@@ -1354,8 +1624,15 @@ document.addEventListener('click', async e => {
   // A running timer must not survive leaving the tab, or it keeps counting and
   // holding the wake lock against a circuit the athlete has walked away from.
   document.querySelectorAll('.tabs .tab').forEach(t => t.addEventListener('click', () => {
-    if (t.dataset.panel !== 'p-core' && RUN.running) pauseTimer();
+    if (t.dataset.panel === 'p-core') return;
+    cancelCountdown();
+    if (RUN.running) pauseTimer();
   }));
+
+  // Last line of defence for the draft: a phone can kill the tab without ever
+  // firing another input event.
+  window.addEventListener('beforeunload', () => { clearTimeout(draftTimer); saveDraft(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) saveDraft(); });
 
   $('lx-save').onclick = saveLibExercise;
   $('lx-cancel').onclick = () => fillLibForm(null);

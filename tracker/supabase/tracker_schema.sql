@@ -87,9 +87,12 @@ create index tracker_erg_profile_date_idx on public.tracker_erg_sessions (profil
 -- ----------------------------------------------------------------
 -- Core routines - a timed circuit of named holds
 -- ----------------------------------------------------------------
--- steps is an ORDERED list: [{"name": "Plank", "target_s": 60}, ...]. Order is
+-- steps is an ORDERED list: [{"name": "Plank", "target_s": 60,
+--                             "per_side": false}, ...]. Order is
 -- the round order and repeats are expected - the same hold commonly appears as
 -- round 1 and round 4 - so this is a list, never a set keyed by name.
+-- per_side (optional, defaults false) marks a side-specific hold: the runner
+-- expands it into TWO rounds, left then right, sharing the one target.
 create table public.tracker_core_routines (
   id         uuid        primary key default gen_random_uuid(),
   profile_id uuid        not null references public.profiles on delete cascade,
@@ -104,7 +107,13 @@ create index tracker_core_routines_profile_idx on public.tracker_core_routines (
 -- One run through a routine. steps carries the target alongside the actual
 -- time, and routine_name is a snapshot, so a session stays readable after the
 -- routine it came from is renamed or deleted.
--- steps: [{"name": "Plank", "target_s": 60, "actual_s": 72}, ...]
+-- steps: [{"name": "Plank", "side": null, "target_s": 60,
+--          "actual_s": 72, "rest_s": 18}, ...]
+-- side    = "L"/"R" for a round expanded from a per_side routine step, else null.
+-- rest_s  = seconds spent NOT working after that round (the reset shuffle, plus
+--           any pause). Session length = sum(actual_s) + sum(rest_s), which is
+--           why the reset time lives on the round rather than in its own column:
+--           the shape stays inside this jsonb and needs no migration.
 create table public.tracker_core_sessions (
   id           uuid        primary key default gen_random_uuid(),
   profile_id   uuid        not null references public.profiles on delete cascade,
