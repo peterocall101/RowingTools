@@ -1,99 +1,94 @@
 -- ================================================================
--- RowingTools athlete workout tracker - database schema (ADDITIVE)
--- Run in: Supabase dashboard > SQL Editor on the existing RowingTools
--- project (ref tbhujqdflswhgxtioznb) - the same project as the coach
--- dashboard. Requires the dashboard schema's public.profiles table and
--- handle_new_user() trigger to already be applied (they are, live).
+-- RowingTools tracker - THE schema. One file, whole database.
 --
--- When the dashboard branch merges, fold this file into
--- dashboard/supabase/schema.sql (single source of truth).
+-- Run in: Supabase dashboard > SQL Editor, project tbhujqdflswhgxtioznb.
+-- IDEMPOTENT. Safe to run any time, as many times as you like. Run it
+-- whenever you want to be certain the live database matches the app.
 --
--- Model: strictly personal data. Every table is keyed by profile_id
--- and RLS is owner-only (profile_id = auth.uid()). No squad linkage;
--- coach visibility can come later without schema changes here.
+-- This is the only .sql file in the repo, on purpose. One-off changes
+-- are handed over in conversation and folded back in here, so there is
+-- never a pile of dated migrations to apply in the right order.
+--
+-- THE ONE THING TO UNDERSTAND BEFORE READING ON
+-- Every tracker_* table is OWNER-ONLY: profile_id = auth.uid(), one
+-- policy each, no exceptions. Squads do NOT widen that. Sharing happens
+-- entirely through public.tracker_squad_board(), a SECURITY DEFINER
+-- function returning COUNTS AND TOTALS ONLY. It cannot leak a note, an
+-- individual lift or a session date, because it never selects them.
+-- Row-level security cannot hide a column; a function that never reads
+-- the column can.
+--
+-- The report at the bottom checks that, and much else. Read it.
 -- ================================================================
 
--- ----------------------------------------------------------------
--- Exercise library - user-defined, replaces the hardcoded programme
--- ----------------------------------------------------------------
--- session_groups = the user's own session labels ("Session 1", "Gym A"...).
---            An array, because the same lift often appears in more than one
---            session. It stays ONE exercise with one id, so history, last-time
---            prefill and bests never get split across the groups it sits in.
--- pattern  = movement type used to section the log page. Free text so
---            users aren't boxed in; the UI suggests the common ones.
--- retired  = soft delete. Old workouts reference exercises by id, so a
---            deleted-but-used exercise is retired instead, keeping
---            history and summaries classifying correctly.
-create table public.tracker_exercises (
-  id          uuid        primary key default gen_random_uuid(),
-  profile_id  uuid        not null references public.profiles on delete cascade,
-  name        text        not null,
+begin;
+
+-- ================================================================
+-- PART 1 - the personal training log
+-- ================================================================
+
+-- session_groups = the athlete own session labels ("Session 1", "Gym A").
+--   An array, because the same lift often appears in more than one
+--   session, and it must stay ONE exercise with one id or its history,
+--   last-time prefill and bests get split across them.
+-- unit    = 'reps' (reps + weight) or 'secs' (timed holds).
+-- retired = soft delete. Old workouts reference exercises by id, so a
+--   deleted-but-used exercise is retired, keeping history classifying.
+create table if not exists public.tracker_exercises (
+  id             uuid        primary key default gen_random_uuid(),
+  profile_id     uuid        not null references public.profiles on delete cascade,
+  name           text        not null,
   session_groups text[]      not null default '{"Session 1"}',
-  pattern     text        not null default 'other',
-  unit        text        not null default 'reps' check (unit in ('reps', 'secs')),
-  per_side    boolean     not null default false,   -- reps are each side
-  bodyweight  boolean     not null default false,   -- weight field = added load ("+kg")
-  note        text,                                  -- coaching cue shown under the name
-  position    int         not null default 0,
-  retired     boolean     not null default false,
-  created_at  timestamptz not null default now()
+  pattern        text        not null default 'other',
+  unit           text        not null default 'reps' check (unit in ('reps', 'secs')),
+  per_side       boolean     not null default false,
+  bodyweight     boolean     not null default false,
+  note           text,
+  position       int         not null default 0,
+  retired        boolean     not null default false,
+  created_at     timestamptz not null default now()
 );
-create index tracker_exercises_profile_idx on public.tracker_exercises (profile_id);
 
--- ----------------------------------------------------------------
--- Weights sessions
--- ----------------------------------------------------------------
 -- sets = { "<exercise_id>": [ {"r": "8", "w": "60"}, ... ] }
--- Never overwritten by date: every save is a new row (at = HH:MM),
--- multiple entries per day are normal.
-create table public.tracker_workouts (
-  id          uuid        primary key default gen_random_uuid(),
-  profile_id  uuid        not null references public.profiles on delete cascade,
-  date        date        not null,
-  at          text,
-  sets        jsonb       not null default '{}'::jsonb,
-  notes       text,
-  created_at  timestamptz not null default now()
+-- Never overwritten by date: every save is a new row (at = HH:MM), and
+-- two sessions in a day is normal. id is supplied by the CLIENT so an
+-- offline save can be retried without risking a duplicate.
+create table if not exists public.tracker_workouts (
+  id         uuid        primary key default gen_random_uuid(),
+  profile_id uuid        not null references public.profiles on delete cascade,
+  date       date        not null,
+  at         text,
+  sets       jsonb       not null default '{}'::jsonb,
+  notes      text,
+  created_at timestamptz not null default now()
 );
-create index tracker_workouts_profile_date_idx on public.tracker_workouts (profile_id, date desc);
 
--- ----------------------------------------------------------------
--- Erg sessions - pure logging of what was actually done
--- ----------------------------------------------------------------
 -- source: photo = parsed from a monitor photo by the parse-erg Edge
 -- Function; manual = typed in; c2-logbook = future Concept2 API sync.
--- intervals = [ {"time_s": 112.4, "distance_m": 500, "split_s": 112.4,
---               "rate": 28, "hr": 165}, ... ]  (any field may be null)
-create table public.tracker_erg_sessions (
+create table if not exists public.tracker_erg_sessions (
   id           uuid        primary key default gen_random_uuid(),
   profile_id   uuid        not null references public.profiles on delete cascade,
   date         date        not null,
   at           text,
   source       text        not null default 'manual' check (source in ('photo', 'manual', 'c2-logbook')),
   erg_type     text        check (erg_type in ('concept2', 'rowperfect') or erg_type is null),
-  session_type text,                               -- "2k test", "8x500m", "60' UT2"...
+  session_type text,
   total_time_s numeric,
   distance_m   int,
-  avg_split_s  numeric,                            -- seconds per 500m
+  avg_split_s  numeric,
   avg_rate     int,
   avg_hr       int,
   intervals    jsonb,
   notes        text,
   created_at   timestamptz not null default now()
 );
-create index tracker_erg_profile_date_idx on public.tracker_erg_sessions (profile_id, date desc);
 
--- ----------------------------------------------------------------
--- Core routines - a timed circuit of named holds
--- ----------------------------------------------------------------
--- steps is an ORDERED list: [{"name": "Plank", "target_s": 60,
---                             "per_side": false}, ...]. Order is
--- the round order and repeats are expected - the same hold commonly appears as
--- round 1 and round 4 - so this is a list, never a set keyed by name.
--- per_side (optional, defaults false) marks a side-specific hold: the runner
+-- steps is an ORDERED list: [{"name","target_s","per_side"}, ...].
+-- Order is the round order and repeats are expected - the same hold
+-- commonly appears as round 1 and round 4 - so this is a list, never a
+-- set keyed by name. per_side marks a side-specific hold: the runner
 -- expands it into TWO rounds, left then right, sharing the one target.
-create table public.tracker_core_routines (
+create table if not exists public.tracker_core_routines (
   id         uuid        primary key default gen_random_uuid(),
   profile_id uuid        not null references public.profiles on delete cascade,
   name       text        not null,
@@ -102,19 +97,16 @@ create table public.tracker_core_routines (
   retired    boolean     not null default false,
   created_at timestamptz not null default now()
 );
-create index tracker_core_routines_profile_idx on public.tracker_core_routines (profile_id);
 
--- One run through a routine. steps carries the target alongside the actual
--- time, and routine_name is a snapshot, so a session stays readable after the
--- routine it came from is renamed or deleted.
--- steps: [{"name": "Plank", "side": null, "target_s": 60,
---          "actual_s": 72, "rest_s": 18}, ...]
--- side    = "L"/"R" for a round expanded from a per_side routine step, else null.
--- rest_s  = seconds spent NOT working after that round (the reset shuffle, plus
---           any pause). Session length = sum(actual_s) + sum(rest_s), which is
---           why the reset time lives on the round rather than in its own column:
---           the shape stays inside this jsonb and needs no migration.
-create table public.tracker_core_sessions (
+-- One run through a routine. routine_name is a snapshot so a session
+-- stays readable after the routine is renamed or deleted.
+-- steps: [{"name","side","target_s","actual_s","rest_s"}, ...]
+-- side   = "L"/"R" for a round expanded from a per_side step, else null.
+-- rest_s = seconds NOT working after that round (the reset shuffle, plus
+--          any pause). Session length = sum(actual_s) + sum(rest_s),
+--          which is why reset time lives on the round rather than in its
+--          own column: the shape stays inside this jsonb.
+create table if not exists public.tracker_core_sessions (
   id           uuid        primary key default gen_random_uuid(),
   profile_id   uuid        not null references public.profiles on delete cascade,
   date         date        not null,
@@ -125,39 +117,11 @@ create table public.tracker_core_sessions (
   notes        text,
   created_at   timestamptz not null default now()
 );
-create index tracker_core_sessions_profile_date_idx
-  on public.tracker_core_sessions (profile_id, date desc);
 
--- ----------------------------------------------------------------
--- Plan / entitlement
--- ----------------------------------------------------------------
--- Everything in the tracker is free and unlimited EXCEPT reading erg photos,
--- which spends real money on the owner's Anthropic key. These two columns are
--- the whole entitlement model until Stripe exists; the Edge Function is the
--- only thing that enforces them, so a user editing their own profile row
--- cannot grant themselves access (see the RLS note below).
-alter table public.profiles
-  add column if not exists tracker_plan text not null default 'free'
-    check (tracker_plan in ('free', 'trial', 'paid')),
-  add column if not exists tracker_trial_ends_at timestamptz;
-
--- CRITICAL: the dashboard's "update own profile" RLS policy lets a user write
--- their own profile row, which would let anyone set tracker_plan = 'paid' with
--- one REST call. RLS cannot express "all columns except these two", so drop the
--- blanket table-level UPDATE and grant it back column by column. Only the
--- service role (used by the Edge Function and, later, the Stripe webhook) can
--- write the plan columns. Add any future user-writable profile column here.
-revoke update on public.profiles from authenticated;
-grant  update (display_name, email, terms_accepted_at) on public.profiles to authenticated;
-
--- ----------------------------------------------------------------
--- Erg photo parse log - quota enforcement + cost visibility
--- ----------------------------------------------------------------
--- One row per call to the parse-erg Edge Function. Written by the function
--- using the service role, so a user cannot tamper with their own quota.
--- Rows are kept even when the parse fails, because a failed call still costs
--- money. Purge anything older than the longest quota window if it ever grows.
-create table public.tracker_erg_parses (
+-- One row per call to parse-erg, including failures - a failed call is
+-- still billed. Written by the function with the SERVICE ROLE, so a user
+-- cannot clear their own quota.
+create table if not exists public.tracker_erg_parses (
   id            uuid        primary key default gen_random_uuid(),
   profile_id    uuid        not null references public.profiles on delete cascade,
   created_at    timestamptz not null default now(),
@@ -166,36 +130,683 @@ create table public.tracker_erg_parses (
   output_tokens int,
   ok            boolean     not null default true
 );
-create index tracker_erg_parses_profile_time_idx
+
+-- CREATE TABLE IF NOT EXISTS will not add a missing column to a table
+-- that already exists, so every column the app writes is topped up here.
+alter table public.tracker_exercises
+  add column if not exists session_groups text[]  not null default '{"Session 1"}',
+  add column if not exists pattern        text    not null default 'other',
+  add column if not exists unit           text    not null default 'reps',
+  add column if not exists per_side       boolean not null default false,
+  add column if not exists bodyweight     boolean not null default false,
+  add column if not exists note           text,
+  add column if not exists position       int     not null default 0,
+  add column if not exists retired        boolean not null default false;
+
+alter table public.tracker_workouts
+  add column if not exists at    text,
+  add column if not exists sets  jsonb not null default '{}'::jsonb,
+  add column if not exists notes text;
+
+alter table public.tracker_erg_sessions
+  add column if not exists at           text,
+  add column if not exists source       text not null default 'manual',
+  add column if not exists erg_type     text,
+  add column if not exists session_type text,
+  add column if not exists total_time_s numeric,
+  add column if not exists distance_m   int,
+  add column if not exists avg_split_s  numeric,
+  add column if not exists avg_rate     int,
+  add column if not exists avg_hr       int,
+  add column if not exists intervals    jsonb,
+  add column if not exists notes        text;
+
+alter table public.tracker_core_routines
+  add column if not exists steps    jsonb   not null default '[]'::jsonb,
+  add column if not exists position int     not null default 0,
+  add column if not exists retired  boolean not null default false;
+
+alter table public.tracker_core_sessions
+  add column if not exists at           text,
+  add column if not exists routine_id   uuid references public.tracker_core_routines on delete set null,
+  add column if not exists routine_name text,
+  add column if not exists steps        jsonb not null default '[]'::jsonb,
+  add column if not exists notes        text;
+
+-- Entitlement. Only the service role may write these two - see the
+-- column grants near the end.
+alter table public.profiles
+  add column if not exists tracker_plan text not null default 'free'
+    check (tracker_plan in ('free', 'trial', 'paid')),
+  add column if not exists tracker_trial_ends_at timestamptz;
+
+create index if not exists tracker_exercises_profile_idx
+  on public.tracker_exercises (profile_id);
+create index if not exists tracker_workouts_profile_date_idx
+  on public.tracker_workouts (profile_id, date desc);
+create index if not exists tracker_erg_profile_date_idx
+  on public.tracker_erg_sessions (profile_id, date desc);
+create index if not exists tracker_core_routines_profile_idx
+  on public.tracker_core_routines (profile_id);
+create index if not exists tracker_core_sessions_profile_date_idx
+  on public.tracker_core_sessions (profile_id, date desc);
+create index if not exists tracker_erg_parses_profile_time_idx
   on public.tracker_erg_parses (profile_id, created_at desc);
 
--- ----------------------------------------------------------------
--- RLS - owner-only on everything
--- ----------------------------------------------------------------
-alter table public.tracker_exercises    enable row level security;
-alter table public.tracker_workouts     enable row level security;
-alter table public.tracker_erg_sessions enable row level security;
-alter table public.tracker_erg_parses    enable row level security;
+-- ---- Owner-only RLS. ONE policy per table, and keep it that way: the
+-- ---- whole squad privacy guarantee is that these are never widened.
+alter table public.tracker_exercises     enable row level security;
+alter table public.tracker_workouts      enable row level security;
+alter table public.tracker_erg_sessions  enable row level security;
 alter table public.tracker_core_routines enable row level security;
 alter table public.tracker_core_sessions enable row level security;
+alter table public.tracker_erg_parses    enable row level security;
 
-create policy "own core routines" on public.tracker_core_routines
-  for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
-
-create policy "own core sessions" on public.tracker_core_sessions
-  for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
-
--- Read-only to the owner (so the UI can show "12 of 20 photos left today").
--- No insert/update/delete policy at all: only the service role writes here,
--- which is what stops a user from clearing their own quota.
-create policy "read own parse log" on public.tracker_erg_parses
-  for select using (profile_id = auth.uid());
-
+drop policy if exists "own exercises" on public.tracker_exercises;
 create policy "own exercises" on public.tracker_exercises
   for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
 
+drop policy if exists "own workouts" on public.tracker_workouts;
 create policy "own workouts" on public.tracker_workouts
   for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
 
+drop policy if exists "own erg sessions" on public.tracker_erg_sessions;
 create policy "own erg sessions" on public.tracker_erg_sessions
   for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
+
+drop policy if exists "own core routines" on public.tracker_core_routines;
+create policy "own core routines" on public.tracker_core_routines
+  for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
+
+drop policy if exists "own core sessions" on public.tracker_core_sessions;
+create policy "own core sessions" on public.tracker_core_sessions
+  for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
+
+-- Read-only to the owner (so the UI can show "12 of 20 photos left").
+-- No insert/update/delete policy at all: only the service role writes
+-- here, which is what stops a user clearing their own quota.
+drop policy if exists "read own parse log" on public.tracker_erg_parses;
+create policy "read own parse log" on public.tracker_erg_parses
+  for select using (profile_id = auth.uid());
+
+-- ================================================================
+-- PART 2 - squads
+-- ================================================================
+
+-- ----------------------------------------------------------------
+-- 0. The group model, inherited from the coach dashboard - a project
+--    SHELVED on 2026-08-08 and not being picked up. Its app code lives
+--    only on unmerged branches, but these tables ARE LIVE in this
+--    Supabase project and are now load-bearing for the tracker:
+--    handle_new_user() reads group_members and pending_members, so
+--    tracker signup breaks without them. Verified present on the live
+--    database 2026-08-08.
+--
+--    Repeated here VERBATIM so this file stands alone on a fresh
+--    project. If they already exist every statement is a no-op. Do not
+--    "improve" these definitions or drop them as dashboard leftovers.
+-- ----------------------------------------------------------------
+create table if not exists public.groups (
+  id                   uuid        primary key default gen_random_uuid(),
+  name                 text        not null,
+  club_id              text,
+  club_name            text,
+  active_benchmark_id  uuid,
+  created_by           uuid        not null references auth.users on delete restrict,
+  created_at           timestamptz not null default now()
+);
+
+create table if not exists public.group_members (
+  group_id    uuid not null references public.groups on delete cascade,
+  profile_id  uuid not null references public.profiles on delete cascade,
+  role        text not null default 'member' check (role in ('admin', 'member')),
+  accepted_at timestamptz,
+  joined_at   timestamptz not null default now(),
+  primary key (group_id, profile_id)
+);
+create index if not exists group_members_profile_idx on public.group_members (profile_id);
+
+alter table public.groups        enable row level security;
+alter table public.group_members enable row level security;
+
+-- SECURITY DEFINER so the policies below can consult group_members
+-- without recursing through group_members' own RLS.
+create or replace function public.is_group_member(g uuid)
+returns boolean language sql stable security definer set search_path = public, pg_temp as $$
+  select exists (
+    select 1 from public.group_members
+    where group_id = g and profile_id = auth.uid()
+  );
+$$;
+
+create or replace function public.is_group_admin(g uuid)
+returns boolean language sql stable security definer set search_path = public, pg_temp as $$
+  select exists (
+    select 1 from public.group_members
+    where group_id = g and profile_id = auth.uid() and role = 'admin'
+  );
+$$;
+
+-- ----------------------------------------------------------------
+-- 1. Join code. A tracker user has no way into a squad otherwise: the
+--    dashboard's invite flow is email-based and its Edge Function does
+--    not exist yet. A code is self-serve and needs no mail server.
+--
+--    Deliberately NOT readable by non-members - the policy below only
+--    exposes groups you already belong to - so codes cannot be
+--    enumerated by reading the table. Joining goes through the RPC.
+-- ----------------------------------------------------------------
+alter table public.groups
+  add column if not exists join_code text;
+
+-- Partial unique index: many groups may have no code, but a code that
+-- exists must identify exactly one squad.
+create unique index if not exists groups_join_code_key
+  on public.groups (upper(join_code)) where join_code is not null;
+
+drop policy if exists "read own groups" on public.groups;
+create policy "read own groups" on public.groups
+  for select using (public.is_group_member(id));
+
+drop policy if exists "read own memberships" on public.group_members;
+create policy "read own memberships" on public.group_members
+  for select using (public.is_group_member(group_id));
+
+-- ----------------------------------------------------------------
+-- 2. Sharing consent - one row per (athlete, squad).
+--
+--    Membership alone shares NOTHING. A training log is personal, so
+--    appearing on a squad board is a separate, explicit, revocable act.
+--    No row means not sharing.
+-- ----------------------------------------------------------------
+create table if not exists public.tracker_sharing (
+  profile_id uuid        not null references public.profiles on delete cascade,
+  group_id   uuid        not null references public.groups   on delete cascade,
+  shared_at  timestamptz not null default now(),
+  primary key (profile_id, group_id)
+);
+create index if not exists tracker_sharing_group_idx on public.tracker_sharing (group_id);
+
+alter table public.tracker_sharing enable row level security;
+
+-- You manage your own consent, and only for squads you are actually in.
+drop policy if exists "manage own sharing" on public.tracker_sharing;
+create policy "manage own sharing" on public.tracker_sharing
+  for all
+  using (profile_id = auth.uid())
+  with check (profile_id = auth.uid() and public.is_group_member(group_id));
+
+-- Squad-mates may see WHO is sharing (so the board can show who has
+-- opted out). That is a name, not training data.
+drop policy if exists "squad reads sharing roster" on public.tracker_sharing;
+create policy "squad reads sharing roster" on public.tracker_sharing
+  for select using (public.is_group_member(group_id));
+
+-- ----------------------------------------------------------------
+-- 3. Shared templates - the exercise library JSON the Templates tab
+--    already exports, posted to a squad instead of emailed as a file.
+-- ----------------------------------------------------------------
+create table if not exists public.tracker_shared_templates (
+  id         uuid        primary key default gen_random_uuid(),
+  group_id   uuid        not null references public.groups   on delete cascade,
+  profile_id uuid        not null references public.profiles on delete cascade,
+  name       text        not null,
+  kind       text        not null default 'exercise-template'
+               check (kind in ('exercise-template', 'core-routine')),
+  payload    jsonb       not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists tracker_shared_templates_group_idx
+  on public.tracker_shared_templates (group_id, created_at desc);
+
+alter table public.tracker_shared_templates enable row level security;
+
+drop policy if exists "squad reads templates" on public.tracker_shared_templates;
+create policy "squad reads templates" on public.tracker_shared_templates
+  for select using (public.is_group_member(group_id));
+
+drop policy if exists "post own templates" on public.tracker_shared_templates;
+create policy "post own templates" on public.tracker_shared_templates
+  for insert with check (profile_id = auth.uid() and public.is_group_member(group_id));
+
+-- Your own, or anything in a squad you administer.
+drop policy if exists "remove own templates" on public.tracker_shared_templates;
+create policy "remove own templates" on public.tracker_shared_templates
+  for delete using (profile_id = auth.uid() or public.is_group_admin(group_id));
+
+commit;
+
+-- ================================================================
+-- 4. Functions
+-- ================================================================
+
+-- Set values are user-typed strings. A bad one must yield null, not
+-- abort the whole board with an invalid-input-syntax error. The digit
+-- limits matter: '9' repeated 200000 times passes a naive
+-- ^[0-9]+$ and then raises numeric field overflow on the cast.
+create or replace function public.tracker_num(t text)
+returns numeric language sql immutable parallel safe as $$
+  select case when t ~ '^\s*[0-9]{1,9}(\.[0-9]{1,4})?\s*$' then trim(t)::numeric end;
+$$;
+
+-- Exact uuid shape. A character class like [0-9a-fA-F-]{36} also matches
+-- 36 hyphens, which then reaches ::uuid and raises.
+create or replace function public.tracker_is_uuid(t text)
+returns boolean language sql immutable parallel safe as $$
+  select t ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+$$;
+
+-- ---- create a squad ----------------------------------------------
+-- SECURITY DEFINER because group_members has no INSERT policy at all:
+-- letting a user write it directly would let anyone add themselves to
+-- any squad. Creation is the one path that must insert a membership,
+-- so it goes through here, where the row written is fixed by the code.
+create or replace function public.tracker_create_group(p_name text)
+returns table (group_id uuid, join_code text)
+language plpgsql volatile security definer set search_path = public, pg_temp as $$
+declare
+  v_id   uuid;
+  v_code text;
+  v_try  int := 0;
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+  if coalesce(trim(p_name), '') = '' then
+    raise exception 'Give the squad a name';
+  end if;
+
+  -- Ambiguity-free alphabet: no O/0, I/1, S/5. These get read aloud in
+  -- a boathouse and typed with cold hands.
+  loop
+    v_try := v_try + 1;
+    select string_agg(substr('ABCDEFGHJKLMNPQRTUVWXYZ23456789',
+                             (random() * 30)::int + 1, 1), '')
+      into v_code
+      from generate_series(1, 6);
+    exit when not exists (select 1 from public.groups g where upper(g.join_code) = v_code);
+    if v_try > 20 then raise exception 'Could not allocate a join code'; end if;
+  end loop;
+
+  insert into public.groups (name, created_by, join_code)
+  values (trim(p_name), auth.uid(), v_code)
+  returning id into v_id;
+
+  insert into public.group_members (group_id, profile_id, role, accepted_at)
+  values (v_id, auth.uid(), 'admin', now());
+
+  return query select v_id, v_code;
+end;
+$$;
+
+-- ---- join a squad by code ----------------------------------------
+create or replace function public.tracker_join_group(p_code text)
+returns table (group_id uuid, group_name text)
+language plpgsql volatile security definer set search_path = public, pg_temp as $$
+declare
+  v_id   uuid;
+  v_name text;
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+
+  select g.id, g.name into v_id, v_name
+  from public.groups g
+  where g.join_code is not null
+    and upper(g.join_code) = upper(trim(p_code));
+
+  if v_id is null then
+    raise exception 'No squad has that code';
+  end if;
+
+  insert into public.group_members (group_id, profile_id, role, accepted_at)
+  values (v_id, auth.uid(), 'member', now())
+  on conflict (group_id, profile_id) do nothing;
+
+  return query select v_id, v_name;
+end;
+$$;
+
+-- ---- leave a squad -----------------------------------------------
+-- Sharing consent goes with it, via the FK cascade on tracker_sharing.
+create or replace function public.tracker_leave_group(p_group uuid)
+returns void language plpgsql volatile security definer set search_path = public, pg_temp as $$
+begin
+  -- With a null auth.uid() both deletes match nothing anyway, but a
+  -- SECURITY DEFINER function should never rely on that for its safety.
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+  delete from public.tracker_sharing
+   where profile_id = auth.uid() and group_id = p_group;
+  delete from public.group_members
+   where profile_id = auth.uid() and group_id = p_group;
+end;
+$$;
+
+-- ---- the board ---------------------------------------------------
+-- Returns one row per squad member, counts and totals only. Everything
+-- personal is absent by construction: this function never reads notes,
+-- per-exercise loads, or session dates.
+--
+-- Members who have not opted in are returned with sharing = false and
+-- all measures null, so the board can show "3 of 8 sharing" honestly
+-- rather than silently pretending the squad is smaller than it is.
+-- The period is a KEYWORD, never a caller-supplied date.
+--
+-- This is the difference between "totals" and "your training diary".
+-- With a free date parameter, anyone could call the board twice one day
+-- apart and subtract: a days_trained delta of 1 says you trained on that
+-- exact date, and if the erg-session delta is 1 then the metres and
+-- seconds deltas ARE that single session's numbers. Iterating a year of
+-- dates reconstructs the whole calendar. Four fixed windows, computed
+-- server-side, leave nothing to difference.
+drop function if exists public.tracker_squad_board(uuid, date);
+
+create or replace function public.tracker_squad_board(p_group uuid, p_period text)
+returns table (
+  profile_id       uuid,
+  display_name     text,
+  sharing          boolean,
+  days_trained     int,
+  sessions_total   int,
+  sessions_weights int,
+  sessions_erg     int,
+  sessions_core    int,
+  erg_metres       numeric,
+  erg_seconds      numeric,
+  core_work_s      numeric,
+  core_rounds      int,
+  weights_sets     int,
+  weights_volume   numeric
+)
+language plpgsql stable security definer set search_path = public, pg_temp as $$
+declare
+  p_since date;
+begin
+  -- Not a member: no rows. Not an error, which would confirm the squad
+  -- exists to someone guessing ids.
+  if not public.is_group_member(p_group) then
+    return;
+  end if;
+
+  p_since := case p_period
+    when 'week' then date_trunc('week', now())::date
+    when '4w'   then date_trunc('week', now())::date - 21
+    when '12w'  then date_trunc('week', now())::date - 77
+    when 'all'  then date '2000-01-01'
+    else date_trunc('week', now())::date - 21      -- anything unrecognised
+  end;
+
+  return query
+  with roster as (
+    select gm.profile_id as pid,
+           (s.profile_id is not null) as opted_in
+    from public.group_members gm
+    left join public.tracker_sharing s
+      on s.profile_id = gm.profile_id and s.group_id = gm.group_id
+    where gm.group_id = p_group
+  ),
+  shared as (select pid from roster where opted_in),
+  w as (
+    select tw.profile_id as pid,
+           count(*)::int as sessions,
+           array_agg(distinct tw.date) as dates
+    from public.tracker_workouts tw
+    join shared on shared.pid = tw.profile_id
+    where tw.date >= p_since
+    group by tw.profile_id
+  ),
+  wsets as (
+    -- jsonb: { "<exercise_id>": [ {"r":"8","w":"60"}, ... ] }
+    --
+    -- Every expansion below is guarded on jsonb_typeof. These columns
+    -- have no CHECK constraint, so one member with an odd row - a
+    -- hand-written API call, a future format change - would otherwise
+    -- raise and take the board down for EVERYONE in the squad.
+    select tw.profile_id as pid,
+           count(*)::int as n_sets,
+           coalesce(sum(
+             case when coalesce(te.unit, 'reps') <> 'secs'
+                  then public.tracker_num(st.value->>'r') * public.tracker_num(st.value->>'w')
+             end
+           ), 0)::numeric as volume
+    from public.tracker_workouts tw
+    join shared on shared.pid = tw.profile_id
+    cross join lateral jsonb_each(
+      case when jsonb_typeof(tw.sets) = 'object' then tw.sets else '{}'::jsonb end) as ex(key, arr)
+    cross join lateral jsonb_array_elements(
+      case when jsonb_typeof(ex.arr) = 'array' then ex.arr else '[]'::jsonb end) as st(value)
+    -- CASE, not `regex and cast`: an ON clause has no guaranteed
+    -- evaluation order, so a malformed key could still reach the cast
+    -- and abort with invalid input syntax for uuid.
+    left join public.tracker_exercises te
+      on te.id = (case when public.tracker_is_uuid(ex.key) then ex.key::uuid end)
+    where tw.date >= p_since
+    group by tw.profile_id
+  ),
+  e as (
+    select te2.profile_id as pid,
+           count(*)::int as sessions,
+           coalesce(sum(te2.distance_m), 0)::numeric as metres,
+           coalesce(sum(te2.total_time_s), 0)::numeric as secs,
+           array_agg(distinct te2.date) as dates
+    from public.tracker_erg_sessions te2
+    join shared on shared.pid = te2.profile_id
+    where te2.date >= p_since
+    group by te2.profile_id
+  ),
+  c as (
+    select tc.profile_id as pid,
+           count(distinct tc.id)::int as sessions,
+           coalesce(sum(public.tracker_num(stp.value->>'actual_s')), 0)::numeric as work_s,
+           count(stp.value)::int as rounds,
+           array_agg(distinct tc.date) as dates
+    from public.tracker_core_sessions tc
+    join shared on shared.pid = tc.profile_id
+    left join lateral jsonb_array_elements(
+      case when jsonb_typeof(tc.steps) = 'array' then tc.steps else '[]'::jsonb end) as stp(value) on true
+    where tc.date >= p_since
+    group by tc.profile_id
+  )
+  select
+    r.pid,
+    coalesce(p.display_name, 'Athlete'),
+    r.opted_in,
+    case when r.opted_in then (
+      select count(distinct d)::int from unnest(
+        coalesce(w.dates, '{}'::date[]) ||
+        coalesce(e.dates, '{}'::date[]) ||
+        coalesce(c.dates, '{}'::date[])
+      ) as d
+    ) end,
+    case when r.opted_in then coalesce(w.sessions, 0) + coalesce(e.sessions, 0) + coalesce(c.sessions, 0) end,
+    case when r.opted_in then coalesce(w.sessions, 0) end,
+    case when r.opted_in then coalesce(e.sessions, 0) end,
+    case when r.opted_in then coalesce(c.sessions, 0) end,
+    case when r.opted_in then coalesce(e.metres, 0) end,
+    case when r.opted_in then coalesce(e.secs, 0) end,
+    case when r.opted_in then coalesce(c.work_s, 0) end,
+    case when r.opted_in then coalesce(c.rounds, 0) end,
+    case when r.opted_in then coalesce(wsets.n_sets, 0) end,
+    case when r.opted_in then coalesce(wsets.volume, 0) end
+  from roster r
+  left join public.profiles p on p.id = r.pid
+  left join w     on w.pid     = r.pid
+  left join wsets on wsets.pid = r.pid
+  left join e     on e.pid     = r.pid
+  left join c     on c.pid     = r.pid;
+end;
+$$;
+
+-- EXECUTE: revoke from PUBLIC first, then grant.
+--
+-- PostgreSQL grants EXECUTE on a new function to PUBLIC by default, so a
+-- plain `grant ... to authenticated` changes nothing and quietly implies
+-- a restriction that is not there. Verified against the live database: a
+-- signed-out caller holding only the publishable key could reach every
+-- one of these. Nothing leaked - each function's auth.uid() guard held -
+-- but a SECURITY DEFINER function runs as its owner, so "the guard
+-- happened to hold" is not the posture to settle for.
+-- Only the four functions this file owns. is_group_member/is_group_admin
+-- are inherited, and RLS policies on the older tables still call them: a
+-- policy is evaluated as the querying role, so revoking PUBLIC there
+-- would turn a signed-out read of those tables from "no rows" into
+-- "permission denied for function". They return false to anon anyway.
+revoke execute on function public.tracker_create_group(text)       from public;
+revoke execute on function public.tracker_join_group(text)         from public;
+revoke execute on function public.tracker_leave_group(uuid)        from public;
+revoke execute on function public.tracker_squad_board(uuid, text)  from public;
+
+grant execute on function public.tracker_create_group(text)        to authenticated, service_role;
+grant execute on function public.tracker_join_group(text)          to authenticated, service_role;
+grant execute on function public.tracker_leave_group(uuid)         to authenticated, service_role;
+grant execute on function public.tracker_squad_board(uuid, text)   to authenticated, service_role;
+-- tracker_num / tracker_is_uuid are pure helpers with no data access, so
+-- the PUBLIC default is fine for them.
+
+
+-- ================================================================
+-- PART 4 - profiles column grants. READ BEFORE RUNNING.
+--
+-- RLS cannot express "every column except these two", so the blanket
+-- UPDATE on profiles is revoked and granted back column by column. That
+-- is what stops a user setting tracker_plan = 'paid' with one REST call.
+--
+-- Left commented because re-running it would silently revoke any
+-- user-writable profiles column added since. The report prints the
+-- current grants FIRST - check that list, add anything missing to the
+-- grant, then run this.
+-- ================================================================
+-- revoke update on public.profiles from authenticated;
+-- grant  update (display_name, email, terms_accepted_at) on public.profiles to authenticated;
+
+-- ================================================================
+-- REPORT - one query, because the SQL editor only shows the result of
+-- the LAST statement. Nothing below changes anything.
+--
+-- Read it top to bottom. Anything not saying "ok" wants attention.
+-- ================================================================
+with expected(tbl, col) as (values
+  ('tracker_exercises','session_groups'), ('tracker_exercises','pattern'),
+  ('tracker_exercises','unit'), ('tracker_exercises','per_side'),
+  ('tracker_exercises','bodyweight'), ('tracker_exercises','note'),
+  ('tracker_exercises','position'), ('tracker_exercises','retired'),
+  ('tracker_workouts','date'), ('tracker_workouts','at'),
+  ('tracker_workouts','sets'), ('tracker_workouts','notes'),
+  ('tracker_erg_sessions','source'), ('tracker_erg_sessions','erg_type'),
+  ('tracker_erg_sessions','session_type'), ('tracker_erg_sessions','total_time_s'),
+  ('tracker_erg_sessions','distance_m'), ('tracker_erg_sessions','avg_split_s'),
+  ('tracker_erg_sessions','avg_rate'), ('tracker_erg_sessions','avg_hr'),
+  ('tracker_erg_sessions','intervals'), ('tracker_erg_sessions','notes'),
+  ('tracker_core_routines','name'), ('tracker_core_routines','steps'),
+  ('tracker_core_routines','position'), ('tracker_core_routines','retired'),
+  ('tracker_core_sessions','routine_id'), ('tracker_core_sessions','routine_name'),
+  ('tracker_core_sessions','steps'), ('tracker_core_sessions','notes'),
+  ('tracker_sharing','group_id'), ('tracker_shared_templates','payload'),
+  ('groups','join_code'),
+  ('profiles','tracker_plan'), ('profiles','tracker_trial_ends_at')
+),
+cols as (
+  select e.tbl, e.col, (c.column_name is not null) as present
+  from expected e
+  left join information_schema.columns c
+    on c.table_schema = 'public' and c.table_name = e.tbl and c.column_name = e.col
+)
+select section, item, result from (
+
+  -- 1. THE PRIVACY INVARIANT. Each of these must have exactly ONE policy.
+  --    More than one means someone widened SELECT and squad-mates may be
+  --    able to read raw sessions.
+  select 1 as ord, '1 tracker tables owner-only' as section, t.tbl as item,
+    (select count(*) from pg_policies p
+      where p.schemaname='public' and p.tablename=t.tbl)::text || ' policy(ies)' ||
+    case when (select count(*) from pg_policies p
+                where p.schemaname='public' and p.tablename=t.tbl) = 1
+         then ' - ok' else ' - ** CHECK THIS **' end as result
+  from (values ('tracker_exercises'), ('tracker_workouts'), ('tracker_erg_sessions'),
+               ('tracker_core_routines'), ('tracker_core_sessions')) as t(tbl)
+
+  -- 2. Tables present, and RLS actually on.
+  union all
+  select 2, '2 tables', t.tbl,
+    case when to_regclass('public.' || t.tbl) is null then '** MISSING **'
+         else 'ok - rls ' ||
+              case when (select c.relrowsecurity from pg_class c
+                         join pg_namespace n on n.oid = c.relnamespace
+                         where n.nspname='public' and c.relname=t.tbl)
+                   then 'on' else '** OFF **' end end
+  from (values ('tracker_exercises'), ('tracker_workouts'), ('tracker_erg_sessions'),
+               ('tracker_core_routines'), ('tracker_core_sessions'), ('tracker_erg_parses'),
+               ('groups'), ('group_members'), ('tracker_sharing'),
+               ('tracker_shared_templates')) as t(tbl)
+
+  -- 3. Every column the app writes.
+  union all
+  select 3, '3 columns', 'columns the app writes',
+    (select count(*) filter (where present) from cols)::text || ' of ' ||
+    (select count(*) from cols)::text || ' present' ||
+    case when (select count(*) filter (where not present) from cols) = 0
+         then ' - ok' else ' - ** SEE BELOW **' end
+  union all
+  select 3, '3 columns', tbl || '.' || col, '** MISSING - saves will fail **'
+  from cols where not present
+
+  -- 4. Functions.
+  union all
+  select 4, '4 functions', f.item,
+         case when f.present then 'ok' else '** MISSING or wrong signature **' end
+  from (
+    select 'is_group_member(uuid)' as item, to_regprocedure('public.is_group_member(uuid)') is not null as present
+    union all select 'tracker_create_group(text)', to_regprocedure('public.tracker_create_group(text)') is not null
+    union all select 'tracker_join_group(text)',   to_regprocedure('public.tracker_join_group(text)') is not null
+    union all select 'tracker_leave_group(uuid)',  to_regprocedure('public.tracker_leave_group(uuid)') is not null
+    union all select 'tracker_squad_board(uuid,text)', to_regprocedure('public.tracker_squad_board(uuid,text)') is not null
+  ) f
+  -- The date-taking board is the differencing hole. It must NOT exist.
+  union all
+  select 4, '4 functions', 'tracker_squad_board(uuid,DATE) is gone',
+         case when to_regprocedure('public.tracker_squad_board(uuid,date)') is null
+              then 'ok - absent' else '** STILL PRESENT - DROP IT **' end
+
+  -- 5. Who can execute the definer functions. Want authenticated, and
+  --    NOT public/anon - PostgreSQL grants EXECUTE to PUBLIC by default.
+  union all
+  select 5, '5 execute grants', p.proname::text,
+    coalesce((select string_agg(distinct coalesce(r.rolname, 'PUBLIC'), ', ')
+              from aclexplode(p.proacl) x
+              left join pg_roles r on r.oid = x.grantee
+              where x.privilege_type = 'EXECUTE'),
+             '** PUBLIC - everyone, including signed-out **')
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname='public'
+    and p.proname in ('tracker_create_group','tracker_join_group',
+                      'tracker_leave_group','tracker_squad_board')
+
+  -- 6. The join model depends on group_members having SELECT only.
+  union all
+  select 6, '6 group tables (want: SELECT only)', t.tbl,
+    coalesce((select string_agg(distinct p.cmd, ', ' order by p.cmd) from pg_policies p
+               where p.schemaname='public' and p.tablename=t.tbl), '(no policies)')
+  from (values ('groups'), ('group_members')) as t(tbl)
+
+  -- 7. Which profiles columns a signed-in user may write. tracker_plan
+  --    must NOT be here, or anyone can grant themselves the paid reader.
+  union all
+  select 7, '7 entitlement', 'authenticated may UPDATE profiles',
+    coalesce((select string_agg(column_name, ', ' order by column_name)
+              from information_schema.column_privileges
+              where table_schema='public' and table_name='profiles'
+                and grantee='authenticated' and privilege_type='UPDATE'),
+             '(nothing - blanket update already revoked)')
+  union all
+  select 7, '7 entitlement', 'tracker_plan is user-writable',
+    case when exists (select 1 from information_schema.column_privileges
+                      where table_schema='public' and table_name='profiles'
+                        and grantee='authenticated' and privilege_type='UPDATE'
+                        and column_name='tracker_plan')
+         then '** YES - run PART 4 **' else 'no - ok' end
+
+) report
+order by ord, item;

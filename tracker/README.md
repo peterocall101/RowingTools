@@ -5,7 +5,7 @@ user-defined exercise library, and erg sessions logged manually or by photograph
 (Concept2 PM5 / RowPerfect) and letting Claude vision read it.
 
 Static frontend (no build step, same as the rest of the site) + the existing RowingTools
-Supabase project (ref `tbhujqdflswhgxtioznb`, shared with the coach dashboard). Every tracker
+Supabase project (ref `tbhujqdflswhgxtioznb`, shared with the shelved coach dashboard). Every tracker
 table is keyed by `profile_id` with owner-only RLS, and stays that way: the squad feature shares
 totals through a `SECURITY DEFINER` function rather than by widening those policies. See
 **Squads** below.
@@ -18,15 +18,15 @@ totals through a `SECURITY DEFINER` function rather than by widening those polic
 | `login.html` | Standalone signin/signup/forgot/recovery against the shared Supabase project |
 | `js/config.js` | Supabase URL + anon key + Edge Function endpoint |
 | `js/app.js` | All app logic |
-| `supabase/tracker_schema.sql` | Additive schema: `tracker_exercises`, `tracker_workouts`, `tracker_erg_sessions`, `tracker_core_*` + RLS. First run only - bare `CREATE TABLE`, so it errors on a second run |
-| `supabase/social_schema.sql` | Squads: reuses the dashboard's `groups`/`group_members`, adds `tracker_sharing`, shared templates and the board function. Idempotent |
+| `supabase/tracker_schema.sql` | **The** schema - whole database in one idempotent file. Re-run it any time; its report checks the live DB against what the app writes |
 | `supabase/functions/parse-erg/index.ts` | Edge Function: erg photo -> structured session JSON via Claude vision |
 
 ## One-time deployment steps (in order)
 
 1. **Create the tables.** Supabase dashboard > SQL Editor > paste and run
-   `tracker/supabase/tracker_schema.sql`. Requires the dashboard schema's `profiles`
-   table + `handle_new_user()` trigger, which are already live.
+   `tracker/supabase/tracker_schema.sql`. Idempotent, so re-run it whenever the app changes
+   rather than hunting for a migration. Requires `public.profiles` and the `handle_new_user()`
+   trigger, which are already live.
 
 2. **Deploy the Edge Function** (needs the Supabase CLI, logged in to the personal account):
 
@@ -104,10 +104,10 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
 ## Squads
 
 A squad is a group of athletes who can see how much training each other is getting through, and
-swap exercise templates. Run `supabase/social_schema.sql` to enable it; without that the Board tab
+swap exercise templates. Run `supabase/tracker_schema.sql` to enable it; without that the Board tab
 explains what to run rather than erroring.
 
-**It reuses the coach dashboard's `groups` + `group_members`** in the same Supabase project, along
+**It reuses `groups` + `group_members`** - inherited from the shelved coach dashboard, live in the same Supabase project - along
 with its `is_group_member()` / `is_group_admin()` helpers. No new group model was invented.
 
 - **The tracker's own RLS is not widened. Not one policy on `tracker_workouts`,

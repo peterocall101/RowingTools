@@ -2093,7 +2093,7 @@ async function importExercises(payload, msgId) {
    because that function never reads them.
 
    Loaded lazily on first visit to the tab, and it degrades to an instruction
-   rather than an error if social_schema.sql has not been run - a missing table
+   rather than an error if the schema has not been run - a missing table
    must not take the whole app down at boot. */
 const SQ = {
   loaded: false, tried: false, ready: false, error: null,
@@ -2217,7 +2217,7 @@ function renderSquad() {
     // always offer the retry.
     el.innerHTML = '<div class="setup-sec"><h3 class="setup-head">Squads</h3>' +
       '<p class="setup-intro">Could not read your squads. Either squads are not set up on this ' +
-      'database yet - run <b>tracker/supabase/social_schema.sql</b> in the Supabase SQL editor - ' +
+      'database yet - run <b>tracker/supabase/tracker_schema.sql</b> in the Supabase SQL editor - ' +
       'or the connection dropped.</p>' +
       '<div class="toast err">' + esc(SQ.error || 'Could not read group membership.') + '</div>' +
       '<button id="sq-retry" style="width:100%;margin-top:12px">Try again</button></div>';
