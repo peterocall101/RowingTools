@@ -84,8 +84,11 @@ function fmtTime(sec) {
 }
 const fmtSplit = sec => sec == null ? '' : fmtTime(sec) + '/500m';
 
+// Null-safe: several holders live inside panels that are rebuilt wholesale, so
+// a message can outrace its container. Losing the message beats a crash.
 function toast(holderId, msg, cls) {
-  $(holderId).innerHTML = '<div class="toast ' + (cls || '') + '">' + msg + '</div>';
+  const el = $(holderId);
+  if (el) el.innerHTML = '<div class="toast ' + (cls || '') + '">' + msg + '</div>';
 }
 
 function track(event, params) { if (typeof gtag === 'function') gtag('event', event, params || {}); }
@@ -2035,12 +2038,22 @@ function downloadTemplate() {
 }
 
 async function uploadTemplate(file) {
-  const snap = snapshotLog();
   let payload;
+  // A file the user picked can be anything at all; bad JSON is an expected
+  // outcome here, not a bug.
   try { payload = JSON.parse(await file.text()); }
-  catch (e) { toast('lib-msg', 'That file is not valid JSON.', 'err'); return; }
+  catch (e) { if (!(e instanceof SyntaxError)) throw e;
+              toast('lib-msg', 'That file is not valid JSON.', 'err'); return; }
+  await importExercises(payload, 'lib-msg');
+}
+
+// Shared by the file upload and the squad import. Additive only: anything you
+// already have by name is skipped, so importing can never overwrite your setup.
+// Returns how many were added.
+async function importExercises(payload, msgId) {
+  const snap = snapshotLog();
   if (!payload || payload.kind !== 'exercise-template' || !Array.isArray(payload.exercises)) {
-    toast('lib-msg', 'That does not look like a RowingTools template file.', 'err'); return;
+    toast(msgId, 'That does not look like a RowingTools template.', 'err'); return 0;
   }
   const existing = new Set(activeLibrary().map(e => e.name.trim().toLowerCase()));
   const posBase = Math.max(0, ...S.exercises.map(e => e.position)) + 1;
@@ -2060,13 +2073,402 @@ async function uploadTemplate(file) {
       note: typeof e.note === 'string' ? e.note.slice(0, 200) : null,
       position: posBase + i,
     }));
-  if (!fresh.length) { toast('lib-msg', 'Nothing new in that template - everything is already in your library.', 'warn'); return; }
+  if (!fresh.length) {
+    toast(msgId, 'Nothing new in there - everything is already in your library.', 'warn'); return 0;
+  }
   const { data, error } = await sb.from('tracker_exercises').insert(fresh).select();
-  if (error) { toast('lib-msg', 'Import failed: ' + esc(error.message), 'err'); return; }
+  if (error) { toast(msgId, 'Import failed: ' + esc(error.message), 'err'); return 0; }
   S.exercises.push(...data);
-  toast('lib-msg', 'Imported ' + data.length + ' exercise' + (data.length > 1 ? 's' : '') + '.');
+  toast(msgId, 'Imported ' + data.length + ' exercise' + (data.length > 1 ? 's' : '') + '.');
   track('template_uploaded', { exercises: data.length });
   renderLibrary(); renderLog(snap);
+  return data.length;
+}
+
+/* ================= squad =================
+   Squads reuse the coach dashboard's groups/group_members tables in the same
+   Supabase project. Nothing here widens the tracker's own RLS: every number on
+   the board comes from the tracker_squad_board() function, which returns counts
+   and totals only. Notes, individual lifts and session dates are not leaked
+   because that function never reads them.
+
+   Loaded lazily on first visit to the tab, and it degrades to an instruction
+   rather than an error if social_schema.sql has not been run - a missing table
+   must not take the whole app down at boot. */
+const SQ = {
+  loaded: false, tried: false, ready: false, error: null,
+  squads: [], groupId: null, sharing: new Set(),
+  board: [], templates: [],
+  period: '4w', metric: 'days_trained', busy: false, adding: false, posting: false,
+};
+
+const PERIODS = [
+  { k: 'week', label: 'This week' },
+  { k: '4w',   label: 'Last 4 weeks' },
+  { k: '12w',  label: 'Last 12 weeks' },
+  { k: 'all',  label: 'All time' },
+];
+
+// Consistency first, volume second, and on purpose. A board topped by whoever
+// erged the most metres rewards junk volume and punishes the athlete on a
+// taper; "days trained" is the number that actually reflects turning up, and
+// it is far harder to inflate than a distance you type in yourself.
+const METRICS = [
+  { k: 'days_trained',     label: 'Days trained',      unit: '',    group: 'Consistency' },
+  { k: 'sessions_total',   label: 'Sessions',          unit: '',    group: 'Consistency' },
+  { k: 'erg_metres',       label: 'Erg metres',        unit: 'm',   group: 'Erg' },
+  { k: 'erg_seconds',      label: 'Erg time',          unit: 'time',group: 'Erg' },
+  { k: 'sessions_erg',     label: 'Erg sessions',      unit: '',    group: 'Erg' },
+  { k: 'core_work_s',      label: 'Core time working', unit: 'time',group: 'Core' },
+  { k: 'core_rounds',      label: 'Core rounds',       unit: '',    group: 'Core' },
+  { k: 'sessions_core',    label: 'Core sessions',     unit: '',    group: 'Core' },
+  { k: 'weights_sets',     label: 'Weights sets',      unit: '',    group: 'Weights' },
+  { k: 'weights_volume',   label: 'Weights volume',    unit: 'kg',  group: 'Weights' },
+  { k: 'sessions_weights', label: 'Weights sessions',  unit: '',    group: 'Weights' },
+];
+const metricBy = k => METRICS.find(m => m.k === k) || METRICS[0];
+
+// The window is NOT computed here. tracker_squad_board takes a period keyword
+// and derives the date itself, because a caller-supplied date would let anyone
+// call the board twice a day apart and subtract the results to reconstruct a
+// squad-mate's exact per-day training. Four fixed windows leave nothing to
+// difference.
+
+function fmtMetric(v, unit) {
+  if (v == null) return '–';
+  if (unit === 'time') return fmtClock(v);
+  if (unit === 'm') return v >= 10000 ? round1(v / 1000) + 'k' : String(Math.round(v));
+  if (unit === 'kg') return Math.round(v).toLocaleString('en-GB');
+  return String(round1(v));
+}
+
+/* ---- loading ---- */
+// A missing table here means the SQL has not been run yet. That is a state to
+// explain, not an exception to throw.
+async function loadSquads() {
+  SQ.tried = true;
+  const uid = S.session.user.id;
+  const { data, error } = await sb.from('group_members')
+    .select('group_id, role, groups(id, name, join_code)')
+    .eq('profile_id', uid);
+  // loaded stays false on failure, so the next visit retries instead of the
+  // tab being wedged for the rest of the session by one dropped request
+  if (error) { SQ.ready = false; SQ.error = error.message; return; }
+  SQ.loaded = true; SQ.ready = true; SQ.error = null;
+  SQ.squads = (data || [])
+    .map(m => ({ id: m.group_id, role: m.role, name: (m.groups || {}).name, code: (m.groups || {}).join_code }))
+    .filter(x => x.name)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (!SQ.squads.some(s => s.id === SQ.groupId)) SQ.groupId = SQ.squads.length ? SQ.squads[0].id : null;
+
+  const sh = await sb.from('tracker_sharing').select('group_id').eq('profile_id', uid);
+  // Getting this wrong is worse than not knowing: a silently empty set shows
+  // "not sharing" for a squad you ARE sharing with, and the button then tries
+  // to insert a row that already exists.
+  if (sh.error) { SQ.ready = false; SQ.loaded = false; SQ.error = sh.error.message; return; }
+  SQ.sharing = new Set((sh.data || []).map(r => r.group_id));
+}
+
+async function loadBoard() {
+  if (!SQ.groupId) { SQ.board = []; SQ.templates = []; return; }
+  const [board, tmpl] = await Promise.all([
+    sb.rpc('tracker_squad_board', { p_group: SQ.groupId, p_period: SQ.period }),
+    sb.from('tracker_shared_templates').select('*').eq('group_id', SQ.groupId)
+      .order('created_at', { ascending: false }),
+  ]);
+  SQ.board = board.error ? [] : (board.data || []);
+  SQ.templates = tmpl.error ? [] : (tmpl.data || []);
+  SQ.boardError = board.error ? board.error.message : null;
+}
+
+// One refresh at a time, but a refresh asked for while one is running is
+// queued rather than dropped - dropping it leaves the caller's reload undone
+// and, after create/join/leave, SQ.loaded false and the panel stuck on
+// "Loading your squads...".
+let pendingRefresh;
+async function refreshSquad(loud) {
+  if (SQ.busy) { pendingRefresh = loud || pendingRefresh || null; return; }
+  SQ.busy = true;
+  try {
+    if (!SQ.loaded) await loadSquads();
+    if (SQ.ready) await loadBoard();
+  } finally {
+    SQ.busy = false;      // or one thrown request disables the tab for good
+  }
+  renderSquad();
+  if (loud) toast('squad-msg', loud);
+  if (pendingRefresh !== undefined) {
+    const again = pendingRefresh;
+    pendingRefresh = undefined;
+    await refreshSquad(again || undefined);
+  }
+}
+
+/* ---- render ---- */
+function renderSquad() {
+  const el = $('squad-body');
+  if (!el) return;
+
+  if (!SQ.tried) { el.innerHTML = '<p class="loading-app">Loading your squads&hellip;</p>'; return; }
+
+  if (!SQ.ready) {
+    // Could be either "SQL not run" or a dropped connection, and guessing
+    // wrong sends someone to the SQL editor for a wifi blip. Say both, and
+    // always offer the retry.
+    el.innerHTML = '<div class="setup-sec"><h3 class="setup-head">Squads</h3>' +
+      '<p class="setup-intro">Could not read your squads. Either squads are not set up on this ' +
+      'database yet - run <b>tracker/supabase/social_schema.sql</b> in the Supabase SQL editor - ' +
+      'or the connection dropped.</p>' +
+      '<div class="toast err">' + esc(SQ.error || 'Could not read group membership.') + '</div>' +
+      '<button id="sq-retry" style="width:100%;margin-top:12px">Try again</button></div>';
+    return;
+  }
+
+  el.innerHTML = (SQ.squads.length ? squadMainHTML() : squadJoinHTML(true)) +
+    (SQ.squads.length && SQ.adding ? squadJoinHTML(false) : '');
+  const sel = $('squad-pick');
+  if (sel) sel.value = SQ.groupId;
+  const p = $('squad-period'); if (p) p.value = SQ.period;
+  const m = $('squad-metric'); if (m) m.value = SQ.metric;
+}
+
+function squadJoinHTML(alone) {
+  return '<div class="setup-sec">' +
+    (alone ? '<h3 class="setup-head">Squads</h3>' +
+      '<p class="setup-intro">A squad is a group of people who can see how much training each other ' +
+      'is getting through - sessions, metres, time - and swap exercise templates. ' +
+      '<b>Joining shares nothing on its own</b>; you opt in per squad afterwards, and can opt out again ' +
+      'at any time.</p>' : '<h3 class="setup-head" style="margin-top:8px">Join another squad</h3>') +
+    '<div class="lib-form"><h3>Join with a code</h3>' +
+      '<div class="fwide"><label>Six-character code from a squad-mate</label>' +
+        '<input type="text" id="sq-code" placeholder="e.g. K7RMQ2" maxlength="10" ' +
+        'autocapitalize="characters" autocomplete="off" style="letter-spacing:.24em;text-transform:uppercase"></div>' +
+      '<button class="primary" id="sq-join" style="height:42px">Join squad</button>' +
+    '</div>' +
+    '<div class="lib-form"><h3>Or start one</h3>' +
+      '<div class="fwide"><label>Squad name</label>' +
+        '<input type="text" id="sq-name" placeholder="e.g. Senior Men 2026" maxlength="60"></div>' +
+      '<button id="sq-create" style="width:100%;height:42px">Create squad</button>' +
+      '<div class="fhint">You get a code to pass on. Anyone with it can join.</div>' +
+    '</div>' +
+    // distinct id: when this block sits below an existing board the page
+    // already has a #squad-msg, and a duplicate id would send every message
+    // to the wrong end of the panel
+    '<div id="' + (alone ? 'squad-msg' : 'squad-msg2') + '"></div></div>';
+}
+// whichever message holder belongs to the form actually on screen
+const squadMsg = () => ($('squad-msg2') ? 'squad-msg2' : 'squad-msg');
+
+function squadMainHTML() {
+  const sq = SQ.squads.find(s => s.id === SQ.groupId) || SQ.squads[0];
+  const sharing = SQ.sharing.has(SQ.groupId);
+  const metric = metricBy(SQ.metric);
+
+  const rows = SQ.board.filter(r => r.sharing);
+  const quiet = SQ.board.filter(r => !r.sharing);
+  rows.sort((a, b) => (Number(b[metric.k]) || 0) - (Number(a[metric.k]) || 0));
+  const top = Math.max(...rows.map(r => Number(r[metric.k]) || 0), 0);
+  const me = S.session.user.id;
+
+  const board = SQ.boardError
+    ? '<div class="toast err">Could not load the board: ' + esc(SQ.boardError) + '</div>'
+    : !SQ.board.length
+    ? '<p class="empty">Nobody in this squad yet.</p>'
+    : !rows.length
+      ? '<p class="empty">Nobody is sharing their training in this squad yet' +
+        (sharing ? '' : ' - you could be first') + '.</p>'
+      : rows.map((r, i) => {
+          const v = Number(r[metric.k]) || 0;
+          return '<div class="brow' + (r.profile_id === me ? ' me' : '') + (v ? '' : ' zero') + '">' +
+            '<span class="brank">' + (i + 1) + '</span>' +
+            '<span><span class="bname">' + esc(r.display_name) + '</span>' +
+              '<div class="bsub">' + r.days_trained + 'd · ' +
+                r.sessions_weights + 'w · ' + r.sessions_erg + 'e · ' + r.sessions_core + 'c</div></span>' +
+            '<span class="bval">' + fmtMetric(v, metric.unit) +
+              (metric.unit && metric.unit !== 'time' ? '<small>' + metric.unit + '</small>' : '') + '</span>' +
+            '<span class="bbar"><i style="width:' + (top ? Math.round((v / top) * 100) : 0) + '%"></i></span>' +
+          '</div>';
+        }).join('') +
+        (quiet.length ? quiet.map(r =>
+          '<div class="brow bquiet' + (r.profile_id === me ? ' me' : '') + '">' +
+            '<span class="brank">–</span>' +
+            '<span><span class="bname">' + esc(r.display_name) + '</span>' +
+              '<div class="bsub">not sharing</div></span>' +
+            '<span class="bval">–</span></div>').join('') : '');
+
+  return '<div class="setup-sec">' +
+    '<div class="squad-bar">' +
+      '<select id="squad-pick">' + SQ.squads.map(s =>
+        '<option value="' + s.id + '">' + esc(s.name) + '</option>').join('') + '</select>' +
+      '<button id="sq-leave">Leave</button>' +
+      '<button id="sq-add">+ Join another</button>' +
+    '</div>' +
+    (sq && sq.code
+      ? '<p class="squad-code">Invite code <b>' + esc(sq.code) + '</b>' +
+        '<button id="sq-copy">copy</button></p>'
+      : '<p class="squad-code">No invite code on this squad.</p>') +
+
+    // consent, stated in full every time - it governs personal data and must
+    // never become a thing you scrolled past once
+    '<div class="consent' + (sharing ? ' on' : '') + '">' +
+      '<div class="consent-head"><b>' +
+        (sharing ? 'You are on this board' : 'You are not on this board') + '</b>' +
+        '<button id="sq-toggle" data-group="' + SQ.groupId + '" class="' + (sharing ? '' : 'primary') + '">' +
+        (sharing ? 'Stop sharing' : 'Share my training') + '</button></div>' +
+      '<ul><li>Shared: how many sessions, days trained, erg metres and time, core time, ' +
+        'weights sets and volume - <b>totals only</b>.</li>' +
+        '<li class="never">Never shared: your notes, what you lifted, individual sessions, ' +
+        'dates, or anything from the erg photo reader.</li>' +
+        '<li class="never">Turning this off removes your totals from the board immediately.</li>' +
+        '<li class="never">Being in the squad shows your name to the others either way - ' +
+        'that part is membership, not sharing.</li></ul>' +
+    '</div>' +
+
+    '<div class="boardctl">' +
+      '<select id="squad-metric">' +
+        [...new Set(METRICS.map(m => m.group))].map(g =>
+          '<optgroup label="' + g + '">' + METRICS.filter(m => m.group === g).map(m =>
+            '<option value="' + m.k + '">' + m.label + '</option>').join('') + '</optgroup>').join('') +
+      '</select>' +
+      '<select id="squad-period">' + PERIODS.map(p =>
+        '<option value="' + p.k + '">' + p.label + '</option>').join('') + '</select>' +
+    '</div>' +
+    board +
+    '<p class="squad-note">' + rows.length + ' of ' + SQ.board.length + ' sharing · ' +
+      esc(metricBy(SQ.metric).label) + ', ' +
+      esc((PERIODS.find(p => p.k === SQ.period) || {}).label || '').toLowerCase() + '.<br>' +
+      'These are self-reported: they show who is putting the work in, not who is fastest. ' +
+      'Race results are on the main site.</p>' +
+    '<div id="squad-msg"></div>' +
+  '</div>' + squadTemplatesHTML();
+}
+
+function squadTemplatesHTML() {
+  return '<div class="setup-sec"><h3 class="setup-head">Shared templates</h3>' +
+    '<p class="setup-intro">Post your exercise library so the rest of the squad can pick it up, ' +
+    'or take someone else\'s. Importing adds anything you do not already have and never overwrites ' +
+    'your own setup.</p>' +
+    (SQ.templates.length
+      ? SQ.templates.map(t => {
+          const n = (t.payload && Array.isArray(t.payload.exercises)) ? t.payload.exercises.length : 0;
+          // created_at is server-set; a row that somehow lacks it must not take
+          // the whole panel down
+          const when = (t.created_at || '').slice(0, 10);
+          return '<div class="lib-item"><div><div class="nm">' + esc(t.name) + '</div>' +
+            '<div class="meta">' + n + ' exercise' + (n === 1 ? '' : 's') +
+            (when ? ' · ' + shortDate(when) : '') +
+            (t.profile_id === S.session.user.id ? ' · yours' : '') + '</div></div>' +
+            '<div class="ops"><button class="ghost" data-tmpl-get="' + t.id + '">Import</button>' +
+            (t.profile_id === S.session.user.id
+              ? '<button class="ghost" data-tmpl-del="' + t.id + '" title="Remove">×</button>' : '') +
+            '</div></div>';
+        }).join('')
+      : '<p class="placeholder">Nothing shared with this squad yet.</p>') +
+    '<div class="tmpl-row"><button id="sq-post">&#8593; Share my exercise library</button></div>' +
+    '<div id="squad-tmsg"></div></div>';
+}
+
+/* ---- actions ---- */
+async function squadCreate() {
+  const msg = squadMsg();
+  const name = ($('sq-name').value || '').trim();
+  if (!name) { toast(msg, 'Give the squad a name.', 'warn'); return; }
+  const { data, error } = await sb.rpc('tracker_create_group', { p_name: name });
+  if (error) { toast(msg, 'Could not create it: ' + esc(error.message), 'err'); return; }
+  SQ.adding = false;
+  const made = Array.isArray(data) ? data[0] : data;
+  SQ.loaded = false;
+  SQ.groupId = made ? made.group_id : null;
+  track('squad_created', {});
+  await refreshSquad('Squad created. Its code is ' + esc((made && made.join_code) || '') +
+    ' - pass that on and people can join.');
+}
+
+async function squadJoin() {
+  const msg = squadMsg();
+  const code = ($('sq-code').value || '').trim();
+  if (!code) { toast(msg, 'Enter the code you were given.', 'warn'); return; }
+  const { data, error } = await sb.rpc('tracker_join_group', { p_code: code });
+  if (error) { toast(msg, esc(error.message), 'err'); return; }
+  SQ.adding = false;
+  const j = Array.isArray(data) ? data[0] : data;
+  SQ.loaded = false;
+  SQ.groupId = j ? j.group_id : null;
+  track('squad_joined', {});
+  await refreshSquad('Joined ' + esc((j && j.group_name) || 'the squad') +
+    '. You are not sharing any training yet - use the button above when you want to be on the board.');
+}
+
+async function squadLeave() {
+  const sq = SQ.squads.find(s => s.id === SQ.groupId);
+  if (!sq) return;
+  if (!confirm('Leave ' + sq.name + '? Your own training log is untouched; you just come off their board.')) return;
+  const { error } = await sb.rpc('tracker_leave_group', { p_group: SQ.groupId });
+  if (error) { toast('squad-msg', 'Could not leave: ' + esc(error.message), 'err'); return; }
+  SQ.loaded = false; SQ.groupId = null;
+  await refreshSquad('Left ' + esc(sq.name) + '.');
+}
+
+async function squadToggleSharing(gid) {
+  // The id comes from the rendered button, not from SQ.groupId: switching the
+  // picker sets SQ.groupId immediately while the old panel is still on screen,
+  // so reading it here could opt you into a squad whose consent text you never
+  // saw.
+  if (!gid) return;
+  const on = SQ.sharing.has(gid);
+  const uid = S.session.user.id;
+  let error;
+  if (on) {
+    ({ error } = await sb.from('tracker_sharing').delete().eq('profile_id', uid).eq('group_id', gid));
+    if (!error) SQ.sharing.delete(gid);
+  } else {
+    ({ error } = await sb.from('tracker_sharing').insert({ profile_id: uid, group_id: gid }));
+    if (!error) SQ.sharing.add(gid);
+  }
+  if (error) { toast('squad-msg', 'Could not change that: ' + esc(error.message), 'err'); return; }
+  track('squad_sharing', { on: !on });
+  await refreshSquad(on
+    ? 'Your totals are off this board. Nothing of yours is shared with this squad now.'
+    : 'You are on the board. Totals only - your notes and individual lifts stay private.');
+}
+
+async function squadPostTemplate() {
+  if (SQ.posting) return;
+  const lib = activeLibrary();
+  if (!lib.length) { toast('squad-tmsg', 'Your library is empty - nothing to share yet.', 'warn'); return; }
+  SQ.posting = true;
+  const name = ((S.profile && S.profile.display_name) || 'Someone') + "'s library";
+  const payload = {
+    app: 'rowingtools-tracker', kind: 'exercise-template', version: 1, exported: todayISO(),
+    exercises: lib.map(e => ({
+      name: e.name, session_groups: groupsOf(e), pattern: e.pattern, unit: e.unit,
+      per_side: e.per_side, bodyweight: e.bodyweight, note: e.note, position: e.position,
+    })),
+  };
+  const { error } = await sb.from('tracker_shared_templates').insert({
+    group_id: SQ.groupId, profile_id: S.session.user.id, name, kind: 'exercise-template', payload,
+  });
+  SQ.posting = false;
+  if (error) { toast('squad-tmsg', 'Could not share it: ' + esc(error.message), 'err'); return; }
+  track('squad_template_shared', { exercises: lib.length });
+  await refreshSquad();
+  toast('squad-tmsg', 'Shared ' + lib.length + ' exercises with the squad.');
+}
+
+async function squadImportTemplate(id) {
+  const t = SQ.templates.find(x => x.id === id);
+  if (!t) return;
+  // same merge rules as a file upload: additive, never overwrites
+  const n = await importExercises(t.payload, 'squad-tmsg');
+  if (n) track('squad_template_imported', { exercises: n });
+}
+
+async function squadDeleteTemplate(id) {
+  if (!confirm('Remove this from the squad? Anyone who already imported it keeps their copy.')) return;
+  const { error } = await sb.from('tracker_shared_templates').delete().eq('id', id);
+  if (error) { toast('squad-tmsg', 'Could not remove it: ' + esc(error.message), 'err'); return; }
+  await refreshSquad();
+  toast('squad-tmsg', 'Removed.');
 }
 
 /* ================= events ================= */
@@ -2248,6 +2650,32 @@ document.addEventListener('click', async e => {
   if (ed) { fillLibForm(exById(ed.dataset.edit)); $('lx-name').focus(); return; }
   const dx = e.target.closest('[data-del-ex]');
   if (dx) { deleteLibExercise(dx.dataset.delEx); return; }
+  // ---- squad ----
+  if (e.target.id === 'sq-create') { squadCreate(); return; }
+  if (e.target.id === 'sq-join')   { squadJoin(); return; }
+  if (e.target.id === 'sq-leave')  { squadLeave(); return; }
+  if (e.target.id === 'sq-toggle') { squadToggleSharing(e.target.dataset.group); return; }
+  if (e.target.id === 'sq-post')   { squadPostTemplate(); return; }
+  if (e.target.id === 'sq-retry')  { SQ.loaded = false; refreshSquad(); return; }
+  if (e.target.id === 'sq-add') { SQ.adding = true; renderSquad(); return; }
+  if (e.target.id === 'sq-copy') {
+    const sq = SQ.squads.find(s => s.id === SQ.groupId);
+    if (!sq || !sq.code) return;
+    // clipboard needs a secure context and permission; the code is on screen
+    // either way, so a failure is not worth reporting
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(sq.code).then(
+        () => toast('squad-msg', 'Code ' + esc(sq.code) + ' copied - send it to whoever should join.'),
+        () => toast('squad-msg', 'Code is <b>' + esc(sq.code) + '</b> - copy it by hand.', 'warn'));
+    } else {
+      toast('squad-msg', 'Code is <b>' + esc(sq.code) + '</b> - copy it by hand.', 'warn');
+    }
+    return;
+  }
+  const tg = e.target.closest('[data-tmpl-get]');
+  if (tg) { squadImportTemplate(tg.dataset.tmplGet); return; }
+  const td = e.target.closest('[data-tmpl-del]');
+  if (td) { squadDeleteTemplate(td.dataset.tmplDel); return; }
   if (e.target.id === 'eg-save') { saveErg(); return; }
   if (e.target.id === 'eg-cancel') {
     if (!confirm('Discard this session without saving it?')) return;
@@ -2312,6 +2740,9 @@ document.addEventListener('click', async e => {
       // the chart is sized in real pixels, so it can only be drawn once its
       // panel is on screen and has a width
       if (tab.dataset.panel === 'p-prog') renderProgress();
+      // squads are a network round trip, so they load on first visit rather
+      // than slowing every boot down for a feature most sessions never touch
+      if (tab.dataset.panel === 'p-squad') refreshSquad();
       // A running timer must not survive leaving the tab, or it keeps counting
       // and holding the wake lock against a circuit that has been walked away from.
       if (tab.dataset.panel !== 'p-core') { cancelCountdown(); if (RUN.running) pauseTimer(); }
@@ -2345,6 +2776,14 @@ document.addEventListener('click', async e => {
 
   $('prog-pick').onchange = () => { $('prog-metric').value = ''; renderProgress(); };
   $('prog-metric').onchange = renderProgress;
+
+  // The squad panel is rebuilt wholesale on every change, so its selects are
+  // wired by delegation rather than by id.
+  document.addEventListener('change', ev => {
+    if (ev.target.id === 'squad-pick')   { SQ.groupId = ev.target.value; refreshSquad(); }
+    if (ev.target.id === 'squad-period') { SQ.period = ev.target.value; refreshSquad(); }
+    if (ev.target.id === 'squad-metric') { SQ.metric = ev.target.value; renderSquad(); }
+  });
   let resizeTimer = null;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);

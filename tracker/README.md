@@ -5,8 +5,10 @@ user-defined exercise library, and erg sessions logged manually or by photograph
 (Concept2 PM5 / RowPerfect) and letting Claude vision read it.
 
 Static frontend (no build step, same as the rest of the site) + the existing RowingTools
-Supabase project (ref `tbhujqdflswhgxtioznb`, shared with the coach dashboard). All data is
-strictly personal: every table is keyed by `profile_id` with owner-only RLS. No squad linkage.
+Supabase project (ref `tbhujqdflswhgxtioznb`, shared with the coach dashboard). Every tracker
+table is keyed by `profile_id` with owner-only RLS, and stays that way: the squad feature shares
+totals through a `SECURITY DEFINER` function rather than by widening those policies. See
+**Squads** below.
 
 ## Files
 
@@ -16,7 +18,8 @@ strictly personal: every table is keyed by `profile_id` with owner-only RLS. No 
 | `login.html` | Standalone signin/signup/forgot/recovery against the shared Supabase project |
 | `js/config.js` | Supabase URL + anon key + Edge Function endpoint |
 | `js/app.js` | All app logic |
-| `supabase/tracker_schema.sql` | Additive schema: `tracker_exercises`, `tracker_workouts`, `tracker_erg_sessions` + RLS |
+| `supabase/tracker_schema.sql` | Additive schema: `tracker_exercises`, `tracker_workouts`, `tracker_erg_sessions`, `tracker_core_*` + RLS. First run only - bare `CREATE TABLE`, so it errors on a second run |
+| `supabase/social_schema.sql` | Squads: reuses the dashboard's `groups`/`group_members`, adds `tracker_sharing`, shared templates and the board function. Idempotent |
 | `supabase/functions/parse-erg/index.ts` | Edge Function: erg photo -> structured session JSON via Claude vision |
 
 ## One-time deployment steps (in order)
@@ -97,6 +100,75 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
 - **Erg photo parses are never auto-saved**: the parsed numbers land in an editable
   confirmation card first. `source` on each erg row records `photo` / `manual` (and later
   `c2-logbook` for the planned Concept2 Logbook API sync).
+
+## Squads
+
+A squad is a group of athletes who can see how much training each other is getting through, and
+swap exercise templates. Run `supabase/social_schema.sql` to enable it; without that the Board tab
+explains what to run rather than erroring.
+
+**It reuses the coach dashboard's `groups` + `group_members`** in the same Supabase project, along
+with its `is_group_member()` / `is_group_admin()` helpers. No new group model was invented.
+
+- **The tracker's own RLS is not widened. Not one policy on `tracker_workouts`,
+  `tracker_erg_sessions`, `tracker_core_sessions` or `tracker_exercises` is modified.** Squad-mates
+  never gain `SELECT` on your rows. Every number on the board comes from
+  `tracker_squad_board()`, a `SECURITY DEFINER` function returning counts and totals only. It
+  cannot leak a note, a lift or a session date because it never reads them. RLS cannot hide a
+  column; a function that never selects the column can. The verification query at the bottom of
+  the SQL file asserts those four tables still have exactly one policy each - if that count ever
+  rises, someone has widened `SELECT` and the guarantee is gone.
+- **The period is a keyword, never a caller-supplied date.** This one is load-bearing and was
+  wrong in the first draft. `tracker_squad_board(p_group, p_period)` takes `week` / `4w` / `12w` /
+  `all` and derives the boundary itself. With a free `date` parameter - which the function is
+  granted to `authenticated` and callable directly over `/rest/v1/rpc/` - anyone could call it
+  twice a day apart and subtract: a `days_trained` delta of 1 proves the athlete trained on that
+  exact date, and where the erg-session delta is 1 the metres and seconds deltas **are** that
+  single session's numbers. Iterating dates reconstructs the whole training calendar. Four fixed
+  windows leave nothing to difference. Do not add a date parameter back.
+- **Membership shares no training data**, but it is not invisible: everyone in a squad can see who
+  else is in it and their display name, because the board lists non-sharers so it can honestly say
+  "2 of 3 sharing". Appearing with *numbers* is the separate, explicit, revocable act recorded in
+  `tracker_sharing` - no row means no numbers.
+- **Every `jsonb` expansion in the board function is guarded on `jsonb_typeof`,** and the
+  exercise-id cast on an exact uuid regex. These columns have no CHECK constraint, so without the
+  guards a single member with an odd row - a hand-written API call, a future format change - would
+  raise and take the board down for *everyone* in the squad.
+- **Non-sharers are shown, greyed, as "not sharing".** The board says "2 of 3 sharing" rather than
+  quietly pretending the squad is smaller than it is.
+- **The default metric is days trained, not volume.** A board topped by whoever erged the most
+  metres rewards junk volume and punishes the athlete on a taper. Days trained reflects turning
+  up, is far harder to inflate than a distance you type in, and does not disadvantage the lighter
+  athlete the way tonnage does. Volume metrics are available but secondary, and the board says
+  in as many words that the numbers are self-reported and are not race results.
+- **Join by six-character code.** The dashboard's invite flow is email-based and its Edge Function
+  does not exist yet, so codes are the self-serve route in. The alphabet omits O/0, I/1 and S/5 -
+  these get read aloud in a boathouse and typed with cold hands. Codes are not readable by
+  non-members, so they cannot be enumerated; joining goes through an RPC.
+- **`group_members` has no INSERT policy at all.** Creating and joining go through
+  `SECURITY DEFINER` RPCs where the row written is fixed by the code, which is what stops anyone
+  adding themselves to a squad they were not invited to.
+- **Deferred: following.** Groups already deliver "see other people"; a follow graph is a second,
+  different set of visibility rules, and doubling the RLS surface in one go is how privacy bugs
+  get in.
+
+### Known gaps in the squad model
+
+Real, and deliberately not built yet - none of them risks data, but they will bite operationally:
+
+- **No member management.** There is no RPC to remove someone, promote a member, or rotate a join
+  code, and `group_members` has no UPDATE or DELETE policy. So: an admin cannot evict anyone; a
+  squad whose only admin leaves can never have another; and an abandoned squad keeps a live join
+  code nobody can revoke. `tracker_leave_group` does not check whether you are the last admin.
+  Fixing this is `tracker_admin_remove_member`, `tracker_set_role` and `tracker_rotate_code`, all
+  `SECURITY DEFINER` and gated on `is_group_admin()`.
+- **Join codes are a brute-forceable online oracle.** 31 characters over 6 positions is about 29.5
+  bits, and `tracker_join_group` has no rate limit, lockout or expiry, and joins silently with no
+  approval step. The payoff is only the aggregates of members who opted in, so severity is low,
+  but code rotation plus admin-remove would close it properly.
+- **Shared templates include each exercise's coaching cue** (the `note` field on the library), which
+  is a deliberate part of posting a template but is worth a preview before posting. This is
+  unrelated to the "never shared" line in the consent panel, which is about *session* notes.
 
 ## Offline
 

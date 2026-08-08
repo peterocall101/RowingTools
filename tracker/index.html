@@ -240,6 +240,43 @@
   .tmpl-row{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}
   .tmpl-row button{flex:1;min-width:160px}
 
+  /* squad */
+  .squad-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+  .squad-bar select{min-width:150px;flex:1}
+  .squad-code{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.06em;margin-bottom:18px}
+  .squad-code b{color:var(--text);font-weight:600;letter-spacing:.22em;font-size:13px}
+  .squad-code button{background:none;border:none;color:var(--text3);font-family:var(--mono);font-size:11px;
+    text-decoration:underline;padding:0 0 0 8px;height:auto;font-weight:400}
+  .squad-code button:hover{color:var(--red-ink);background:none}
+  /* consent - deliberately loud, because it governs personal data */
+  .consent{border:1px solid var(--border2);border-left:3px solid var(--c-hwr);background:var(--bg2);
+    padding:13px 15px;margin-bottom:22px}
+  .consent.on{border-left-color:var(--c-hrr)}
+  .consent-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .consent-head b{font-size:14px}
+  .consent-head button{flex-shrink:0;font-size:12.5px;padding:7px 15px;height:auto}
+  .consent ul{margin:9px 0 0;padding-left:17px;font-size:12.5px;color:var(--text2);line-height:1.65}
+  .consent li::marker{color:var(--text3)}
+  .consent .never{color:var(--text3)}
+  .boardctl{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .boardctl select{flex:1;min-width:145px}
+  .brow{display:grid;grid-template-columns:26px 1fr auto;gap:12px;align-items:baseline;
+    padding:10px 2px;border-bottom:1px solid var(--border)}
+  .brow:last-of-type{border-bottom:none}
+  .brow.me{background:var(--bg2);box-shadow:inset 3px 0 0 var(--red-ink);padding-left:10px;
+    margin-left:-10px;margin-right:-2px;padding-right:4px}
+  .brank{font-family:var(--mono);font-size:12px;color:var(--text3);font-variant-numeric:tabular-nums}
+  .bname{font-weight:600;font-size:14.5px}
+  .bsub{font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:2px;letter-spacing:.03em}
+  .bval{font-family:var(--mono);font-size:19px;font-weight:500;font-variant-numeric:tabular-nums;text-align:right}
+  .bval small{font-size:11px;color:var(--text3);font-weight:400;margin-left:2px}
+  .bbar{grid-column:2/-1;height:3px;background:var(--bg3);margin-top:7px;overflow:hidden}
+  .bbar i{display:block;height:100%;background:var(--red-ink);width:0}
+  .brow.zero .bval{color:var(--text3)}
+  .bquiet{opacity:.5}
+  .bquiet .bval{font-size:12px;color:var(--text3)}
+  .squad-note{font-family:var(--mono);font-size:10.5px;color:var(--text3);line-height:1.6;margin:14px 0 26px}
+
   /* summary + history */
   .sumweek{margin-bottom:26px}
   .sumweek h4{font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin:0 0 2px;
@@ -372,6 +409,12 @@
       </div>
     </div>
     <div class="tabgrp" role="presentation">
+      <span class="tabgrp-lab" aria-hidden="true">Squad</span>
+      <div class="tabgrp-tabs" role="presentation">
+        <button class="tab" role="tab" aria-selected="false" aria-label="Squad: Board" data-panel="p-squad">Board</button>
+      </div>
+    </div>
+    <div class="tabgrp" role="presentation">
       <span class="tabgrp-lab" aria-hidden="true">Set up</span>
       <div class="tabgrp-tabs" role="presentation">
         <button class="tab" role="tab" aria-selected="false" aria-label="Set up: Templates" data-panel="p-lib">Templates</button>
@@ -431,6 +474,10 @@
 
   <section class="panel" id="p-hist">
     <div id="hist-body"></div>
+  </section>
+
+  <section class="panel" id="p-squad">
+    <div id="squad-body"><p class="loading-app">Loading your squads&hellip;</p></div>
   </section>
 
   <section class="panel" id="p-lib">
