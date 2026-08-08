@@ -654,10 +654,18 @@ $$;
 -- policy is evaluated as the querying role, so revoking PUBLIC there
 -- would turn a signed-out read of those tables from "no rows" into
 -- "permission denied for function". They return false to anon anyway.
-revoke execute on function public.tracker_create_group(text)       from public;
-revoke execute on function public.tracker_join_group(text)         from public;
-revoke execute on function public.tracker_leave_group(uuid)        from public;
-revoke execute on function public.tracker_squad_board(uuid, text)  from public;
+-- from PUBLIC *and* from anon. Supabase ships
+--   alter default privileges in schema public
+--     grant all on functions to anon, authenticated, service_role;
+-- so a new function is granted to anon DIRECTLY, not only through
+-- PUBLIC. Revoking PUBLIC alone leaves that grant in place and looks
+-- like it worked. Verified by probing the live database with the
+-- publishable key: after a PUBLIC-only revoke, anon could still execute
+-- all four.
+revoke execute on function public.tracker_create_group(text)       from public, anon;
+revoke execute on function public.tracker_join_group(text)         from public, anon;
+revoke execute on function public.tracker_leave_group(uuid)        from public, anon;
+revoke execute on function public.tracker_squad_board(uuid, text)  from public, anon;
 
 grant execute on function public.tracker_create_group(text)        to authenticated, service_role;
 grant execute on function public.tracker_join_group(text)          to authenticated, service_role;
