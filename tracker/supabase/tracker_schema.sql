@@ -202,6 +202,10 @@ create index if not exists tracker_core_sessions_profile_date_idx
   on public.tracker_core_sessions (profile_id, date desc);
 create index if not exists tracker_erg_parses_profile_time_idx
   on public.tracker_erg_parses (profile_id, created_at desc);
+-- The global daily ceiling in parse-erg counts across all users, so it needs
+-- created_at leading; the profile-first index above cannot serve that.
+create index if not exists tracker_erg_parses_time_idx
+  on public.tracker_erg_parses (created_at desc);
 
 -- ---- Owner-only RLS. ONE policy per table, and keep it that way: the
 -- ---- whole squad privacy guarantee is that these are never widened.
@@ -983,6 +987,32 @@ select section, item, result from (
     case when g.join_code is null
          then ' - ** no invite code: use Board > Create an invite code **' else '' end
   from public.groups g
+
+  -- 9. What the erg photo reader has actually cost. Every call is logged
+  --    here, successes and failures, so this is the honest answer to "is
+  --    anyone burning my key" - and the only place it is visible, because
+  --    the users who can see their own rows cannot see each other's.
+  union all
+  select 9, '9 erg photo spend', 'calls in the last 24 hours',
+    (select count(*) from public.tracker_erg_parses
+      where created_at >= now() - interval '24 hours')::text ||
+    ' by ' || (select count(distinct profile_id) from public.tracker_erg_parses
+      where created_at >= now() - interval '24 hours')::text || ' user(s)'
+  union all
+  select 9, '9 erg photo spend', 'calls in the last 30 days',
+    (select count(*) from public.tracker_erg_parses
+      where created_at >= now() - interval '30 days')::text ||
+    ' by ' || (select count(distinct profile_id) from public.tracker_erg_parses
+      where created_at >= now() - interval '30 days')::text || ' user(s)'
+  -- Who is entitled to spend it at all. Anyone here can call the function;
+  -- nobody else can, provided PART 4 has been run.
+  union all
+  select 9, '9 erg photo spend', 'accounts that may read photos',
+    coalesce((select string_agg(coalesce(display_name, id::text) || ' (' || tracker_plan || ')', ', ')
+              from public.profiles
+              where tracker_plan = 'paid'
+                 or (tracker_plan = 'trial' and tracker_trial_ends_at > now())),
+             'nobody - the reader is closed to everyone')
 
   -- 7. Which profiles columns a signed-in user may write. tracker_plan
   --    must NOT be here, or anyone can grant themselves the paid reader.

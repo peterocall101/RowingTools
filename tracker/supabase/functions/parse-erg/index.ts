@@ -10,6 +10,20 @@
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref tbhujqdflswhgxtioznb
 //
 // JWT verification is ON by default, so only signed-in tracker users can call it.
+//
+// FOUR THINGS STAND BETWEEN A STRANGER AND THE OWNER'S ANTHROPIC BILL, and all
+// four are enforced here rather than in the app, because the app is a static
+// file anyone can skip:
+//   1. verify_jwt - no account, no call.
+//   2. tracker_plan read with the SERVICE ROLE - the plan is never taken from
+//      the request. NOTE: this is only as good as the column grants. If
+//      `authenticated` still holds a blanket UPDATE on public.profiles, any
+//      signed-in user can set tracker_plan='paid' on themselves and let
+//      themselves in. Run PART 4 of tracker_schema.sql.
+//   3. Per-user quotas, counted from tracker_erg_parses, which the user cannot
+//      write or clear.
+//   4. A GLOBAL daily ceiling, plus PARSE_ERG_ENABLED=0 as a kill switch.
+//      Per-user limits bound one account; only these two bound the bill.
 
 import Anthropic from "npm:@anthropic-ai/sdk";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -20,6 +34,22 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 // either testing or abuse. Override without redeploying via secrets.
 const DAILY_LIMIT = Number(Deno.env.get("PARSE_ERG_DAILY_LIMIT") || 20);
 const MONTHLY_LIMIT = Number(Deno.env.get("PARSE_ERG_MONTHLY_LIMIT") || 150);
+
+// Ceiling across EVERYONE, not per user. Per-user limits bound what one
+// account can spend; they do nothing about how many accounts there are. Twenty
+// paid athletes at the per-user daily limit is 400 photos, and at roughly 5p a
+// photo that is £20 in a day off one key. This is the number that decides the
+// owner's worst case, so it is the one to set deliberately: at the default of
+// 100 the most this function can cost in 24 hours is about £5.
+const GLOBAL_DAILY_LIMIT = Number(Deno.env.get("PARSE_ERG_GLOBAL_DAILY_LIMIT") || 100);
+
+// Kill switch. Something looking wrong at 11pm should be stoppable in one
+// command, without a redeploy and without revoking the key the function needs:
+//   supabase secrets set PARSE_ERG_ENABLED=0 --project-ref <ref>
+// Anything other than 0/off/false leaves the feature on, so an unset secret,
+// a typo or an empty string can never silently disable it.
+const OFF = ["0", "off", "false", "no"]
+  .includes((Deno.env.get("PARSE_ERG_ENABLED") || "on").trim().toLowerCase());
 
 // Reading a dense PM5 split table is a hard vision task, so this runs on a
 // top-tier model - accuracy matters more than the couple of pence per photo,
@@ -182,6 +212,15 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
+  // First, and before reading the body: an off switch that has to do any work
+  // to take effect is not an off switch.
+  if (OFF) {
+    return json({
+      error: "Photo reading is switched off at the moment. Enter this one by hand - " +
+        "everything else in the tracker is unaffected.",
+    }, 503);
+  }
+
   const { image, media_type } = await req.json();
   if (typeof image !== "string" || image.length < 100) {
     return json({ error: "Missing image (base64 string expected)." }, 400);
@@ -231,18 +270,33 @@ Deno.serve(async (req) => {
   }
 
   const since = (mins: number) => new Date(Date.now() - mins * 60_000).toISOString();
-  const countSince = async (iso: string) => {
-    const { count } = await admin
+  // One helper, two questions: without a uid it is the whole site's usage,
+  // with one it is that account's. No reassignment, so the builder's types
+  // stay simple.
+  const countSince = async (iso: string, uid?: string) => {
+    const q = admin
       .from("tracker_erg_parses")
       .select("id", { count: "exact", head: true })
-      .eq("profile_id", user.id)
       .gte("created_at", iso);
+    const { count } = await (uid ? q.eq("profile_id", uid) : q);
     return count ?? 0;
   };
 
+  // The whole site's spend in the last 24 hours, checked before the caller's
+  // own. A per-user limit cannot bound the owner's bill, because the number of
+  // users is not fixed; this can.
+  const globalToday = await countSince(since(60 * 24));
+  if (globalToday >= GLOBAL_DAILY_LIMIT) {
+    return json({
+      error: "The site has hit its daily limit for reading erg photos. It resets on a rolling " +
+        "24 hours - enter this one by hand for now.",
+      reason: "site_limit",
+    }, 429);
+  }
+
   const [today, month] = await Promise.all([
-    countSince(since(60 * 24)),
-    countSince(since(60 * 24 * 30)),
+    countSince(since(60 * 24), user.id),
+    countSince(since(60 * 24 * 30), user.id),
   ]);
   if (today >= DAILY_LIMIT) {
     return json({

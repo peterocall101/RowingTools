@@ -45,6 +45,9 @@ totals through a `SECURITY DEFINER` function rather than by widening those polic
    digits and accuracy was worth the money). To trade accuracy for cost:
    `supabase secrets set PARSE_ERG_MODEL=claude-sonnet-5 ...`.
 
+   **Then run PART 4 of the schema** (see *Who can spend the API key* below). Without it the
+   entitlement check this function performs can be defeated by the caller.
+
 3. **Push to `main`.** GitHub Pages serves `/tracker/` automatically. The homepage links to it and
    `login.html` is in the sitemap; the app itself stays `noindex`.
 
@@ -158,6 +161,10 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
 - **History is a ruled sheet, not a card stack.** One line per session in aligned columns (day,
   discipline, what it was), expanding in place, under the week strip. Results-board language
   throughout: hairlines, tabular figures, square corners.
+- **Erg photo limits are enforced server-side, and the client only mirrors them.** A 402 (not on
+  the plan), a 429 (over your quota or the site's) and a 503 (switched off) are all expected
+  states with a message of their own, so the app shows them as warnings rather than dressing them
+  up as errors, and offers manual entry.
 - **Erg photo parses are never auto-saved**: the parsed numbers land in an editable
   confirmation card first. `source` on each erg row records `photo` / `manual` (and later
   `c2-logbook` for the planned Concept2 Logbook API sync).
@@ -199,6 +206,49 @@ they have to agree: `js/app.js`, `login.html`, and the date printed on `terms.ht
 The old signup line said the training log was "only ever visible to me", which stopped being true
 the moment squads existed. The tick now points at the terms and states the squad case in one
 sentence.
+
+## Who can spend the API key
+
+Erg-photo reading is the only thing in the tracker that costs money per use, and it is billed to
+the owner's Anthropic key. Four gates stand between a stranger and that bill, and all four live in
+the Edge Function, because the app is a static file anyone can skip:
+
+1. **`verify_jwt`** (Supabase default) - no account, no call.
+2. **The plan is read with the service role**, from `profiles`, never taken from the request. The
+   `canReadPhotos()` check in `app.js` is only there to grey out a button.
+3. **Per-user quotas** - 20 a day and 150 a month on a rolling window, counted from
+   `tracker_erg_parses`. That table has a SELECT-only policy and *no* insert, update or delete
+   policy at all, so nobody can clear their own quota. Failed calls are logged too: a retry loop
+   burns quota rather than only money.
+4. **A global daily ceiling and a kill switch.** Gate 3 bounds what one account can spend; it says
+   nothing about how many accounts exist, so it cannot bound the bill. `GLOBAL_DAILY_LIMIT`
+   (default 100, about £5 a day at the current model) is the number that actually decides the
+   worst case, and `PARSE_ERG_ENABLED=0` stops the feature in one command with no redeploy:
+
+   ```bash
+   supabase secrets set PARSE_ERG_ENABLED=0 --project-ref tbhujqdflswhgxtioznb
+   supabase secrets set PARSE_ERG_GLOBAL_DAILY_LIMIT=40 --project-ref tbhujqdflswhgxtioznb
+   ```
+
+**Gate 2 is only as strong as the column grants, and by default it is not strong at all.** Supabase
+gives `authenticated` a blanket UPDATE on `public.profiles`, so a signed-in user can set
+`tracker_plan = 'paid'` on themselves with one REST call and walk through the entitlement check.
+PART 4 of `tracker_schema.sql` is the fix and is **left commented out on purpose**, because
+re-running it blindly would revoke any user-writable column added since. The order is: run the
+file, read section 7 of the report (it prints the columns `authenticated` may currently write),
+add anything you still need to the grant, then run PART 4 by hand.
+
+The tracker itself only ever writes `terms_accepted_at` and `terms_version` to `profiles`, so the
+grant as written covers it. The shelved coach dashboard is the unknown - its code is not in this
+repo.
+
+Section 9 of the report answers "is anyone burning my key": calls in the last 24 hours and 30 days
+with a distinct-user count, and the list of accounts currently entitled to call it at all. Users
+can only see their own parse rows, so this is the only place the total is visible.
+
+Outside the code: keep auto-reload off on the Anthropic account, or set a spend limit, so a bug in
+any of the above cannot bill past a number you chose. And check email confirmation is required on
+signup - account creation is the door all four gates sit behind.
 
 ## Squads
 

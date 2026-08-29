@@ -1062,9 +1062,10 @@ async function handleErgPhoto(file) {
     let msg = '', reason = '';
     try { const j = await resp.json(); msg = j.error || ''; reason = j.reason || ''; }
     catch (e) { msg = 'Something went wrong reading the photo.'; }
-    // 402 = not on the plan, 429 = over quota. Both are expected states with a
-    // useful message, not crashes, so don't dress them up as errors.
-    const kind = (resp.status === 402 || resp.status === 429) ? 'warn' : 'err';
+    // 402 = not on the plan, 429 = over quota (yours or the site's), 503 = the
+    // reader is switched off. All three are expected states with a useful
+    // message of their own, not crashes, so don't dress them up as errors.
+    const kind = [402, 429, 503].includes(resp.status) ? 'warn' : 'err';
     toast('erg-parse-status', esc(msg) +
       (kind === 'err' ? ' You can still enter the session by hand.' : ''), kind);
     track('erg_photo_failed', { status: resp.status, reason });
