@@ -428,26 +428,23 @@ returns boolean language sql immutable parallel safe as $$
   select t ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
 $$;
 
--- ---- create a squad ----------------------------------------------
--- SECURITY DEFINER because group_members has no INSERT policy at all:
--- letting a user write it directly would let anyone add themselves to
--- any squad. Creation is the one path that must insert a membership,
--- so it goes through here, where the row written is fixed by the code.
-create or replace function public.tracker_create_group(p_name text)
-returns table (group_id uuid, join_code text)
+-- ---- allocate a join code ----------------------------------------
+-- Pulled out of tracker_create_group so that rotating a code, and giving
+-- a code to a squad that never had one, generate them the same way.
+--
+-- SECURITY DEFINER for the uniqueness check, not for the writing: groups
+-- has RLS, so a caller running as `authenticated` can only see squads it
+-- is already in and would happily hand back a code another squad is
+-- using, which the partial unique index then rejects. It writes nothing
+-- and returns a random unused string, so there is nothing to leak; it is
+-- revoked from anon anyway, with the rest.
+create or replace function public.tracker_new_join_code()
+returns text
 language plpgsql volatile security definer set search_path = public, pg_temp as $$
 declare
-  v_id   uuid;
   v_code text;
   v_try  int := 0;
 begin
-  if auth.uid() is null then
-    raise exception 'Not signed in';
-  end if;
-  if coalesce(trim(p_name), '') = '' then
-    raise exception 'Give the squad a name';
-  end if;
-
   -- Ambiguity-free alphabet: no O/0, I/1, S/5. These get read aloud in
   -- a boathouse and typed with cold hands.
   loop
@@ -459,6 +456,57 @@ begin
     exit when not exists (select 1 from public.groups g where upper(g.join_code) = v_code);
     if v_try > 20 then raise exception 'Could not allocate a join code'; end if;
   end loop;
+  return v_code;
+end;
+$$;
+
+-- ---- give a squad a (new) join code ------------------------------
+-- Two jobs, one function. Squads inherited from the coach dashboard
+-- predate join_code entirely and have null there, so their admin has no
+-- way to invite anyone - the Board tab can only say "no invite code on
+-- this squad". And a code that has got out needs to be replaceable, or
+-- the only remedy is to abandon the squad and rebuild it.
+--
+-- Rotating INVALIDATES every link and code already handed out. That is
+-- the point of it, and the UI says so before it runs.
+create or replace function public.tracker_rotate_code(p_group uuid)
+returns text
+language plpgsql volatile security definer set search_path = public, pg_temp as $$
+declare
+  v_code text;
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+  if not public.is_group_admin(p_group) then
+    raise exception 'Only a squad admin can change the invite code';
+  end if;
+  v_code := public.tracker_new_join_code();
+  update public.groups set join_code = v_code where id = p_group;
+  return v_code;
+end;
+$$;
+
+-- ---- create a squad ----------------------------------------------
+-- SECURITY DEFINER because group_members has no INSERT policy at all:
+-- letting a user write it directly would let anyone add themselves to
+-- any squad. Creation is the one path that must insert a membership,
+-- so it goes through here, where the row written is fixed by the code.
+create or replace function public.tracker_create_group(p_name text)
+returns table (group_id uuid, join_code text)
+language plpgsql volatile security definer set search_path = public, pg_temp as $$
+declare
+  v_id   uuid;
+  v_code text;
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+  if coalesce(trim(p_name), '') = '' then
+    raise exception 'Give the squad a name';
+  end if;
+
+  v_code := public.tracker_new_join_code();
 
   insert into public.groups (name, created_by, join_code)
   values (trim(p_name), auth.uid(), v_code)
@@ -468,9 +516,17 @@ begin
   values (v_id, auth.uid(), 'admin', now());
 
   -- Being in the squad is being on its board; see section 2.
+  -- ON CONFLICT with NO column list, deliberately. Both of these
+  -- functions declare an OUT parameter called group_id, and plpgsql
+  -- substitutes its variables into a conflict target - so
+  -- `on conflict (profile_id, group_id)` raises
+  -- "column reference group_id is ambiguous" and the whole call fails.
+  -- The bare form catches any unique violation, and the only unique
+  -- constraint on either table is its primary key, so it means exactly
+  -- the same thing without naming a column plpgsql can capture.
   insert into public.tracker_sharing (profile_id, group_id)
   values (auth.uid(), v_id)
-  on conflict (profile_id, group_id) do nothing;
+  on conflict do nothing;
 
   return query select v_id, v_code;
 end;
@@ -497,13 +553,21 @@ begin
     raise exception 'No squad has that code';
   end if;
 
+  -- ON CONFLICT with NO column list, deliberately. Both of these
+  -- functions declare an OUT parameter called group_id, and plpgsql
+  -- substitutes its variables into a conflict target - so
+  -- `on conflict (profile_id, group_id)` raises
+  -- "column reference group_id is ambiguous" and the whole call fails.
+  -- The bare form catches any unique violation, and the only unique
+  -- constraint on either table is its primary key, so it means exactly
+  -- the same thing without naming a column plpgsql can capture.
   insert into public.group_members (group_id, profile_id, role, accepted_at)
   values (v_id, auth.uid(), 'member', now())
-  on conflict (group_id, profile_id) do nothing;
+  on conflict do nothing;
 
   insert into public.tracker_sharing (profile_id, group_id)
   values (auth.uid(), v_id)
-  on conflict (profile_id, group_id) do nothing;
+  on conflict do nothing;
 
   return query select v_id, v_name;
 end;
@@ -747,12 +811,18 @@ revoke execute on function public.tracker_create_group(text)       from public, 
 revoke execute on function public.tracker_join_group(text)         from public, anon;
 revoke execute on function public.tracker_leave_group(uuid)        from public, anon;
 revoke execute on function public.tracker_admin_remove_member(uuid, uuid) from public, anon;
+revoke execute on function public.tracker_rotate_code(uuid)       from public, anon;
+revoke execute on function public.tracker_new_join_code()         from public, anon;
 revoke execute on function public.tracker_squad_board(uuid, text)  from public, anon;
 
 grant execute on function public.tracker_create_group(text)        to authenticated, service_role;
 grant execute on function public.tracker_join_group(text)          to authenticated, service_role;
 grant execute on function public.tracker_leave_group(uuid)         to authenticated, service_role;
 grant execute on function public.tracker_admin_remove_member(uuid, uuid) to authenticated, service_role;
+grant execute on function public.tracker_rotate_code(uuid)         to authenticated, service_role;
+-- tracker_new_join_code stays service_role only: it is an implementation
+-- detail of the two functions above, and nothing in the app calls it.
+grant execute on function public.tracker_new_join_code()           to service_role;
 grant execute on function public.tracker_squad_board(uuid, text)   to authenticated, service_role;
 -- tracker_num / tracker_is_uuid are pure helpers with no data access, so
 -- the PUBLIC default is fine for them.
@@ -855,6 +925,8 @@ select section, item, result from (
     union all select 'tracker_join_group(text)',   to_regprocedure('public.tracker_join_group(text)') is not null
     union all select 'tracker_leave_group(uuid)',  to_regprocedure('public.tracker_leave_group(uuid)') is not null
     union all select 'tracker_admin_remove_member(uuid,uuid)', to_regprocedure('public.tracker_admin_remove_member(uuid,uuid)') is not null
+    union all select 'tracker_rotate_code(uuid)',  to_regprocedure('public.tracker_rotate_code(uuid)') is not null
+    union all select 'tracker_new_join_code()',    to_regprocedure('public.tracker_new_join_code()') is not null
     union all select 'tracker_squad_board(uuid,text)', to_regprocedure('public.tracker_squad_board(uuid,text)') is not null
   ) f
   -- The date-taking board is the differencing hole. It must NOT exist.
@@ -876,7 +948,18 @@ select section, item, result from (
   where n.nspname='public'
     and p.proname in ('tracker_create_group','tracker_join_group',
                       'tracker_leave_group','tracker_squad_board',
-                      'tracker_admin_remove_member')
+                      'tracker_admin_remove_member','tracker_rotate_code',
+                      'tracker_new_join_code')
+
+  -- 5b. Squads with no join code. Groups inherited from the coach
+  --     dashboard predate join_code, so their admin cannot invite anyone
+  --     until Board > "Create an invite code" (tracker_rotate_code) is used.
+  union all
+  select 5, '5 execute grants', 'squads with no join code',
+    (select count(*) from public.groups where join_code is null)::text ||
+    ' of ' || (select count(*) from public.groups)::text ||
+    case when (select count(*) from public.groups where join_code is null) = 0
+         then ' - ok' else ' - their admins cannot invite; use Board > Create an invite code' end
 
   -- 6. The join model depends on group_members having SELECT only.
   union all

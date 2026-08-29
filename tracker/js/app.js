@@ -2826,16 +2826,30 @@ function squadMainHTML() {
     // the same code.
     (sq && sq.code
       ? '<div class="invite">' +
-          '<div class="inv-code">Invite code <b>' + esc(sq.code) + '</b></div>' +
+          '<div class="inv-code">Invite code <b>' + esc(sq.code) + '</b>' +
+            (isAdmin ? '<button class="blink" id="sq-newcode">new code</button>' : '') + '</div>' +
           '<div class="inv-acts">' +
             '<button id="sq-mail">Invite by email</button>' +
             (navigator.share ? '<button id="sq-share">Share&hellip;</button>' : '') +
             '<button id="sq-copy">Copy link</button>' +
           '</div>' +
           '<p class="inv-note">Anyone with the link or the code can join, and joining puts them on ' +
-            'this board. Email opens your own mail app with the link in it.</p>' +
+            'this board. Email opens your own mail app with the link in it.' +
+            (isAdmin ? ' A new code stops every link you have already sent from working.' : '') +
+          '</p>' +
         '</div>'
-      : '<p class="squad-code">No invite code on this squad.</p>') +
+      // Squads inherited from the coach dashboard predate join codes and
+      // have none, which leaves their admin with no way to invite anyone.
+      : '<div class="invite">' +
+          '<div class="inv-code">No invite code yet</div>' +
+          (isAdmin
+            ? '<div class="inv-acts"><button class="primary" id="sq-newcode" ' +
+                'style="height:38px">Create an invite code</button></div>' +
+              '<p class="inv-note">This squad was made before invite codes existed, so there is ' +
+                'nothing to hand out yet. Generate one and you can invite people by email or link.</p>'
+            : '<p class="inv-note">This squad has no invite code, so there is nothing to pass on ' +
+                'yet. Whoever started it can create one from this tab.</p>') +
+        '</div>') +
 
     '<div class="boardctl">' +
       '<select id="squad-metric">' +
@@ -2968,6 +2982,23 @@ async function squadRemoveMember(pid, name) {
   if (error) { toast('squad-msg', 'Could not remove them: ' + esc(error.message), 'err'); return; }
   track('squad_member_removed', {});
   await refreshSquad(esc(name) + ' is no longer in this squad.');
+}
+
+// Gives a squad its first code, or replaces one that has got out. Both are
+// the same operation; only the warning differs.
+async function squadRotateCode(hadOne) {
+  if (hadOne && !confirm('Give this squad a new invite code?' + String.fromCharCode(10, 10) +
+      'Every link and code you have already sent out stops working. Anyone already in the squad ' +
+      'stays in it.')) return;
+  const { data, error } = await sb.rpc('tracker_rotate_code', { p_group: SQ.groupId });
+  if (error) { toast('squad-msg', 'Could not change the code: ' + esc(error.message), 'err'); return; }
+  const sq = SQ.squads.find(x => x.id === SQ.groupId);
+  if (sq) sq.code = data;
+  track('squad_code_rotated', { first: !hadOne });
+  renderSquad();
+  toast('squad-msg', hadOne
+    ? 'New code: <b>' + esc(data) + '</b>. The old one no longer works.'
+    : 'Invite code <b>' + esc(data) + '</b> created - you can send it out now.');
 }
 
 // Share sheet, mail app, clipboard - the same link three ways, because how a
@@ -3259,6 +3290,11 @@ document.addEventListener('click', async e => {
   if (e.target.id === 'sq-add') { SQ.adding = true; renderSquad(); return; }
   if (e.target.id === 'sq-nojoin') {
     localStorage.removeItem(PENDING_JOIN); S.joinCode = null; SQ.adding = false; renderSquad(); return;
+  }
+  if (e.target.id === 'sq-newcode') {
+    const sq = SQ.squads.find(x => x.id === SQ.groupId);
+    squadRotateCode(!!(sq && sq.code));
+    return;
   }
   if (e.target.id === 'sq-mail')  { squadInvite('mail'); return; }
   if (e.target.id === 'sq-share') { squadInvite('share'); return; }

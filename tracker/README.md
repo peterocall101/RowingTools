@@ -260,6 +260,15 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   immediately, so it survives sign-in *and* an email-confirmation round trip and is not shared on by
   accident. The signed-out fast redirect in `index.html` parks it before bouncing to `login.html`,
   which says an invite is waiting; a sample says the code is being held until there is an account.
+- **Every squad needs a code, and an admin can (re)issue one.** `tracker_rotate_code` both gives a
+  code to a squad that has none and replaces one that has got out; the two are the same operation
+  and only the warning differs. It matters because **squads inherited from the coach dashboard
+  predate `join_code` and have null there**, which left their admin looking at "No invite code on
+  this squad" with nothing to do about it. The generator is `tracker_new_join_code()`, pulled out
+  of `tracker_create_group` so both paths mint codes the same way; it is `SECURITY DEFINER` for
+  the uniqueness check, because `groups` has RLS and a caller who can only see their own squads
+  would happily hand back a code another squad is already using. The report counts squads with a
+  null code so this state is visible rather than discovered.
 - **The admin is whoever created the squad, and only they can remove people.**
   `tracker_admin_remove_member` is `SECURITY DEFINER` and gated on `is_group_admin()` - the client
   cannot touch `group_members`, which still has no DELETE policy. It refuses to remove *you*
@@ -277,19 +286,18 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
 
 Real, and deliberately not built yet - none of them risks data, but they will bite operationally:
 
-- **Partial member management.** Removing someone is done (`tracker_admin_remove_member`). Still
-  missing: **promoting** a member, and **rotating** a join code. So a squad whose only admin leaves
-  can never have another, and an abandoned squad keeps a live join code nobody can revoke.
-  `tracker_leave_group` still does not check whether you are the last admin. The fixes are
-  `tracker_set_role` and `tracker_rotate_code`, both `SECURITY DEFINER` and gated on
+- **Partial member management.** Removing someone (`tracker_admin_remove_member`) and re-issuing a
+  join code (`tracker_rotate_code`) are done. Still missing: **promoting** a member. So a squad
+  whose only admin leaves can never have another, and `tracker_leave_group` does not check whether
+  you are the last admin. The fix is `tracker_set_role`, `SECURITY DEFINER` and gated on
   `is_group_admin()`, plus a last-admin guard on leaving.
 - **Join codes are a brute-forceable online oracle, and now they let you straight onto a board.**
   31 characters over 6 positions is about 29.5 bits, and `tracker_join_group` has no rate limit,
   lockout or expiry, and joins silently with no approval step. Sharing-follows-membership raises the
   payoff from "aggregates of whoever opted in" to "aggregates of everyone in the squad", which is
-  the one place the model change costs something. Admin-remove is the mitigation that now exists;
-  code rotation and a join rate limit would close it properly, and are the next things to build
-  here.
+  the one place the model change costs something. Admin-remove and code rotation are the
+  mitigations that now exist; a join rate limit is the one still missing, and is the next thing to
+  build here.
 - **Shared templates include each exercise's coaching cue** (the `note` field on the library), which
   is a deliberate part of posting a template but is worth a preview before posting. This is
   unrelated to the "never shared" line in the consent panel, which is about *session* notes.
@@ -329,4 +337,4 @@ edits go straight to `update` and are not queued.
   would be an Edge Function against the Brevo account already used for the results newsletter,
   which needs an API key as a Supabase secret, a verified sender, and a rate limit so the endpoint
   cannot be turned into a spam relay.
-- Promoting a squad member, rotating a join code, and a last-admin guard on leaving.
+- Promoting a squad member, and a last-admin guard on leaving.
