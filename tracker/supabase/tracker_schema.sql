@@ -951,22 +951,38 @@ select section, item, result from (
                       'tracker_admin_remove_member','tracker_rotate_code',
                       'tracker_new_join_code')
 
-  -- 5b. Squads with no join code. Groups inherited from the coach
-  --     dashboard predate join_code, so their admin cannot invite anyone
-  --     until Board > "Create an invite code" (tracker_rotate_code) is used.
-  union all
-  select 5, '5 execute grants', 'squads with no join code',
-    (select count(*) from public.groups where join_code is null)::text ||
-    ' of ' || (select count(*) from public.groups)::text ||
-    case when (select count(*) from public.groups where join_code is null) = 0
-         then ' - ok' else ' - their admins cannot invite; use Board > Create an invite code' end
-
   -- 6. The join model depends on group_members having SELECT only.
   union all
   select 6, '6 group tables (want: SELECT only)', t.tbl,
     coalesce((select string_agg(distinct p.cmd, ', ' order by p.cmd) from pg_policies p
                where p.schemaname='public' and p.tablename=t.tbl), '(no policies)')
   from (values ('groups'), ('group_members')) as t(tbl)
+
+  -- 6b. Sharing and templates. tracker_shared_templates wants SELECT (any
+  --     member reads), INSERT (post your own) and DELETE (yours, or an
+  --     admin's clear-out). Miss the SELECT and a template someone posted
+  --     is invisible to everyone else, with nothing on screen to say why.
+  union all
+  select 6, '6 group tables (want: SELECT only)', t.tbl || ' (want: ' || t.want || ')',
+    coalesce((select string_agg(distinct p.cmd, ', ' order by p.cmd) from pg_policies p
+               where p.schemaname='public' and p.tablename=t.tbl), '** NO POLICIES - nothing is readable **')
+  from (values ('tracker_sharing', 'ALL, SELECT'),
+               ('tracker_shared_templates', 'DELETE, INSERT, SELECT')) as t(tbl, want)
+
+  -- 8. What is actually in each squad, read as the owner so RLS cannot
+  --    hide the answer from you. If a template someone posted is missing
+  --    from the app, look here first: a count of 0 means the post never
+  --    landed, and a count above 0 means the reader's SELECT is the
+  --    problem, not the write.
+  union all
+  select 8, '8 squads', coalesce(g.name, '(unnamed)') || ' ' ||
+    case when g.join_code is null then '[NO CODE]' else '[' || g.join_code || ']' end,
+    (select count(*) from public.group_members m where m.group_id = g.id)::text || ' members, ' ||
+    (select count(*) from public.tracker_sharing sh where sh.group_id = g.id)::text || ' on the board, ' ||
+    (select count(*) from public.tracker_shared_templates t where t.group_id = g.id)::text || ' templates' ||
+    case when g.join_code is null
+         then ' - ** no invite code: use Board > Create an invite code **' else '' end
+  from public.groups g
 
   -- 7. Which profiles columns a signed-in user may write. tracker_plan
   --    must NOT be here, or anyone can grant themselves the paid reader.

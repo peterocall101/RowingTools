@@ -298,6 +298,14 @@ Real, and deliberately not built yet - none of them risks data, but they will bi
   the one place the model change costs something. Admin-remove and code rotation are the
   mitigations that now exist; a join rate limit is the one still missing, and is the next thing to
   build here.
+- **A failed read of the shared templates used to render as "Nothing shared with this squad yet".**
+  `loadBoard()` dropped `tmpl.error` on the floor, so a missing table or a missing SELECT policy
+  looked exactly like an empty squad and sent you looking in the wrong place. The error is now
+  kept on `SQ.tmplError` and shown in the panel, the way `SQ.boardError` already was for the
+  board. The report also prints the policies on `tracker_sharing` and `tracker_shared_templates`
+  (section 6b) and a per-squad line of members / on the board / templates read as the table owner
+  (section 8) - a template count of 0 there means the post never landed, above 0 means the
+  reader's SELECT is what is broken.
 - **Shared templates include each exercise's coaching cue** (the `note` field on the library), which
   is a deliberate part of posting a template but is worth a preview before posting. This is
   unrelated to the "never shared" line in the consent panel, which is about *session* notes.

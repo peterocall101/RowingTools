@@ -2575,7 +2575,7 @@ async function importExercises(payload, msgId) {
 const SQ = {
   loaded: false, tried: false, ready: false, error: null,
   squads: [], groupId: null, sharing: new Set(),
-  board: [], templates: [],
+  board: [], templates: [], tmplError: null,
   period: '4w', metric: 'days_trained', busy: false, adding: false, posting: false,
 };
 
@@ -2653,8 +2653,12 @@ async function loadBoard() {
       .order('created_at', { ascending: false }),
   ]);
   SQ.board = board.error ? [] : (board.data || []);
-  SQ.templates = tmpl.error ? [] : (tmpl.data || []);
   SQ.boardError = board.error ? board.error.message : null;
+  // A failed read here used to be dropped on the floor, which rendered as
+  // "Nothing shared with this squad yet" - a sentence that is indistinguishable
+  // from the truth and sends you looking in the wrong place. Say what happened.
+  SQ.templates = tmpl.error ? [] : (tmpl.data || []);
+  SQ.tmplError = tmpl.error ? tmpl.error.message : null;
 }
 
 // One refresh at a time, but a refresh asked for while one is running is
@@ -2882,7 +2886,11 @@ function squadTemplatesHTML() {
     '<p class="setup-intro">Post your exercise library so the rest of the squad can pick it up, ' +
     'or take someone else\'s. Importing adds anything you do not already have and never overwrites ' +
     'your own setup.</p>' +
-    (SQ.templates.length
+    (SQ.tmplError
+      ? '<div class="toast err">Could not read this squad\u2019s templates: ' + esc(SQ.tmplError) +
+        '<br>If that mentions a missing table or a policy, run ' +
+        '<b>tracker/supabase/tracker_schema.sql</b> in the Supabase SQL editor.</div>'
+      : SQ.templates.length
       ? SQ.templates.map(t => {
           const n = (t.payload && Array.isArray(t.payload.exercises)) ? t.payload.exercises.length : 0;
           // created_at is server-set; a row that somehow lacks it must not take
