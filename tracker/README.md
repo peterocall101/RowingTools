@@ -109,14 +109,17 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   conversational one you have to type for.
 - **Progress covers all three disciplines, and they are not the same shape.** A segmented
   control switches between them rather than stacking them:
-  - **Weights** - one lift, one measure, a line by session. Reps-and-weight exercises offer
-    heaviest set and estimated 1RM (Epley, labelled as an estimate); timed holds offer longest
-    hold and total time held. The set that produced the number is on the tile, the tooltip and
-    the table, so a measure can never quietly gloss over the reps behind it.
-  - **Erg / Core** - weekly load as bars with a zero baseline: km, time or sessions a week for
-    the erg, time working or sessions a week for core. Weeks with nothing in them are drawn,
-    not skipped, because a fortnight off is the most important thing a load chart can show. The
-    dashed line over the bars is a four-week mean; week-to-week is noise.
+  - **Weights** opens on **All lifts** - sets or sessions a week as bars, then every lift in
+    every week underneath with its change in average load. "How much am I lifting" comes before
+    "how is the squat going", and the first question has no answer anywhere else in the app.
+    Picking a single lift from the same dropdown switches to one lift, one measure, a line by
+    session: heaviest set and estimated 1RM (Epley, labelled as an estimate) for reps-and-weight
+    exercises, longest hold and total time held for timed ones. The set that produced the number
+    is on the tile, the tooltip and the table, so a measure can never quietly gloss over the reps
+    behind it.
+  - **Erg / Core** - weekly load: km, time or sessions a week for the erg, time working or
+    sessions a week for core. Weeks with nothing in them are drawn as gaps, not skipped, because
+    a fortnight off is the most important thing a load chart can show.
   - **Session tonnage was removed on purpose.** It moves whenever the rep scheme moves and says
     nothing about whether you got stronger, so it is not offered as a measure of anything - not
     on Progress, and not as the collapsed summary line in History. Core **rounds** went the same
@@ -124,8 +127,19 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
     sessions and time working.
 
   Never two measures on one axis. Both charts are drawn at a measured pixel width rather than
-  scaled from a `viewBox`, so axis labels stay legible on a phone, and they re-render on resize
-  and when the tab is opened. Every plotted point is also in the table below it.
+  scaled from a `viewBox`, so labels stay legible on a phone, and they re-render on resize and
+  when the tab is opened. Every plotted point is also in the table below it.
+- **The three weekly load charts have no y-axis, on purpose.** Bars, a hairline baseline, one
+  dashed line at the average for the range on screen, and dates every fifth bar. The numbers a
+  person wants off a load chart - this week, the average, the best week - are in the three tiles
+  directly above it, so axis ticks would be a third copy of them and gridlines would be ruling
+  off numbers nobody is reading. Reading a single week is a tap: the bar lights up and a chip
+  gives the figure. The average line is deliberately *not* labelled inline; on a phone the label
+  lands on top of the bars, and the Weekly average tile has already said it. The most recent week
+  is drawn at full strength so "where am I now" needs no hunting. This is the training-app idiom
+  (Strava's weekly mileage chart) rather than the scientific-plot one, and it suits a question
+  about shape rather than magnitude. The per-lift line chart keeps its axis: those are absolute
+  kilos with no tile to lean on.
 - **There is no Summary tab.** There was, and it duplicated Progress: the same weekly erg and core
   numbers, one tab across. Three review tabs for two questions is one too many, so Summary went and
   the two things it did that nothing else could were rehomed rather than dropped:
@@ -134,9 +148,10 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
     Putting the totals directly above the sessions that produced them is better than having them a
     tab apart.
   - **Every lift in a week, with the change in average load,** is `All lifts, week by week` at the
-    top of the Progress exercise picker. Progress charts one lift at a time, so this is the only
-    place a whole week of lifting is on one page; choosing it hides the measure dropdown, because
-    a table of every lift has no single measure to pick.
+    top of the Progress exercise picker, and is what the Weights mode now opens on. Progress
+    charts one lift at a time, so this is the only place a whole week of lifting is on one page.
+    It takes the same measure-and-range controls as Erg and Core, and the range governs the whole
+    page: only the weeks on the chart get a table.
 
   Both are built by `weekStripHTML()` and `liftWeekHTML()`, which is all that survives of
   `renderSummary()`.

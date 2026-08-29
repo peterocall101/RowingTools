@@ -433,12 +433,12 @@
   .carea{fill:var(--red-dim);stroke:none}
   .cdot{fill:var(--red-ink);stroke:var(--bg2);stroke-width:2}
   .cdot-hi{fill:var(--bg2);stroke:var(--red-ink);stroke-width:2}
-  /* bars are the week's load; the newest week is the one you are asking about */
-  .cbar{fill:var(--red-dim);stroke:var(--red-ink);stroke-width:1}
-  .cbar.last{fill:var(--red-ink);stroke:var(--red-ink)}
-  .cbar.zero{fill:none;stroke:none}
-  .ctrend{fill:none;stroke:var(--text2);stroke-width:1.5;stroke-dasharray:5 4;
-    stroke-linejoin:round;stroke-linecap:round}
+  /* Weekly load: solid bars, no axis, one dashed average. The tiles above the
+     chart carry the numbers, so ticks would only repeat them. */
+  .cbar{fill:var(--red-ink);opacity:.42;transition:opacity .12s}
+  .cbar.last{opacity:.9}
+  .cbar.on{opacity:1}
+  .cavg{stroke:var(--text3);stroke-width:1;stroke-dasharray:4 4}
   .clab{font-family:var(--mono);font-size:10.5px;fill:var(--text2);font-variant-numeric:tabular-nums}
   .ccross{stroke:var(--border2);stroke-width:1;stroke-dasharray:3 3}
   .ctip{position:absolute;pointer-events:none;background:var(--bg3);border:1px solid var(--border2);
@@ -486,7 +486,7 @@
     .entry-toggle .chev{display:none}
   }
   @media(prefers-reduced-motion:reduce){
-    .entry-toggle,.entry-toggle .chev,.seg{transition:none}
+    .entry-toggle,.entry-toggle .chev,.seg,.cbar{transition:none}
   }
   /* expanded detail */
   .dex{padding:10px 0;border-bottom:1px solid var(--border)}

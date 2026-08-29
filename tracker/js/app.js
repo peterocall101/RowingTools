@@ -1731,7 +1731,10 @@ function liftWeekHTML(wk, prev) {
    when the rep scheme changes and says nothing about whether you got stronger. */
 // Not a uuid, so it can never collide with a real exercise id.
 const ALL_LIFTS = 'all-lifts';
-const PROG = { mode: 'weights', ex: '', metric: '', weeks: '12' };
+// Weights opens on the whole picture, not on whichever lift happened to be
+// first alphabetically: "how much am I lifting" comes before "how is the squat
+// going", and the second question is one dropdown away.
+const PROG = { mode: 'weights', ex: ALL_LIFTS, metric: '', weeks: '12' };
 
 const REP_METRICS = [
   { k: 'top',  label: 'Heaviest set',  unit: 'kg' },
@@ -1756,6 +1759,12 @@ const ERG_METRICS = [
   { k: 'n',   label: 'Sessions a week', col: 'Sessions', dp: 0,
     fmt: v => Math.round(v) + (v === 1 ? ' session' : ' sessions'), short: v => String(Math.round(v)) },
 ];
+const WEIGHT_WEEK_METRICS = [
+  { k: 'sets', label: 'Sets a week',     col: 'Sets',     dp: 0,
+    fmt: v => plural(Math.round(v), 'set'),     short: v => String(Math.round(v)) },
+  { k: 'n',    label: 'Sessions a week', col: 'Sessions', dp: 0,
+    fmt: v => plural(Math.round(v), 'session'), short: v => String(Math.round(v)) },
+];
 const CORE_METRICS = [
   { k: 'min', label: 'Time working a week', col: 'Working',  dp: 0,
     fmt: v => fmtHM(v), short: v => fmtHM(v) },
@@ -1769,7 +1778,16 @@ const WEEK_RANGES = [
   { k: 'all', label: 'All time' },
 ];
 
-const weeklyMetrics = mode => mode === 'core' ? CORE_METRICS : ERG_METRICS;
+const weeklyMetrics = mode =>
+  mode === 'core' ? CORE_METRICS : mode === 'weights' ? WEIGHT_WEEK_METRICS : ERG_METRICS;
+// The weekly shape of the three, in the form weeklySeries() wants.
+const weeklyAgg = mode => mode === 'core' ? coreWeekly() : mode === 'erg' ? ergWeekly() : weightsWeekly();
+function weightsWeekly() {
+  const out = {};
+  const w = weeklyStats();
+  Object.keys(w).forEach(k => { out[k] = { n: w[k].n, sets: w[k].sets }; });
+  return out;
+}
 const pickMetric = (list, k) => list.find(x => x.k === k) || list[0];
 
 function progressSeries(exId, metric) {
@@ -1804,8 +1822,7 @@ function progressSeries(exId, metric) {
 
 // Erg and core roll up by week, and the empty weeks have to be in the series:
 // a fortnight off is the most important thing a load chart can show you.
-function weeklySeries(mode, metricKey, range) {
-  const agg = mode === 'core' ? coreWeekly() : ergWeekly();
+function weeklySeries(agg, metricKey, range) {
   const logged = Object.keys(agg).sort();
   if (!logged.length) return [];
   const end = thisMonday();
@@ -1814,14 +1831,16 @@ function weeklySeries(mode, metricKey, range) {
   if (start > end) start = end;
   const out = [];
   for (let w = start; w <= end; w = addDays(w, 7)) {
-    const a = agg[w] || { n: 0, km: 0, min: 0 };
+    const a = agg[w] || { n: 0, km: 0, min: 0, sets: 0 };
     out.push({ date: w, v: round1(a[metricKey] || 0), n: a.n });
   }
   return out;
 }
 
-// plotted point positions, for the hover layer
+// plotted point positions, for the hover layer. A line wants a crosshair and
+// a moving dot; bars want the bar itself to light up.
 let chartPts = [];
+let chartMode = 'line';
 
 const niceStep = span => {
   const raw = span / 4, pow = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / pow;
@@ -1886,6 +1905,7 @@ function chartHTML(pts, unit, W) {
     '<text class="ctick" x="' + xy[i][0].toFixed(1) + '" y="' + (H - 8) + '" text-anchor="' +
       (i === 0 ? 'start' : 'end') + '">' + shortDate(pts[i].date) + '</text>').join('');
 
+  chartMode = 'line';
   chartPts = pts.map((p, i) => ({
     x: +xy[i][0].toFixed(1), y: +xy[i][1].toFixed(1),
     lab: prettyDate(p.date), val: round1(p.v) + unit,
@@ -1910,54 +1930,53 @@ const topSetText = (s, timeOnly) => !s ? ''
   : isNaN(s.wt) ? round1(s.reps) + ' reps bodyweight'
   : round1(s.reps) + ' × ' + round1(s.wt) + 'kg';
 
-// Weekly load is a count per bucket, not a reading on a curve, so it gets bars
-// and a zero baseline. The line over the top is a four-week mean: week to week
-// is noise, and the trend is the thing you actually want off this chart.
+// Weekly load, drawn the way a training app draws it and not the way a
+// scientific plot does: no y-axis, no gridlines, one dashed average line, and
+// the bars carrying the shape. The numbers a person actually wants off it -
+// this week, the average, the best week - are in the tiles directly above, so
+// axis ticks would be a third copy of them. Reading a single bar is a hover
+// or a tap.
 function barsHTML(pts, metric, W) {
-  const H = 250, P = { t: 26, r: 14, b: 30, l: 46 };
+  const H = 186, P = { t: 12, r: 10, b: 26, l: 10 };
   const iw = Math.max(40, W - P.l - P.r), ih = H - P.t - P.b;
   const vs = pts.map(p => p.v);
   const hi = Math.max(...vs, 0);
-  const step = niceStep(hi || 1);
-  const y1 = Math.max(step, Math.ceil(hi / step) * step);
+  const avg = vs.reduce((a, x) => a + x, 0) / (vs.length || 1);
+  // Headroom so the tallest bar is not jammed against the top, and a floor so
+  // a series of noughts still draws a sane baseline.
+  const y1 = Math.max(hi, avg) * 1.1 || 1;
   const Y = v => P.t + ih - (v / y1) * ih;
   const slot = iw / pts.length;
-  const bw = Math.max(3, Math.min(38, slot * 0.66));
+  const bw = Math.max(3, Math.min(58, slot * 0.62));
   const cx = i => P.l + slot * (i + 0.5);
 
-  const grid = [];
-  for (let v = 0; v <= y1 + 1e-9; v += step) {
-    grid.push('<line class="cgrid" x1="' + P.l + '" y1="' + Y(v).toFixed(1) + '" x2="' + (P.l + iw) + '" y2="' + Y(v).toFixed(1) + '"/>' +
-      '<text class="ctick" x="' + (P.l - 8) + '" y="' + (Y(v) + 3.5).toFixed(1) + '" text-anchor="end">' + round1(v) + '</text>');
-  }
-
   const bars = pts.map((p, i) => {
-    const h = Math.max(p.v > 0 ? 2 : 0, ih - (Y(p.v) - P.t));
-    return '<rect class="cbar' + (p.v ? '' : ' zero') + (i === pts.length - 1 ? ' last' : '') + '" x="' +
+    if (!p.v) return '';                          // an untrained week is a gap
+    const h = Math.max(2, ih - (Y(p.v) - P.t));
+    return '<rect class="cbar' + (i === pts.length - 1 ? ' last' : '') + '" data-bar="' + i + '" x="' +
       (cx(i) - bw / 2).toFixed(1) + '" y="' + (P.t + ih - h).toFixed(1) +
       '" width="' + bw.toFixed(1) + '" height="' + h.toFixed(1) + '"/>';
   }).join('');
 
-  // four-week mean, drawn only once there is enough series to mean anything
-  let trend = '';
-  if (pts.length >= 5) {
-    const roll = pts.map((_, i) => {
-      const from = Math.max(0, i - 3);
-      const win = vs.slice(from, i + 1);
-      return win.reduce((a, x) => a + x, 0) / win.length;
-    });
-    trend = '<path class="ctrend" d="' + roll.map((v, i) =>
-      (i ? 'L' : 'M') + cx(i).toFixed(1) + ' ' + Y(v).toFixed(1)).join(' ') + '"/>';
+  // One flat average across what is on screen: "is this week above or below
+  // how I normally train" is the question a load chart gets asked. It is not
+  // labelled on the chart - the Weekly average tile is directly above it, and
+  // an inline label collides with the bars on a phone.
+  let avgLine = '';
+  if (avg > 0 && pts.length > 2) {
+    const y = Y(avg).toFixed(1);
+    avgLine = '<line class="cavg" x1="' + P.l + '" y1="' + y + '" x2="' + (P.l + iw) + '" y2="' + y + '"/>';
   }
 
-  // one x label roughly every fifth bar, always including the last week
+  // One x label roughly every fifth bar, always including the last week
   const every = Math.max(1, Math.ceil(pts.length / 5));
   const xlabs = pts.map((p, i) => {
     if (i !== pts.length - 1 && (pts.length - 1 - i) % every) return '';
-    return '<text class="ctick" x="' + cx(i).toFixed(1) + '" y="' + (H - 9) + '" text-anchor="middle">' +
+    return '<text class="ctick" x="' + cx(i).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' +
       shortDate(p.date) + '</text>';
   }).join('');
 
+  chartMode = 'bar';
   chartPts = pts.map((p, i) => ({
     x: +cx(i).toFixed(1), y: +Y(p.v).toFixed(1),
     lab: 'Week of ' + shortDate(p.date),
@@ -1967,12 +1986,10 @@ function barsHTML(pts, metric, W) {
 
   return '<div class="chartwrap" id="chartwrap">' +
     '<svg width="' + W + '" height="' + H + '" role="img" aria-label="Weekly training load; the same numbers are in the table below">' +
-      grid.join('') + bars + trend +
+      bars + avgLine +
       '<line class="caxis" x1="' + P.l + '" y1="' + (P.t + ih) + '" x2="' + (P.l + iw) + '" y2="' + (P.t + ih) + '"/>' +
-      '<line class="ccross" id="ch-cross" x1="0" y1="' + P.t + '" x2="0" y2="' + (P.t + ih) + '" style="display:none"/>' +
-      '<circle class="cdot-hi" id="ch-hi" cx="0" cy="0" r="5.5" style="display:none"/>' +
       xlabs +
-      '<rect id="ch-hit" x="' + P.l + '" y="' + P.t + '" width="' + iw + '" height="' + ih + '" fill="transparent"/>' +
+      '<rect id="ch-hit" x="' + P.l + '" y="' + P.t + '" width="' + iw + '" height="' + (ih + 10) + '" fill="transparent"/>' +
     '</svg><div class="ctip" id="ch-tip" style="display:none"></div></div>';
 }
 
@@ -1994,7 +2011,9 @@ function progControlsHTML() {
     if (opts.length) {
       if (PROG.ex !== ALL_LIFTS && !opts.some(e => e.id === PROG.ex)) PROG.ex = opts[0].id;
       const all = PROG.ex === ALL_LIFTS;
-      const metrics = metricsFor(exById(PROG.ex));
+      // All lifts is a weekly load view like Erg and Core, so it takes their
+      // controls; one lift takes the per-lift measures.
+      const metrics = all ? WEIGHT_WEEK_METRICS : metricsFor(exById(PROG.ex));
       if (!metrics.some(x => x.k === PROG.metric)) PROG.metric = metrics[0].k;
       rest =
         '<select id="prog-pick" aria-label="Exercise">' +
@@ -2003,12 +2022,12 @@ function progControlsHTML() {
           opts.map(e =>
           '<option value="' + e.id + '"' + (e.id === PROG.ex ? ' selected' : '') + '>' +
           esc(e.name) + (e.retired ? ' (retired)' : '') + '</option>').join('') + '</select>' +
-        // One lift, one measure. A table of every lift has no single measure
-        // to pick, so the control goes rather than sitting there inert.
-        (all ? '' :
         '<select id="prog-metric" aria-label="Measure">' + metrics.map(x =>
           '<option value="' + x.k + '"' + (x.k === PROG.metric ? ' selected' : '') + '>' +
-          x.label + '</option>').join('') + '</select>');
+          x.label + '</option>').join('') + '</select>' +
+        (all ? '<select id="prog-weeks" aria-label="Range">' + WEEK_RANGES.map(r =>
+          '<option value="' + r.k + '"' + (r.k === PROG.weeks ? ' selected' : '') + '>' +
+          r.label + '</option>').join('') + '</select>' : '');
     }
   } else {
     const metrics = weeklyMetrics(PROG.mode);
@@ -2034,26 +2053,68 @@ function renderProgress() {
   else renderProgWeights(body);
 }
 
-// Every lift, week by week. This is the view that answers "what did I actually
-// lift last week", which a per-lift chart cannot.
+// Tiles + bars, shared by all three weekly load views. The tiles carry the
+// numbers, which is what lets the chart drop its axis.
+function weeklyLoadHTML(pts, metric, width) {
+  const vs = pts.map(p => p.v);
+  const last = pts[pts.length - 1];
+  const hi = Math.max(...vs), hiAt = pts[vs.indexOf(hi)];
+  const avg = vs.reduce((a, x) => a + x, 0) / vs.length;
+  // This week against the mean of the weeks before it: the comparison you are
+  // actually making when you look at a load chart.
+  const before = vs.slice(0, -1);
+  const prevAvg = before.length ? before.reduce((a, x) => a + x, 0) / before.length : null;
+  const f = Math.pow(10, metric.dp);
+  const diff = prevAvg == null ? null : Math.round((last.v - prevAvg) * f) / f;
+  const weeksOn = vs.filter(v => v > 0).length;
+
+  return '<div class="prog-tiles">' +
+      tileHTML('This week', metric.fmt(last.v),
+        diff == null ? 'first week logged'
+          : diff === 0 ? 'level with your average'
+          : (diff > 0 ? '+' : '-') + metric.short(Math.abs(diff)) + ' on your average',
+        !diff ? '' : diff > 0 ? 'up' : 'down') +
+      tileHTML('Weekly average', metric.fmt(avg), weeksOn + ' of ' + pts.length + ' weeks trained') +
+      tileHTML('Best week', metric.fmt(hi), shortDate(hiAt.date)) +
+    '</div>' +
+    barsHTML(pts, metric, width) +
+    '<p class="chart-note">Tap or hover a bar for the week. Weeks you did nothing are left as gaps, ' +
+    'not skipped; the dashed line is your average over the range shown.</p>';
+}
+
+// Every lift, week by week: how much lifting, then what it consisted of. This
+// is the view that answers "what did I actually lift last week", which a
+// per-lift chart cannot.
 function renderProgAllLifts(body) {
-  const weeks = weeklyStats();
-  const keys = Object.keys(weeks).sort().reverse();
+  const metric = pickMetric(WEIGHT_WEEK_METRICS, PROG.metric);
+  const pts = weeklySeries(weightsWeekly(), metric.k, PROG.weeks);
   const head = '<div class="prog-head"><h3 class="prog-title">All lifts</h3>' +
-    '<span class="prog-sub">Week by week, newest first · the arrow compares average load with ' +
-    'the previous week you did that lift</span></div>';
-  if (!keys.length) {
-    body.innerHTML = head + '<p class="empty">No weights sessions logged yet.</p>';
+    '<span class="prog-sub">' + esc(metric.label) + ', Monday to Sunday · the arrow in each ' +
+    'week compares average load with the previous week you did that lift</span></div>';
+  if (!pts.length) {
+    body.innerHTML = head + '<p class="empty">No weights sessions logged yet. Anything you record ' +
+      'on the Weights tab shows up here as weekly load, and lift by lift underneath.</p>';
     return;
   }
-  body.innerHTML = head + keys.map((w, i) => {
-    const prevKey = keys[i + 1];
+
+  // Only the weeks on the chart get a table, so the range control governs the
+  // whole page rather than just its top.
+  const weeks = weeklyStats();
+  const all = Object.keys(weeks).sort();
+  const tables = pts.map(p => p.date).filter(w => weeks[w]).reverse().map(w => {
+    // The comparison week is the last one you lifted, even where that falls
+    // off the bottom of the range on screen.
+    const prevKey = [...all].reverse().find(k => k < w);
     return '<section class="sumweek"><div class="sum-head">' +
       '<h4>' + shortDate(w) + ' - ' + shortDate(addDays(w, 6)) + '</h4>' +
       '<span class="sum-count">' + plural(weeks[w].n, 'session') + ' · ' +
         plural(weeks[w].sets, 'set') + '</span></div>' +
       liftWeekHTML(weeks[w], prevKey ? weeks[prevKey] : null) + '</section>';
   }).join('');
+
+  body.innerHTML = head + weeklyLoadHTML(pts, metric, Math.max(300, body.clientWidth || 620)) +
+    (tables || '<p class="empty">Nothing lifted in this range.</p>');
+  wireChart();
 }
 
 function renderProgWeights(body) {
@@ -2115,10 +2176,9 @@ function renderProgWeights(body) {
 function renderProgWeekly(body) {
   const label = PROG.mode === 'erg' ? 'Erg' : 'Core';
   const metric = pickMetric(weeklyMetrics(PROG.mode), PROG.metric);
-  const pts = weeklySeries(PROG.mode, metric.k, PROG.weeks);
+  const pts = weeklySeries(weeklyAgg(PROG.mode), metric.k, PROG.weeks);
   const head = '<div class="prog-head"><h3 class="prog-title">' + label + ' load</h3>' +
-    '<span class="prog-sub">' + esc(metric.label) + ', Monday to Sunday' +
-    (pts.length >= 5 ? ' · the line is a four-week average' : '') + '</span></div>';
+    '<span class="prog-sub">' + esc(metric.label) + ', Monday to Sunday</span></div>';
 
   if (!pts.length) {
     body.innerHTML = head + '<p class="empty">No ' + label.toLowerCase() +
@@ -2127,46 +2187,19 @@ function renderProgWeekly(body) {
     return;
   }
 
-  const vs = pts.map(p => p.v);
-  const last = pts[pts.length - 1];
-  const hi = Math.max(...vs), hiAt = pts[vs.indexOf(hi)];
-  const avg = vs.reduce((a, x) => a + x, 0) / vs.length;
-  // this week against the mean of the weeks before it, which is the comparison
-  // you are actually making when you look at a load chart
-  const before = vs.slice(0, -1);
-  const prevAvg = before.length ? before.reduce((a, x) => a + x, 0) / before.length : null;
-  const diff = prevAvg == null ? null : round1(last.v - prevAvg);
-  const weeksOn = vs.filter(v => v > 0).length;
-
-  // a difference that rounds away at the displayed precision is not a difference
-  const f = Math.pow(10, metric.dp);
-  const shownDiff = diff == null ? null : Math.round(diff * f) / f;
-  const tiles = '<div class="prog-tiles">' +
-    tileHTML('This week', metric.fmt(last.v),
-      shownDiff == null ? 'first week logged'
-        : shownDiff === 0 ? 'level with your average'
-        : (shownDiff > 0 ? '+' : '-') + metric.short(Math.abs(shownDiff)) + ' on your average',
-      !shownDiff ? '' : shownDiff > 0 ? 'up' : 'down') +
-    tileHTML('Weekly average', metric.fmt(avg), weeksOn + ' of ' + pts.length + ' weeks trained') +
-    tileHTML('Best week', metric.fmt(hi), shortDate(hiAt.date)) +
-    '</div>';
-
-  const chart = barsHTML(pts, metric, Math.max(300, body.clientWidth || 620)) +
-    '<p class="chart-note">Tap or hover a bar for the week. Empty weeks are shown, not skipped.</p>';
-
-  const agg = PROG.mode === 'core' ? coreWeekly() : ergWeekly();
-  const shown = v => Math.round(v * f) / f;
+  const agg = weeklyAgg(PROG.mode);
+  const shown = v => { const f = Math.pow(10, metric.dp); return Math.round(v * f) / f; };
   const rows = [...pts].reverse().map((p, i, arr) => {
     const prev = arr[i + 1];
     const d = prev ? round1(shown(p.v) - shown(prev.v)) : null;
     const a = agg[p.date] || { n: 0, km: 0, min: 0 };
     const detail = a.n
-      ? a.n + (a.n === 1 ? ' session · ' : ' sessions · ') +
-        (PROG.mode === 'erg' ? round1(a.km) + ' km · ' + fmtHM(a.min) : fmtHM(a.min) + ' working')
+      ? plural(a.n, 'session') + ' \u00b7 ' +
+        (PROG.mode === 'erg' ? round1(a.km) + ' km \u00b7 ' + fmtHM(a.min) : fmtHM(a.min) + ' working')
       : 'nothing logged';
     return '<tr' + (p.v ? '' : ' class="offweek"') + '><td>' + shortDate(p.date) + ' - ' + shortDate(addDays(p.date, 6)) + '</td>' +
       '<td class="n">' + esc(metric.short(p.v)) + '</td>' +
-      '<td class="n">' + (d === null || d === 0 ? '<span class="na">–</span>'
+      '<td class="n">' + (d === null || d === 0 ? '<span class="na">\u2013</span>'
         : '<span class="delta ' + (d > 0 ? 'up' : 'down') + '">' + (d > 0 ? '+' : '') + round1(d) + '</span>') + '</td>' +
       '<td class="dim">' + esc(detail) + '</td></tr>';
   }).join('');
@@ -2175,32 +2208,46 @@ function renderProgWeekly(body) {
     '<th class="n">Change</th><th>Detail</th></tr></thead><tbody>' +
     rows + '</tbody></table></div>';
 
-  body.innerHTML = head + tiles + chart + table;
+  body.innerHTML = head + weeklyLoadHTML(pts, metric, Math.max(300, body.clientWidth || 620)) + table;
   wireChart();
 }
 
-// Crosshair + tooltip. A chart on a page is interactive by default; the hit
-// target is the whole plot, not the dots.
+// A chart on a page is interactive by default, and the hit target is the whole
+// plot rather than the marks. What lights up depends on the chart: a line gets
+// the crosshair and a moving dot, bars get the bar under your finger.
 function wireChart() {
   const wrap = $('chartwrap');
   if (!wrap || !chartPts.length) return;
-  const pts = chartPts;
-  const hit = $('ch-hit'), cross = $('ch-cross'), hi = $('ch-hi'), tip = $('ch-tip');
+  const pts = chartPts, bars = chartMode === 'bar';
+  const hit = $('ch-hit'), tip = $('ch-tip');
+  const cross = $('ch-cross'), hi = $('ch-hi');
+  let lit = null;
   const move = ev => {
     const r = wrap.getBoundingClientRect();
     const px = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
-    let near = pts[0];
-    pts.forEach(p => { if (Math.abs(p.x - px) < Math.abs(near.x - px)) near = p; });
-    cross.setAttribute('x1', near.x); cross.setAttribute('x2', near.x);
-    cross.style.display = ''; hi.style.display = '';
-    hi.setAttribute('cx', near.x); hi.setAttribute('cy', near.y);
+    let near = pts[0], ni = 0;
+    pts.forEach((p, i) => { if (Math.abs(p.x - px) < Math.abs(near.x - px)) { near = p; ni = i; } });
+    if (bars) {
+      if (lit) lit.classList.remove('on');
+      lit = wrap.querySelector('[data-bar="' + ni + '"]');
+      if (lit) lit.classList.add('on');
+    } else {
+      cross.setAttribute('x1', near.x); cross.setAttribute('x2', near.x);
+      cross.style.display = ''; hi.style.display = '';
+      hi.setAttribute('cx', near.x); hi.setAttribute('cy', near.y);
+    }
     tip.innerHTML = '<span class="tdate">' + esc(near.lab) + '</span><br><b>' + esc(near.val) + '</b>' +
       (near.sub ? '<br><span class="tsub">' + esc(near.sub) + '</span>' : '');
     tip.style.display = '';
     tip.style.left = Math.min(r.width - 8, Math.max(8, near.x)) + 'px';
-    tip.style.top = (near.y - 12) + 'px';
+    tip.style.top = (near.y - 10) + 'px';
   };
-  const leave = () => { cross.style.display = 'none'; hi.style.display = 'none'; tip.style.display = 'none'; };
+  const leave = () => {
+    if (lit) { lit.classList.remove('on'); lit = null; }
+    if (cross) cross.style.display = 'none';
+    if (hi) hi.style.display = 'none';
+    tip.style.display = 'none';
+  };
   hit.addEventListener('pointermove', move);
   hit.addEventListener('pointerdown', move);
   hit.addEventListener('pointerleave', leave);
