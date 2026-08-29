@@ -18,7 +18,7 @@ totals through a `SECURITY DEFINER` function rather than by widening those polic
 
 | Path | What |
 |---|---|
-| `index.html` | The app - tabs grouped as Record (Weights / Erg / Core), Review (Summary / Progress / History), Squad (Board), Set up (Templates) |
+| `index.html` | The app - tabs grouped as Record (Weights / Erg / Core), Review (Progress / History), Squad (Board), Set up (Templates) |
 | `login.html` | The public front door: what the tracker is, sign in / sign up / forgot / recovery, and **Try it without an account** |
 | `terms.html` | Terms of use and privacy notice. The version date at the top is the one stamped on the profile at signup |
 | `js/config.js` | Supabase URL + anon key + Edge Function endpoint. `sb` is a `let` so sample mode can swap it |
@@ -126,11 +126,23 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   Never two measures on one axis. Both charts are drawn at a measured pixel width rather than
   scaled from a `viewBox`, so axis labels stay legible on a phone, and they re-render on resize
   and when the tab is opened. Every plotted point is also in the table below it.
-- **Summary and History are ruled sheets, not card stacks.** A summary week opens with a
-  three-up strip - weights, erg, core - so the week's shape is one glance, then the lifts as a
-  ruled table with the change against the previous week you lifted. History is one line per
-  session in aligned columns (day, discipline, what it was), expanding in place. Both follow the
-  site's results-board language: hairlines, tabular figures, square corners.
+- **There is no Summary tab.** There was, and it duplicated Progress: the same weekly erg and core
+  numbers, one tab across. Three review tabs for two questions is one too many, so Summary went and
+  the two things it did that nothing else could were rehomed rather than dropped:
+  - **The week across all three disciplines at once** (weights sessions and sets, erg km and time,
+    core time) now heads each week group in **History**, which was already the week-grouped view.
+    Putting the totals directly above the sessions that produced them is better than having them a
+    tab apart.
+  - **Every lift in a week, with the change in average load,** is `All lifts, week by week` at the
+    top of the Progress exercise picker. Progress charts one lift at a time, so this is the only
+    place a whole week of lifting is on one page; choosing it hides the measure dropdown, because
+    a table of every lift has no single measure to pick.
+
+  Both are built by `weekStripHTML()` and `liftWeekHTML()`, which is all that survives of
+  `renderSummary()`.
+- **History is a ruled sheet, not a card stack.** One line per session in aligned columns (day,
+  discipline, what it was), expanding in place, under the week strip. Results-board language
+  throughout: hairlines, tabular figures, square corners.
 - **Erg photo parses are never auto-saved**: the parsed numbers land in an editable
   confirmation card first. `source` on each erg row records `photo` / `manual` (and later
   `c2-logbook` for the planned Concept2 Logbook API sync).

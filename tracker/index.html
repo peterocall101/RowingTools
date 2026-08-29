@@ -352,14 +352,16 @@
   .bquiet .bval{font-size:13px;color:var(--text3)}
   .squad-note{font-family:var(--mono);font-size:10.5px;color:var(--text3);line-height:1.6;margin:14px 0 26px}
 
-  /* ── Summary: one ruled sheet per week ── */
+  /* ── The week strip (History) and the all-lifts table (Progress) ── */
   .sumweek{margin-bottom:34px}
+  /* the all-lifts view stacks these straight under the Progress heading */
+  #prog-body .sumweek:first-of-type{margin-top:20px}
   .sum-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
     border-top:2px solid var(--text);padding-top:8px;margin-bottom:0}
   .sum-head h4{font-size:16px;font-weight:800;letter-spacing:-0.01em;text-transform:uppercase}
   .sum-count{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)}
   .sum-strip{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border2);
-    margin-top:10px}
+    margin-top:8px;margin-bottom:6px}
   .sm{padding:9px 0 12px}
   .sm+.sm{border-left:1px solid var(--border);padding-left:14px}
   .sm-lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;
@@ -550,7 +552,6 @@
     <div class="tabgrp" role="presentation">
       <span class="tabgrp-lab" aria-hidden="true">Review</span>
       <div class="tabgrp-tabs" role="presentation">
-        <button class="tab" role="tab" aria-selected="false" aria-label="Review: Summary" data-panel="p-sum">Summary</button>
         <button class="tab" role="tab" aria-selected="false" aria-label="Review: Progress" data-panel="p-prog">Progress</button>
         <button class="tab" role="tab" aria-selected="false" aria-label="Review: History" data-panel="p-hist">History</button>
       </div>
@@ -608,8 +609,6 @@
     <div id="core-runner"></div>
     <div id="core-msg"></div>
   </section>
-
-  <section class="panel" id="p-sum"><div id="sum-body"></div></section>
 
   <section class="panel" id="p-prog">
     <div id="prog-controls"></div>

@@ -785,7 +785,7 @@ async function saveWorkout() {
     cacheData();
     $('log-date').value = todayISO();
     $('log-notes').value = '';
-    renderLog(); renderSummary(); renderProgress(); renderHistory();
+    renderLog(); renderProgress(); renderHistory();
     toast('log-msg', 'Session updated - ' + prettyDate(date) + ' · ' + plural(Object.keys(sets).length, 'exercise') +
       ', ' + plural(total, 'set') + '.');
     return;
@@ -812,7 +812,7 @@ async function saveWorkout() {
     ', ' + plural(total, 'set') + (nToday > 1 ? ' · entry ' + nToday + ' today' : '') + '.' +
     (skipped ? ' ' + skipped + ' exercise' + (skipped === 1 ? ' was' : 's were') + ' empty and left out.' : ''),
     queued ? 'warn' : '');
-  renderSummary(); renderProgress(); renderHistory();
+  renderProgress(); renderHistory();
 }
 
 /* ================= erg ================= */
@@ -958,7 +958,7 @@ async function saveErg() {
     prettyDate(row.date) +
     (row.session_type ? ' · ' + esc(row.session_type) : '') +
     (row.distance_m ? ' · ' + row.distance_m + 'm' : '') + '.', queued ? 'warn' : '');
-  renderErgRecent(); renderSummary(); renderHistory(); refreshWeekCount();
+  renderErgRecent(); renderHistory(); refreshWeekCount();
 }
 
 function ergSummaryLine(s) {
@@ -1586,7 +1586,7 @@ async function saveCoreSession() {
     steps.length + ' round' + (steps.length === 1 ? '' : 's') +
     ' · ' + fmtTime(t.total) + ' total (' + fmtTime(t.work) + ' work, ' + fmtTime(t.rest) + ' reset).',
     queued ? 'warn' : '');
-  renderHistory(); renderSummary();
+  renderHistory(); renderProgress();
 }
 
 function histCoreHTML(s) {
@@ -1678,63 +1678,47 @@ const statCell = (lab, val, unit, note, dim) =>
   '<div class="sm-val">' + val + (unit ? '<i>' + unit + '</i>' : '') + '</div>' +
   '<div class="sm-note">' + note + '</div></div>';
 
-function renderSummary() {
-  const el = $('sum-body');
-  const weeks = weeklyStats(), ergWeeks = ergWeekly(), coreWeeks = coreWeekly();
-  const keys = [...new Set([...Object.keys(weeks), ...Object.keys(ergWeeks), ...Object.keys(coreWeeks)])].sort().reverse();
-  if (!keys.length) {
-    el.innerHTML = '<p class="empty">Nothing to summarise yet - log a session first.</p>';
-    return;
-  }
+// The week across all three disciplines at once - the one view neither
+// Progress (one discipline, one measure) nor a session list gives you. It
+// heads each week in History.
+function weekStripHTML(wk, eg, cw) {
+  return '<div class="sum-strip">' +
+    statCell('Weights', wk ? wk.n : '–', '', wk ? wk.sets + ' sets' : 'none logged', !wk) +
+    statCell('Erg', eg ? round1(eg.km) : '–', eg ? 'km' : '',
+      eg ? eg.n + (eg.n === 1 ? ' session · ' : ' sessions · ') + fmtHM(eg.min) : 'none logged', !eg) +
+    statCell('Core', cw ? fmtHM(cw.min) : '–', '',
+      cw ? cw.n + (cw.n === 1 ? ' session' : ' sessions') : 'none logged', !cw) +
+    '</div>';
+}
 
-  el.innerHTML = keys.map((w, wi) => {
-    const wk = weeks[w], eg = ergWeeks[w], cw = coreWeeks[w];
-    const prevKey = keys.slice(wi + 1).find(k => weeks[k]), prev = prevKey ? weeks[prevKey] : null;
-    const total = (wk ? wk.n : 0) + (eg ? eg.n : 0) + (cw ? cw.n : 0);
-
-    const strip = '<div class="sum-strip">' +
-      statCell('Weights', wk ? wk.n : '–', '', wk ? wk.sets + ' sets' : 'none logged', !wk) +
-      statCell('Erg', eg ? round1(eg.km) : '–', eg ? 'km' : '',
-        eg ? eg.n + (eg.n === 1 ? ' session · ' : ' sessions · ') + fmtHM(eg.min) : 'none logged', !eg) +
-      statCell('Core', cw ? fmtHM(cw.min) : '–', '',
-        cw ? cw.n + (cw.n === 1 ? ' session' : ' sessions') : 'none logged', !cw) +
-      '</div>';
-
-    let table = '';
-    if (wk) {
-      const ids = Object.keys(wk.ex).sort((a, b) =>
-        patIdx(patternOf(a)) - patIdx(patternOf(b)) || exName(a).localeCompare(exName(b)));
-      const pats = [...new Set(ids.map(patternOf))];
-      table = '<table class="sumtbl"><thead><tr><th>Exercise</th>' +
-        '<th class="n">Sets</th><th class="n">Avg reps</th><th class="n">Avg load</th></tr></thead><tbody>' +
-        pats.map(p => '<tr class="patrow"><td colspan="4">' + esc(cap(p)) + '</td></tr>' +
-          ids.filter(id => patternOf(id) === p).map(id => {
-            const e = wk.ex[id], m = exById(id) || {};
-            const timeOnly = m.unit === 'secs';
-            const aReps = mean(e.reps), aW = mean(e.weights);
-            let delta = '';
-            if (prev && prev.ex[id] && prev.ex[id].weights.length && e.weights.length) {
-              const d = round1(aW - mean(prev.ex[id].weights));
-              if (d !== 0) delta = ' <span class="delta ' + (d > 0 ? 'up' : 'down') + '">' +
-                (d > 0 ? '▲' : '▼') + Math.abs(d) + '</span>';
-            }
-            return '<tr><td class="exc"><span class="nm">' + esc(exName(id)) + '</span>' +
-              '<span class="x">×' + e.times + '</span></td>' +
-              '<td class="n">' + e.sets + '</td>' +
-              '<td class="n">' + (aReps !== null ? round1(aReps) + (timeOnly ? 's' : '') : '–') + '</td>' +
-              '<td class="n">' + (timeOnly ? '<span class="na">–</span>'
-                : aW !== null ? round1(aW) + '<i>kg</i>' + delta : '<span class="na">BW</span>') +
-              '</td></tr>';
-          }).join('')).join('') + '</tbody></table>';
-    }
-
-    return '<section class="sumweek">' +
-      '<div class="sum-head"><h4>' + shortDate(w) + ' - ' + shortDate(addDays(w, 6)) + '</h4>' +
-      '<span class="sum-count">' + total + ' session' + (total === 1 ? '' : 's') + '</span></div>' +
-      strip + table + '</section>';
-  }).join('') +
-  '<footer class="footer" style="margin-top:1rem"><span>Averages are per set across the week. ' +
-  '×n = sessions the exercise appeared in; the arrow compares average load with the previous week you lifted.</span></footer>';
+// Every lift in one week, grouped by movement, with the change in average
+// load against the last week you did it. Progress charts one lift at a time,
+// so this is the only place a whole week of lifting is on one page.
+function liftWeekHTML(wk, prev) {
+  const ids = Object.keys(wk.ex).sort((a, b) =>
+    patIdx(patternOf(a)) - patIdx(patternOf(b)) || exName(a).localeCompare(exName(b)));
+  const pats = [...new Set(ids.map(patternOf))];
+  return '<table class="sumtbl"><thead><tr><th>Exercise</th>' +
+    '<th class="n">Sets</th><th class="n">Avg reps</th><th class="n">Avg load</th></tr></thead><tbody>' +
+    pats.map(p => '<tr class="patrow"><td colspan="4">' + esc(cap(p)) + '</td></tr>' +
+      ids.filter(id => patternOf(id) === p).map(id => {
+        const e = wk.ex[id], m = exById(id) || {};
+        const timeOnly = m.unit === 'secs';
+        const aReps = mean(e.reps), aW = mean(e.weights);
+        let delta = '';
+        if (prev && prev.ex[id] && prev.ex[id].weights.length && e.weights.length) {
+          const d = round1(aW - mean(prev.ex[id].weights));
+          if (d !== 0) delta = ' <span class="delta ' + (d > 0 ? 'up' : 'down') + '">' +
+            (d > 0 ? '▲' : '▼') + Math.abs(d) + '</span>';
+        }
+        return '<tr><td class="exc"><span class="nm">' + esc(exName(id)) + '</span>' +
+          '<span class="x">×' + e.times + '</span></td>' +
+          '<td class="n">' + e.sets + '</td>' +
+          '<td class="n">' + (aReps !== null ? round1(aReps) + (timeOnly ? 's' : '') : '–') + '</td>' +
+          '<td class="n">' + (timeOnly ? '<span class="na">–</span>'
+            : aW !== null ? round1(aW) + '<i>kg</i>' + delta : '<span class="na">BW</span>') +
+          '</td></tr>';
+      }).join('')).join('') + '</tbody></table>';
 }
 
 /* ================= progress =================
@@ -1745,6 +1729,8 @@ function renderSummary() {
      is a question about weeks, not about single sessions.
    Never two measures on one axis. Session tonnage is gone on purpose: it moves
    when the rep scheme changes and says nothing about whether you got stronger. */
+// Not a uuid, so it can never collide with a real exercise id.
+const ALL_LIFTS = 'all-lifts';
 const PROG = { mode: 'weights', ex: '', metric: '', weeks: '12' };
 
 const REP_METRICS = [
@@ -2006,16 +1992,23 @@ function progControlsHTML() {
     S.workouts.forEach(w => Object.keys(w.sets).forEach(id => done.add(id)));
     const opts = S.exercises.filter(e => done.has(e.id));
     if (opts.length) {
-      if (!opts.some(e => e.id === PROG.ex)) PROG.ex = opts[0].id;
+      if (PROG.ex !== ALL_LIFTS && !opts.some(e => e.id === PROG.ex)) PROG.ex = opts[0].id;
+      const all = PROG.ex === ALL_LIFTS;
       const metrics = metricsFor(exById(PROG.ex));
       if (!metrics.some(x => x.k === PROG.metric)) PROG.metric = metrics[0].k;
       rest =
-        '<select id="prog-pick" aria-label="Exercise">' + opts.map(e =>
+        '<select id="prog-pick" aria-label="Exercise">' +
+          '<option value="' + ALL_LIFTS + '"' + (all ? ' selected' : '') + '>' +
+          'All lifts, week by week</option>' +
+          opts.map(e =>
           '<option value="' + e.id + '"' + (e.id === PROG.ex ? ' selected' : '') + '>' +
           esc(e.name) + (e.retired ? ' (retired)' : '') + '</option>').join('') + '</select>' +
+        // One lift, one measure. A table of every lift has no single measure
+        // to pick, so the control goes rather than sitting there inert.
+        (all ? '' :
         '<select id="prog-metric" aria-label="Measure">' + metrics.map(x =>
           '<option value="' + x.k + '"' + (x.k === PROG.metric ? ' selected' : '') + '>' +
-          x.label + '</option>').join('') + '</select>';
+          x.label + '</option>').join('') + '</select>');
     }
   } else {
     const metrics = weeklyMetrics(PROG.mode);
@@ -2036,8 +2029,31 @@ function renderProgress() {
   const body = $('prog-body'), ctl = $('prog-controls');
   if (!body || !ctl) return;
   ctl.innerHTML = progControlsHTML();
-  if (PROG.mode === 'weights') renderProgWeights(body);
-  else renderProgWeekly(body);
+  if (PROG.mode !== 'weights') { renderProgWeekly(body); return; }
+  if (PROG.ex === ALL_LIFTS) renderProgAllLifts(body);
+  else renderProgWeights(body);
+}
+
+// Every lift, week by week. This is the view that answers "what did I actually
+// lift last week", which a per-lift chart cannot.
+function renderProgAllLifts(body) {
+  const weeks = weeklyStats();
+  const keys = Object.keys(weeks).sort().reverse();
+  const head = '<div class="prog-head"><h3 class="prog-title">All lifts</h3>' +
+    '<span class="prog-sub">Week by week, newest first · the arrow compares average load with ' +
+    'the previous week you did that lift</span></div>';
+  if (!keys.length) {
+    body.innerHTML = head + '<p class="empty">No weights sessions logged yet.</p>';
+    return;
+  }
+  body.innerHTML = head + keys.map((w, i) => {
+    const prevKey = keys[i + 1];
+    return '<section class="sumweek"><div class="sum-head">' +
+      '<h4>' + shortDate(w) + ' - ' + shortDate(addDays(w, 6)) + '</h4>' +
+      '<span class="sum-count">' + plural(weeks[w].n, 'session') + ' · ' +
+        plural(weeks[w].sets, 'set') + '</span></div>' +
+      liftWeekHTML(weeks[w], prevKey ? weeks[prevKey] : null) + '</section>';
+  }).join('');
 }
 
 function renderProgWeights(body) {
@@ -2209,16 +2225,16 @@ function renderHistory() {
 
   const weeks = {};
   all.forEach(x => { const w = mondayOf(x.r.date); (weeks[w] = weeks[w] || []).push(x); });
+  // Each week opens with what the week weighed in at across all three
+  // disciplines, then the sessions that made it up.
+  const wStats = weeklyStats(), ergW = ergWeekly(), coreW = coreWeekly();
 
   el.innerHTML = Object.keys(weeks).sort().reverse().map(w => {
     const items = weeks[w].sort((a, b) => sortKey(b.r).localeCompare(sortKey(a.r)));
-    const n = { w: 0, e: 0, c: 0 };
-    items.forEach(x => n[x.kind]++);
-    const counts = [[n.w, 'weights'], [n.e, 'erg'], [n.c, 'core']]
-      .filter(([c]) => c).map(([c, l]) => c + ' ' + l).join(' · ');
     return '<section class="weekgroup"><h4><span class="wg-when">' +
       shortDate(w) + ' - ' + shortDate(addDays(w, 6)) + '</span>' +
-      '<span class="wg-count">' + counts + '</span></h4>' +
+      '<span class="wg-count">' + plural(items.length, 'session') + '</span></h4>' +
+      weekStripHTML(wStats[w], ergW[w], coreW[w]) +
       items.map(x => x.kind === 'w' ? histWorkoutHTML(x.r)
                    : x.kind === 'c' ? histCoreHTML(x.r) : histErgHTML(x.r)).join('') +
       '</section>';
@@ -3115,14 +3131,14 @@ document.addEventListener('click', async e => {
   if (dw) {
     if (!confirm('Delete this weights session for good?')) return;
     const { error } = await sb.from('tracker_workouts').delete().eq('id', dw.dataset.delW);
-    if (!error) { S.workouts = S.workouts.filter(s => s.id !== dw.dataset.delW); renderHistory(); renderSummary(); renderProgress(); refreshWeekCount(); }
+    if (!error) { S.workouts = S.workouts.filter(s => s.id !== dw.dataset.delW); renderHistory(); renderProgress(); refreshWeekCount(); }
     return;
   }
   const dc = e.target.closest('[data-del-c]');
   if (dc) {
     if (!confirm('Delete this core session for good?')) return;
     const { error } = await sb.from('tracker_core_sessions').delete().eq('id', dc.dataset.delC);
-    if (!error) { S.coreSessions = S.coreSessions.filter(s => s.id !== dc.dataset.delC); renderHistory(); renderSummary(); refreshWeekCount(); }
+    if (!error) { S.coreSessions = S.coreSessions.filter(s => s.id !== dc.dataset.delC); renderHistory(); renderProgress(); refreshWeekCount(); }
     return;
   }
   // ---- core routine builder ----
@@ -3179,7 +3195,7 @@ document.addEventListener('click', async e => {
   if (de) {
     if (!confirm('Delete this erg session for good?')) return;
     const { error } = await sb.from('tracker_erg_sessions').delete().eq('id', de.dataset.delErg);
-    if (!error) { S.ergs = S.ergs.filter(s => s.id !== de.dataset.delErg); renderHistory(); renderSummary(); renderErgRecent(); refreshWeekCount(); }
+    if (!error) { S.ergs = S.ergs.filter(s => s.id !== de.dataset.delErg); renderHistory(); renderProgress(); renderErgRecent(); refreshWeekCount(); }
     return;
   }
   const ed = e.target.closest('[data-edit]');
@@ -3271,7 +3287,7 @@ document.addEventListener('click', async e => {
   $('log-date').value = todayISO();
   $('core-date').value = todayISO();
   renderLog(); renderErgGate(); renderErgRecent(); renderCoreTab();
-  renderSummary(); renderProgress(); renderHistory(); renderLibrary(); renderRoutines();
+  renderProgress(); renderHistory(); renderLibrary(); renderRoutines();
   restoreErgForm();
   paintSyncBadge();
   if (fromCache) {
@@ -3296,7 +3312,7 @@ document.addEventListener('click', async e => {
     const e2 = await loadAll();
     if (e2) return;
     cacheData();
-    renderLog(snapshotLog()); renderErgRecent(); renderSummary();
+    renderLog(snapshotLog()); renderErgRecent();
     renderProgress(); renderHistory(); refreshWeekCount();
   });
 
