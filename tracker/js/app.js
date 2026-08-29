@@ -906,7 +906,7 @@ function renderErgRecent() {
   const recent = S.ergs.slice(0, 6);
   $('erg-recent').innerHTML = !recent.length
     ? '<p class="empty">No erg sessions logged yet.</p>'
-    : '<div class="patlabel">Recent</div>' + recent.map(histErgHTML).join('');
+    : '<div class="dsub" style="margin-top:24px">Recent erg sessions</div>' + recent.map(histErgHTML).join('');
 }
 
 /* ---- entitlement: photo reading is the one paid feature ---- */
@@ -1011,9 +1011,18 @@ const RUN = { routineId: null, name: '', steps: [], idx: 0, running: false,
               started: false, idleSince: 0, restAccum: 0 };
 let editingRoutine = null;   // null = not editing, else {id|null, name, steps}
 
-const COUNTDOWN_S = 5;
+// The "get set" countdown is a preference, not a law. It was five seconds on
+// every round with only a per-round Skip, which is five seconds and a tap you
+// did not ask for at every single hold; the length is now yours to set, and 0
+// turns it off for good.
 const AUTONEXT_KEY = 'rt-core-autonext';
+const COUNTDOWN_KEY = 'rt-core-countdown';
+const COUNTDOWN_CHOICES = [0, 3, 5, 10];
 const autoNext = () => localStorage.getItem(AUTONEXT_KEY) === '1';
+const countdownS = () => {
+  const v = parseInt(localStorage.getItem(COUNTDOWN_KEY), 10);
+  return COUNTDOWN_CHOICES.includes(v) ? v : 5;
+};
 
 const routineById = id => S.routines.find(r => r.id === id) || null;
 const stepsOf = r => Array.isArray(r && r.steps) ? r.steps : [];
@@ -1194,22 +1203,67 @@ function renderRunner() {
         '<button id="tm-next">Next</button>' +
         '<button id="tm-reset">Reset</button>' +
       '</div>' +
-      '<label class="timer-opt"><input type="checkbox" id="tm-auto"' + (autoNext() ? ' checked' : '') + '>' +
-        'Roll straight into the next round</label>' +
+      '<div class="timer-opts">' +
+        '<label class="timer-opt"><input type="checkbox" id="tm-auto"' + (autoNext() ? ' checked' : '') + '>' +
+          'Roll into the next round</label>' +
+        '<label class="timer-opt">Get set' +
+          '<select id="tm-count">' + COUNTDOWN_CHOICES.map(v =>
+            '<option value="' + v + '"' + (v === countdownS() ? ' selected' : '') + '>' +
+            (v ? v + 's' : 'off') + '</option>').join('') + '</select></label>' +
+      '</div>' +
       '<div class="timer-tot" id="tm-tot"></div>' +
       (done ? '<div class="timer-done">Routine complete - check the times and save.</div>' : '') +
     '</div>' +
     '<div class="chead run"><span>#</span><span>Exercise</span><span>Target</span><span>Actual</span><span>Reset</span></div>' +
     '<div id="core-rows">' + RUN.steps.map(rowRunHTML).join('') + '</div>' +
+    '<p class="crow-hint">Tap <b>e/s</b> on a round to time left and right separately - it becomes two ' +
+      'rounds, two times, saved side by side. That is for this run; tick <b>E/S</b> in the routine ' +
+      'itself to have it split every time.</p>' +
     '<div class="fwide" style="margin-top:12px"><label>Notes</label>' +
       '<input type="text" id="core-notes" value="' + esc(notes) + '"></div>' +
     '<button class="save" id="core-save">Save core session</button>';
   paintTimer();
 }
+// A round can be split into left and right on the spot, without going back to
+// the routine: you find out a hold is one-sided while you are doing it, not
+// while you are writing the circuit down.
+function pairOf(i) {
+  const s = RUN.steps[i];
+  if (!s || !s.side) return null;
+  const li = s.side === 'L' ? i : i - 1;
+  const l = RUN.steps[li], r = RUN.steps[li + 1];
+  if (!l || !r || l.side !== 'L' || r.side !== 'R' || l.name !== r.name) return null;
+  return { li, l, r };
+}
+function splitRound(i) {
+  syncActualsFromDOM();
+  const s = RUN.steps[i];
+  if (!s || s.side || s.actual_s != null) return;
+  s.side = 'L'; s.beeped = false;
+  RUN.steps.splice(i + 1, 0, { name: s.name, side: 'R', target_s: s.target_s, actual_s: null, rest_s: 0 });
+  renderRunner();
+}
+function mergeRound(i) {
+  syncActualsFromDOM();
+  const pr = pairOf(i);
+  if (!pr || pr.l.actual_s != null || pr.r.actual_s != null) return;
+  RUN.steps.splice(pr.li, 2, { name: pr.l.name, target_s: pr.l.target_s, actual_s: null, rest_s: 0 });
+  if (RUN.idx > pr.li) RUN.idx = Math.max(0, RUN.idx - 1);
+  renderRunner();
+}
+
 function rowRunHTML(s, i) {
+  // don't offer to re-shape a round that is already recorded or already running
+  const open = s.actual_s == null && !(RUN.running && i === RUN.idx) && !(RUN.counting && i === RUN.idx);
+  const pr = pairOf(i);
+  const side = s.side
+    ? '<span class="cside">' + s.side + '</span>' +
+      (open && pr && pr.l.actual_s == null && pr.r.actual_s == null
+        ? '<button class="sidebtn on" data-cmerge="' + i + '" title="Back to one round">e/s</button>' : '')
+    : (open ? '<button class="sidebtn" data-csplit="' + i + '" title="Time each side separately">e/s</button>' : '');
   return '<div class="crow' + (i === RUN.idx ? ' now' : '') + (s.actual_s != null ? ' done' : '') + '" data-crow="' + i + '">' +
     '<span class="cno">' + (i + 1) + '</span>' +
-    '<span class="cname">' + esc(s.name) + (s.side ? ' <span class="cside">' + s.side + '</span>' : '') + '</span>' +
+    '<span class="cname">' + esc(s.name) + side + '</span>' +
     '<span class="ctar">' + (s.target_s ? s.target_s + 's' : '–') + '</span>' +
     '<input type="number" inputmode="numeric" class="cs-actual" data-i="' + i + '" ' +
       'value="' + (s.actual_s != null ? s.actual_s : '') + '" placeholder="' + (s.target_s || '') + '">' +
@@ -1282,10 +1336,11 @@ const fmtClock = sec => {
 function startTimer(skipCountdown) {
   if (RUN.running || !RUN.steps[RUN.idx]) return;
   if (RUN.counting) { cancelCountdown(); beginRound(); return; }
-  if (skipCountdown || !COUNTDOWN_S) { beginRound(); return; }
+  const cd = countdownS();
+  if (skipCountdown || !cd) { beginRound(); return; }
   RUN.counting = true;
-  RUN.countEnd = Date.now() + COUNTDOWN_S * 1000;
-  RUN.lastCount = COUNTDOWN_S + 1;
+  RUN.countEnd = Date.now() + cd * 1000;
+  RUN.lastCount = cd + 1;
   keepAwake(true);
   RUN.countTick = setInterval(() => {
     const left = Math.ceil((RUN.countEnd - Date.now()) / 1000);
@@ -1459,9 +1514,8 @@ async function saveCoreSession() {
 function histCoreHTML(s) {
   const steps = Array.isArray(s.steps) ? s.steps : [];
   const t = coreTotals(steps);
-  const summary = esc(s.routine_name || 'Core') + ' · ' + steps.length +
-    ' round' + (steps.length === 1 ? '' : 's') + ' · ' + fmtTime(t.total) +
-    (t.rest ? ' (' + fmtTime(t.work) + ' work)' : '');
+  const summary = esc(s.routine_name || 'Core') + ' · ' + fmtTime(t.work) + ' working' +
+    (t.rest ? ' · ' + fmtTime(t.total) + ' start to finish' : '');
   const facts = '<dl class="dfacts">' +
     '<dt>Session length</dt><dd>' + fmtTime(t.total) + '</dd>' +
     '<dt>Time working</dt><dd>' + fmtTime(t.work) + '</dd>' +
@@ -1482,15 +1536,31 @@ function histCoreHTML(s) {
   return entryHTML(s, 'core', 'core', summary, detail, 'c');
 }
 
-/* ================= summary ================= */
+/* ================= summary =================
+   One ruled block per week: what the week weighed in at across all three
+   disciplines, then the lifts that made it up. Rules and tabular figures, not
+   cards - a week should read like a sheet pinned to the boathouse wall. */
+const addDays = (iso, n) => {
+  const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+};
+const thisMonday = () => mondayOf(todayISO());
+// Minutes, because every duration on these screens is compared against another
+// duration and h:mm:ss does not subtract in your head.
+const fmtHM = min => {
+  const t = Math.round(min);
+  return t >= 60 ? Math.floor(t / 60) + 'h ' + pad(t % 60) + 'm' : t + 'm';
+};
+
 function weeklyStats() {
   const weeks = {};
   S.workouts.forEach(s => {
     const w = mondayOf(s.date);
-    weeks[w] = weeks[w] || { n: 0, ex: {} };
-    weeks[w].n++;
+    const wk = weeks[w] = weeks[w] || { n: 0, sets: 0, ex: {} };
+    wk.n++;
+    wk.sets += workoutTotals(s).sets;
     Object.keys(s.sets).forEach(id => {
-      const e = weeks[w].ex[id] = weeks[w].ex[id] || { times: 0, sets: 0, reps: [], weights: [] };
+      const e = wk.ex[id] = wk.ex[id] || { times: 0, sets: 0, reps: [], weights: [] };
       e.times++; e.sets += s.sets[id].length;
       s.sets[id].forEach(r => {
         const rv = parseFloat(r.r); if (!isNaN(rv)) e.reps.push(rv);
@@ -1501,91 +1571,142 @@ function weeklyStats() {
   return weeks;
 }
 
-function renderSummary() {
-  const el = $('sum-body');
-  const weeks = weeklyStats();
-  // fold erg weeks in so a week with only erg work still shows
-  const ergWeeks = {};
+// Erg and core, by week, in the shape both the summary and the progress bars
+// want: distance in km, time in minutes, sessions counted.
+function ergWeekly() {
+  const out = {};
   S.ergs.forEach(s => {
     const w = mondayOf(s.date);
-    const e = ergWeeks[w] = ergWeeks[w] || { n: 0, meters: 0, time: 0 };
-    e.n++; e.meters += s.distance_m || 0; e.time += s.total_time_s || 0;
+    const e = out[w] = out[w] || { n: 0, km: 0, min: 0 };
+    e.n++; e.km += (s.distance_m || 0) / 1000; e.min += (s.total_time_s || 0) / 60;
   });
-  const coreWeeks = {};
+  return out;
+}
+function coreWeekly() {
+  const out = {};
   S.coreSessions.forEach(s => {
     const w = mondayOf(s.date);
-    const c = coreWeeks[w] = coreWeeks[w] || { n: 0, rounds: 0, time: 0, rest: 0 };
+    const c = out[w] = out[w] || { n: 0, min: 0, rest: 0 };
     c.n++;
     (Array.isArray(s.steps) ? s.steps : []).forEach(x => {
-      c.rounds++; c.time += x.actual_s || 0; c.rest += x.rest_s || 0;
+      c.min += (x.actual_s || 0) / 60; c.rest += (x.rest_s || 0) / 60;
     });
   });
+  return out;
+}
+
+const statCell = (lab, val, unit, note, dim) =>
+  '<div class="sm' + (dim ? ' dim' : '') + '"><div class="sm-lab">' + lab + '</div>' +
+  '<div class="sm-val">' + val + (unit ? '<i>' + unit + '</i>' : '') + '</div>' +
+  '<div class="sm-note">' + note + '</div></div>';
+
+function renderSummary() {
+  const el = $('sum-body');
+  const weeks = weeklyStats(), ergWeeks = ergWeekly(), coreWeeks = coreWeekly();
   const keys = [...new Set([...Object.keys(weeks), ...Object.keys(ergWeeks), ...Object.keys(coreWeeks)])].sort().reverse();
-  if (!keys.length) { el.innerHTML = '<p class="empty">Nothing to summarise yet - log a session first.</p>'; return; }
+  if (!keys.length) {
+    el.innerHTML = '<p class="empty">Nothing to summarise yet - log a session first.</p>';
+    return;
+  }
 
   el.innerHTML = keys.map((w, wi) => {
-    const wk = weeks[w], prevKey = keys.slice(wi + 1).find(k => weeks[k]), prev = prevKey ? weeks[prevKey] : null;
-    const eg = ergWeeks[w], cw = coreWeeks[w];
-    const sunday = new Date(w + 'T12:00:00'); sunday.setDate(sunday.getDate() + 6);
-    const sunISO = sunday.getFullYear() + '-' + pad(sunday.getMonth() + 1) + '-' + pad(sunday.getDate());
+    const wk = weeks[w], eg = ergWeeks[w], cw = coreWeeks[w];
+    const prevKey = keys.slice(wi + 1).find(k => weeks[k]), prev = prevKey ? weeks[prevKey] : null;
+    const total = (wk ? wk.n : 0) + (eg ? eg.n : 0) + (cw ? cw.n : 0);
 
-    let body = '';
-    if (eg) {
-      body += '<div class="patlabel">Erg</div><div class="srow"><div class="sname">Erg volume</div><div class="sstats">' +
-        '<span><b>' + eg.n + '</b>sessions</span>' +
-        (eg.meters ? '<span><b>' + (eg.meters >= 10000 ? (eg.meters / 1000).toFixed(1) + 'k' : eg.meters) + '</b>m</span>' : '') +
-        (eg.time ? '<span><b>' + fmtTime(eg.time) + '</b></span>' : '') + '</div></div>';
-    }
-    if (cw) {
-      body += '<div class="patlabel">Core</div><div class="srow"><div class="sname">Core work</div><div class="sstats">' +
-        '<span><b>' + cw.n + '</b>sessions</span><span><b>' + cw.rounds + '</b>rounds</span>' +
-        '<span><b>' + fmtTime(cw.time) + '</b>work</span>' +
-        (cw.rest ? '<span><b>' + fmtTime(cw.rest) + '</b>reset</span>' : '') + '</div></div>';
-    }
+    const strip = '<div class="sum-strip">' +
+      statCell('Weights', wk ? wk.n : '–', '', wk ? wk.sets + ' sets' : 'none logged', !wk) +
+      statCell('Erg', eg ? round1(eg.km) : '–', eg ? 'km' : '',
+        eg ? eg.n + (eg.n === 1 ? ' session · ' : ' sessions · ') + fmtHM(eg.min) : 'none logged', !eg) +
+      statCell('Core', cw ? fmtHM(cw.min) : '–', '',
+        cw ? cw.n + (cw.n === 1 ? ' session' : ' sessions') : 'none logged', !cw) +
+      '</div>';
+
+    let table = '';
     if (wk) {
-      const ids = Object.keys(wk.ex).sort((a, b) => patIdx(patternOf(a)) - patIdx(patternOf(b)) || exName(a).localeCompare(exName(b)));
+      const ids = Object.keys(wk.ex).sort((a, b) =>
+        patIdx(patternOf(a)) - patIdx(patternOf(b)) || exName(a).localeCompare(exName(b)));
       const pats = [...new Set(ids.map(patternOf))];
-      body += pats.map(p => '<div class="patlabel">' + esc(cap(p)) + '</div>' +
-        ids.filter(id => patternOf(id) === p).map(id => {
-          const e = wk.ex[id], m = exById(id) || {};
-          const timeOnly = m.unit === 'secs';
-          const aReps = mean(e.reps), aW = mean(e.weights), aSets = e.sets / e.times;
-          let delta = '';
-          if (prev && prev.ex[id] && prev.ex[id].weights.length && e.weights.length) {
-            const d = round1(aW - mean(prev.ex[id].weights));
-            if (d !== 0) delta = '<span class="delta ' + (d > 0 ? 'up' : 'down') + '">' + (d > 0 ? '▲' : '▼') + Math.abs(d) + '</span>';
-          }
-          return '<div class="srow"><div class="sname">' + esc(exName(id)) +
-            ' <span class="delta">×' + e.times + '</span></div><div class="sstats">' +
-            '<span><b>' + round1(aSets) + '</b>' + (timeOnly ? 'holds' : 'sets') + '</span>' +
-            '<span><b>' + (aReps !== null ? round1(aReps) : '–') + '</b>' + (timeOnly ? 'secs' : 'reps') + '</span>' +
-            (timeOnly ? '' : '<span><b>' + (aW !== null ? round1(aW) : 'BW') + '</b>' + (aW !== null ? 'kg' : '') + delta + '</span>') +
-            '</div></div>';
-        }).join('')).join('');
+      table = '<table class="sumtbl"><thead><tr><th>Exercise</th>' +
+        '<th class="n">Sets</th><th class="n">Avg reps</th><th class="n">Avg load</th></tr></thead><tbody>' +
+        pats.map(p => '<tr class="patrow"><td colspan="4">' + esc(cap(p)) + '</td></tr>' +
+          ids.filter(id => patternOf(id) === p).map(id => {
+            const e = wk.ex[id], m = exById(id) || {};
+            const timeOnly = m.unit === 'secs';
+            const aReps = mean(e.reps), aW = mean(e.weights);
+            let delta = '';
+            if (prev && prev.ex[id] && prev.ex[id].weights.length && e.weights.length) {
+              const d = round1(aW - mean(prev.ex[id].weights));
+              if (d !== 0) delta = ' <span class="delta ' + (d > 0 ? 'up' : 'down') + '">' +
+                (d > 0 ? '▲' : '▼') + Math.abs(d) + '</span>';
+            }
+            return '<tr><td class="exc"><span class="nm">' + esc(exName(id)) + '</span>' +
+              '<span class="x">×' + e.times + '</span></td>' +
+              '<td class="n">' + e.sets + '</td>' +
+              '<td class="n">' + (aReps !== null ? round1(aReps) + (timeOnly ? 's' : '') : '–') + '</td>' +
+              '<td class="n">' + (timeOnly ? '<span class="na">–</span>'
+                : aW !== null ? round1(aW) + '<i>kg</i>' + delta : '<span class="na">BW</span>') +
+              '</td></tr>';
+          }).join('')).join('') + '</tbody></table>';
     }
-    return '<div class="sumweek"><h4>' + shortDate(w) + ' - ' + shortDate(sunISO) + '</h4>' +
-      '<div class="meta">' + (wk ? wk.n + ' weights' : '0 weights') +
-      (eg ? ' · ' + eg.n + ' erg' : '') + (cw ? ' · ' + cw.n + ' core' : '') + '</div>' + body + '</div>';
+
+    return '<section class="sumweek">' +
+      '<div class="sum-head"><h4>' + shortDate(w) + ' - ' + shortDate(addDays(w, 6)) + '</h4>' +
+      '<span class="sum-count">' + total + ' session' + (total === 1 ? '' : 's') + '</span></div>' +
+      strip + table + '</section>';
   }).join('') +
-  '<footer class="footer" style="margin-top:1rem"><span>Averages are per set across the week. ×n = sessions the exercise appeared in; the arrow compares average weight with the previous logged week.</span></footer>';
+  '<footer class="footer" style="margin-top:1rem"><span>Averages are per set across the week. ' +
+  '×n = sessions the exercise appeared in; the arrow compares average load with the previous week you lifted.</span></footer>';
 }
 
 /* ================= progress =================
-   One lift, one measure, one axis. Two measures of different scale is two
-   charts, never two y-scales on the same one. */
+   Three things get plotted here and they are not the same shape, so the tab
+   switches between them rather than stacking them:
+     Weights - one lift, one measure, a line by session.
+     Erg and Core - weekly load as bars, because "am I getting through more"
+     is a question about weeks, not about single sessions.
+   Never two measures on one axis. Session tonnage is gone on purpose: it moves
+   when the rep scheme changes and says nothing about whether you got stronger. */
+const PROG = { mode: 'weights', ex: '', metric: '', weeks: '12' };
+
 const REP_METRICS = [
-  { k: 'top', label: 'Heaviest set', unit: 'kg' },
+  { k: 'top',  label: 'Heaviest set',  unit: 'kg' },
   { k: 'e1rm', label: 'Estimated 1RM', unit: 'kg' },
-  { k: 'volume', label: 'Session volume', unit: 'kg' },
 ];
 const SEC_METRICS = [
-  { k: 'top', label: 'Longest hold', unit: 's' },
+  { k: 'top',    label: 'Longest hold',   unit: 's' },
   { k: 'volume', label: 'Total time held', unit: 's' },
 ];
 const metricsFor = m => (m && m.unit === 'secs') ? SEC_METRICS : REP_METRICS;
 // Epley. Named on the chart, because an estimate presented as a measurement is
 // worse than no estimate.
 const e1rm = (w, reps) => w * (1 + reps / 30);
+
+// dp is the precision the number is SHOWN at; week-on-week change is computed
+// from the rounded figures so the table can never read "8m, 8m, +0.1".
+const ERG_METRICS = [
+  { k: 'km',  label: 'Distance a week', col: 'Distance', dp: 1,
+    fmt: v => round1(v) + ' km', short: v => round1(v) + ' km' },
+  { k: 'min', label: 'Time a week',     col: 'Time',     dp: 0,
+    fmt: v => fmtHM(v), short: v => fmtHM(v) },
+  { k: 'n',   label: 'Sessions a week', col: 'Sessions', dp: 0,
+    fmt: v => Math.round(v) + (v === 1 ? ' session' : ' sessions'), short: v => String(Math.round(v)) },
+];
+const CORE_METRICS = [
+  { k: 'min', label: 'Time working a week', col: 'Working',  dp: 0,
+    fmt: v => fmtHM(v), short: v => fmtHM(v) },
+  { k: 'n',   label: 'Sessions a week',     col: 'Sessions', dp: 0,
+    fmt: v => Math.round(v) + (v === 1 ? ' session' : ' sessions'), short: v => String(Math.round(v)) },
+];
+const WEEK_RANGES = [
+  { k: '8',   label: 'Last 8 weeks' },
+  { k: '12',  label: 'Last 12 weeks' },
+  { k: '26',  label: 'Last 26 weeks' },
+  { k: 'all', label: 'All time' },
+];
+
+const weeklyMetrics = mode => mode === 'core' ? CORE_METRICS : ERG_METRICS;
+const pickMetric = (list, k) => list.find(x => x.k === k) || list[0];
 
 function progressSeries(exId, metric) {
   const m = exById(exId) || {};
@@ -1596,20 +1717,43 @@ function progressSeries(exId, metric) {
     if (!rows || !rows.length) return;
     const sets = rows.map(r => ({ reps: parseFloat(r.r), wt: parseFloat(r.w) })).filter(x => !isNaN(x.reps));
     if (!sets.length) return;
-    let v = null;
+    let v = null, best = null;
     if (timeOnly) {
-      v = metric === 'volume' ? sets.reduce((a, s) => a + s.reps, 0) : Math.max(...sets.map(s => s.reps));
+      if (metric === 'volume') v = sets.reduce((a, s) => a + s.reps, 0);
+      else { best = sets.reduce((a, s) => (a && a.reps >= s.reps) ? a : s, null); v = best.reps; }
     } else {
       const wt = sets.filter(s => !isNaN(s.wt));
       if (!wt.length) return;                      // bodyweight-only day: nothing to plot
-      if (metric === 'volume') v = wt.reduce((a, s) => a + s.reps * s.wt, 0);
-      else if (metric === 'e1rm') v = Math.max(...wt.map(s => e1rm(s.wt, s.reps)));
-      else v = Math.max(...wt.map(s => s.wt));
+      if (metric === 'e1rm') {
+        best = wt.reduce((a, s) => (a && e1rm(a.wt, a.reps) >= e1rm(s.wt, s.reps)) ? a : s, null);
+        v = e1rm(best.wt, best.reps);
+      } else {
+        best = wt.reduce((a, s) => (a && a.wt >= s.wt) ? a : s, null);
+        v = best.wt;
+      }
     }
     if (v == null || !isFinite(v) || v <= 0) return;
-    pts.push({ date: w.date, v: round1(v), sets, id: w.id });
+    pts.push({ date: w.date, v: round1(v), sets, best, id: w.id });
   });
   return pts;
+}
+
+// Erg and core roll up by week, and the empty weeks have to be in the series:
+// a fortnight off is the most important thing a load chart can show you.
+function weeklySeries(mode, metricKey, range) {
+  const agg = mode === 'core' ? coreWeekly() : ergWeekly();
+  const logged = Object.keys(agg).sort();
+  if (!logged.length) return [];
+  const end = thisMonday();
+  let start = range === 'all' ? logged[0] : addDays(end, -7 * (parseInt(range, 10) - 1));
+  if (start < logged[0]) start = logged[0];
+  if (start > end) start = end;
+  const out = [];
+  for (let w = start; w <= end; w = addDays(w, 7)) {
+    const a = agg[w] || { n: 0, km: 0, min: 0 };
+    out.push({ date: w, v: round1(a[metricKey] || 0), n: a.n });
+  }
+  return out;
 }
 
 // plotted point positions, for the hover layer
@@ -1617,7 +1761,7 @@ let chartPts = [];
 
 const niceStep = span => {
   const raw = span / 4, pow = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / pow;
-  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * pow;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * pow;
 };
 
 // Rendered at a measured pixel width rather than scaled from a viewBox, so the
@@ -1678,7 +1822,11 @@ function chartHTML(pts, unit, W) {
     '<text class="ctick" x="' + xy[i][0].toFixed(1) + '" y="' + (H - 8) + '" text-anchor="' +
       (i === 0 ? 'start' : 'end') + '">' + shortDate(pts[i].date) + '</text>').join('');
 
-  chartPts = pts.map((p, i) => ({ x: +xy[i][0].toFixed(1), y: +xy[i][1].toFixed(1), d: p.date, v: p.v }));
+  chartPts = pts.map((p, i) => ({
+    x: +xy[i][0].toFixed(1), y: +xy[i][1].toFixed(1),
+    lab: prettyDate(p.date), val: round1(p.v) + unit,
+    sub: p.best ? topSetText(p.best, unit === 's') : '',
+  }));
   return '<div class="chartwrap" id="chartwrap">' +
     '<svg width="' + W + '" height="' + H + '" role="img" aria-label="Progress over time; the same numbers are in the table below">' +
       grid.join('') +
@@ -1693,57 +1841,157 @@ function chartHTML(pts, unit, W) {
     '</svg><div class="ctip" id="ch-tip" style="display:none"></div></div>';
 }
 
-function renderProgress() {
-  const body = $('prog-body'), pick = $('prog-pick'), mSel = $('prog-metric');
-  if (!body) return;
+const topSetText = (s, timeOnly) => !s ? ''
+  : timeOnly ? round1(s.reps) + 's hold'
+  : isNaN(s.wt) ? round1(s.reps) + ' reps bodyweight'
+  : round1(s.reps) + ' × ' + round1(s.wt) + 'kg';
 
-  // only lifts that have actually been logged; retired ones still count, since
-  // their history is the point of this tab
-  const done = new Set();
-  S.workouts.forEach(w => Object.keys(w.sets).forEach(id => done.add(id)));
-  const opts = S.exercises.filter(e => done.has(e.id));
-  if (!opts.length) {
-    pick.innerHTML = '<option value="">Nothing logged yet</option>';
-    mSel.innerHTML = '';
-    body.innerHTML = '<p class="empty">Log a few weights sessions and this fills in - one lift at a time, so you can see whether it is actually moving.</p>';
-    return;
+// Weekly load is a count per bucket, not a reading on a curve, so it gets bars
+// and a zero baseline. The line over the top is a four-week mean: week to week
+// is noise, and the trend is the thing you actually want off this chart.
+function barsHTML(pts, metric, W) {
+  const H = 250, P = { t: 26, r: 14, b: 30, l: 46 };
+  const iw = Math.max(40, W - P.l - P.r), ih = H - P.t - P.b;
+  const vs = pts.map(p => p.v);
+  const hi = Math.max(...vs, 0);
+  const step = niceStep(hi || 1);
+  const y1 = Math.max(step, Math.ceil(hi / step) * step);
+  const Y = v => P.t + ih - (v / y1) * ih;
+  const slot = iw / pts.length;
+  const bw = Math.max(3, Math.min(38, slot * 0.66));
+  const cx = i => P.l + slot * (i + 0.5);
+
+  const grid = [];
+  for (let v = 0; v <= y1 + 1e-9; v += step) {
+    grid.push('<line class="cgrid" x1="' + P.l + '" y1="' + Y(v).toFixed(1) + '" x2="' + (P.l + iw) + '" y2="' + Y(v).toFixed(1) + '"/>' +
+      '<text class="ctick" x="' + (P.l - 8) + '" y="' + (Y(v) + 3.5).toFixed(1) + '" text-anchor="end">' + round1(v) + '</text>');
   }
 
-  const keep = pick.value;
-  pick.innerHTML = opts.map(e => '<option value="' + e.id + '">' + esc(e.name) +
-    (e.retired ? ' (retired)' : '') + '</option>').join('');
-  if (keep && opts.some(e => e.id === keep)) pick.value = keep;
+  const bars = pts.map((p, i) => {
+    const h = Math.max(p.v > 0 ? 2 : 0, ih - (Y(p.v) - P.t));
+    return '<rect class="cbar' + (p.v ? '' : ' zero') + (i === pts.length - 1 ? ' last' : '') + '" x="' +
+      (cx(i) - bw / 2).toFixed(1) + '" y="' + (P.t + ih - h).toFixed(1) +
+      '" width="' + bw.toFixed(1) + '" height="' + h.toFixed(1) + '"/>';
+  }).join('');
 
-  const m = exById(pick.value) || {};
-  const metrics = metricsFor(m);
-  const keepM = mSel.value;
-  mSel.innerHTML = metrics.map(x => '<option value="' + x.k + '">' + x.label + '</option>').join('');
-  if (keepM && metrics.some(x => x.k === keepM)) mSel.value = keepM;
-  const metric = metrics.find(x => x.k === mSel.value) || metrics[0];
+  // four-week mean, drawn only once there is enough series to mean anything
+  let trend = '';
+  if (pts.length >= 5) {
+    const roll = pts.map((_, i) => {
+      const from = Math.max(0, i - 3);
+      const win = vs.slice(from, i + 1);
+      return win.reduce((a, x) => a + x, 0) / win.length;
+    });
+    trend = '<path class="ctrend" d="' + roll.map((v, i) =>
+      (i ? 'L' : 'M') + cx(i).toFixed(1) + ' ' + Y(v).toFixed(1)).join(' ') + '"/>';
+  }
 
-  const pts = progressSeries(pick.value, metric.k);
-  const title = '<div class="prog-head"><span class="prog-title">' + esc(m.name || '') + '</span></div>' +
-    '<div class="prog-sub">' + esc(metric.label) + ' by session' +
-    (metric.k === 'e1rm' ? ' · Epley estimate from your heaviest set, not a tested max' : '') + '</div>';
+  // one x label roughly every fifth bar, always including the last week
+  const every = Math.max(1, Math.ceil(pts.length / 5));
+  const xlabs = pts.map((p, i) => {
+    if (i !== pts.length - 1 && (pts.length - 1 - i) % every) return '';
+    return '<text class="ctick" x="' + cx(i).toFixed(1) + '" y="' + (H - 9) + '" text-anchor="middle">' +
+      shortDate(p.date) + '</text>';
+  }).join('');
+
+  chartPts = pts.map((p, i) => ({
+    x: +cx(i).toFixed(1), y: +Y(p.v).toFixed(1),
+    lab: 'Week of ' + shortDate(p.date),
+    val: metric.fmt(p.v),
+    sub: p.v ? '' : 'nothing logged',
+  }));
+
+  return '<div class="chartwrap" id="chartwrap">' +
+    '<svg width="' + W + '" height="' + H + '" role="img" aria-label="Weekly training load; the same numbers are in the table below">' +
+      grid.join('') + bars + trend +
+      '<line class="caxis" x1="' + P.l + '" y1="' + (P.t + ih) + '" x2="' + (P.l + iw) + '" y2="' + (P.t + ih) + '"/>' +
+      '<line class="ccross" id="ch-cross" x1="0" y1="' + P.t + '" x2="0" y2="' + (P.t + ih) + '" style="display:none"/>' +
+      '<circle class="cdot-hi" id="ch-hi" cx="0" cy="0" r="5.5" style="display:none"/>' +
+      xlabs +
+      '<rect id="ch-hit" x="' + P.l + '" y="' + P.t + '" width="' + iw + '" height="' + ih + '" fill="transparent"/>' +
+    '</svg><div class="ctip" id="ch-tip" style="display:none"></div></div>';
+}
+
+const tileHTML = (lab, val, note, cls) =>
+  '<div class="tile"><div class="tile-lab">' + lab + '</div>' +
+  '<div class="tile-val' + (cls ? ' ' + cls : '') + '">' + val + '</div>' +
+  '<div class="tile-note">' + note + '</div></div>';
+
+/* ---- controls ---- */
+function progControlsHTML() {
+  const seg = ['weights', 'erg', 'core'].map(k =>
+    '<button class="seg' + (PROG.mode === k ? ' active' : '') + '" data-pmode="' + k + '" ' +
+    'role="tab" aria-selected="' + (PROG.mode === k) + '">' + cap(k) + '</button>').join('');
+  let rest = '';
+  if (PROG.mode === 'weights') {
+    const done = new Set();
+    S.workouts.forEach(w => Object.keys(w.sets).forEach(id => done.add(id)));
+    const opts = S.exercises.filter(e => done.has(e.id));
+    if (opts.length) {
+      if (!opts.some(e => e.id === PROG.ex)) PROG.ex = opts[0].id;
+      const metrics = metricsFor(exById(PROG.ex));
+      if (!metrics.some(x => x.k === PROG.metric)) PROG.metric = metrics[0].k;
+      rest =
+        '<select id="prog-pick" aria-label="Exercise">' + opts.map(e =>
+          '<option value="' + e.id + '"' + (e.id === PROG.ex ? ' selected' : '') + '>' +
+          esc(e.name) + (e.retired ? ' (retired)' : '') + '</option>').join('') + '</select>' +
+        '<select id="prog-metric" aria-label="Measure">' + metrics.map(x =>
+          '<option value="' + x.k + '"' + (x.k === PROG.metric ? ' selected' : '') + '>' +
+          x.label + '</option>').join('') + '</select>';
+    }
+  } else {
+    const metrics = weeklyMetrics(PROG.mode);
+    if (!metrics.some(x => x.k === PROG.metric)) PROG.metric = metrics[0].k;
+    rest =
+      '<select id="prog-metric" aria-label="Measure">' + metrics.map(x =>
+        '<option value="' + x.k + '"' + (x.k === PROG.metric ? ' selected' : '') + '>' +
+        x.label + '</option>').join('') + '</select>' +
+      '<select id="prog-weeks" aria-label="Range">' + WEEK_RANGES.map(r =>
+        '<option value="' + r.k + '"' + (r.k === PROG.weeks ? ' selected' : '') + '>' +
+        r.label + '</option>').join('') + '</select>';
+  }
+  return '<div class="segmented" role="tablist" aria-label="What to chart">' + seg + '</div>' +
+    (rest ? '<div class="progbar">' + rest + '</div>' : '');
+}
+
+function renderProgress() {
+  const body = $('prog-body'), ctl = $('prog-controls');
+  if (!body || !ctl) return;
+  ctl.innerHTML = progControlsHTML();
+  if (PROG.mode === 'weights') renderProgWeights(body);
+  else renderProgWeekly(body);
+}
+
+function renderProgWeights(body) {
+  if (!$('prog-pick')) {
+    body.innerHTML = '<p class="empty">Log a few weights sessions and this fills in - one lift at a ' +
+      'time, so you can see whether it is actually moving.</p>';
+    return;
+  }
+  const m = exById(PROG.ex) || {};
+  const metric = pickMetric(metricsFor(m), PROG.metric);
+  const timeOnly = m.unit === 'secs';
+  const pts = progressSeries(PROG.ex, metric.k);
+  const head = '<div class="prog-head"><h3 class="prog-title">' + esc(m.name || '') + '</h3>' +
+    '<span class="prog-sub">' + esc(metric.label) + ' by session' +
+    (metric.k === 'e1rm' ? ' · Epley estimate from your best set, not a tested max' : '') + '</span></div>';
 
   if (!pts.length) {
-    body.innerHTML = title + '<p class="empty">No sets with a weight recorded for this one yet.</p>';
+    body.innerHTML = head + '<p class="empty">No sets with a weight recorded for this one yet.</p>';
     return;
   }
 
   const vs = pts.map(p => p.v);
+  const last = pts[pts.length - 1];
   const best = Math.max(...vs), bestAt = pts[vs.indexOf(best)];
-  const change = round1(pts[pts.length - 1].v - pts[0].v);
-  const tiles =
-    '<div class="prog-tiles">' +
-      '<div><div class="tile-lab">Latest</div><div class="tile-val">' + round1(pts[pts.length - 1].v) + metric.unit +
-        '</div><div class="tile-note">' + shortDate(pts[pts.length - 1].date) + '</div></div>' +
-      '<div><div class="tile-lab">Best</div><div class="tile-val">' + round1(best) + metric.unit +
-        '</div><div class="tile-note">' + shortDate(bestAt.date) + '</div></div>' +
-      '<div><div class="tile-lab">Since ' + shortDate(pts[0].date) + '</div>' +
-        '<div class="tile-val ' + (change > 0 ? 'up' : change < 0 ? 'down' : '') + '">' +
-        (change > 0 ? '+' : '') + change + metric.unit + '</div>' +
-        '<div class="tile-note">' + pts.length + ' session' + (pts.length === 1 ? '' : 's') + '</div></div>' +
+  const change = round1(last.v - pts[0].v);
+  const tiles = '<div class="prog-tiles">' +
+    tileHTML('Latest', round1(last.v) + metric.unit,
+      shortDate(last.date) + (last.best ? ' · ' + topSetText(last.best, timeOnly) : '')) +
+    tileHTML('Best', round1(best) + metric.unit, shortDate(bestAt.date)) +
+    tileHTML('Since ' + shortDate(pts[0].date), (change > 0 ? '+' : '') + change + metric.unit,
+      pts.length + ' session' + (pts.length === 1 ? '' : 's'),
+      change > 0 ? 'up' : change < 0 ? 'down' : '') +
     '</div>';
 
   const chart = pts.length > 1
@@ -1751,26 +1999,95 @@ function renderProgress() {
       '<p class="chart-note">Tap or hover the chart for a session. Every session is in the table below.</p>'
     : '<p class="chart-note">One session so far - the chart starts once there are two.</p>';
 
-  const table = '<div class="dtbl-wrap"><table class="dtbl">' +
-    '<thead><tr><th>Date</th><th>' + esc(metric.label) + '</th><th>Change</th><th>Sets</th></tr></thead><tbody>' +
+  const table = '<div class="dtbl-wrap"><table class="dtbl prog-tbl">' +
+    '<thead><tr><th>Date</th><th class="n">' + esc(metric.label) + '</th><th class="n">Change</th>' +
+    '<th>Top set</th><th>All sets</th></tr></thead><tbody>' +
     [...pts].reverse().map((p, i, arr) => {
       const prev = arr[i + 1];
       const d = prev ? round1(p.v - prev.v) : null;
       return '<tr><td>' + shortDate(p.date) + '</td>' +
-        '<td>' + round1(p.v) + metric.unit + '</td>' +
-        '<td>' + (d === null || d === 0 ? '<span class="na">–</span>'
+        '<td class="n">' + round1(p.v) + metric.unit + '</td>' +
+        '<td class="n">' + (d === null || d === 0 ? '<span class="na">–</span>'
           : '<span class="delta ' + (d > 0 ? 'up' : 'down') + '">' + (d > 0 ? '+' : '') + d + '</span>') + '</td>' +
-        '<td>' + esc(p.sets.map(s => (isNaN(s.wt) ? s.reps + (m.unit === 'secs' ? 's' : '')
-          : s.reps + '×' + s.wt + 'kg')).join('  ')) + '</td></tr>';
+        '<td>' + esc(topSetText(p.best, timeOnly) || '–') + '</td>' +
+        '<td class="dim">' + esc(p.sets.map(s => (isNaN(s.wt) ? round1(s.reps) + (timeOnly ? 's' : '')
+          : round1(s.reps) + '×' + round1(s.wt))).join('  ')) + '</td></tr>';
     }).join('') + '</tbody></table></div>';
 
-  body.innerHTML = title + tiles + chart + table;
-  wireChart(metric.unit);
+  body.innerHTML = head + tiles + chart + table;
+  wireChart();
+}
+
+function renderProgWeekly(body) {
+  const label = PROG.mode === 'erg' ? 'Erg' : 'Core';
+  const metric = pickMetric(weeklyMetrics(PROG.mode), PROG.metric);
+  const pts = weeklySeries(PROG.mode, metric.k, PROG.weeks);
+  const head = '<div class="prog-head"><h3 class="prog-title">' + label + ' load</h3>' +
+    '<span class="prog-sub">' + esc(metric.label) + ', Monday to Sunday' +
+    (pts.length >= 5 ? ' · the line is a four-week average' : '') + '</span></div>';
+
+  if (!pts.length) {
+    body.innerHTML = head + '<p class="empty">No ' + label.toLowerCase() +
+      ' sessions logged yet. Anything you record on the ' + label +
+      ' tab shows up here as weekly load.</p>';
+    return;
+  }
+
+  const vs = pts.map(p => p.v);
+  const last = pts[pts.length - 1];
+  const hi = Math.max(...vs), hiAt = pts[vs.indexOf(hi)];
+  const avg = vs.reduce((a, x) => a + x, 0) / vs.length;
+  // this week against the mean of the weeks before it, which is the comparison
+  // you are actually making when you look at a load chart
+  const before = vs.slice(0, -1);
+  const prevAvg = before.length ? before.reduce((a, x) => a + x, 0) / before.length : null;
+  const diff = prevAvg == null ? null : round1(last.v - prevAvg);
+  const weeksOn = vs.filter(v => v > 0).length;
+
+  // a difference that rounds away at the displayed precision is not a difference
+  const f = Math.pow(10, metric.dp);
+  const shownDiff = diff == null ? null : Math.round(diff * f) / f;
+  const tiles = '<div class="prog-tiles">' +
+    tileHTML('This week', metric.fmt(last.v),
+      shownDiff == null ? 'first week logged'
+        : shownDiff === 0 ? 'level with your average'
+        : (shownDiff > 0 ? '+' : '-') + metric.short(Math.abs(shownDiff)) + ' on your average',
+      !shownDiff ? '' : shownDiff > 0 ? 'up' : 'down') +
+    tileHTML('Weekly average', metric.fmt(avg), weeksOn + ' of ' + pts.length + ' weeks trained') +
+    tileHTML('Best week', metric.fmt(hi), shortDate(hiAt.date)) +
+    '</div>';
+
+  const chart = barsHTML(pts, metric, Math.max(300, body.clientWidth || 620)) +
+    '<p class="chart-note">Tap or hover a bar for the week. Empty weeks are shown, not skipped.</p>';
+
+  const agg = PROG.mode === 'core' ? coreWeekly() : ergWeekly();
+  const shown = v => Math.round(v * f) / f;
+  const rows = [...pts].reverse().map((p, i, arr) => {
+    const prev = arr[i + 1];
+    const d = prev ? round1(shown(p.v) - shown(prev.v)) : null;
+    const a = agg[p.date] || { n: 0, km: 0, min: 0 };
+    const detail = a.n
+      ? a.n + (a.n === 1 ? ' session · ' : ' sessions · ') +
+        (PROG.mode === 'erg' ? round1(a.km) + ' km · ' + fmtHM(a.min) : fmtHM(a.min) + ' working')
+      : 'nothing logged';
+    return '<tr' + (p.v ? '' : ' class="offweek"') + '><td>' + shortDate(p.date) + ' - ' + shortDate(addDays(p.date, 6)) + '</td>' +
+      '<td class="n">' + esc(metric.short(p.v)) + '</td>' +
+      '<td class="n">' + (d === null || d === 0 ? '<span class="na">–</span>'
+        : '<span class="delta ' + (d > 0 ? 'up' : 'down') + '">' + (d > 0 ? '+' : '') + round1(d) + '</span>') + '</td>' +
+      '<td class="dim">' + esc(detail) + '</td></tr>';
+  }).join('');
+  const table = '<div class="dtbl-wrap"><table class="dtbl prog-tbl">' +
+    '<thead><tr><th>Week</th><th class="n">' + esc(metric.col) + '</th>' +
+    '<th class="n">Change</th><th>Detail</th></tr></thead><tbody>' +
+    rows + '</tbody></table></div>';
+
+  body.innerHTML = head + tiles + chart + table;
+  wireChart();
 }
 
 // Crosshair + tooltip. A chart on a page is interactive by default; the hit
-// target is the whole plot, not the 9px dots.
-function wireChart(unit) {
+// target is the whole plot, not the dots.
+function wireChart() {
   const wrap = $('chartwrap');
   if (!wrap || !chartPts.length) return;
   const pts = chartPts;
@@ -1783,7 +2100,8 @@ function wireChart(unit) {
     cross.setAttribute('x1', near.x); cross.setAttribute('x2', near.x);
     cross.style.display = ''; hi.style.display = '';
     hi.setAttribute('cx', near.x); hi.setAttribute('cy', near.y);
-    tip.innerHTML = '<span class="tdate">' + prettyDate(near.d) + '</span><br><b>' + near.v + unit + '</b>';
+    tip.innerHTML = '<span class="tdate">' + esc(near.lab) + '</span><br><b>' + esc(near.val) + '</b>' +
+      (near.sub ? '<br><span class="tsub">' + esc(near.sub) + '</span>' : '');
     tip.style.display = '';
     tip.style.left = Math.min(r.width - 8, Math.max(8, near.x)) + 'px';
     tip.style.top = (near.y - 12) + 'px';
@@ -1794,7 +2112,10 @@ function wireChart(unit) {
   hit.addEventListener('pointerleave', leave);
 }
 
-/* ================= history ================= */
+/* ================= history =================
+   A ruled list, one line per session, grouped by week. Date, discipline and a
+   one-line summary line up in columns down the page so a month of training can
+   be read without opening anything; the detail is one tap away. */
 function renderHistory() {
   const el = $('hist-body');
   const all = [
@@ -1802,16 +2123,27 @@ function renderHistory() {
     ...S.ergs.map(r => ({ kind: 'e', r })),
     ...S.coreSessions.map(r => ({ kind: 'c', r })),
   ];
-  if (!all.length) { el.innerHTML = '<p class="empty">No sessions logged yet.</p>'; return; }
+  if (!all.length) {
+    el.innerHTML = '<p class="empty">No sessions logged yet. Whatever you record on the ' +
+      'Weights, Erg and Core tabs lands here, newest first.</p>';
+    return;
+  }
 
   const weeks = {};
   all.forEach(x => { const w = mondayOf(x.r.date); (weeks[w] = weeks[w] || []).push(x); });
 
   el.innerHTML = Object.keys(weeks).sort().reverse().map(w => {
     const items = weeks[w].sort((a, b) => sortKey(b.r).localeCompare(sortKey(a.r)));
-    return '<div class="weekgroup"><h4>Week of ' + prettyDate(w) + ' - ' + items.length + ' session' + (items.length > 1 ? 's' : '') + '</h4>' +
+    const n = { w: 0, e: 0, c: 0 };
+    items.forEach(x => n[x.kind]++);
+    const counts = [[n.w, 'weights'], [n.e, 'erg'], [n.c, 'core']]
+      .filter(([c]) => c).map(([c, l]) => c + ' ' + l).join(' · ');
+    return '<section class="weekgroup"><h4><span class="wg-when">' +
+      shortDate(w) + ' - ' + shortDate(addDays(w, 6)) + '</span>' +
+      '<span class="wg-count">' + counts + '</span></h4>' +
       items.map(x => x.kind === 'w' ? histWorkoutHTML(x.r)
-                   : x.kind === 'c' ? histCoreHTML(x.r) : histErgHTML(x.r)).join('') + '</div>';
+                   : x.kind === 'c' ? histCoreHTML(x.r) : histErgHTML(x.r)).join('') +
+      '</section>';
   }).join('');
 }
 const kg = n => Math.round(n).toLocaleString('en-GB');
@@ -1833,22 +2165,24 @@ function workoutTotals(s) {
   return { sets, reps, volume, weighted, exercises: Object.keys(s.sets).length };
 }
 
-// Collapsed by default: a scannable line per session, full detail on click.
+// Collapsed by default: one ruled line per session, full detail on tap.
 // delKey must match the table the session lives in - 'w', 'erg' or 'c'.
 function entryHTML(s, cls, kindLabel, summary, detail, delKey, editKey) {
+  const d = new Date(s.date + 'T12:00:00');
   return '<div class="entry' + (cls ? ' ' + cls : '') + '">' +
     '<button class="entry-toggle" aria-expanded="false">' +
-      '<span class="chev" aria-hidden="true">▸</span>' +
-      '<span class="entry-main">' +
-        '<span class="entry-when">' + prettyDate(s.date) +
-          (s.at ? ' <span class="entry-time">' + esc(s.at) + '</span>' : '') + '</span>' +
-        '<span class="entry-sum">' + summary + '</span>' +
-      '</span>' +
+      '<span class="entry-day"><b>' + d.toLocaleDateString('en-GB', { weekday: 'short' }) + '</b>' +
+        '<span>' + d.getDate() + ' ' + d.toLocaleDateString('en-GB', { month: 'short' }) + '</span></span>' +
       '<span class="entry-kind">' + kindLabel + '</span>' +
+      '<span class="entry-main"><span class="entry-sum">' + summary + '</span>' +
+        (s.at ? '<span class="entry-time">' + esc(s.at) + '</span>' : '') + '</span>' +
+      '<span class="chev" aria-hidden="true">›</span>' +
     '</button>' +
     '<div class="entry-detail" hidden>' + detail +
-      (editKey ? '<button class="del" data-' + editKey + '="' + s.id + '">Edit this session</button>' : '') +
-      '<button class="del" data-del-' + delKey + '="' + s.id + '">Delete this session</button>' +
+      '<div class="entry-ops">' +
+        (editKey ? '<button class="del" data-' + editKey + '="' + s.id + '">Edit this session</button>' : '') +
+        '<button class="del" data-del-' + delKey + '="' + s.id + '">Delete this session</button>' +
+      '</div>' +
     '</div></div>';
 }
 
@@ -1857,7 +2191,7 @@ function histWorkoutHTML(s) {
   const t = workoutTotals(s);
   const summary = t.exercises + ' exercise' + (t.exercises === 1 ? '' : 's') + ' · ' +
     t.sets + ' set' + (t.sets === 1 ? '' : 's') +
-    (t.weighted ? ' · ' + kg(t.volume) + ' kg' : '');
+    (t.reps ? ' · ' + round1(t.reps) + ' reps' : '');
 
   const detail = ids.map(id => {
     const m = exById(id) || {};
@@ -2120,7 +2454,6 @@ const METRICS = [
   { k: 'erg_seconds',      label: 'Erg time',          unit: 'time',group: 'Erg' },
   { k: 'sessions_erg',     label: 'Erg sessions',      unit: '',    group: 'Erg' },
   { k: 'core_work_s',      label: 'Core time working', unit: 'time',group: 'Core' },
-  { k: 'core_rounds',      label: 'Core rounds',       unit: '',    group: 'Core' },
   { k: 'sessions_core',    label: 'Core sessions',     unit: '',    group: 'Core' },
   { k: 'weights_sets',     label: 'Weights sets',      unit: '',    group: 'Weights' },
   { k: 'weights_volume',   label: 'Weights volume',    unit: 'kg',  group: 'Weights' },
@@ -2277,24 +2610,27 @@ function squadMainHTML() {
     : !rows.length
       ? '<p class="empty">Nobody is sharing their training in this squad yet' +
         (sharing ? '' : ' - you could be first') + '.</p>'
-      : rows.map((r, i) => {
+      : '<div class="bhead"><span>#</span><span>Athlete</span><span class="r">' +
+        esc(metric.label) + '</span></div>' +
+      rows.map((r, i) => {
           const v = Number(r[metric.k]) || 0;
-          return '<div class="brow' + (r.profile_id === me ? ' me' : '') + (v ? '' : ' zero') + '">' +
+          return '<div class="brow' + (i ? '' : ' lead') + (r.profile_id === me ? ' me' : '') +
+            (v ? '' : ' zero') + '">' +
             '<span class="brank">' + (i + 1) + '</span>' +
-            '<span><span class="bname">' + esc(r.display_name) + '</span>' +
-              '<div class="bsub">' + r.days_trained + 'd · ' +
-                r.sessions_weights + 'w · ' + r.sessions_erg + 'e · ' + r.sessions_core + 'c</div></span>' +
+            '<span class="bname">' + esc(r.display_name) + '</span>' +
             '<span class="bval">' + fmtMetric(v, metric.unit) +
               (metric.unit && metric.unit !== 'time' ? '<small>' + metric.unit + '</small>' : '') + '</span>' +
+            '<span class="bsub">' + r.days_trained + ' day' + (r.days_trained === 1 ? '' : 's') + ' · ' +
+              r.sessions_weights + ' weights · ' + r.sessions_erg + ' erg · ' + r.sessions_core + ' core</span>' +
             '<span class="bbar"><i style="width:' + (top ? Math.round((v / top) * 100) : 0) + '%"></i></span>' +
           '</div>';
         }).join('') +
         (quiet.length ? quiet.map(r =>
           '<div class="brow bquiet' + (r.profile_id === me ? ' me' : '') + '">' +
             '<span class="brank">–</span>' +
-            '<span><span class="bname">' + esc(r.display_name) + '</span>' +
-              '<div class="bsub">not sharing</div></span>' +
-            '<span class="bval">–</span></div>').join('') : '');
+            '<span class="bname">' + esc(r.display_name) + '</span>' +
+            '<span class="bval">–</span>' +
+            '<span class="bsub">not sharing</span></div>').join('') : '');
 
   return '<div class="setup-sec">' +
     '<div class="squad-bar">' +
@@ -2489,7 +2825,17 @@ document.addEventListener('input', e => {
 });
 // selects don't fire input in every browser
 document.addEventListener('change', e => {
-  if (e.target.closest && e.target.closest('#erg-form')) queueErgDraft();
+  if (e.target.closest && e.target.closest('#erg-form')) { queueErgDraft(); return; }
+  if (e.target.id === 'tm-count') {
+    localStorage.setItem(COUNTDOWN_KEY, e.target.value);
+    if (RUN.counting) { cancelCountdown(); startTimer(); }   // apply to the round you are waiting on
+    return;
+  }
+  // The progress controls are rebuilt with the panel, so they are wired by
+  // delegation rather than by id at boot.
+  if (e.target.id === 'prog-pick')   { PROG.ex = e.target.value; PROG.metric = ''; renderProgress(); return; }
+  if (e.target.id === 'prog-metric') { PROG.metric = e.target.value; renderProgress(); return; }
+  if (e.target.id === 'prog-weeks')  { PROG.weeks = e.target.value; renderProgress(); return; }
 });
 
 document.addEventListener('click', async e => {
@@ -2629,8 +2975,21 @@ document.addEventListener('click', async e => {
   }
   const rtDel = e.target.closest('[data-rt-del]');
   if (rtDel) { deleteRoutine(rtDel.dataset.rtDel); return; }
+  // ---- progress ----
+  const pm = e.target.closest('[data-pmode]');
+  if (pm) {
+    if (PROG.mode !== pm.dataset.pmode) { PROG.mode = pm.dataset.pmode; PROG.metric = ''; renderProgress(); }
+    return;
+  }
   // ---- timer ----
-  if (e.target.id === 'tm-go') { RUN.running ? pauseTimer() : startTimer(); return; }
+  const cSplit = e.target.closest('[data-csplit]');
+  if (cSplit) { splitRound(Number(cSplit.dataset.csplit)); return; }
+  const cMerge = e.target.closest('[data-cmerge]');
+  if (cMerge) { mergeRound(Number(cMerge.dataset.cmerge)); return; }
+  // the countdown is skippable by hitting the clock as well as the button - it
+  // is the biggest target on the screen and your hands are on the floor
+  if (e.target.id === 'tm-clock' && RUN.counting) { startTimer(); return; }
+  if (e.target.closest('#tm-go')) { RUN.running ? pauseTimer() : startTimer(); return; }
   if (e.target.id === 'tm-next') { nextStep(); return; }
   if (e.target.id === 'tm-back') { prevStep(); return; }
   if (e.target.id === 'tm-reset') {
@@ -2773,9 +3132,6 @@ document.addEventListener('click', async e => {
     editingRoutine = { id: null, name: '', steps: [{ name: '', target_s: 60 }] };
     renderRoutines();
   };
-
-  $('prog-pick').onchange = () => { $('prog-metric').value = ''; renderProgress(); };
-  $('prog-metric').onchange = renderProgress;
 
   // The squad panel is rebuilt wholesale on every change, so its selects are
   // wired by delegation rather than by id.

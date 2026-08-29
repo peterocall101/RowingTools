@@ -73,11 +73,20 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   the same values either way.
 - **The core timer counts up and never auto-advances.** Holding longer than target is a result,
   not something to truncate: the clock keeps running past the target (one beep as it passes),
-  and you call the round with **Next**. Starting a round runs a 5-second countdown first
-  (skippable). Time not spent working is recorded as `rest_s` on the round just finished, so a
-  saved session carries its real length: `sum(actual_s) + sum(rest_s)`.
-- **A per-side core step runs twice.** `per_side` on a routine step expands into two rounds in
-  the runner, left then right, separately timed and separately saved with `side: "L"/"R"`.
+  and you call the round with **Next**. Time not spent working is recorded as `rest_s` on the
+  round just finished, so a saved session carries its real length:
+  `sum(actual_s) + sum(rest_s)`.
+- **The get-set countdown is a preference, not a law.** It was a fixed five seconds before every
+  round with only a per-round **Skip**, which is five seconds and a tap nobody asked for at every
+  hold. `Get set` in the timer options sets it to off / 3s / 5s / 10s (`rt-core-countdown` in
+  `localStorage`), and while it is running the clock itself is a skip target as well as the
+  button.
+- **A per-side core step runs twice**, and can be made per-side mid-circuit. `per_side` on a
+  routine step expands into two rounds in the runner, left then right, separately timed and
+  separately saved with `side: "L"/"R"`. The runner rows also carry an **e/s** control, so a hold
+  you discover is one-sided while standing over it splits into L and R for *this run* without a
+  trip back to the routine (and merges back while both rounds are still unrecorded). Ticking
+  **E/S** on the routine in Templates is still what makes it permanent.
 - **Every insert carries a client-generated `id`.** That is what makes an offline retry safe: if
   the first attempt did reach the server, the retry hits the primary key and a `23505` is treated
   as success. Failed writes go into a local outbox and flush on the `online` event, on boot, and
@@ -92,11 +101,30 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   narrows to the rep count currently in set 1 and falls back to the all-time heaviest set.
   This is deliberately not the AI-question feature: an instant, always-correct number beats a
   conversational one you have to type for.
-- **Progress is one lift, one measure, one axis.** Never two y-scales. Reps-and-weight exercises
-  offer heaviest set / estimated 1RM (Epley, labelled as an estimate) / session volume; timed
-  holds offer longest hold / total time held. The chart is drawn at a measured pixel width
-  rather than scaled from a `viewBox`, so axis labels stay legible on a phone, and it re-renders
-  on resize and when its tab is opened. Every plotted session is also in the table below it.
+- **Progress covers all three disciplines, and they are not the same shape.** A segmented
+  control switches between them rather than stacking them:
+  - **Weights** - one lift, one measure, a line by session. Reps-and-weight exercises offer
+    heaviest set and estimated 1RM (Epley, labelled as an estimate); timed holds offer longest
+    hold and total time held. The set that produced the number is on the tile, the tooltip and
+    the table, so a measure can never quietly gloss over the reps behind it.
+  - **Erg / Core** - weekly load as bars with a zero baseline: km, time or sessions a week for
+    the erg, time working or sessions a week for core. Weeks with nothing in them are drawn,
+    not skipped, because a fortnight off is the most important thing a load chart can show. The
+    dashed line over the bars is a four-week mean; week-to-week is noise.
+  - **Session tonnage was removed on purpose.** It moves whenever the rep scheme moves and says
+    nothing about whether you got stronger, so it is not offered as a measure of anything - not
+    on Progress, and not as the collapsed summary line in History. Core **rounds** went the same
+    way: a round count is a property of the routine, not of the work done, so core is counted in
+    sessions and time working.
+
+  Never two measures on one axis. Both charts are drawn at a measured pixel width rather than
+  scaled from a `viewBox`, so axis labels stay legible on a phone, and they re-render on resize
+  and when the tab is opened. Every plotted point is also in the table below it.
+- **Summary and History are ruled sheets, not card stacks.** A summary week opens with a
+  three-up strip - weights, erg, core - so the week's shape is one glance, then the lifts as a
+  ruled table with the change against the previous week you lifted. History is one line per
+  session in aligned columns (day, discipline, what it was), expanding in place. Both follow the
+  site's results-board language: hairlines, tabular figures, square corners.
 - **Erg photo parses are never auto-saved**: the parsed numbers land in an editable
   confirmation card first. `source` on each erg row records `photo` / `manual` (and later
   `c2-logbook` for the planned Concept2 Logbook API sync).
