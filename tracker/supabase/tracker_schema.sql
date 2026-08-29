@@ -180,6 +180,16 @@ alter table public.profiles
     check (tracker_plan in ('free', 'trial', 'paid')),
   add column if not exists tracker_trial_ends_at timestamptz;
 
+-- Terms acceptance. The tick on the signup form is the record that
+-- matters, but it lives in auth.users.raw_user_meta_data where the app
+-- cannot query it, so it is mirrored here: the app stamps these on the
+-- first authenticated boot where they are null. terms_version is the
+-- date the wording last changed (tracker/terms.html), so a future
+-- re-consent prompt has something to compare against.
+alter table public.profiles
+  add column if not exists terms_accepted_at timestamptz,
+  add column if not exists terms_version     text;
+
 create index if not exists tracker_exercises_profile_idx
   on public.tracker_exercises (profile_id);
 create index if not exists tracker_workouts_profile_date_idx
@@ -313,11 +323,26 @@ create policy "read own memberships" on public.group_members
   for select using (public.is_group_member(group_id));
 
 -- ----------------------------------------------------------------
--- 2. Sharing consent - one row per (athlete, squad).
+-- 2. Sharing - one row per (athlete, squad).
 --
---    Membership alone shares NOTHING. A training log is personal, so
---    appearing on a squad board is a separate, explicit, revocable act.
---    No row means not sharing.
+--    CHANGED. This used to be a separate opt-in on top of membership,
+--    so a squad could contain people showing no numbers. In practice
+--    that produced a loud consent panel on every visit to explain a
+--    distinction nobody wanted: you join a squad in order to be on its
+--    board. Being in the squad now IS the sharing, stated at the point
+--    of joining, and LEAVING is how you withdraw it.
+--
+--    The table stays, and so does everything built on it: the board
+--    function still reads it rather than group_members, tracker_sharing
+--    still cascades on delete, and the RLS below is unchanged. What
+--    changed is only who writes the row - tracker_create_group and
+--    tracker_join_group now do, and tracker_leave_group deletes it.
+--    Keeping the table means the board can be put back behind an opt-in
+--    later without touching the privacy-critical function.
+--
+--    Still true, and still the whole point: sharing means COUNTS AND
+--    TOTALS, computed by tracker_squad_board(). No session, no lift, no
+--    note and no date crosses to another athlete.
 -- ----------------------------------------------------------------
 create table if not exists public.tracker_sharing (
   profile_id uuid        not null references public.profiles on delete cascade,
@@ -336,11 +361,18 @@ create policy "manage own sharing" on public.tracker_sharing
   using (profile_id = auth.uid())
   with check (profile_id = auth.uid() and public.is_group_member(group_id));
 
--- Squad-mates may see WHO is sharing (so the board can show who has
--- opted out). That is a name, not training data.
+-- Squad-mates may see WHO is sharing. That is a name, not training data.
 drop policy if exists "squad reads sharing roster" on public.tracker_sharing;
 create policy "squad reads sharing roster" on public.tracker_sharing
   for select using (public.is_group_member(group_id));
+
+-- Backfill for squads that predate the change above. Anyone already in a
+-- squad joined it to be on its board; without this they would sit there
+-- greyed out as "not sharing" with no control left in the UI to fix it.
+-- ON CONFLICT keeps it a no-op on every later run.
+insert into public.tracker_sharing (profile_id, group_id)
+select gm.profile_id, gm.group_id from public.group_members gm
+on conflict (profile_id, group_id) do nothing;
 
 -- ----------------------------------------------------------------
 -- 3. Shared templates - the exercise library JSON the Templates tab
@@ -435,6 +467,11 @@ begin
   insert into public.group_members (group_id, profile_id, role, accepted_at)
   values (v_id, auth.uid(), 'admin', now());
 
+  -- Being in the squad is being on its board; see section 2.
+  insert into public.tracker_sharing (profile_id, group_id)
+  values (auth.uid(), v_id)
+  on conflict (profile_id, group_id) do nothing;
+
   return query select v_id, v_code;
 end;
 $$;
@@ -464,12 +501,19 @@ begin
   values (v_id, auth.uid(), 'member', now())
   on conflict (group_id, profile_id) do nothing;
 
+  insert into public.tracker_sharing (profile_id, group_id)
+  values (auth.uid(), v_id)
+  on conflict (profile_id, group_id) do nothing;
+
   return query select v_id, v_name;
 end;
 $$;
 
 -- ---- leave a squad -----------------------------------------------
--- Sharing consent goes with it, via the FK cascade on tracker_sharing.
+-- Leaving is how you come off a board: the sharing row goes with the
+-- membership, so the next call to tracker_squad_board() cannot see you
+-- at all. Nothing of yours was ever copied into the squad, so there is
+-- nothing left behind to clean up.
 create or replace function public.tracker_leave_group(p_group uuid)
 returns void language plpgsql volatile security definer set search_path = public, pg_temp as $$
 begin
@@ -482,6 +526,43 @@ begin
    where profile_id = auth.uid() and group_id = p_group;
   delete from public.group_members
    where profile_id = auth.uid() and group_id = p_group;
+end;
+$$;
+
+-- ---- remove someone from a squad (admin only) --------------------
+-- The admin is whoever created the squad. group_members has no DELETE
+-- policy - deliberately, so nobody can quietly evict anyone by hand - so
+-- this is the one path in, and the guard is is_group_admin().
+--
+-- Removing yourself is refused rather than allowed: leaving is
+-- tracker_leave_group, and an admin who removed themselves through here
+-- could strand a squad with no admin at all and no way to appoint one.
+create or replace function public.tracker_admin_remove_member(p_group uuid, p_profile uuid)
+returns void language plpgsql volatile security definer set search_path = public, pg_temp as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+  if not public.is_group_admin(p_group) then
+    raise exception 'Only a squad admin can remove people';
+  end if;
+  if p_profile = auth.uid() then
+    raise exception 'Use Leave squad to take yourself out';
+  end if;
+  if not exists (select 1 from public.group_members
+                  where group_id = p_group and profile_id = p_profile) then
+    raise exception 'That person is not in this squad';
+  end if;
+
+  delete from public.tracker_sharing
+   where profile_id = p_profile and group_id = p_group;
+  -- Templates they posted go too: a template is content shared INTO the
+  -- squad, and leaving a stranger's library sitting in it after they have
+  -- been removed is not what "removed" means.
+  delete from public.tracker_shared_templates
+   where profile_id = p_profile and group_id = p_group;
+  delete from public.group_members
+   where profile_id = p_profile and group_id = p_group;
 end;
 $$;
 
@@ -665,11 +746,13 @@ $$;
 revoke execute on function public.tracker_create_group(text)       from public, anon;
 revoke execute on function public.tracker_join_group(text)         from public, anon;
 revoke execute on function public.tracker_leave_group(uuid)        from public, anon;
+revoke execute on function public.tracker_admin_remove_member(uuid, uuid) from public, anon;
 revoke execute on function public.tracker_squad_board(uuid, text)  from public, anon;
 
 grant execute on function public.tracker_create_group(text)        to authenticated, service_role;
 grant execute on function public.tracker_join_group(text)          to authenticated, service_role;
 grant execute on function public.tracker_leave_group(uuid)         to authenticated, service_role;
+grant execute on function public.tracker_admin_remove_member(uuid, uuid) to authenticated, service_role;
 grant execute on function public.tracker_squad_board(uuid, text)   to authenticated, service_role;
 -- tracker_num / tracker_is_uuid are pure helpers with no data access, so
 -- the PUBLIC default is fine for them.
@@ -688,7 +771,7 @@ grant execute on function public.tracker_squad_board(uuid, text)   to authentica
 -- grant, then run this.
 -- ================================================================
 -- revoke update on public.profiles from authenticated;
--- grant  update (display_name, email, terms_accepted_at) on public.profiles to authenticated;
+-- grant  update (display_name, email, terms_accepted_at, terms_version) on public.profiles to authenticated;
 
 -- ================================================================
 -- REPORT - one query, because the SQL editor only shows the result of
@@ -714,7 +797,8 @@ with expected(tbl, col) as (values
   ('tracker_core_sessions','steps'), ('tracker_core_sessions','notes'),
   ('tracker_sharing','group_id'), ('tracker_shared_templates','payload'),
   ('groups','join_code'),
-  ('profiles','tracker_plan'), ('profiles','tracker_trial_ends_at')
+  ('profiles','tracker_plan'), ('profiles','tracker_trial_ends_at'),
+  ('profiles','terms_accepted_at'), ('profiles','terms_version')
 ),
 cols as (
   select e.tbl, e.col, (c.column_name is not null) as present
@@ -770,6 +854,7 @@ select section, item, result from (
     union all select 'tracker_create_group(text)', to_regprocedure('public.tracker_create_group(text)') is not null
     union all select 'tracker_join_group(text)',   to_regprocedure('public.tracker_join_group(text)') is not null
     union all select 'tracker_leave_group(uuid)',  to_regprocedure('public.tracker_leave_group(uuid)') is not null
+    union all select 'tracker_admin_remove_member(uuid,uuid)', to_regprocedure('public.tracker_admin_remove_member(uuid,uuid)') is not null
     union all select 'tracker_squad_board(uuid,text)', to_regprocedure('public.tracker_squad_board(uuid,text)') is not null
   ) f
   -- The date-taking board is the differencing hole. It must NOT exist.
@@ -790,7 +875,8 @@ select section, item, result from (
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname='public'
     and p.proname in ('tracker_create_group','tracker_join_group',
-                      'tracker_leave_group','tracker_squad_board')
+                      'tracker_leave_group','tracker_squad_board',
+                      'tracker_admin_remove_member')
 
   -- 6. The join model depends on group_members having SELECT only.
   union all

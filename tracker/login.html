@@ -3,16 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign in - RowingTools Tracker</title>
-<meta name="robots" content="noindex">
+<title>Training Tracker - RowingTools</title>
+<meta name="description" content="A free training log for rowers: weights against your own exercise library, erg sessions, core circuits, and a squad board that shares totals only. Try it without an account.">
+<link rel="canonical" href="https://rowingtools.co.uk/tracker/login.html">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <meta name="theme-color" content="#0b0b0a">
+<meta property="og:title" content="Training Tracker - RowingTools">
+<meta property="og:description" content="Weights, erg and core in one log. Try it without an account; sign up when you want to keep it.">
+<meta property="og:url" content="https://rowingtools.co.uk/tracker/login.html">
+<meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Fraunces:opsz,wght@9..144,900&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/app.css">
 <style>
-  .auth-wrap{max-width:400px;margin:0 auto;padding-top:8vh}
+  .auth-wrap{max-width:400px;margin:0 auto;padding-top:6vh}
   .auth-card{background:var(--bg2);border:1px solid var(--border);padding:1.75rem}
   .auth-card h1{font-size:20px;margin-bottom:1.1rem}
   .auth-card label{display:block;font-size:11px;letter-spacing:.07em;text-transform:uppercase;
@@ -28,12 +33,37 @@
   .toggle{font-size:13px;color:var(--text2);margin-top:14px}
   .toggle a{color:var(--text);cursor:pointer;text-decoration:underline}
   .toggle a:hover{color:var(--red-ink)}
-  .consent{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--text2);margin-bottom:14px}
-  .consent input{margin-top:3px;accent-color:var(--red)}
+  .consent{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--text2);
+    line-height:1.55;margin-bottom:14px}
+  .consent input{margin-top:3px;accent-color:var(--red);flex-shrink:0}
+  .consent a{color:var(--text);text-decoration:underline}
+  .consent a:hover{color:var(--red-ink)}
   .msg{display:none;margin-top:14px;padding:9px 12px;font-size:13px;font-family:var(--mono)}
   .msg.err{background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.4)}
   .msg.ok{background:rgba(52,211,153,.1);color:#34d399;border:1px solid rgba(52,211,153,.4)}
   .auth-sub{font-size:13px;color:var(--text2);margin:-0.6rem 0 1.1rem;line-height:1.6}
+
+  /* what the thing is, before being asked for an email */
+  .pitch{border-top:2px solid var(--text);padding-top:10px;margin-bottom:1.4rem}
+  .pitch h2{font-size:19px;font-weight:800;letter-spacing:-0.015em;margin-bottom:6px}
+  .pitch ul{list-style:none;margin:0;padding:0}
+  .pitch li{font-size:13px;color:var(--text2);line-height:1.5;padding:6px 0;
+    border-bottom:1px solid var(--border);display:flex;gap:9px}
+  .pitch li:last-child{border-bottom:none}
+  .pitch li b{color:var(--text);font-weight:700;flex-shrink:0;min-width:62px;
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding-top:3px}
+  .try{margin-top:1.1rem;border:1px solid var(--border2);padding:14px}
+  .try b{display:block;font-size:14px;margin-bottom:3px}
+  .try p{font-family:var(--mono);font-size:11px;color:var(--text3);line-height:1.6;margin-bottom:11px}
+  .try button{width:100%;height:42px;font-weight:700}
+  .try button:hover{border-color:var(--text)}
+  .flag{border:1px solid var(--c-hwr);background:var(--bg2);padding:11px 13px;margin-bottom:1.2rem;
+    font-size:13px;color:var(--text2);line-height:1.55}
+  .flag b{color:var(--c-hwr);display:block;font-size:13.5px;margin-bottom:2px}
+  .legal{font-family:var(--mono);font-size:10.5px;color:var(--text3);text-align:center;
+    margin-top:1.6rem;line-height:1.7}
+  .legal a{color:var(--text3);text-decoration:underline}
+  .legal a:hover{color:var(--red-ink)}
 </style>
 </head>
 <body>
@@ -42,9 +72,22 @@
   <div class="brand" style="justify-content:center;margin-bottom:1.4rem">
     <a href="/" style="text-decoration:none;color:inherit"><div class="brand-mark">Rowing<span class="brand-dot">.</span>Tools</div></a>
   </div>
+
+  <div id="flags"></div>
+
+  <div class="pitch">
+    <h2>Training Tracker</h2>
+    <ul>
+      <li><b>Weights</b><span>Your own exercise library, last time's numbers on the card, set by set as you do it.</span></li>
+      <li><b>Erg</b><span>Type it in, or photograph the monitor and have the splits read off it.</span></li>
+      <li><b>Core</b><span>Build a circuit, run it against a timer that counts up and waits for you.</span></li>
+      <li><b>Squad</b><span>See how much your crewmates are getting through. Totals only, never sessions.</span></li>
+    </ul>
+  </div>
+
   <div class="auth-card">
     <h1 id="heading">Sign in</h1>
-    <p class="auth-sub" id="subtext">Your training log - weights and erg sessions, saved to your account.</p>
+    <p class="auth-sub" id="subtext">Free. Weights, erg and core in one log, on whatever phone you have in the gym.</p>
     <form id="form" novalidate>
       <div class="field" id="name-wrap" style="display:none">
         <label for="name">Your name</label>
@@ -64,7 +107,9 @@
       </div>
       <div class="consent" id="consent-wrap" style="display:none">
         <input type="checkbox" id="consent">
-        <span>I'm happy for RowingTools to store my training data against my account. It's only ever visible to me.</span>
+        <span>I agree to the <a href="terms.html" target="_blank" rel="noopener">terms and privacy notice</a>.
+          My training log is private to me; if I join a squad, the people in it see my
+          <b>totals</b> - days trained, sessions, erg metres and time - and nothing else.</span>
       </div>
       <button type="submit" id="submit">Sign in</button>
     </form>
@@ -73,9 +118,22 @@
     <div class="msg err" id="error"></div>
     <div class="msg ok" id="success"></div>
   </div>
+
+  <div class="try" id="try-wrap">
+    <b>Or have a go first</b>
+    <p>The whole tracker, on this device, with no email and no password. Log a session and see
+      what it does with it. Everything except erg photos and squads works, and it all comes with
+      you if you make an account afterwards.</p>
+    <button id="try-btn">Try it without an account</button>
+  </div>
+
+  <p class="legal"><a href="terms.html">Terms &amp; privacy</a> &middot;
+    <a href="/">rowingtools.co.uk</a> &middot;
+    <a href="mailto:feedback@rowingtools.co.uk">Contact</a></p>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/trial.js"></script>
 <script src="js/config.js"></script>
 <script>
 (() => {
@@ -85,6 +143,8 @@
         nameEl = $('name'), consentEl = $('consent'), submitBtn = $('submit'),
         errEl = $('error'), okEl = $('success');
   const loginUrl = window.location.origin + window.location.pathname;
+  // Kept in step with TERMS_VERSION in js/app.js and the date on terms.html.
+  const TERMS_VERSION = '2026-08-29';
 
   const showErr = m => { errEl.textContent = m; errEl.style.display = 'block'; okEl.style.display = 'none'; };
   const showOk  = m => { okEl.textContent = m; okEl.style.display = 'block'; errEl.style.display = 'none'; };
@@ -94,20 +154,36 @@
   let mode = 'signin'; // signin | signup | forgot | setpass
 
   // Password-recovery links land back here with a hash/code.
+  const params = new URLSearchParams(window.location.search);
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-  const hasCode = new URLSearchParams(window.location.search).has('code');
+  const hasCode = params.has('code');
   let setPasswordMode = hash.get('type') === 'recovery' || hasCode;
 
-  sb.auth.onAuthStateChange((event) => {
-    if (event === 'PASSWORD_RECOVERY' && !setPasswordMode) { setPasswordMode = true; enterSetPass(); }
-  });
+  // A sample in progress, or an invite waiting: say so before asking for an
+  // email, because both change what the person is being asked to do.
+  const flags = [];
+  if (trialActive()) {
+    const c = trialCounts(trialRead());
+    const n = c.weights + c.erg + c.core;
+    flags.push('<div class="flag"><b>Your sample is still on this device.</b>' +
+      (n ? n + ' session' + (n === 1 ? '' : 's') + ' and your exercises are waiting here. Create an ' +
+           'account and they are saved to it; sign in to an existing account and they are added to that.'
+         : 'Create an account and the exercises you set up come with you.') + '</div>');
+  }
+  const pendingJoin = localStorage.getItem('rt-pending-join');
+  if (pendingJoin) {
+    flags.push('<div class="flag"><b>You have a squad invite waiting.</b>' +
+      'Code <b style="display:inline">' + pendingJoin.replace(/[^A-Z0-9]/gi, '') + '</b> is held on this ' +
+      'device. Sign in or create an account and you can accept it.</div>');
+  }
+  $('flags').innerHTML = flags.join('');
 
   function setMode(m) {
     mode = m; clearMsg();
     const up = m === 'signup', fg = m === 'forgot';
     heading.textContent = up ? 'Create your account' : (fg ? 'Reset password' : 'Sign in');
     submitBtn.textContent = up ? 'Create account' : (fg ? 'Send reset link' : 'Sign in');
-    subEl.style.display = up ? '' : 'none';
+    subEl.style.display = '';
     show('name-wrap', up); show('pass-wrap', !fg); show('pass2-wrap', up);
     show('consent-wrap', up); show('forgot-wrap', !fg);
     $('toggle-text').textContent = up || fg ? 'Have an account?' : 'New here?';
@@ -123,12 +199,24 @@
     show('email-wrap', false); show('name-wrap', false); show('consent-wrap', false);
     show('pass-wrap', true); show('pass2-wrap', true);
     show('toggle-wrap', false); show('forgot-wrap', false);
+    show('try-wrap', false);
     submitBtn.textContent = 'Save password';
     passEl.placeholder = 'New password (min 8 characters)';
   }
 
+  sb.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY' && !setPasswordMode) { setPasswordMode = true; enterSetPass(); }
+  });
+
   $('toggle-link').addEventListener('click', () => setMode(mode === 'signup' || mode === 'forgot' ? 'signin' : 'signup'));
   $('forgot').addEventListener('click', () => setMode('forgot'));
+
+  // Sample mode is a one-line decision: set the flag, open the app. Boot in
+  // app.js sees it and swaps the data layer. Nothing is sent anywhere.
+  $('try-btn').addEventListener('click', () => {
+    trialStart();
+    window.location.href = 'index.html';
+  });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault(); clearMsg();
@@ -159,14 +247,25 @@
       if (!fullName) return showErr('Enter your name.');
       if (passEl.value.length < 8) return showErr('Password must be at least 8 characters.');
       if (passEl.value !== pass2El.value) return showErr('Passwords do not match.');
-      if (!consentEl.checked) return showErr('Please tick the consent box.');
+      if (!consentEl.checked) return showErr('Please tick the box to agree to the terms.');
+      // Acceptance recorded on the auth user, which is the copy that cannot be
+      // edited from the client. app.js mirrors it onto the profile on first
+      // boot so the app can read it back.
       const { data, error } = await sb.auth.signUp({
         email, password: passEl.value,
-        options: { data: { display_name: fullName }, emailRedirectTo: loginUrl },
+        options: {
+          data: {
+            display_name: fullName,
+            terms_accepted_at: new Date().toISOString(),
+            terms_version: TERMS_VERSION,
+          },
+          emailRedirectTo: loginUrl,
+        },
       });
       if (error) return showErr(error.message);
       if (data.session) { window.location.replace('index.html'); return; }
-      showOk('Almost there - confirm your email via the link we just sent, then sign in.');
+      showOk('Almost there - confirm your email via the link we just sent, then sign in.' +
+        (trialActive() ? ' Your sample stays on this device until you do.' : ''));
       return;
     }
 
@@ -178,7 +277,10 @@
   (async () => {
     if (setPasswordMode) { enterSetPass(); return; }
     const { data: { session } } = await sb.auth.getSession();
-    if (session) window.location.replace('index.html');
+    if (session) { window.location.replace('index.html'); return; }
+    // Arriving from "Create a free account" in the app, or from an invite:
+    // open on the form that gets them there.
+    if (params.get('signup') === '1' || trialActive()) setMode('signup');
   })();
 })();
 </script>

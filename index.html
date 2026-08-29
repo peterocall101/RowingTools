@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RowingTools - GMT% analysis for UK rowing</title>
-<meta name="description" content="Free tools for UK club rowing: a GMT% calculator against world best, Met and Henley benchmarks, ranked regatta leaderboards, and club performance profiles.">
+<meta name="description" content="Free tools for UK club rowing: a GMT% calculator against world best, Met and Henley benchmarks, ranked regatta leaderboards, club performance profiles, and a training tracker for weights, erg and core.">
 <link rel="canonical" href="https://rowingtools.co.uk/">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="manifest" href="/manifest.json">
@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-title" content="RowingTools">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <meta property="og:title" content="RowingTools - GMT% analysis for UK rowing">
-<meta property="og:description" content="GMT% calculator, ranked regatta leaderboards and club performance profiles for UK club rowing.">
+<meta property="og:description" content="GMT% calculator, ranked regatta leaderboards, club profiles and a training tracker for UK club rowing.">
 <meta property="og:url" content="https://rowingtools.co.uk/">
 <meta property="og:type" content="website">
 <script>
@@ -56,6 +56,41 @@ if ('serviceWorker' in navigator) {
 <p class="home-lead">Free tools for making sense of UK club rowing.</p>
 
 <main class="tgrid">
+  <a class="tpanel tpanel-wide" href="/tracker/">
+    <div class="twide">
+      <div class="twide-txt">
+        <h2 class="tname">Training Tracker <span class="tarrow" aria-hidden="true">&rarr;</span></h2>
+        <p class="tdesc">Weights against an exercise library you build yourself, erg pieces typed in
+          or read off a photo of the monitor, and core circuits run against a timer. Then weekly load
+          and lift-by-lift progress, and a squad board so a crew can see who is actually putting the
+          work in - totals only, never anyone&#39;s sessions.</p>
+        <span class="tcta">Free &middot; try it without an account</span>
+      </div>
+      <svg class="tviz twide-viz" viewBox="0 0 320 92" aria-hidden="true">
+        <text x="0" y="10" class="vz vz-sm">THU 27 AUG</text>
+        <line x1="0" y1="16" x2="180" y2="16" style="stroke:var(--text)" stroke-width="1" opacity=".8"/>
+        <text x="0" y="34" class="vz"><tspan class="vz-strong">Back Squat</tspan> 3 &#215; 8</text>
+        <text x="180" y="34" class="vz vz-red" text-anchor="end">112.5kg</text>
+        <line x1="0" y1="42" x2="180" y2="42" style="stroke:var(--text)" stroke-width="1" opacity=".12"/>
+        <text x="0" y="60" class="vz"><tspan class="vz-strong">Erg</tspan> 9,500m</text>
+        <text x="180" y="60" class="vz" text-anchor="end">1:49.2/500m</text>
+        <line x1="0" y1="68" x2="180" y2="68" style="stroke:var(--text)" stroke-width="1" opacity=".12"/>
+        <text x="0" y="86" class="vz"><tspan class="vz-strong">Core</tspan> 4:13 working</text>
+        <line x1="204" y1="4" x2="204" y2="88" style="stroke:var(--text)" stroke-width="1" opacity=".14"/>
+        <g style="fill:var(--red-ink)">
+          <rect x="216" y="52" width="13" height="26" opacity=".35"/>
+          <rect x="234" y="38" width="13" height="40" opacity=".35"/>
+          <rect x="252" y="44" width="13" height="34" opacity=".35"/>
+          <rect x="270" y="60" width="13" height="18" opacity=".35"/>
+          <rect x="288" y="32" width="13" height="46" opacity=".35"/>
+          <rect x="306" y="24" width="13" height="54" opacity=".95"/>
+        </g>
+        <text x="216" y="14" class="vz vz-sm">KM A WEEK</text>
+        <text x="319" y="14" class="vz vz-red vz-sm" text-anchor="end">35.5</text>
+        <line x1="216" y1="78" x2="319" y2="78" style="stroke:var(--border2)" stroke-width="1"/>
+      </svg>
+    </div>
+  </a>
   <a class="tpanel" href="/gmt/">
     <h2 class="tname">GMT% Calculator <span class="tarrow" aria-hidden="true">&rarr;</span></h2>
     <p class="tdesc">Score a 2000m time against World Best, Met and Henley benchmarks.</p>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terms &amp; privacy - RowingTools Tracker</title>
+<meta name="description" content="What RowingTools Tracker stores, who can see it, and the terms of using it.">
+<link rel="canonical" href="https://rowingtools.co.uk/tracker/terms.html">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="theme-color" content="#0b0b0a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Fraunces:opsz,wght@9..144,900&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/app.css">
+<style>
+  .doc{max-width:660px;margin:0 auto}
+  .doc h2{font-size:17px;font-weight:800;letter-spacing:-0.01em;text-transform:uppercase;
+    border-top:2px solid var(--text);padding-top:8px;margin:2.4rem 0 .8rem}
+  .doc h2:first-of-type{margin-top:1.6rem}
+  .doc h3{font-size:14px;font-weight:700;margin:1.3rem 0 .35rem}
+  .doc p{font-size:14px;color:var(--text2);line-height:1.75;margin-bottom:.85rem;max-width:70ch}
+  .doc li{font-size:14px;color:var(--text2);line-height:1.75;margin-bottom:.4rem}
+  .doc ul{padding-left:1.1rem;margin-bottom:.9rem;max-width:70ch}
+  .doc li::marker{color:var(--text3)}
+  .doc strong{color:var(--text)}
+  .doc a{color:var(--text);text-decoration:underline}
+  .doc a:hover{color:var(--red-ink)}
+  .stamp{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--text3);margin-bottom:1.6rem}
+  .lede{font-size:16px;color:var(--text);line-height:1.7;max-width:64ch;
+    border-left:1px solid var(--border2);padding-left:1.1rem;margin-bottom:2rem}
+  .keytbl{width:100%;border-collapse:collapse;margin:.4rem 0 1.2rem}
+  .keytbl th{text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--text3);font-weight:500;padding:0 12px 6px 0;
+    border-bottom:1px solid var(--border2)}
+  .keytbl td{font-size:13.5px;color:var(--text2);padding:8px 12px 8px 0;
+    border-bottom:1px solid var(--border);vertical-align:top;line-height:1.6}
+  .keytbl td:first-child{color:var(--text);font-weight:600;white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="topbar"></div>
+<div class="doc">
+  <header class="site-hdr">
+    <div class="brand">
+      <a href="/" style="text-decoration:none;color:inherit"><div class="brand-mark">Rowing<span class="brand-dot">.</span>Tools</div></a>
+      <h1 style="font-size:16px">Terms &amp; privacy</h1>
+    </div>
+  </header>
+
+  <p class="stamp">Training Tracker &middot; version 2026-08-29</p>
+
+  <p class="lede">RowingTools Tracker is a training log run by one person as a side project. It is
+    free, it is not a medical or coaching service, and your training log is yours. This page says
+    what is stored, who can see it, and what you can expect of us. It is written to be read, not
+    to be impressive.</p>
+
+  <h2>The short version</h2>
+  <table class="keytbl">
+    <thead><tr><th>What</th><th>How it works</th></tr></thead>
+    <tbody>
+      <tr><td>Your log</td><td>Private to your account. Nobody else, including other RowingTools users, can read your sessions, lifts, notes or dates.</td></tr>
+      <tr><td>Squads</td><td>Joining a squad puts your <strong>totals</strong> on that squad's board: days trained, session counts, erg metres and time, core time, weights sets and volume. Never a session, a lift, a date or a note. Leaving the squad takes them straight back off.</td></tr>
+      <tr><td>Erg photos</td><td>A photo of an erg monitor is sent to Anthropic's Claude API to be read, and is not kept afterwards. The numbers it reads are saved to your log.</td></tr>
+      <tr><td>Sample mode</td><td>Using the tracker without an account stores everything in your browser on that device. Nothing is sent to us until you create an account.</td></tr>
+      <tr><td>Deleting</td><td>Email us and your account and everything in it is deleted. There is no copy kept.</td></tr>
+      <tr><td>Selling data</td><td>No. Not to anyone, ever, in any form.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>1. What this is</h2>
+  <p>RowingTools Tracker ("the tracker") is part of <a href="/">rowingtools.co.uk</a>, run by an
+    individual in the UK. Using it means agreeing to this page. If you do not agree with it, do not
+    create an account.</p>
+  <p>The tracker is provided as it is, for free, with no promise that it will be available, that it
+    will keep working, or that it will still exist next season. Keep your own record of anything you
+    would be upset to lose. You can export your exercise library from the Templates tab at any time,
+    and you can ask for a copy of everything else.</p>
+
+  <h2>2. Your account</h2>
+  <p>You need an email address and a password. You must be 16 or over, or have a parent or guardian
+    agree on your behalf. Give a name that your crewmates will recognise, because that is what
+    appears to anyone in a squad with you.</p>
+  <p>Keep your password to yourself. If you think someone else has it, change it from the sign-in
+    page. Do not use the tracker to store anything about other people without their say-so.</p>
+
+  <h2>3. What is stored, and where</h2>
+  <p>Accounts and training data are held in a Supabase project (PostgreSQL, hosted in the EU) with
+    row-level security, so a query for your data authenticated as anyone else returns nothing. Stored
+    against your account:</p>
+  <ul>
+    <li>Your email address, display name, and when you agreed to these terms.</li>
+    <li>Your exercise library and core routines.</li>
+    <li>Every session you log: weights sets, erg pieces and splits, core rounds and times, the dates
+      and times, and any notes you write.</li>
+    <li>Which squads you are in.</li>
+  </ul>
+  <p>The site uses Google Analytics on page views, and a Brevo form if you subscribe to results
+    emails. Neither is connected to your training log.</p>
+
+  <h3>Sample mode</h3>
+  <p>If you use the tracker without an account, everything you log is stored in your browser's local
+    storage on that device and is never sent to us. Clearing your browser data deletes it and there
+    is no way to get it back. Creating an account uploads what is there to your new account; that is
+    the only time it leaves the device.</p>
+
+  <h2>4. Squads</h2>
+  <p>A squad is a group of people who can see how much training each other is getting through.
+    <strong>Joining a squad is what puts your totals on its board.</strong> Everyone in it can see
+    your display name and these numbers, for the window they pick (this week, four weeks, twelve
+    weeks, all time):</p>
+  <ul>
+    <li>days you trained, and how many sessions of each kind;</li>
+    <li>erg metres and erg time;</li>
+    <li>core time working;</li>
+    <li>weights sets and weights volume.</li>
+  </ul>
+  <p>They cannot see an individual session, an individual lift, a date you trained, a note, or
+    anything the erg photo reader produced. This is enforced in the database, not just in the app:
+    the board is built by a function that never reads those columns.</p>
+  <p>Anyone with a squad's six-character code, or an invite link containing it, can join that squad
+    and will then see the totals of everyone in it. Treat the code like a door key. The person who
+    created a squad can remove anyone from it. Leaving a squad removes your totals from its board
+    immediately, and removes anything you posted to it.</p>
+
+  <h2>5. Erg photos</h2>
+  <p>If you photograph an erg monitor, the image is sent to Anthropic's Claude API, which reads the
+    numbers off it and returns them. The image is not stored by us and, under Anthropic's API terms,
+    is not used to train their models. Only the numbers are saved, to your log. Do not photograph
+    anything you would not want processed by a third party in this way: point the camera at the
+    monitor, not at people.</p>
+  <p>Photo reading is a paid feature. Typing sessions in by hand is free and always unlimited.</p>
+
+  <h2>6. Payment</h2>
+  <p>Logging weights, erg and core sessions, squads, and everything else on this page is free. If a
+    paid tier is introduced, you will be told before anything is charged and nothing you already
+    have will be taken away from you retrospectively.</p>
+
+  <h2>7. Your rights over your data</h2>
+  <p>Under UK GDPR you can ask for a copy of everything held about you, ask for it to be corrected,
+    or ask for it to be deleted. Email
+    <a href="mailto:feedback@rowingtools.co.uk">feedback@rowingtools.co.uk</a> from the address on
+    your account and it will be done. Deletion is deletion: the account and every session, exercise
+    and squad membership attached to it are removed, and there is no archive copy.</p>
+  <p>The legal basis for holding your training data is the contract of providing you the tracker.
+    Data is kept for as long as your account exists.</p>
+
+  <h2>8. Fair use</h2>
+  <p>Do not attempt to read other people's data, script the API, load-test the site, or use the
+    tracker to harass anyone. Accounts doing any of that will be removed.</p>
+
+  <h2>9. Liability</h2>
+  <p>The tracker is a notebook, not a coach. Nothing in it is medical, nutritional or coaching
+    advice. Train sensibly and take advice from people who can see you. To the extent the law allows,
+    we are not liable for injury, lost data, missed training, or any indirect loss arising from using
+    it. Nothing here limits liability for death or personal injury caused by negligence, or for
+    fraud.</p>
+
+  <h2>10. Changes</h2>
+  <p>These terms may change. The version date is at the top of this page, and the date you agreed is
+    stored on your account. If a change materially affects what is shared or what is stored, you will
+    be asked again rather than told quietly.</p>
+
+  <h2>11. Contact</h2>
+  <p><a href="mailto:feedback@rowingtools.co.uk">feedback@rowingtools.co.uk</a>. It is one person, so
+    give it a day or two.</p>
+
+  <footer class="footer" style="margin-top:3rem">
+    <a href="login.html">Back to the tracker</a>
+    <span>rowingtools.co.uk</span>
+  </footer>
+</div>
+</body>
+</html>

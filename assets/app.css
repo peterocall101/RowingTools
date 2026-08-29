@@ -222,6 +222,18 @@ a.sec-tab{text-decoration:none;display:inline-flex;align-items:center}
 .tpanel:hover .tarrow{color:var(--red-ink);transform:translateX(5px)}
 .tdesc{font-size:13px;color:var(--text2);line-height:1.55;margin-top:.45rem;max-width:52ch}
 .tviz{width:100%;max-width:360px;height:auto;display:block;margin-top:1.25rem}
+/* The tracker leads the grid and is a different kind of thing to the three
+   analysis tools, so it gets the full width and a two-column inside. */
+.tpanel-wide{grid-column:1/-1}
+.twide{display:flex;gap:1.5rem 2.5rem;align-items:flex-start;flex-wrap:wrap;width:100%}
+.twide-txt{flex:1 1 340px;min-width:0}
+/* space-between would strand the arrow in the middle of a full-width panel */
+.tpanel-wide .tname{justify-content:flex-start;gap:16px}
+.twide .tviz{flex:0 1 340px;margin-top:.4rem}
+.tcta{display:inline-block;margin-top:1.05rem;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--red-ink);
+  border-bottom:1px solid var(--red-ink);padding-bottom:3px}
+@media(max-width:760px){.twide .tviz{flex-basis:100%;margin-top:1.25rem}}
 .vz{font-family:var(--mono);font-size:10.5px;fill:var(--text3);letter-spacing:.02em}
 .vz-sm{font-size:9px;letter-spacing:.06em}
 .vz-strong{fill:var(--text)}
@@ -234,6 +246,7 @@ a.sec-tab{text-decoration:none;display:inline-flex;align-items:center}
   .home-anim .tpanel:nth-child(2){animation-delay:.16s}
   .home-anim .tpanel:nth-child(3){animation-delay:.24s}
   .home-anim .tpanel:nth-child(4){animation-delay:.32s}
+  .home-anim .tpanel:nth-child(5){animation-delay:.40s}
 }
 @keyframes homeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){

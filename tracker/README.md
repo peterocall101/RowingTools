@@ -1,8 +1,12 @@
 # RowingTools Tracker
 
 Athlete-facing training log at **rowingtools.co.uk/tracker/** - weights sessions against a
-user-defined exercise library, and erg sessions logged manually or by photographing the monitor
-(Concept2 PM5 / RowPerfect) and letting Claude vision read it.
+user-defined exercise library, erg sessions logged manually or by photographing the monitor
+(Concept2 PM5 / RowPerfect) and letting Claude vision read it, and core circuits against a timer.
+
+It is a public part of the site: the homepage leads with it, `login.html` is the indexable front
+door, and **the whole app runs without an account** in sample mode (below). Only the app itself
+(`index.html`) stays `noindex`.
 
 Static frontend (no build step, same as the rest of the site) + the existing RowingTools
 Supabase project (ref `tbhujqdflswhgxtioznb`, shared with the shelved coach dashboard). Every tracker
@@ -14,9 +18,11 @@ totals through a `SECURITY DEFINER` function rather than by widening those polic
 
 | Path | What |
 |---|---|
-| `index.html` | The app - tabs grouped as Record (Weights / Erg / Core), Review (Summary / Progress / History), Set up (Templates) |
-| `login.html` | Standalone signin/signup/forgot/recovery against the shared Supabase project |
-| `js/config.js` | Supabase URL + anon key + Edge Function endpoint |
+| `index.html` | The app - tabs grouped as Record (Weights / Erg / Core), Review (Summary / Progress / History), Squad (Board), Set up (Templates) |
+| `login.html` | The public front door: what the tracker is, sign in / sign up / forgot / recovery, and **Try it without an account** |
+| `terms.html` | Terms of use and privacy notice. The version date at the top is the one stamped on the profile at signup |
+| `js/config.js` | Supabase URL + anon key + Edge Function endpoint. `sb` is a `let` so sample mode can swap it |
+| `js/trial.js` | Sample mode: a localStorage-backed stand-in for the Supabase client, plus the seed library |
 | `js/app.js` | All app logic |
 | `supabase/tracker_schema.sql` | **The** schema - whole database in one idempotent file. Re-run it any time; its report checks the live DB against what the app writes |
 | `supabase/functions/parse-erg/index.ts` | Edge Function: erg photo -> structured session JSON via Claude vision |
@@ -39,8 +45,8 @@ totals through a `SECURITY DEFINER` function rather than by widening those polic
    digits and accuracy was worth the money). To trade accuracy for cost:
    `supabase secrets set PARSE_ERG_MODEL=claude-sonnet-5 ...`.
 
-3. **Push to `main`.** GitHub Pages serves `/tracker/` automatically. The page is `noindex`
-   and not linked from the public site yet - share the URL directly while testing.
+3. **Push to `main`.** GitHub Pages serves `/tracker/` automatically. The homepage links to it and
+   `login.html` is in the sitemap; the app itself stays `noindex`.
 
 ## Local test
 
@@ -129,6 +135,44 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   confirmation card first. `source` on each erg row records `photo` / `manual` (and later
   `c2-logbook` for the planned Concept2 Logbook API sync).
 
+## Sample mode (no account)
+
+**Try it without an account** on `login.html` sets one localStorage flag and opens the app. Boot in
+`app.js` sees the flag, finds no session, and **swaps `sb` for the stand-in client in `js/trial.js`**
+- a small slice of PostgREST (`from().select().eq().order().limit().insert().update().delete()
+.single()`, thenable) backed by one JSON blob in `localStorage`.
+
+- **There is no second, cut-down tracker.** That is the whole reason for doing it this way: every
+  render path, every save path and every draft is the same code, so sample mode cannot drift out of
+  step with the real app, and nothing in `app.js` has to ask "am I in a trial?" before each write.
+- **Three things are refused, each at the one place it happens.** Erg-photo parsing (`canReadPhotos`
+  returns false: every parse costs real money and a sample cannot spend it), squads (`renderSquad`
+  returns an explainer: a squad is other people, and a device is not a person), and `cacheData`
+  (the sample already is the local store; a second copy would eat the same quota twice).
+- **The store is seeded with a starter library and a core circuit.** A sample that opens on an empty
+  exercise picker is a sample of nothing. They are ordinary rows and can be edited or deleted.
+- **Creating an account uploads it, once.** `migrateTrial()` runs before `loadAll()` on the first
+  boot where a real session and a sample exist together. It **upserts on `id` with
+  `ignoreDuplicates`**, not inserts: a migration that dies halfway has to be safe to repeat, and a
+  bulk insert where one row conflicts fails the whole statement. Exercises and routines go first,
+  because a workout's `sets` object is keyed by exercise id and a core session points at a routine
+  id - which is also why trial.js generates real uuids rather than counters. The `profile_id` on
+  every row is rewritten to the new account. Only on success is the local store cleared; a failure
+  leaves it alone and says so, and the next boot tries again.
+- **Nothing is sent anywhere until then.** No account, no email, no network write.
+
+## Terms
+
+`terms.html` is the terms of use and privacy notice, dated at the top. Signup requires the tick, and
+records `terms_accepted_at` + `terms_version` in `auth.users.raw_user_meta_data` - the copy the
+client cannot edit. `stampTerms()` mirrors both onto `public.profiles` on the first authenticated
+boot, because the app cannot query auth metadata back. `TERMS_VERSION` appears in three places and
+they have to agree: `js/app.js`, `login.html`, and the date printed on `terms.html`.
+
+The old signup line said the training log was "only ever visible to me", which stopped being true
+the moment squads existed. The tick now points at the terms and states the squad case in one
+sentence.
+
 ## Squads
 
 A squad is a group of athletes who can see how much training each other is getting through, and
@@ -154,10 +198,18 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   exact date, and where the erg-session delta is 1 the metres and seconds deltas **are** that
   single session's numbers. Iterating dates reconstructs the whole training calendar. Four fixed
   windows leave nothing to difference. Do not add a date parameter back.
-- **Membership shares no training data**, but it is not invisible: everyone in a squad can see who
-  else is in it and their display name, because the board lists non-sharers so it can honestly say
-  "2 of 3 sharing". Appearing with *numbers* is the separate, explicit, revocable act recorded in
-  `tracker_sharing` - no row means no numbers.
+- **Being in the squad is being on its board. Leaving is how you come off it.** This *changed*: it
+  used to be a separate opt-in on top of membership, which meant a loud consent panel on every visit
+  to explain a distinction nobody wanted - you join a squad in order to be on its board.
+  `tracker_create_group` and `tracker_join_group` now write the `tracker_sharing` row, and a
+  one-time backfill in the schema covers memberships that predate the change.
+
+  **The table stayed, and so did everything privacy-critical built on it.** `tracker_squad_board()`
+  still reads `tracker_sharing` rather than `group_members`, its RLS is unchanged, and the four
+  owner-only policies are untouched. Only *who writes the row* changed, which means the board can be
+  put back behind an explicit opt-in later without going near the function that decides what leaks.
+  A member with no sharing row still renders greyed, and if it is you there is a "show my totals"
+  link on your own row to repair it.
 - **Every `jsonb` expansion in the board function is guarded on `jsonb_typeof`,** and the
   exercise-id cast on an exact uuid regex. These columns have no CHECK constraint, so without the
   guards a single member with an odd row - a hand-written API call, a future format change - would
@@ -169,10 +221,24 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   up, is far harder to inflate than a distance you type in, and does not disadvantage the lighter
   athlete the way tonnage does. Volume metrics are available but secondary, and the board says
   in as many words that the numbers are self-reported and are not race results.
-- **Join by six-character code.** The dashboard's invite flow is email-based and its Edge Function
-  does not exist yet, so codes are the self-serve route in. The alphabet omits O/0, I/1 and S/5 -
-  these get read aloud in a boathouse and typed with cold hands. Codes are not readable by
-  non-members, so they cannot be enumerated; joining goes through an RPC.
+- **Join by six-character code, or by link.** The alphabet omits O/0, I/1 and S/5 - these get read
+  aloud in a boathouse and typed with cold hands. Codes are not readable by non-members, so they
+  cannot be enumerated; joining goes through an RPC. An invite link is
+  `/tracker/?join=CODE`, and the Board tab offers it three ways: **Invite by email** (a `mailto:`
+  with the link and a written invite, opened in the sender's own mail app - there is no mail server
+  and no sender domain to verify), **Share** (the phone share sheet, where `navigator.share`
+  exists), and **Copy link**.
+
+  An arriving `?join=` code is parked in `localStorage` and taken out of the address bar
+  immediately, so it survives sign-in *and* an email-confirmation round trip and is not shared on by
+  accident. The signed-out fast redirect in `index.html` parks it before bouncing to `login.html`,
+  which says an invite is waiting; a sample says the code is being held until there is an account.
+- **The admin is whoever created the squad, and only they can remove people.**
+  `tracker_admin_remove_member` is `SECURITY DEFINER` and gated on `is_group_admin()` - the client
+  cannot touch `group_members`, which still has no DELETE policy. It refuses to remove *you*
+  (leaving is `tracker_leave_group`; an admin removing themselves through here could strand a squad
+  with no admin), and it takes the person's sharing row and anything they posted to the squad with
+  them, because that is what "removed" means.
 - **`group_members` has no INSERT policy at all.** Creating and joining go through
   `SECURITY DEFINER` RPCs where the row written is fixed by the code, which is what stops anyone
   adding themselves to a squad they were not invited to.
@@ -184,16 +250,19 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
 
 Real, and deliberately not built yet - none of them risks data, but they will bite operationally:
 
-- **No member management.** There is no RPC to remove someone, promote a member, or rotate a join
-  code, and `group_members` has no UPDATE or DELETE policy. So: an admin cannot evict anyone; a
-  squad whose only admin leaves can never have another; and an abandoned squad keeps a live join
-  code nobody can revoke. `tracker_leave_group` does not check whether you are the last admin.
-  Fixing this is `tracker_admin_remove_member`, `tracker_set_role` and `tracker_rotate_code`, all
-  `SECURITY DEFINER` and gated on `is_group_admin()`.
-- **Join codes are a brute-forceable online oracle.** 31 characters over 6 positions is about 29.5
-  bits, and `tracker_join_group` has no rate limit, lockout or expiry, and joins silently with no
-  approval step. The payoff is only the aggregates of members who opted in, so severity is low,
-  but code rotation plus admin-remove would close it properly.
+- **Partial member management.** Removing someone is done (`tracker_admin_remove_member`). Still
+  missing: **promoting** a member, and **rotating** a join code. So a squad whose only admin leaves
+  can never have another, and an abandoned squad keeps a live join code nobody can revoke.
+  `tracker_leave_group` still does not check whether you are the last admin. The fixes are
+  `tracker_set_role` and `tracker_rotate_code`, both `SECURITY DEFINER` and gated on
+  `is_group_admin()`, plus a last-admin guard on leaving.
+- **Join codes are a brute-forceable online oracle, and now they let you straight onto a board.**
+  31 characters over 6 positions is about 29.5 bits, and `tracker_join_group` has no rate limit,
+  lockout or expiry, and joins silently with no approval step. Sharing-follows-membership raises the
+  payoff from "aggregates of whoever opted in" to "aggregates of everyone in the squad", which is
+  the one place the model change costs something. Admin-remove is the mitigation that now exists;
+  code rotation and a join rate limit would close it properly, and are the next things to build
+  here.
 - **Shared templates include each exercise's coaching cue** (the `note` field on the library), which
   is a deliberate part of posting a template but is worth a preview before posting. This is
   unrelated to the "never shared" line in the consent panel, which is about *session* notes.
@@ -229,4 +298,8 @@ edits go straight to `update` and are not queued.
 
 - Stripe billing (free-trial gating) - P2, shared with the coach dashboard plan.
 - Concept2 Logbook OAuth sync - P3; the `source` column is ready for it.
-- Anonymous try-before-signup mode - v1 requires an account.
+- Server-sent invite emails. Invites open the sender's own mail app; a real RowingTools-sent invite
+  would be an Edge Function against the Brevo account already used for the results newsletter,
+  which needs an API key as a Supabase secret, a verified sender, and a rate limit so the endpoint
+  cannot be turned into a spam relay.
+- Promoting a squad member, rotating a join code, and a last-admin guard on leaving.

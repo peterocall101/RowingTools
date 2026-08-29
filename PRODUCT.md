@@ -14,6 +14,12 @@ UK club rowers, coaches and club captains. They arrive from a WhatsApp link or a
 
 RowingTools turns raw regatta times into one comparable number: GMT% (benchmark time / your time x 100, scored against World Best Times and UK benchmarks). It covers a GMT% calculator, per-regatta heatmaps and leaderboards, club profiles aggregated across regattas, and a live Henley Royal Regatta ranking. Success = a rower trusts the number enough to quote it to their crew.
 
+Alongside the analysis tools there is a **training tracker** (`/tracker/`): weights against a
+self-built exercise library, erg sessions typed in or read off a photo of the monitor, core circuits
+against a timer, weekly load and per-lift progress, and squad boards that share totals only. It runs
+in full without an account (sample mode, device-local) and is the one authenticated, write-heavy
+surface on the site. Success = a rower opens it in the gym instead of a notes app.
+
 ## Brand Personality
 
 Timed, ruled, matter-of-fact. The visual reference is the physical object of the sport: the printed regatta programme and the finish-line results board. Confident large type, hairline rules, tabular numerals, one decisive red. Copy states facts (counts, dates, distances) instead of adjectives.

@@ -7,6 +7,8 @@
 const S = {
   session: null,
   profile: null,
+  trial: false,    // sample mode: no account, everything in localStorage
+  joinCode: null,  // a ?join= code waiting to be acted on
   exercises: [],   // library rows (including retired - needed for history)
   workouts: [],    // weights sessions, sorted date+at desc
   ergs: [],        // erg sessions, sorted date+at desc
@@ -15,6 +17,9 @@ const S = {
 };
 
 const PATTERN_ORDER = ['squat', 'pull', 'hinge', 'push', 'legs', 'shoulders', 'arms', 'core', 'other'];
+// Date the wording in tracker/terms.html last changed. Stamped on the profile
+// at signup so a later change has something to compare against.
+const TERMS_VERSION = '2026-08-29';
 
 /* ================= helpers ================= */
 const $ = id => document.getElementById(id);
@@ -59,6 +64,7 @@ const exName = id => { const e = exById(id); return e ? e.name : '(deleted exerc
 const patternOf = id => { const e = exById(id); return e ? e.pattern : 'other'; };
 const patIdx = p => { const i = PATTERN_ORDER.indexOf(p); return i < 0 ? PATTERN_ORDER.length : i; };
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const plural = (n, word) => n + ' ' + word + (n === 1 ? '' : 's');
 
 const sortKey = r => r.date + 'T' + (r.at || '00:00');
 const sortDesc = arr => arr.sort((a, b) => sortKey(b).localeCompare(sortKey(a)));
@@ -197,6 +203,70 @@ function paintSyncBadge() {
     : '';
 }
 
+/* ================= sample mode =================
+   The app runs unchanged against trial.js's stand-in client; only the three
+   things a sample genuinely cannot do are refused, each at the point it
+   happens. This section is the rest of it: the banner that says the work is
+   not saved anywhere yet, and the one-shot upload when an account appears. */
+const PENDING_JOIN = 'rt-pending-join';
+
+function paintTrialBar() {
+  const el = $('trial-bar');
+  if (!el) return;
+  if (!S.trial) { el.innerHTML = ''; return; }
+  const c = trialCounts(trialRead());
+  const logged = c.weights + c.erg + c.core;
+  el.innerHTML =
+    '<div class="trialbar">' +
+      '<div class="tb-main"><b>Sample - nothing is saved to an account yet.</b>' +
+        '<span>' + (logged
+          ? logged + ' session' + (logged === 1 ? '' : 's') + ' logged, kept on this device only. ' +
+            'Clear your browser data and ' + (logged === 1 ? 'it is' : 'they are') + ' gone.'
+          : 'Log a session and it stays on this device. Everything except erg photos and squads works.') +
+        '</span></div>' +
+      '<a class="tb-cta" href="login.html?signup=1">Create a free account</a>' +
+    '</div>';
+}
+
+// One upload, once, the first time a real session exists alongside a sample.
+// Upsert on id rather than insert: a migration that died halfway through has
+// to be safe to repeat, and the ids are already the primary keys.
+async function migrateTrial() {
+  const store = trialRead();
+  const counts = trialCounts(store);
+  const uid = S.session.user.id;
+  const anything = counts.exercises + counts.routines + counts.weights + counts.erg + counts.core;
+  if (!anything) { trialEnd(); return null; }
+  // Exercises and routines first: a workout's `sets` is keyed by exercise id
+  // and a core session points at a routine id.
+  for (const t of ['tracker_exercises', 'tracker_core_routines',
+                   'tracker_workouts', 'tracker_erg_sessions', 'tracker_core_sessions']) {
+    const rows = (store[t] || []).map(r => Object.assign({}, r, { profile_id: uid }));
+    if (!rows.length) continue;
+    const { error } = await sb.from(t).upsert(rows, { onConflict: 'id', ignoreDuplicates: true });
+    // Leave the sample alone on failure - it is the only copy - and let the
+    // next boot try again.
+    if (error) return { error: error.message };
+  }
+  trialEnd();
+  return counts;
+}
+
+// The terms tick happens on the signup form, in auth.users metadata the app
+// cannot read back. Mirror it onto the profile once, so a future change of
+// wording has something to compare against.
+// Best effort: profiles' UPDATE policy is inherited from the coach dashboard
+// and not defined in this repo's schema, so a refusal here is not worth a
+// message. auth.users keeps the copy that actually matters.
+async function stampTerms() {
+  if (S.trial || !S.profile || S.profile.terms_accepted_at) return;
+  const at = (S.session.user.user_metadata || {}).terms_accepted_at || new Date().toISOString();
+  const version = (S.session.user.user_metadata || {}).terms_version || TERMS_VERSION;
+  const { error } = await sb.from('profiles')
+    .update({ terms_accepted_at: at, terms_version: version }).eq('id', S.session.user.id);
+  if (!error) Object.assign(S.profile, { terms_accepted_at: at, terms_version: version });
+}
+
 /* ================= data access ================= */
 async function loadAll() {
   const uid = S.session.user.id;
@@ -226,6 +296,9 @@ const cacheKey = () => 'rt-cache-' + (S.session ? S.session.user.id : 'anon');
 const CACHE_WORKOUTS = 400, CACHE_SESSIONS = 200;
 
 function cacheData() {
+  // Sample mode already IS a local store; a second copy of it would just eat
+  // the same quota twice.
+  if (S.trial) return;
   const payload = {
     profile: S.profile, exercises: S.exercises, routines: S.routines,
     workouts: S.workouts.slice(0, CACHE_WORKOUTS),
@@ -713,8 +786,8 @@ async function saveWorkout() {
     $('log-date').value = todayISO();
     $('log-notes').value = '';
     renderLog(); renderSummary(); renderProgress(); renderHistory();
-    toast('log-msg', 'Session updated - ' + prettyDate(date) + ' · ' + Object.keys(sets).length +
-      ' exercises, ' + total + ' sets.');
+    toast('log-msg', 'Session updated - ' + prettyDate(date) + ' · ' + plural(Object.keys(sets).length, 'exercise') +
+      ', ' + plural(total, 'set') + '.');
     return;
   }
 
@@ -735,8 +808,8 @@ async function saveWorkout() {
   renderLog();
   toast('log-msg',
     (queued ? 'Saved on this device - no connection, so it will sync as soon as you are back online. ' : 'Saved - ') +
-    prettyDate(date) + ' ' + row.at + ' · ' + Object.keys(sets).length +
-    ' exercises, ' + total + ' sets' + (nToday > 1 ? ' · entry ' + nToday + ' today' : '') + '.' +
+    prettyDate(date) + ' ' + row.at + ' · ' + plural(Object.keys(sets).length, 'exercise') +
+    ', ' + plural(total, 'set') + (nToday > 1 ? ' · entry ' + nToday + ' today' : '') + '.' +
     (skipped ? ' ' + skipped + ' exercise' + (skipped === 1 ? ' was' : 's were') + ' empty and left out.' : ''),
     queued ? 'warn' : '');
   renderSummary(); renderProgress(); renderHistory();
@@ -913,6 +986,7 @@ function renderErgRecent() {
 // The server decides this too - this is only so free users see an honest
 // message up front instead of uploading a photo and being refused.
 function canReadPhotos() {
+  if (S.trial) return false;      // every parse costs money; a sample cannot spend it
   const p = S.profile || {};
   if (p.tracker_plan === 'paid') return true;
   return p.tracker_plan === 'trial' && p.tracker_trial_ends_at
@@ -929,11 +1003,15 @@ function renderErgGate() {
     return;
   }
   $('erg-photo-btn').disabled = true;
-  $('erg-photo-btn').title = 'Part of the £5/month plan';
-  wrap.innerHTML =
-    '<div class="gate"><b>Reading erg photos is part of the £5/month plan.</b>' +
-    '<span>Logging weights and typing erg sessions in by hand is free, and always unlimited. ' +
-    'The photo reader turns a picture of the monitor into a full session, splits and all.</span></div>';
+  $('erg-photo-btn').title = S.trial ? 'Needs an account' : 'Part of the £5/month plan';
+  wrap.innerHTML = S.trial
+    ? '<div class="gate"><b>Reading erg photos needs an account.</b>' +
+      '<span>Every photo is read by an AI model and costs real money per picture, so it is the ' +
+      'one thing the sample cannot do. <b>Enter manually</b> works exactly as it will once you ' +
+      'sign up.</span></div>'
+    : '<div class="gate"><b>Reading erg photos is part of the £5/month plan.</b>' +
+      '<span>Logging weights and typing erg sessions in by hand is free, and always unlimited. ' +
+      'The photo reader turns a picture of the monitor into a full session, splits and all.</span></div>';
 }
 
 /* ---- photo capture -> Edge Function ---- */
@@ -2145,6 +2223,8 @@ function renderHistory() {
                    : x.kind === 'c' ? histCoreHTML(x.r) : histErgHTML(x.r)).join('') +
       '</section>';
   }).join('');
+  // The sample banner counts sessions, and this runs after every save.
+  paintTrialBar();
 }
 const kg = n => Math.round(n).toLocaleString('en-GB');
 
@@ -2520,6 +2600,7 @@ async function loadBoard() {
 // "Loading your squads...".
 let pendingRefresh;
 async function refreshSquad(loud) {
+  if (S.trial) { renderSquad(); return; }
   if (SQ.busy) { pendingRefresh = loud || pendingRefresh || null; return; }
   SQ.busy = true;
   try {
@@ -2541,6 +2622,22 @@ async function refreshSquad(loud) {
 function renderSquad() {
   const el = $('squad-body');
   if (!el) return;
+
+  // A squad is other people. There is nothing honest to show a sample here.
+  if (S.trial) {
+    el.innerHTML = '<div class="setup-sec"><h3 class="setup-head">Squads</h3>' +
+      '<p class="setup-intro">A squad is a group of people who can see how much training each ' +
+      'other is getting through - days trained, sessions, metres, time - and swap exercise ' +
+      'templates. Totals only: never a session, a lift or a note.</p>' +
+      '<div class="gate"><b>Squads need an account.</b><span>' +
+      (S.joinCode ? 'You arrived on an invite for code <b>' + esc(S.joinCode) + '</b>, and it is being ' +
+        'held for you: create an account and you can accept it straight away. ' : '') +
+      'Your squad-mates have to be able to find you, which a sample on one device cannot be. ' +
+      'Everything you have logged so far comes with you when you sign up.</span></div>' +
+      '<a class="primary" id="sq-signup" href="login.html?signup=1" style="display:block;text-align:center;' +
+      'text-decoration:none;line-height:42px;height:42px;margin-top:14px">Create a free account</a></div>';
+    return;
+  }
 
   if (!SQ.tried) { el.innerHTML = '<p class="loading-app">Loading your squads&hellip;</p>'; return; }
 
@@ -2566,17 +2663,22 @@ function renderSquad() {
 }
 
 function squadJoinHTML(alone) {
+  const invited = !!S.joinCode;
   return '<div class="setup-sec">' +
     (alone ? '<h3 class="setup-head">Squads</h3>' +
       '<p class="setup-intro">A squad is a group of people who can see how much training each other ' +
-      'is getting through - sessions, metres, time - and swap exercise templates. ' +
-      '<b>Joining shares nothing on its own</b>; you opt in per squad afterwards, and can opt out again ' +
-      'at any time.</p>' : '<h3 class="setup-head" style="margin-top:8px">Join another squad</h3>') +
-    '<div class="lib-form"><h3>Join with a code</h3>' +
+      'is getting through - days trained, sessions, metres, time - and swap exercise templates. ' +
+      'Joining puts your <b>totals</b> on that squad’s board; never a session, a lift, a date or a ' +
+      'note. Leaving takes them straight back off.</p>' : '<h3 class="setup-head" style="margin-top:8px">Join another squad</h3>') +
+    '<div class="lib-form"><h3>' + (invited ? 'You have been invited' : 'Join with a code') + '</h3>' +
+      (invited ? '<p class="fhint" style="margin:-4px 0 12px">Someone sent you the code below. ' +
+        'Join and your totals go on their board.</p>' : '') +
       '<div class="fwide"><label>Six-character code from a squad-mate</label>' +
         '<input type="text" id="sq-code" placeholder="e.g. K7RMQ2" maxlength="10" ' +
+        'value="' + esc(S.joinCode || '') + '" ' +
         'autocapitalize="characters" autocomplete="off" style="letter-spacing:.24em;text-transform:uppercase"></div>' +
       '<button class="primary" id="sq-join" style="height:42px">Join squad</button>' +
+      (invited ? '<button id="sq-nojoin" style="width:100%;margin-top:8px">Not now</button>' : '') +
     '</div>' +
     '<div class="lib-form"><h3>Or start one</h3>' +
       '<div class="fwide"><label>Squad name</label>' +
@@ -2592,25 +2694,34 @@ function squadJoinHTML(alone) {
 // whichever message holder belongs to the form actually on screen
 const squadMsg = () => ($('squad-msg2') ? 'squad-msg2' : 'squad-msg');
 
+// The join link. Built from the page's own location so it works on
+// localhost and on rowingtools.co.uk without a hard-coded host.
+const joinLink = code =>
+  window.location.origin + window.location.pathname.replace(/[^/]*$/, '') + '?join=' + encodeURIComponent(code);
+
 function squadMainHTML() {
   const sq = SQ.squads.find(s => s.id === SQ.groupId) || SQ.squads[0];
-  const sharing = SQ.sharing.has(SQ.groupId);
   const metric = metricBy(SQ.metric);
+  const me = S.session.user.id;
+  const isAdmin = !!(sq && sq.role === 'admin');
+  const sharing = SQ.sharing.has(SQ.groupId);
 
   const rows = SQ.board.filter(r => r.sharing);
   const quiet = SQ.board.filter(r => !r.sharing);
   rows.sort((a, b) => (Number(b[metric.k]) || 0) - (Number(a[metric.k]) || 0));
   const top = Math.max(...rows.map(r => Number(r[metric.k]) || 0), 0);
-  const me = S.session.user.id;
+
+  // Only an admin can remove anyone, and never themselves - leaving is the
+  // way out for you. Matches tracker_admin_remove_member().
+  const rmBtn = r => (isAdmin && r.profile_id !== me)
+    ? '<button class="brm" data-sq-rm="' + r.profile_id + '" data-sq-rmname="' + esc(r.display_name) +
+      '">remove</button>' : '';
 
   const board = SQ.boardError
     ? '<div class="toast err">Could not load the board: ' + esc(SQ.boardError) + '</div>'
     : !SQ.board.length
     ? '<p class="empty">Nobody in this squad yet.</p>'
-    : !rows.length
-      ? '<p class="empty">Nobody is sharing their training in this squad yet' +
-        (sharing ? '' : ' - you could be first') + '.</p>'
-      : '<div class="bhead"><span>#</span><span>Athlete</span><span class="r">' +
+    : '<div class="bhead"><span>#</span><span>Athlete</span><span class="r">' +
         esc(metric.label) + '</span></div>' +
       rows.map((r, i) => {
           const v = Number(r[metric.k]) || 0;
@@ -2622,43 +2733,46 @@ function squadMainHTML() {
               (metric.unit && metric.unit !== 'time' ? '<small>' + metric.unit + '</small>' : '') + '</span>' +
             '<span class="bsub">' + r.days_trained + ' day' + (r.days_trained === 1 ? '' : 's') + ' · ' +
               r.sessions_weights + ' weights · ' + r.sessions_erg + ' erg · ' + r.sessions_core + ' core</span>' +
+            rmBtn(r) +
             '<span class="bbar"><i style="width:' + (top ? Math.round((v / top) * 100) : 0) + '%"></i></span>' +
           '</div>';
         }).join('') +
+        // Anyone here predates sharing-follows-membership and has not had the
+        // backfill run over them yet. Yours is fixable from here; other
+        // people's is theirs to fix.
         (quiet.length ? quiet.map(r =>
           '<div class="brow bquiet' + (r.profile_id === me ? ' me' : '') + '">' +
             '<span class="brank">–</span>' +
             '<span class="bname">' + esc(r.display_name) + '</span>' +
             '<span class="bval">–</span>' +
-            '<span class="bsub">not sharing</span></div>').join('') : '');
+            '<span class="bsub">not on the board' +
+              (r.profile_id === me
+                ? ' <button class="blink" id="sq-share-me" data-group="' + SQ.groupId + '">show my totals</button>'
+                : '') + '</span>' +
+            rmBtn(r) + '</div>').join('') : '');
 
   return '<div class="setup-sec">' +
     '<div class="squad-bar">' +
       '<select id="squad-pick">' + SQ.squads.map(s =>
         '<option value="' + s.id + '">' + esc(s.name) + '</option>').join('') + '</select>' +
-      '<button id="sq-leave">Leave</button>' +
       '<button id="sq-add">+ Join another</button>' +
     '</div>' +
-    (sq && sq.code
-      ? '<p class="squad-code">Invite code <b>' + esc(sq.code) + '</b>' +
-        '<button id="sq-copy">copy</button></p>'
-      : '<p class="squad-code">No invite code on this squad.</p>') +
 
-    // consent, stated in full every time - it governs personal data and must
-    // never become a thing you scrolled past once
-    '<div class="consent' + (sharing ? ' on' : '') + '">' +
-      '<div class="consent-head"><b>' +
-        (sharing ? 'You are on this board' : 'You are not on this board') + '</b>' +
-        '<button id="sq-toggle" data-group="' + SQ.groupId + '" class="' + (sharing ? '' : 'primary') + '">' +
-        (sharing ? 'Stop sharing' : 'Share my training') + '</button></div>' +
-      '<ul><li>Shared: how many sessions, days trained, erg metres and time, core time, ' +
-        'weights sets and volume - <b>totals only</b>.</li>' +
-        '<li class="never">Never shared: your notes, what you lifted, individual sessions, ' +
-        'dates, or anything from the erg photo reader.</li>' +
-        '<li class="never">Turning this off removes your totals from the board immediately.</li>' +
-        '<li class="never">Being in the squad shows your name to the others either way - ' +
-        'that part is membership, not sharing.</li></ul>' +
-    '</div>' +
+    // Getting someone in is the thing this tab is for, so it is the first
+    // thing on it - link, email or the phone's own share sheet, all carrying
+    // the same code.
+    (sq && sq.code
+      ? '<div class="invite">' +
+          '<div class="inv-code">Invite code <b>' + esc(sq.code) + '</b></div>' +
+          '<div class="inv-acts">' +
+            '<button id="sq-mail">Invite by email</button>' +
+            (navigator.share ? '<button id="sq-share">Share&hellip;</button>' : '') +
+            '<button id="sq-copy">Copy link</button>' +
+          '</div>' +
+          '<p class="inv-note">Anyone with the link or the code can join, and joining puts them on ' +
+            'this board. Email opens your own mail app with the link in it.</p>' +
+        '</div>'
+      : '<p class="squad-code">No invite code on this squad.</p>') +
 
     '<div class="boardctl">' +
       '<select id="squad-metric">' +
@@ -2670,11 +2784,18 @@ function squadMainHTML() {
         '<option value="' + p.k + '">' + p.label + '</option>').join('') + '</select>' +
     '</div>' +
     board +
-    '<p class="squad-note">' + rows.length + ' of ' + SQ.board.length + ' sharing · ' +
+    // What sharing means, said once, in one paragraph. Being in the squad is
+    // being on the board; leaving is how you take yourself off it.
+    '<p class="squad-note">' + rows.length + ' of ' + SQ.board.length + ' on the board · ' +
       esc(metricBy(SQ.metric).label) + ', ' +
       esc((PERIODS.find(p => p.k === SQ.period) || {}).label || '').toLowerCase() + '.<br>' +
-      'These are self-reported: they show who is putting the work in, not who is fastest. ' +
-      'Race results are on the main site.</p>' +
+      'Everyone here sees your <b>totals</b> - days trained, sessions, erg metres and time, core ' +
+      'time, weights sets and volume. Never a session, a lift, a date or a note. ' +
+      (sharing ? 'Leave the squad and your numbers go with you. ' : '') +
+      'They are self-reported: they show who is putting the work in, not who is fastest.' +
+      '<br><button class="blink" id="sq-leave">Leave ' + esc((sq && sq.name) || 'this squad') + '</button>' +
+      (isAdmin ? ' · you started this squad, so you can remove people from it' : '') +
+    '</p>' +
     '<div id="squad-msg"></div>' +
   '</div>' + squadTemplatesHTML();
 }
@@ -2730,26 +2851,32 @@ async function squadJoin() {
   const j = Array.isArray(data) ? data[0] : data;
   SQ.loaded = false;
   SQ.groupId = j ? j.group_id : null;
+  localStorage.removeItem(PENDING_JOIN);
+  S.joinCode = null;
   track('squad_joined', {});
   await refreshSquad('Joined ' + esc((j && j.group_name) || 'the squad') +
-    '. You are not sharing any training yet - use the button above when you want to be on the board.');
+    '. Your totals are on their board from now on - leave the squad to take them off again.');
 }
 
 async function squadLeave() {
   const sq = SQ.squads.find(s => s.id === SQ.groupId);
   if (!sq) return;
-  if (!confirm('Leave ' + sq.name + '? Your own training log is untouched; you just come off their board.')) return;
+  if (!confirm('Leave ' + sq.name + '?\n\nYour totals come off their board straight away and nobody in ' +
+      'the squad can see anything of yours after that. Your own training log is untouched.')) return;
   const { error } = await sb.rpc('tracker_leave_group', { p_group: SQ.groupId });
   if (error) { toast('squad-msg', 'Could not leave: ' + esc(error.message), 'err'); return; }
   SQ.loaded = false; SQ.groupId = null;
   await refreshSquad('Left ' + esc(sq.name) + '.');
 }
 
+// Being in a squad is being on its board, so nothing calls this to opt out
+// any more - leaving does that. It survives as the repair for a membership
+// that predates the change and has no sharing row: "show my totals" on your
+// own greyed row.
 async function squadToggleSharing(gid) {
   // The id comes from the rendered button, not from SQ.groupId: switching the
   // picker sets SQ.groupId immediately while the old panel is still on screen,
-  // so reading it here could opt you into a squad whose consent text you never
-  // saw.
+  // so reading it here could act on a squad other than the one on screen.
   if (!gid) return;
   const on = SQ.sharing.has(gid);
   const uid = S.session.user.id;
@@ -2765,7 +2892,57 @@ async function squadToggleSharing(gid) {
   track('squad_sharing', { on: !on });
   await refreshSquad(on
     ? 'Your totals are off this board. Nothing of yours is shared with this squad now.'
-    : 'You are on the board. Totals only - your notes and individual lifts stay private.');
+    : 'You are on the board. Totals only - your sessions, lifts and notes stay private.');
+}
+
+// Removing someone is an admin-only RPC; the client cannot touch
+// group_members directly (it has no DELETE policy, on purpose).
+async function squadRemoveMember(pid, name) {
+  if (!confirm('Remove ' + name + ' from this squad?\n\nTheir totals come off the board and they ' +
+    'lose access to anything shared with it. Their own training log is untouched, and they can ' +
+    'join again with the code.')) return;
+  const { error } = await sb.rpc('tracker_admin_remove_member', { p_group: SQ.groupId, p_profile: pid });
+  if (error) { toast('squad-msg', 'Could not remove them: ' + esc(error.message), 'err'); return; }
+  track('squad_member_removed', {});
+  await refreshSquad(esc(name) + ' is no longer in this squad.');
+}
+
+// Share sheet, mail app, clipboard - the same link three ways, because how a
+// crew passes something around is not something to have an opinion about.
+const NL = String.fromCharCode(10);
+function squadInvite(how) {
+  const sq = SQ.squads.find(s => s.id === SQ.groupId);
+  if (!sq || !sq.code) return;
+  const url = joinLink(sq.code);
+  const name = (S.profile && S.profile.display_name) || 'A crewmate';
+  const subject = 'Join ' + sq.name + ' on RowingTools';
+  const body = name + ' has invited you to ' + sq.name + ' on the RowingTools training tracker.' + NL + NL +
+    'Open this link to join:' + NL + url + NL + NL +
+    'Or enter the code ' + sq.code + ' on the Board tab.' + NL + NL +
+    'A squad shows how much training each of you is getting through - days trained, sessions, ' +
+    'erg metres and time. Totals only: nobody sees your individual sessions, lifts or notes.';
+
+  if (how === 'mail') {
+    track('squad_invite', { how: 'mail' });
+    window.location.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+    return;
+  }
+  if (how === 'share' && navigator.share) {
+    track('squad_invite', { how: 'share' });
+    // A cancelled share sheet rejects; that is a choice, not a failure.
+    navigator.share({ title: subject, text: 'Join ' + sq.name + ' on RowingTools', url }).catch(() => {});
+    return;
+  }
+  track('squad_invite', { how: 'copy' });
+  // The clipboard needs a secure context and permission; the link is on
+  // screen either way, so falling back to showing it is enough.
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(
+      () => toast('squad-msg', 'Invite link copied. Anyone you send it to can join with one tap.'),
+      () => toast('squad-msg', 'Copy this link by hand: <b>' + esc(url) + '</b>', 'warn'));
+  } else {
+    toast('squad-msg', 'Copy this link by hand: <b>' + esc(url) + '</b>', 'warn');
+  }
 }
 
 async function squadPostTemplate() {
@@ -3013,24 +3190,18 @@ document.addEventListener('click', async e => {
   if (e.target.id === 'sq-create') { squadCreate(); return; }
   if (e.target.id === 'sq-join')   { squadJoin(); return; }
   if (e.target.id === 'sq-leave')  { squadLeave(); return; }
-  if (e.target.id === 'sq-toggle') { squadToggleSharing(e.target.dataset.group); return; }
+  if (e.target.id === 'sq-share-me') { squadToggleSharing(e.target.dataset.group); return; }
   if (e.target.id === 'sq-post')   { squadPostTemplate(); return; }
   if (e.target.id === 'sq-retry')  { SQ.loaded = false; refreshSquad(); return; }
   if (e.target.id === 'sq-add') { SQ.adding = true; renderSquad(); return; }
-  if (e.target.id === 'sq-copy') {
-    const sq = SQ.squads.find(s => s.id === SQ.groupId);
-    if (!sq || !sq.code) return;
-    // clipboard needs a secure context and permission; the code is on screen
-    // either way, so a failure is not worth reporting
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(sq.code).then(
-        () => toast('squad-msg', 'Code ' + esc(sq.code) + ' copied - send it to whoever should join.'),
-        () => toast('squad-msg', 'Code is <b>' + esc(sq.code) + '</b> - copy it by hand.', 'warn'));
-    } else {
-      toast('squad-msg', 'Code is <b>' + esc(sq.code) + '</b> - copy it by hand.', 'warn');
-    }
-    return;
+  if (e.target.id === 'sq-nojoin') {
+    localStorage.removeItem(PENDING_JOIN); S.joinCode = null; SQ.adding = false; renderSquad(); return;
   }
+  if (e.target.id === 'sq-mail')  { squadInvite('mail'); return; }
+  if (e.target.id === 'sq-share') { squadInvite('share'); return; }
+  if (e.target.id === 'sq-copy')  { squadInvite('copy'); return; }
+  const sqRm = e.target.closest('[data-sq-rm]');
+  if (sqRm) { squadRemoveMember(sqRm.dataset.sqRm, sqRm.dataset.sqRmname); return; }
   const tg = e.target.closest('[data-tmpl-get]');
   if (tg) { squadImportTemplate(tg.dataset.tmplGet); return; }
   const td = e.target.closest('[data-tmpl-del]');
@@ -3047,9 +3218,35 @@ document.addEventListener('click', async e => {
 
 /* ================= boot ================= */
 (async () => {
+  // An invite link has to survive sign-in and, for a new account, an email
+  // confirmation round trip - so the code is parked locally rather than
+  // carried in the URL, and taken out of the address bar so it is not shared
+  // on by accident.
+  const joinParam = (new URLSearchParams(window.location.search).get('join') || '').trim().toUpperCase();
+  if (joinParam) {
+    localStorage.setItem(PENDING_JOIN, joinParam);
+    history.replaceState(null, '', window.location.pathname);
+  }
+  S.joinCode = localStorage.getItem(PENDING_JOIN) || null;
+
   const { data: { session } } = await sb.auth.getSession();
-  if (!session) { window.location.replace('login.html'); return; }
-  S.session = session;
+  if (session) {
+    S.session = session;
+  } else if (trialActive()) {
+    // Swap the whole data layer for the localStorage one; see js/trial.js.
+    sb = trialClient();
+    S.trial = true;
+    S.session = trialSession();
+  } else {
+    window.location.replace('login.html');
+    return;
+  }
+
+  // An account has just appeared over the top of a sample: bring the sample
+  // with it before anything is loaded, or the first thing the new account
+  // shows is an empty log where the work used to be.
+  let migrated = null;
+  if (!S.trial && trialActive()) migrated = await migrateTrial();
 
   const err = await loadAll();
   let fromCache = false;
@@ -3066,7 +3263,11 @@ document.addEventListener('click', async e => {
     cacheData();
   }
 
-  $('whoami').textContent = (S.profile && S.profile.display_name) || session.user.email || '';
+  $('whoami').textContent = S.trial ? 'Sample'
+    : ((S.profile && S.profile.display_name) || S.session.user.email || '');
+  $('signout').textContent = S.trial ? 'Leave sample' : 'Sign out';
+  paintTrialBar();
+  if (!S.trial) stampTerms();
   $('log-date').value = todayISO();
   $('core-date').value = todayISO();
   renderLog(); renderErgGate(); renderErgRecent(); renderCoreTab();
@@ -3076,6 +3277,16 @@ document.addEventListener('click', async e => {
   if (fromCache) {
     toast('log-msg', 'No connection - showing your training log from this device. ' +
       'Anything you log now is kept here and syncs when you are back online.', 'warn');
+  }
+  if (migrated && migrated.error) {
+    toast('log-msg', 'Your sample is still on this device but could not be uploaded: ' +
+      esc(migrated.error) + ' It will try again next time you open the tracker.', 'err');
+  } else if (migrated) {
+    const n = migrated.weights + migrated.erg + migrated.core;
+    toast('log-msg', 'Welcome in. ' + (n
+      ? 'The ' + n + ' session' + (n === 1 ? '' : 's') + ' you logged as a sample ' +
+        (n === 1 ? 'is' : 'are') + ' now saved to your account, along with your exercises.'
+      : 'Your sample exercise library has been saved to your account.'));
   }
   // Rows flushed at boot are on the server but not in what was just loaded, so
   // pull again rather than leaving the athlete looking at a log that is missing
@@ -3091,6 +3302,13 @@ document.addEventListener('click', async e => {
 
   $('app-loading').style.display = 'none';
   $('app').style.display = '';
+  // Boot got here, so the fast signed-out redirect in index.html is free to
+  // fire again next time.
+  sessionStorage.removeItem('rt-bounced');
+
+  // Arrived on an invite link: open the tab that can act on it rather than
+  // leaving the code sitting in storage with nothing to show for it.
+  if (S.joinCode && !S.trial) { selectTab('p-squad'); SQ.adding = true; refreshSquad(); }
 
   // tabs
   document.querySelectorAll('.tabs .tab').forEach(tab => {
@@ -3113,7 +3331,13 @@ document.addEventListener('click', async e => {
   // a saved session the date is part of what is being edited, so keep the sets.
   $('log-date').onchange = () => renderLog(editingWorkoutId ? snapshotLog() : null);
   $('save-btn').onclick = saveWorkout;
-  $('signout').onclick = async () => { await sb.auth.signOut(); window.location.replace('login.html'); };
+  $('signout').onclick = async () => {
+    if (S.trial && !confirm('Leave the sample?' + String.fromCharCode(10, 10) +
+        'Everything you logged here is on this device only and will be deleted. ' +
+        'Creating an account instead keeps the lot.')) return;
+    await sb.auth.signOut();
+    window.location.replace('login.html');
+  };
 
   $('erg-photo-btn').onclick = () => $('erg-file').click();
   $('erg-file').onchange = () => { if ($('erg-file').files[0]) { handleErgPhoto($('erg-file').files[0]); $('erg-file').value = ''; } };
