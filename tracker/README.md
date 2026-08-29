@@ -34,10 +34,15 @@ totals through a `SECURITY DEFINER` function rather than by widening those polic
    rather than hunting for a migration. Requires `public.profiles` and the `handle_new_user()`
    trigger, which are already live.
 
-2. **Deploy the Edge Function** (needs the Supabase CLI, logged in to the personal account):
+2. **Deploy the Edge Function** (needs the Supabase CLI, logged in to the personal account).
+   **Run it from `tracker/`, not the repo root** - the CLI looks for `supabase/functions/<name>`
+   relative to the working directory, and this repo keeps its Supabase project under `tracker/`.
+   From the repo root you get "no functions found".
 
    ```bash
+   cd tracker
    supabase functions deploy parse-erg --project-ref tbhujqdflswhgxtioznb
+   # secrets take the ref explicitly, so these work from anywhere
    supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref tbhujqdflswhgxtioznb
    ```
 
