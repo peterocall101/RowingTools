@@ -4,7 +4,7 @@
 
 GMT% ("Gold Medal Time" percentage) = `world best time / your time × 100`. It is always ≤ 100% for a standard event and lets you compare performances across boat classes and regattas on one scale. The site benchmarks crews against four references: **WBT** (World Best Time), **Met** (Metropolitan Regatta championship average), **HRR** (Henley Royal Regatta fastest non-qualifier) and **HWR** (Henley Women's Regatta championship winner).
 
-This README is the single source of truth for the repo's structure, architecture and tooling. It is reference documentation only - no roadmap or todo lists.
+This README is the single source of truth for the repo's structure, architecture and tooling. It is reference documentation only - no roadmap or todo lists. The roadmap lives in [NEXT_STEPS.md](NEXT_STEPS.md).
 
 ---
 
