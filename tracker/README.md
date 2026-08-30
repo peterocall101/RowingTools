@@ -1,8 +1,14 @@
-# RowingTools Tracker
+# RowingTools Training & Race Log
 
-Athlete-facing training log at **rowingtools.co.uk/tracker/** - weights sessions against a
-user-defined exercise library, erg sessions logged manually or by photographing the monitor
-(Concept2 PM5 / RowPerfect) and letting Claude vision read it, and core circuits against a timer.
+**Renamed from "Training Tracker" on 2026-08-30**, when the Races tab landed: a name that says
+training and nothing else undersold the half of it nobody else has. The directory, the URL and the
+table prefix are still `tracker` - renaming those would break every published link and every row -
+so treat "tracker" as the code name and "Training & Race Log" as what it is called on screen.
+
+Athlete-facing log at **rowingtools.co.uk/tracker/** - your race history claimed off the RowingTools
+regatta leaderboards, plus the training behind it: weights sessions against a user-defined exercise
+library, erg sessions logged manually or by photographing the monitor (Concept2 PM5 / RowPerfect)
+and letting Claude vision read it, water outings, and core circuits against a timer.
 
 It is a public part of the site: the homepage leads with it, `login.html` is the indexable front
 door, and **the whole app runs without an account** in sample mode (below). Only the app itself
@@ -275,10 +281,24 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   the fact; a `+12.40` beside a 4th of 5 says the same thing twice, in a way that reads as a
   reproach on a page someone opens to see how their season went. `gap_s` is dropped in the schema
   rather than left unused, so the table stays exactly what the app writes.
-- **A result is a link back to its leaderboard**, opened filtered to the club
-  (`/leaderboards/<comp>/?club=<club>` - those pages read `?club=` on load, via
-  `rowingtools-share.js`), so it lands on the crew rather than on 900 rows. New tab on purpose:
-  it is a reference, and losing a half-finished search to a back button is a poor trade.
+- **A result links to the regatta's HEATMAP with that crew's cell ringed**, not to the results
+  table. The question a result provokes is "who else was in that race, and how did the lanes go",
+  and the heatmap is the view that answers it - it is already the default tab on those pages, so
+  landing there costs nothing.
+
+  `leaderboards/deeplink.js` does it, reading `?ev=&rd=&crew=&hlclub=` off the URL: it drives the
+  page's own club filter (which already dims every other club), finds the cell by event caption,
+  round and crew name, rings it, writes a line above the heatmap saying why, and scrolls it into
+  view. **`hlclub` rather than `club` deliberately** - `rowingtools-share.js` already claims
+  `?club=` and uses it to jump to the Result Leaderboard tab, which is the view this is avoiding,
+  and two scripts fighting over one parameter is a bug waiting to happen.
+
+  It is on all 16 leaderboard pages as its own file rather than folded into `rowingtools-share.js`,
+  because three of those pages (`bucs26`, `nottm25`, `reading26`) never included that script. Every
+  step is guarded: a page whose markup differs, a regatta that has been re-cut, or a crew that is no
+  longer there all leave the page sitting on its ordinary heatmap. **A deep link that misses must
+  never be worse than no deep link.** New tab on purpose: it is a reference, and losing a
+  half-finished search to a back button is a poor trade.
 - **Races sort by date or best-first, inside the year.** Never across years: a season is the unit a
   rower thinks in, and one list running best-to-worst over four years would bury this summer under
   a good day two seasons ago. One control, applied to every year block.

@@ -2793,12 +2793,27 @@ const raceYearOf = comp => '20' + comp.slice(-2);
 // already the heading and the rest is a mouthful on a phone.
 const compShort = (title, comp) => (title || comp || '').replace(/\s+20\d\d\b/, '').trim();
 
-// The leaderboard the result came from, filtered to the club. Those pages read
-// ?club= on load (rowingtools-share.js does it), so the link lands on the crew
-// rather than on 900 rows. New tab on purpose: this is a reference, and losing
-// a half-finished search to a back button is a poor trade.
-const compHref = (url, comp, club) => !url && !comp ? ''
-  : (url || '/leaderboards/' + comp + '/') + (club ? '?club=' + encodeURIComponent(club) : '');
+// The regatta's HEATMAP, with this crew's cell ringed. Not the results table:
+// the question a result provokes is "who else was in that race and how did the
+// lanes go", and the heatmap is the view that answers it - it is the default
+// tab on those pages, so landing there costs nothing.
+//
+// leaderboards/deeplink.js reads these four and does the highlighting. `hlclub`
+// rather than `club` on purpose: rowingtools-share.js already claims ?club= and
+// uses it to jump to the Result Leaderboard, which is the view being avoided.
+//
+// New tab, because this is a reference, and losing a half-finished search to a
+// back button is a poor trade.
+function compHref(r, comp, club) {
+  const base = (r && r.comp_url) || (comp ? '/leaderboards/' + comp + '/' : '');
+  if (!base) return '';
+  const q = [];
+  if (r && r.event) q.push('ev=' + encodeURIComponent(r.event));
+  if (r && r.round) q.push('rd=' + encodeURIComponent(r.round));
+  if (r && r.crew)  q.push('crew=' + encodeURIComponent(r.crew));
+  if (club)         q.push('hlclub=' + encodeURIComponent(club));
+  return base + (q.length ? '?' + q.join('&') : '');
+}
 
 function sessionCache(key, fetcher) {
   try {
@@ -3264,7 +3279,7 @@ function myRacesHTML() {
 function raceRowHTML(r) {
   return '<div class="rrow">' +
     '<div class="rr-when">' + shortDate(r.date) + '</div>' +
-    '<a class="rr-what" href="' + esc(compHref(r.comp_url, r.comp, r.club)) +
+    '<a class="rr-what" href="' + esc(compHref(r, r.comp, r.club)) +
       '" target="_blank" rel="noopener"><b>' + esc(r.event || '') + '</b>' +
       (r.round ? ' <span class="rr-round">' + esc(r.round) + '</span>' : '') +
       '<small><span class="mdate">' + shortDate(r.date) + ' \u00b7 </span>' +
@@ -3324,7 +3339,8 @@ function raceSearchHTML() {
         const got = mine.has(key);
         return '<div class="rrow find' + (got ? ' got' : '') + '">' +
           '<div class="rr-when">' + shortDate(h.r.date || h.comp.date) + '</div>' +
-          '<a class="rr-what" href="' + esc(compHref(h.comp.url, h.comp.comp, h.r.club)) +
+          '<a class="rr-what" href="' + esc(compHref(
+            Object.assign({ comp_url: h.comp.url }, h.r), h.comp.comp, h.r.club)) +
             '" target="_blank" rel="noopener"><b>' + esc(h.r.event || '') + '</b>' +
             (h.r.round ? ' <span class="rr-round">' + esc(h.r.round) + '</span>' : '') +
             '<small><span class="mdate">' + shortDate(h.r.date || h.comp.date) + ' \u00b7 </span>' +

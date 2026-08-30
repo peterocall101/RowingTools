@@ -105,7 +105,7 @@ dates - `311 clubs` and `13 UK regattas` are the numbers that move.
 ## 3. Cross-links to the tracker from the high-traffic pages - DONE 2026-08-30
 
 Was marked blocked on Stripe. It was not: the blocker was the *word* "free", not the link. The copy
-is now pricing-neutral - **"Training Tracker →"** and nothing else - so none of it needs revisiting
+is now pricing-neutral - **"Training & Race Log →"** and nothing else - so none of it needs revisiting
 when the tracker starts charging.
 
 - `gmt/`, `leaderboards/`, `henley/` - the existing single "Back to main tools" line became a
@@ -178,6 +178,12 @@ exist - something like 30 questions a day, against 20 photos - but it is a guard
 ---
 
 ## Recently closed
+
+**2026-08-30 - renamed to Training & Race Log.** "Training Tracker" undersold the half nobody else
+has. 29 mentions across 26 files. The directory, the URL and the `tracker_*` table prefix are
+unchanged - renaming those would break every published link and every row - so `tracker` is the code
+name and **Training & Race Log** is the name on screen. The homepage card now leads with claiming
+regatta results rather than with the erg photo reader.
 
 **2026-08-30 - race history.** A Races tab claims results from the regatta leaderboards
 (`data/all_results.json`) into `tracker_races`, with a per-year summary and a top-3 GMT average, and
