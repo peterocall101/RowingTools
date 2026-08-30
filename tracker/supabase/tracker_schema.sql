@@ -138,6 +138,43 @@ create table if not exists public.tracker_water_sessions (
   created_at   timestamptz not null default now()
 );
 
+-- Races claimed from the RowingTools regatta leaderboards.
+--
+-- A SNAPSHOT, not a foreign key. The leaderboard data lives in a static
+-- file (data/all_results.json) that is re-scraped as regattas are added,
+-- so a race stored as "look it up by key" would go blank the day a
+-- correction lands or a comp is re-cut. Copying the eight fields that
+-- make up the result costs a few hundred bytes an athlete and means a
+-- race history keeps working offline, and after the file changes.
+--
+-- race_key is comp|event|round|crew|time - the identity of a result
+-- within the file. It is unique per athlete so the same race cannot be
+-- claimed twice, which is what makes the "+" idempotent.
+--
+-- venue is copied too (name, lat, lon, bearing, lanes) because that is
+-- what conditions.js needs to draw the weather card, and it belongs to
+-- the regatta rather than to the result.
+create table if not exists public.tracker_races (
+  id         uuid        primary key default gen_random_uuid(),
+  profile_id uuid        not null references public.profiles on delete cascade,
+  race_key   text        not null,
+  comp       text        not null,
+  comp_title text,
+  comp_url   text,
+  date       date        not null,
+  club       text,
+  crew       text,
+  event      text,
+  round      text,
+  boat       text,
+  time       text,
+  clock      text,
+  pct        numeric,
+  venue      jsonb,
+  created_at timestamptz not null default now(),
+  unique (profile_id, race_key)
+);
+
 -- One row per call to parse-erg, including failures - a failed call is
 -- still billed. Written by the function with the SERVICE ROLE, so a user
 -- cannot clear their own quota.
@@ -191,6 +228,19 @@ alter table public.tracker_water_sessions
   add column if not exists distance_m   int,
   add column if not exists total_time_s numeric,
   add column if not exists notes        text;
+
+alter table public.tracker_races
+  add column if not exists comp_title text,
+  add column if not exists comp_url   text,
+  add column if not exists club       text,
+  add column if not exists crew       text,
+  add column if not exists event      text,
+  add column if not exists round      text,
+  add column if not exists boat       text,
+  add column if not exists time       text,
+  add column if not exists clock      text,
+  add column if not exists pct        numeric,
+  add column if not exists venue      jsonb;
 
 alter table public.tracker_core_sessions
   add column if not exists at           text,
@@ -248,6 +298,8 @@ create index if not exists tracker_core_sessions_profile_date_idx
   on public.tracker_core_sessions (profile_id, date desc);
 create index if not exists tracker_water_profile_date_idx
   on public.tracker_water_sessions (profile_id, date desc);
+create index if not exists tracker_races_profile_date_idx
+  on public.tracker_races (profile_id, date desc);
 create index if not exists tracker_erg_parses_profile_time_idx
   on public.tracker_erg_parses (profile_id, created_at desc);
 -- The global daily ceiling in parse-erg counts across all users, so it needs
@@ -263,6 +315,7 @@ alter table public.tracker_erg_sessions  enable row level security;
 alter table public.tracker_core_routines enable row level security;
 alter table public.tracker_core_sessions enable row level security;
 alter table public.tracker_water_sessions enable row level security;
+alter table public.tracker_races         enable row level security;
 alter table public.tracker_erg_parses    enable row level security;
 
 drop policy if exists "own exercises" on public.tracker_exercises;
@@ -287,6 +340,14 @@ create policy "own core sessions" on public.tracker_core_sessions
 
 drop policy if exists "own water sessions" on public.tracker_water_sessions;
 create policy "own water sessions" on public.tracker_water_sessions
+  for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
+
+-- A claimed race is a public result - it is already on the leaderboard
+-- under the crew's name - but WHICH results an athlete says are theirs
+-- is not public, and nothing outside this app should be able to read the
+-- list. Same owner-only policy as everything else.
+drop policy if exists "own races" on public.tracker_races;
+create policy "own races" on public.tracker_races
   for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
 
 -- Read-only to the owner (so the UI can show "12 of 20 photos left").
@@ -954,6 +1015,11 @@ with expected(tbl, col) as (values
   ('tracker_core_sessions','steps'), ('tracker_core_sessions','notes'),
   ('tracker_water_sessions','distance_m'), ('tracker_water_sessions','total_time_s'),
   ('tracker_water_sessions','notes'),
+  ('tracker_races','race_key'), ('tracker_races','comp'), ('tracker_races','comp_title'),
+  ('tracker_races','date'), ('tracker_races','club'), ('tracker_races','crew'),
+  ('tracker_races','event'), ('tracker_races','round'), ('tracker_races','boat'),
+  ('tracker_races','time'), ('tracker_races','clock'), ('tracker_races','pct'),
+  ('tracker_races','venue'),
   ('tracker_sharing','group_id'), ('tracker_shared_templates','payload'),
   ('groups','join_code'),
   ('profiles','tracker_plan'), ('profiles','tracker_trial_ends_at'),
@@ -978,7 +1044,7 @@ select section, item, result from (
          then ' - ok' else ' - ** CHECK THIS **' end as result
   from (values ('tracker_exercises'), ('tracker_workouts'), ('tracker_erg_sessions'),
                ('tracker_core_routines'), ('tracker_core_sessions'),
-               ('tracker_water_sessions')) as t(tbl)
+               ('tracker_water_sessions'), ('tracker_races')) as t(tbl)
 
   -- 2. Tables present, and RLS actually on.
   union all
@@ -991,7 +1057,7 @@ select section, item, result from (
                    then 'on' else '** OFF **' end end
   from (values ('tracker_exercises'), ('tracker_workouts'), ('tracker_erg_sessions'),
                ('tracker_core_routines'), ('tracker_core_sessions'),
-               ('tracker_water_sessions'), ('tracker_erg_parses'),
+               ('tracker_water_sessions'), ('tracker_races'), ('tracker_erg_parses'),
                ('groups'), ('group_members'), ('tracker_sharing'),
                ('tracker_shared_templates')) as t(tbl)
 

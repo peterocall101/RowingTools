@@ -179,6 +179,11 @@ exist - something like 30 questions a day, against 20 photos - but it is a guard
 
 ## Recently closed
 
+**2026-08-30 - race history.** A Races tab claims results from the regatta leaderboards
+(`data/all_results.json`) into `tracker_races`, with a per-year summary and a top-3 GMT average, and
+opens the existing `conditions.js` weather card on any claimed race. Follow-ons worth considering are
+in **Below the line**.
+
 **2026-08-30 - the squad board counts water sessions.** `tracker_squad_board()` gained a `wa`
 CTE and four columns (`sessions_water`, `water_metres`, `water_seconds`, plus water in `days_trained`
 and `sessions_total`); the return signature changed, so the schema file drops the function before

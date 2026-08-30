@@ -379,6 +379,63 @@
   .bquiet .bval{font-size:13px;color:var(--text3)}
   .squad-note{font-family:var(--mono);font-size:10.5px;color:var(--text3);line-height:1.6;margin:14px 0 26px}
 
+  /* -- Races: a results sheet, the same ruled language as History -- */
+  .ryear{margin-bottom:30px}
+  .ryear h4{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+    padding-bottom:7px;border-bottom:1px solid var(--text);margin-bottom:0}
+  .ry-when{font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:.08em}
+  .ry-count{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3)}
+  .rystats{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border);
+    margin-bottom:4px}
+  .rystat{padding:12px 14px 13px;border-right:1px solid var(--border)}
+  .rystat:last-child{border-right:none}
+  .rystat .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--text3)}
+  .rystat .v{font-size:24px;font-weight:700;line-height:1.15;margin-top:3px;font-variant-numeric:tabular-nums}
+  .rystat .s{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* GMT bands, the same four the leaderboards and club pages use */
+  .gmt{font-variant-numeric:tabular-nums}
+  .gmt-a{color:#34d399}.gmt-b{color:#60a5fa}.gmt-c{color:#fb923c}.gmt-d{color:#f87171}
+  .rrow{display:grid;grid-template-columns:74px minmax(0,1fr) auto auto auto;gap:2px 12px;
+    align-items:baseline;padding:9px 2px 10px;border-bottom:1px solid var(--border)}
+  .rrow .rr-when{font-family:var(--mono);font-size:11.5px;color:var(--text2)}
+  .rrow .rr-what small{display:block;font-family:var(--mono);font-size:10px;
+    color:var(--text3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rrow .rr-what{font-size:14px;min-width:0}
+  .rr-round{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.04em}
+  .rrow .rr-time{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .rrow .rr-pct{font-family:var(--mono);font-size:14px;font-weight:600;white-space:nowrap;text-align:right}
+  .rrow .rr-ops{display:flex;gap:2px;justify-self:end}
+  .rrow .rr-ops button{padding:3px 8px;font-size:13px;line-height:1.2}
+  .rrow.got{opacity:.5}
+  .got-tick{color:var(--red-ink);font-size:14px;padding:3px 8px}
+  .rrow .add{padding:2px 11px;font-size:17px;font-weight:600;line-height:1.25;
+    background:transparent;color:var(--text2);border:1px solid var(--border2);height:auto}
+  .rrow .add:hover{background:var(--red-ink);border-color:var(--red-ink);color:#fff}
+  .rfind-ctl{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .rfind-ctl select{min-width:190px;flex:1}
+  .rfind-ctl .chipsearch{flex:1;min-width:170px;margin:0}
+  .rfind-note{font-family:var(--mono);font-size:10.5px;color:var(--text3);margin:0 0 8px}
+  .rhits{border-top:1px solid var(--border)}
+  .rmore{width:100%;margin-top:12px}
+  .rrow .rr-ops .wx{display:inline-flex;align-items:center;padding:4px 8px}
+  .mdate{display:none}
+  @media(max-width:479px){
+    /* Five columns will not fit a phone. The date leaves its own column and
+       joins the line under the event, which frees the width for the four
+       things that have to stay side by side: event, time, GMT, controls. */
+    .rrow{grid-template-columns:minmax(0,1fr) auto auto auto;gap:2px 9px}
+    .rrow .rr-when{display:none}
+    .mdate{display:inline}
+    .rrow .rr-what{grid-column:1;grid-row:1}
+    .rrow .rr-time{grid-column:2;grid-row:1;font-size:12px}
+    .rrow .rr-pct{grid-column:3;grid-row:1;font-size:13px}
+    .rrow .rr-ops{grid-column:4;grid-row:1}
+    .rrow .rr-ops button{padding:3px 6px}
+    .rystat{padding:10px 9px 11px}
+    .rystat .v{font-size:20px}
+  }
+
   /* ── The week strip (History) and the all-lifts table (Progress) ── */
   .sumweek{margin-bottom:34px}
   /* the all-lifts view stacks these straight under the Progress heading */
@@ -618,6 +675,7 @@
       <div class="tabgrp-tabs" role="presentation">
         <button class="tab" role="tab" aria-selected="false" aria-label="Review: Progress" data-panel="p-prog">Progress</button>
         <button class="tab" role="tab" aria-selected="false" aria-label="Review: History" data-panel="p-hist">History</button>
+        <button class="tab" role="tab" aria-selected="false" aria-label="Review: Races" data-panel="p-races">Races</button>
       </div>
     </div>
     <div class="tabgrp" role="presentation">
@@ -684,6 +742,10 @@
 
   <section class="panel" id="p-hist">
     <div id="hist-body"></div>
+  </section>
+
+  <section class="panel" id="p-races">
+    <div id="races-body"><p class="loading-app">Loading your races&hellip;</p></div>
   </section>
 
   <section class="panel" id="p-squad">

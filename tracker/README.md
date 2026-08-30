@@ -18,7 +18,7 @@ totals through a `SECURITY DEFINER` function rather than by widening those polic
 
 | Path | What |
 |---|---|
-| `index.html` | The app - tabs grouped as Record (Weights / Erg / Water / Core), Review (Progress / History), Squad (Board), Set up (Templates) |
+| `index.html` | The app - tabs grouped as Record (Weights / Erg / Water / Core), Review (Progress / History / Races), Squad (Board), Set up (Templates) |
 | `login.html` | The public front door: what the tracker is, sign in / sign up / forgot / recovery, and **Try it without an account** |
 | `terms.html` | Terms of use and privacy notice. The version date at the top is the one stamped on the profile at signup |
 | `js/config.js` | Supabase URL + anon key + Edge Function endpoint. `sb` is a `let` so sample mode can swap it |
@@ -26,6 +26,8 @@ totals through a `SECURITY DEFINER` function rather than by widening those polic
 | `js/app.js` | All app logic |
 | `supabase/tracker_schema.sql` | **The** schema - whole database in one idempotent file. Re-run it any time; its report checks the live DB against what the app writes |
 | `supabase/functions/parse-erg/index.ts` | Edge Function: erg photo -> structured session JSON via Claude vision |
+
+The Races tab additionally reads two files from the main site - `/data/all_results.json` (the regatta leaderboards) and `/data/club_aliases.json` - and injects `/conditions.js` for the weather card. All three are fetched only when that tab is first opened.
 
 ## One-time deployment steps (in order)
 
@@ -229,6 +231,37 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
 
   Progress treats water exactly like the erg - same weekly bars, same measures - so `WATER_METRICS`
   is `ERG_METRICS` rather than a copy of it.
+- **Races are claimed, never matched.** The Races tab reads `data/all_results.json` - the same
+  file behind the regatta leaderboards and club pages, 4,900-odd results across every regatta with
+  a GMT percentage. A result there is a *crew*, and no results file published anywhere names who
+  was in the boat, so there is nothing to match a person against and nothing is guessed: you search
+  by year, regatta and club, and press **+** on the ones you were in. That also keeps a claim a
+  statement about yourself rather than an assertion about someone else's crew.
+
+  **What is stored is a snapshot, not a foreign key.** `tracker_races` copies the eight fields of
+  the result plus the regatta's venue. The results file is re-cut whenever a regatta is added or a
+  correction lands, so a race stored as "look it up by `race_key`" would go blank the day that
+  happens; a copy costs a few hundred bytes an athlete and means a race history works offline and
+  survives the file changing under it. `race_key` (`comp|event|round|crew|time`) is kept anyway,
+  unique per athlete, which is what makes the **+** idempotent and lets the finder grey out what
+  you already have.
+
+  **The file is ~800KB, so it is fetched on the first visit to the tab and never on boot**, and
+  held in `sessionStorage` for the rest of the visit - the same treatment `clubs/` gives it.
+  `conditions.js` is injected on the same trigger, which is how a claimed race opens the identical
+  weather card the leaderboards use: course diagram, wind relative to the course, the lot. A
+  tracker that only logs training pays for none of it.
+
+  **Top three, not top ten.** The clubs pages rank a club on its best ten results because a club
+  enters a hundred crews a season. A person races a handful, so ten would be "all of them,
+  including the one you sculled in a gale". Three is enough to mean a good season rather than one
+  good day, and small enough that a first season has it - and when you have fewer than three the
+  tile says so (`Top 2 GMT`, "your 2 races so far") rather than quietly averaging a smaller set
+  under a bigger label.
+
+  The club-name normalisation (`Univ`/`Coll`/`Sch` expansion, trailing `RC`/`BC`, the `(A)` crew
+  suffix, then `data/club_aliases.json`) is a deliberate copy of the one in `clubs/index.html`. If
+  that one changes, this has to change with it or a search here quietly misses results.
 - **Erg photo limits are enforced server-side, and the client only mirrors them.** A 402 (not on
   the plan), a 429 (over your quota or the site's) and a 503 (switched off) are all expected
   states with a message of their own, so the app shows them as warnings rather than dressing them

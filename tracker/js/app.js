@@ -15,6 +15,7 @@ const S = {
   water: [],       // water outings, sorted date+at desc
   routines: [],    // core routine templates
   coreSessions: [],// logged runs through a core routine
+  races: [],       // regatta results claimed from the leaderboards, newest first
 };
 
 const PATTERN_ORDER = ['squat', 'pull', 'hinge', 'push', 'legs', 'shoulders', 'arms', 'core', 'other'];
@@ -271,7 +272,7 @@ async function stampTerms() {
 /* ================= data access ================= */
 async function loadAll() {
   const uid = S.session.user.id;
-  const [prof, ex, wk, erg, water, rt, core] = await Promise.all([
+  const [prof, ex, wk, erg, water, rt, core, races] = await Promise.all([
     sb.from('profiles').select('*').eq('id', uid).single(),   // carries tracker_plan
     sb.from('tracker_exercises').select('*').order('position').order('created_at'),
     sb.from('tracker_workouts').select('*').order('date', { ascending: false }).limit(1000),
@@ -279,6 +280,7 @@ async function loadAll() {
     sb.from('tracker_water_sessions').select('*').order('date', { ascending: false }).limit(1000),
     sb.from('tracker_core_routines').select('*').order('position').order('created_at'),
     sb.from('tracker_core_sessions').select('*').order('date', { ascending: false }).limit(1000),
+    sb.from('tracker_races').select('*').order('date', { ascending: false }).limit(500),
   ]);
   S.profile = prof.data;
   S.exercises = ex.data || [];
@@ -287,7 +289,9 @@ async function loadAll() {
   S.water = sortDesc(water.data || []);
   S.routines = (rt.data || []).filter(r => !r.retired).concat((rt.data || []).filter(r => r.retired));
   S.coreSessions = sortDesc(core.data || []);
-  const errs = [prof.error, ex.error, wk.error, erg.error, water.error, rt.error, core.error].filter(Boolean);
+  S.races = sortDesc(races.data || []);
+  const errs = [prof.error, ex.error, wk.error, erg.error, water.error, rt.error, core.error,
+                races.error].filter(Boolean);
   return errs.length ? errs[0].message : null;
 }
 
@@ -308,6 +312,7 @@ function cacheData() {
     ergs: S.ergs.slice(0, CACHE_SESSIONS),
     water: S.water.slice(0, CACHE_SESSIONS),
     coreSessions: S.coreSessions.slice(0, CACHE_SESSIONS),
+    races: S.races,
     at: Date.now(),
   };
   // Best-effort only: a full quota must not take a save down with it.
@@ -325,6 +330,7 @@ function loadCached() {
   S.ergs = sortDesc(c.ergs || []);
   S.water = sortDesc(c.water || []);
   S.coreSessions = sortDesc(c.coreSessions || []);
+  S.races = sortDesc(c.races || []);
   return true;
 }
 
@@ -2728,6 +2734,359 @@ async function importExercises(payload, msgId) {
   return data.length;
 }
 
+/* ================= races =================
+   Everything else in this app is training you typed in. This tab is the one
+   place it meets a public result: the regatta leaderboards already published on
+   rowingtools.co.uk, which carry a GMT percentage for every crew.
+
+   A crew result is not a person, and no results file anywhere names who was in
+   the boat - so there is nothing to match on and nothing is guessed. You find
+   your race and claim it. That also means a claim is a statement about
+   yourself, never a fact about someone else's crew.
+
+   The leaderboard file is ~800KB, so it is fetched the first time this tab is
+   opened and not before, and kept in sessionStorage for the rest of the visit -
+   the same treatment the clubs pages give it. conditions.js (the weather card)
+   is injected the same way, on the same trigger. */
+// The same wind mark the clubs pages put on their conditions button, inlined
+// so it inherits the button's colour. A full-colour cloud emoji in a results
+// row reads as a sticker on a page that is otherwise one red on near-black.
+const WIND_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M9.59 4.59A2 2 0 1 1 11 8H2"/><path d="M17.73 7.73A2.5 2.5 0 1 1 19.5 12H2"/>' +
+  '<path d="M12.59 19.41A2 2 0 1 0 14 16H2"/></svg>';
+
+const RACE_DATA_URL = '/data/all_results.json';
+const RACE_ALIAS_URL = '/data/club_aliases.json';
+
+const RC = {
+  loaded: false, loading: false, error: null,
+  comps: [],        // [{comp,title,date,url,year,venue,results:[...]}]
+  aliases: {},
+  year: 'all', comp: 'all', q: '',
+  limit: 30,        // how many search hits to draw; "show more" raises it
+  busy: null,       // race_key currently being written
+};
+
+// Same normalisation the clubs pages use, so "Lea RC (A)" and "Lea" are one
+// club here too. Deliberately in step with clubs/index.html - if that changes,
+// this has to change with it or a search will quietly miss results.
+const raceNormClub = n => (n || '').replace(/`/g, "'").replace(/\s*\/\s*/g, '/')
+  .replace(/\s*\([A-Za-z]\)\s*$/, '').trim();
+const raceCanonDisp = n => raceNormClub(n)
+  .replace(/\bUniv\b/g, 'University').replace(/\bColl\b/g, 'College').replace(/\bSch\b/g, 'School')
+  .replace(/\s+(Rowing Club|Boat Club|RC|BC|ARC)\s*$/i, '').trim();
+function raceResolve(n) {
+  const disp = raceCanonDisp(n), key = disp.toLowerCase();
+  if (RC.aliases[key]) { const d = RC.aliases[key]; return { disp: d, key: raceCanonDisp(d).toLowerCase() }; }
+  return { disp, key };
+}
+
+// The identity of a result inside the file. Not a database id - the file is
+// re-cut when regattas are added - so it is built from the five fields that
+// together pick out one crew in one race.
+const raceKey = (comp, r) => [comp, r.event, r.round, r.crew, r.time].join('|');
+const raceYearOf = comp => '20' + comp.slice(-2);
+
+// "British Rowing Club Championships 2026" is the full title; the year is
+// already the heading and the rest is a mouthful on a phone.
+const compShort = (title, comp) => (title || comp || '').replace(/\s+20\d\d\b/, '').trim();
+
+function sessionCache(key, fetcher) {
+  try {
+    const hit = sessionStorage.getItem(key);
+    if (hit) return Promise.resolve(JSON.parse(hit));
+  } catch (e) { if (e.name !== 'SyntaxError') throw e; }
+  return fetcher().then(d => {
+    // Best-effort: a full session quota must not fail the load.
+    try { sessionStorage.setItem(key, JSON.stringify(d)); }
+    catch (e) { if (e.name !== 'QuotaExceededError' && e.name !== 'NS_ERROR_DOM_QUOTA_REACHED') throw e; }
+    return d;
+  });
+}
+
+// conditions.js injects its own CSS and modal and then defines window.wxOpen.
+// Injected once, on demand, so a tracker that never opens this tab never pays
+// for it.
+let wxLoading = null;
+function ensureConditions() {
+  if (window.wxOpen) return Promise.resolve(true);
+  if (wxLoading) return wxLoading;
+  wxLoading = new Promise(resolve => {
+    const el = document.createElement('script');
+    el.src = '/conditions.js';
+    el.onload = () => resolve(!!window.wxOpen);
+    el.onerror = () => resolve(false);
+    document.head.appendChild(el);
+  });
+  return wxLoading;
+}
+
+async function loadRaceData() {
+  if (RC.loaded || RC.loading) return;
+  RC.loading = true; RC.error = null; renderRaces();
+  ensureConditions();
+  let data = null, aliases = {};
+  try {
+    data = await sessionCache('rt:' + RACE_DATA_URL, () => fetch(RACE_DATA_URL).then(r => {
+      if (!r.ok) throw new Error('the results file returned ' + r.status);
+      return r.json();
+    }));
+    // Aliases are a nicety - without them a few clubs search under two names -
+    // so a failure there must not stop the tab loading.
+    aliases = await sessionCache('rt:' + RACE_ALIAS_URL,
+      () => fetch(RACE_ALIAS_URL).then(r => r.json())).catch(() => ({}));
+  } catch (e) {
+    if (!(e instanceof TypeError) && !(e instanceof SyntaxError) && !(e instanceof Error)) throw e;
+    RC.loading = false;
+    RC.error = 'Could not load the regatta results (' + e.message + ').';
+    renderRaces();
+    return;
+  }
+  RC.loading = false;
+  RC.aliases = aliases || {};
+  RC.comps = (data || []).map(c => ({
+    comp: c.comp, title: c.title, date: c.date, url: c.url,
+    venue: c.venue, year: raceYearOf(c.comp), results: c.results || [],
+  })).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  RC.loaded = true;
+  renderRaces();
+}
+
+const myRaceKeys = () => new Set(S.races.map(r => r.race_key));
+
+/* ---- claiming ---- */
+async function claimRace(compId, idx) {
+  const comp = RC.comps.find(c => c.comp === compId);
+  const r = comp && comp.results[idx];
+  if (!r) return;
+  const key = raceKey(comp.comp, r);
+  if (myRaceKeys().has(key)) return;
+  RC.busy = key; renderRaces();
+  const row = {
+    id: newId(),
+    profile_id: S.session.user.id,
+    race_key: key,
+    comp: comp.comp, comp_title: comp.title, comp_url: comp.url || null,
+    date: r.date || comp.date,
+    club: r.club || null, crew: r.crew || null, event: r.event || null,
+    round: r.round || null, boat: r.boat || null, time: r.time || null,
+    clock: r.clock || null, pct: r.pct == null ? null : r.pct,
+    venue: comp.venue || null,
+  };
+  const { error } = await insertRow('tracker_races', row);
+  const queued = error && looksOffline(error);
+  RC.busy = null;
+  if (error && !queued) {
+    toast('race-msg', 'Could not add it: ' + esc(error.message), 'err');
+    renderRaces();
+    return;
+  }
+  if (queued) queueWrite('tracker_races', row);
+  S.races.push(row); sortDesc(S.races);
+  track('race_claimed', { comp: comp.comp, queued: !!queued });
+  cacheData(); renderRaces();
+  toast('race-msg',
+    (queued ? 'Added on this device - it will sync when you are back online. ' : 'Added - ') +
+    esc(r.event || 'race') + ' at ' + esc(comp.title) + '.', queued ? 'warn' : '');
+}
+
+async function unclaimRace(id) {
+  if (!S.races.some(r => r.id === id)) return;
+  const { error } = await sb.from('tracker_races').delete().eq('id', id);
+  if (error) { toast('race-msg', 'Could not remove it: ' + esc(error.message), 'err'); return; }
+  S.races = S.races.filter(r => r.id !== id);
+  track('race_unclaimed', {});
+  cacheData(); renderRaces();
+}
+
+function openRaceConditions(id) {
+  const r = S.races.find(x => x.id === id);
+  if (!r || !r.venue || !r.clock) return;
+  ensureConditions().then(ok => {
+    if (!ok) { toast('race-msg', 'The conditions card could not be loaded.', 'warn'); return; }
+    window.wxOpen(r.clock, [r.crew, r.event].filter(Boolean).join(' \u00b7 '), r.boat, r.date, r.venue);
+  });
+}
+
+/* ---- the year summary ----
+   Top three rather than the clubs pages' top ten: a club enters a hundred crews
+   a season and a person races a handful, so ten would be "all of them, including
+   the one you sculled in a gale". Three is enough to mean a good season rather
+   than one good day, and small enough that a first season has it. */
+const TOP_N = 3;
+function raceYearStats(rows) {
+  const pcts = rows.map(r => Number(r.pct)).filter(v => v > 0).sort((a, b) => b - a);
+  const n = Math.min(TOP_N, pcts.length);
+  return {
+    races: rows.length,
+    regattas: new Set(rows.map(r => r.comp)).size,
+    top: n ? pcts.slice(0, n).reduce((a, b) => a + b, 0) / n : null,
+    topN: n,
+    best: pcts.length ? pcts[0] : null,
+    bestRow: rows.slice().sort((a, b) => Number(b.pct || 0) - Number(a.pct || 0))[0] || null,
+  };
+}
+
+// The same four bands the leaderboards and club pages use, so a number means
+// the same thing wherever it is read.
+const pctClass = p => p >= 87 ? 'gmt-a' : p >= 80 ? 'gmt-b' : p >= 72 ? 'gmt-c' : 'gmt-d';
+const pctHTML = p => p == null ? '<span class="na">-</span>'
+  : '<span class="gmt ' + pctClass(p) + '">' + round1(p) + '%</span>';
+
+function myRacesHTML() {
+  if (!S.races.length) {
+    return '<p class="placeholder">No races yet. Find one below and press <b>+</b> to put it in ' +
+      'your history. Everything on the RowingTools leaderboards is here, every regatta with a ' +
+      'GMT percentage.</p>';
+  }
+  const years = {};
+  S.races.forEach(r => { const y = (r.date || '').slice(0, 4) || '?'; (years[y] = years[y] || []).push(r); });
+  return Object.keys(years).sort().reverse().map(y => {
+    const rows = years[y].slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const st = raceYearStats(rows);
+    return '<section class="ryear">' +
+      '<h4><span class="ry-when">' + esc(y) + '</span>' +
+        '<span class="ry-count">' + plural(st.races, 'race') + '</span></h4>' +
+      '<div class="rystats">' +
+        '<div class="rystat"><div class="k">Top ' + st.topN + ' GMT</div><div class="v">' +
+          (st.top == null ? '<span class="na">-</span>' : pctHTML(st.top)) + '</div>' +
+          '<div class="s">' + (st.topN < TOP_N ? 'your ' + plural(st.topN, 'race') + ' so far'
+                                               : 'average of your best ' + TOP_N) + '</div></div>' +
+        '<div class="rystat"><div class="k">Best</div><div class="v">' + pctHTML(st.best) + '</div>' +
+          '<div class="s">' + (st.bestRow ? esc(st.bestRow.event || '') : '') + '</div></div>' +
+        '<div class="rystat"><div class="k">Regattas</div><div class="v">' + st.regattas + '</div>' +
+          '<div class="s">' + plural(st.races, 'result') + '</div></div>' +
+      '</div>' +
+      rows.map(raceRowHTML).join('') +
+    '</section>';
+  }).join('');
+}
+
+function raceRowHTML(r) {
+  return '<div class="rrow">' +
+    '<div class="rr-when">' + shortDate(r.date) + '</div>' +
+    '<div class="rr-what"><b>' + esc(r.event || '') + '</b>' +
+      (r.round ? ' <span class="rr-round">' + esc(r.round) + '</span>' : '') +
+      '<small><span class="mdate">' + shortDate(r.date) + ' \u00b7 </span>' +
+      esc([r.crew, compShort(r.comp_title, r.comp)].filter(Boolean).join(' \u00b7 ')) +
+      '</small></div>' +
+    '<div class="rr-time">' + esc(r.time || '') + '</div>' +
+    '<div class="rr-pct">' + pctHTML(r.pct == null ? null : Number(r.pct)) + '</div>' +
+    '<div class="rr-ops">' +
+      (r.venue && r.clock
+        ? '<button class="ghost wx" data-race-wx="' + r.id +
+          '" title="Conditions on the day" aria-label="Conditions on the day">' + WIND_SVG + '</button>'
+        : '') +
+      '<button class="ghost" data-race-rm="' + r.id + '" title="Remove from my races">\u00d7</button>' +
+    '</div></div>';
+}
+
+/* ---- the finder ---- */
+function raceSearchHTML() {
+  if (RC.loading) return '<p class="loading-app">Loading the regatta results\u2026</p>';
+  if (RC.error) {
+    return '<div class="toast err">' + esc(RC.error) +
+      '<br>It is a static file on this site, so this is usually a connection problem. ' +
+      '<button class="ghost" id="race-retry">Try again</button></div>';
+  }
+  if (!RC.loaded) return '';
+
+  const years = [...new Set(RC.comps.map(c => c.year))].sort().reverse();
+  const comps = RC.comps.filter(c => RC.year === 'all' || c.year === RC.year);
+  if (RC.comp !== 'all' && !comps.some(c => c.comp === RC.comp)) RC.comp = 'all';
+
+  // Two or three years is a button row; fourteen regattas is a select. Same
+  // rule as everywhere else in the app.
+  const yearBtns = '<div class="segmented sm" role="group" aria-label="Year">' +
+    [{ k: 'all', label: 'All years' }].concat(years.map(y => ({ k: y, label: y }))).map(o =>
+      '<button class="seg' + (RC.year === o.k ? ' active' : '') + '" data-ryear="' + esc(o.k) + '" ' +
+      'aria-pressed="' + (RC.year === o.k) + '">' + esc(o.label) + '</button>').join('') + '</div>';
+
+  const compSel = '<select id="race-comp" aria-label="Regatta">' +
+    '<option value="all">Every regatta</option>' +
+    comps.map(c => '<option value="' + esc(c.comp) + '"' + (c.comp === RC.comp ? ' selected' : '') +
+      '>' + esc(c.title) + '</option>').join('') + '</select>';
+
+  const hits = raceHits();
+  const mine = myRaceKeys();
+  const shown = hits.slice(0, RC.limit);
+
+  const list = !RC.q.trim() && RC.comp === 'all'
+    ? '<p class="placeholder">Type your club to find your races - or pick a regatta above and read ' +
+      'the whole results list.</p>'
+    : !hits.length
+    ? '<p class="placeholder">Nothing matches. Club names come from the results as published, so ' +
+      'try a shorter word: <b>Lea</b> rather than <b>Lea Rowing Club</b>.</p>'
+    : '<div class="rhits">' + shown.map(h => {
+        const key = raceKey(h.comp.comp, h.r);
+        const got = mine.has(key);
+        return '<div class="rrow find' + (got ? ' got' : '') + '">' +
+          '<div class="rr-when">' + shortDate(h.r.date || h.comp.date) + '</div>' +
+          '<div class="rr-what"><b>' + esc(h.r.event || '') + '</b>' +
+            (h.r.round ? ' <span class="rr-round">' + esc(h.r.round) + '</span>' : '') +
+            '<small><span class="mdate">' + shortDate(h.r.date || h.comp.date) + ' \u00b7 </span>' +
+            esc([h.r.crew, compShort(h.comp.title, h.comp.comp)]
+              .filter(Boolean).join(' \u00b7 ')) + '</small></div>' +
+          '<div class="rr-time">' + esc(h.r.time || '') + '</div>' +
+          '<div class="rr-pct">' + pctHTML(h.r.pct) + '</div>' +
+          '<div class="rr-ops">' + (got
+            ? '<span class="got-tick" title="Already in your races">\u2713</span>'
+            : '<button class="add" data-race-add="' + esc(h.comp.comp) + '" data-race-i="' + h.i + '"' +
+              (RC.busy === key ? ' disabled' : '') + ' title="Add to my races">+</button>') +
+          '</div></div>';
+      }).join('') +
+      (hits.length > shown.length
+        ? '<button class="ghost rmore" id="race-more">Show ' +
+          Math.min(RC.limit, hits.length - shown.length) + ' more of ' + hits.length + '</button>'
+        : '') +
+      '</div>';
+
+  return '<div class="rfind">' +
+    '<div class="rfind-ctl">' + yearBtns + compSel +
+      '<input type="search" id="race-q" class="chipsearch" placeholder="Club or crew\u2026" ' +
+      'value="' + esc(RC.q) + '" autocomplete="off"></div>' +
+    (hits.length ? '<p class="rfind-note">' + plural(hits.length, 'result') +
+      ' - press <b>+</b> on the ones you were in.</p>' : '') +
+    list + '</div>';
+}
+
+// Matching is on the club as published AND on the crew line, because a crew
+// often carries a composite or a school name rather than the club.
+function raceHits() {
+  const q = RC.q.trim().toLowerCase();
+  const qKey = q ? raceResolve(q).key : '';
+  const out = [];
+  RC.comps.forEach(comp => {
+    if (RC.year !== 'all' && comp.year !== RC.year) return;
+    if (RC.comp !== 'all' && comp.comp !== RC.comp) return;
+    comp.results.forEach((r, i) => {
+      if (q) {
+        const club = (r.club || '').toLowerCase(), crew = (r.crew || '').toLowerCase();
+        const hit = club.includes(q) || crew.includes(q) ||
+          (qKey && raceResolve(r.club || '').key.indexOf(qKey) === 0);
+        if (!hit) return;
+      }
+      out.push({ comp, r, i });
+    });
+  });
+  out.sort((a, b) => (b.r.date || b.comp.date || '').localeCompare(a.r.date || a.comp.date || '') ||
+                     Number(b.r.pct || 0) - Number(a.r.pct || 0));
+  return out;
+}
+
+function renderRaces() {
+  const el = $('races-body');
+  if (!el) return;
+  el.innerHTML =
+    '<section class="setup-sec"><h3 class="setup-head">My races</h3>' + myRacesHTML() + '</section>' +
+    '<section class="setup-sec"><h3 class="setup-head">Find a race</h3>' +
+    '<p class="setup-intro">Every result on the RowingTools leaderboards, with its GMT percentage. ' +
+    'Adding one keeps a copy, so your history stands even if the leaderboard is re-cut.</p>' +
+    raceSearchHTML() + '</section>' +
+    '<div id="race-msg"></div>';
+}
+
 /* ================= squad =================
    Squads reuse the coach dashboard's groups/group_members tables in the same
    Supabase project. Nothing here widens the tracker's own RLS: every number on
@@ -3345,6 +3704,14 @@ document.addEventListener('input', e => {
   const el = e.target;
   if (!el.classList) return;
   if (el.id === 'chip-search') { filterChips(); return; }
+  if (el.id === 'race-q') {
+    RC.q = el.value; RC.limit = 30;
+    const at = el.selectionStart;
+    renderRaces();
+    const box = $('race-q');
+    if (box) { box.focus(); box.setSelectionRange(at, at); }
+    return;
+  }
   if (el.id === 'log-notes') { queueDraft(); return; }
   if (el.closest && el.closest('#erg-form')) { queueErgDraft(); return; }
   if (!(el.classList.contains('in-r') || el.classList.contains('in-w'))) return;
@@ -3520,6 +3887,19 @@ document.addEventListener('click', async e => {
   }
   const prng = e.target.closest('[data-prange]');
   if (prng) { PROG.weeks = prng.dataset.prange; renderProgress(); return; }
+  const ry = e.target.closest('[data-ryear]');
+  if (ry) {
+    if (RC.year !== ry.dataset.ryear) { RC.year = ry.dataset.ryear; RC.limit = 30; renderRaces(); }
+    return;
+  }
+  const radd = e.target.closest('[data-race-add]');
+  if (radd) { claimRace(radd.dataset.raceAdd, Number(radd.dataset.raceI)); return; }
+  const rwx = e.target.closest('[data-race-wx]');
+  if (rwx) { openRaceConditions(rwx.dataset.raceWx); return; }
+  const rrm = e.target.closest('[data-race-rm]');
+  if (rrm) { unclaimRace(rrm.dataset.raceRm); return; }
+  if (e.target.id === 'race-more') { RC.limit += 30; renderRaces(); return; }
+  if (e.target.id === 'race-retry') { RC.error = null; loadRaceData(); return; }
   const hf = e.target.closest('[data-hfilter]');
   if (hf) {
     if (histFilter !== hf.dataset.hfilter) { histFilter = hf.dataset.hfilter; renderHistory(); }
@@ -3695,7 +4075,7 @@ document.addEventListener('click', async e => {
   $('log-date').value = todayISO();
   $('core-date').value = todayISO();
   renderLog(); renderErgGate(); renderErgRecent(); renderWaterTab(); renderCoreTab();
-  renderProgress(); renderHistory(); renderLibrary(); renderRoutines();
+  renderProgress(); renderHistory(); renderLibrary(); renderRoutines(); renderRaces();
   restoreErgForm();
   paintSyncBadge();
   if (fromCache) {
@@ -3744,6 +4124,9 @@ document.addEventListener('click', async e => {
       // squads are a network round trip, so they load on first visit rather
       // than slowing every boot down for a feature most sessions never touch
       if (tab.dataset.panel === 'p-squad') refreshSquad();
+      // The leaderboard file is ~800KB. Fetched on the first visit to this tab
+      // and never on boot, so a tracker that only logs training never pays for it.
+      if (tab.dataset.panel === 'p-races') { renderRaces(); loadRaceData(); }
       // A running timer must not survive leaving the tab, or it keeps counting
       // and holding the wake lock against a circuit that has been walked away from.
       if (tab.dataset.panel !== 'p-core') { cancelCountdown(); if (RUN.running) pauseTimer(); }
@@ -3792,6 +4175,7 @@ document.addEventListener('click', async e => {
   // wired by delegation rather than by id.
   document.addEventListener('change', ev => {
     if (ev.target.id === 'squad-pick')   { SQ.groupId = ev.target.value; refreshSquad(); }
+    if (ev.target.id === 'race-comp') { RC.comp = ev.target.value; RC.limit = 30; renderRaces(); }
     // Ticking an exercise in a shared template. Held in memory only - it is a
     // selection, not a setting, and it dies with the preview.
     if (ev.target.dataset && ev.target.dataset.tmplPick !== undefined) {

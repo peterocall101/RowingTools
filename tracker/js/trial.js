@@ -61,7 +61,7 @@ function trialSeed() {
     tracker_exercises: ex,
     tracker_workouts: [],
     tracker_erg_sessions: [],
-    tracker_water_sessions: [],
+    tracker_water_sessions: [], tracker_races: [],
     tracker_core_routines: [{
       id: trialUuid(), profile_id: TRIAL_UID, name: 'Core circuit', position: 0, retired: false,
       steps: [
