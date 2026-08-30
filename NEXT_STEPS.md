@@ -187,6 +187,11 @@ Real, none of them urgent at ten users, all worth closing before a hundred. Writ
 - No way to promote a member to admin (`tracker_set_role`).
 - Server-sent invite emails. Invites currently open the sender's own mail app.
 - Concept2 Logbook OAuth sync. The `source` column on `tracker_erg_sessions` is ready for it.
+- **The squad board does not count water sessions.** `tracker_water_sessions` arrived after
+  `tracker_squad_board()`, and adding it changes the function's return signature - so it needs a
+  `drop function` plus a matching change to the client's `METRICS` list. Until then **"days trained",
+  the board's default metric, under-counts anyone who mostly rows on the water**, which in a rowing
+  club is most people. The most worthwhile thing on this list.
 
 ---
 

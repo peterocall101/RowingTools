@@ -365,7 +365,7 @@
     border-top:2px solid var(--text);padding-top:8px;margin-bottom:0}
   .sum-head h4{font-size:16px;font-weight:800;letter-spacing:-0.01em;text-transform:uppercase}
   .sum-count{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)}
-  .sum-strip{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border2);
+  .sum-strip{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border2);
     margin-top:8px;margin-bottom:6px}
   .sm{padding:9px 0 12px}
   .sm+.sm{border-left:1px solid var(--border);padding-left:14px}
@@ -377,10 +377,15 @@
   .sm-note{font-family:var(--mono);font-size:10.5px;color:var(--text3);margin-top:5px}
   .sm.dim .sm-val{color:var(--text3);font-size:20px}
   .sm.dim .sm-note{color:var(--border2)}
-  @media(max-width:479px){
+  @media(max-width:559px){
+    /* four across is unreadable on a phone, so the week folds to two by two
+       and the vertical rule moves to whichever cells are now side by side */
+    .sum-strip{grid-template-columns:repeat(2,1fr)}
     .sm-val{font-size:22px}
-    .sm+.sm{padding-left:10px}
     .sm-note{font-size:9.5px}
+    .sm+.sm{border-left:none;padding-left:0}
+    .sm:nth-child(2n){border-left:1px solid var(--border);padding-left:14px}
+    .sm:nth-child(n+3){border-top:1px solid var(--border)}
   }
   .sumtbl{width:100%;border-collapse:collapse;margin-top:14px;font-size:13.5px}
   .sumtbl th{text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
@@ -474,6 +479,7 @@
     color:var(--text3);white-space:nowrap}
   .entry.erg .entry-kind{color:var(--c-wbt)}
   .entry.core .entry-kind{color:var(--c-hrr)}
+  .entry.water .entry-kind{color:var(--c-met)}
   .entry-main{min-width:0;display:flex;flex-direction:column;gap:2px}
   .entry-sum{font-family:var(--mono);font-size:12px;color:var(--text2);overflow-wrap:anywhere}
   .entry-time{font-family:var(--mono);font-size:10.5px;color:var(--text3)}
@@ -551,6 +557,7 @@
       <div class="tabgrp-tabs" role="presentation">
         <button class="tab active" role="tab" aria-selected="true" aria-label="Record: Weights" data-panel="p-log">Weights</button>
         <button class="tab" role="tab" aria-selected="false" aria-label="Record: Erg" data-panel="p-erg">Erg</button>
+        <button class="tab" role="tab" aria-selected="false" aria-label="Record: Water" data-panel="p-water">Water</button>
         <button class="tab" role="tab" aria-selected="false" aria-label="Record: Core" data-panel="p-core">Core</button>
       </div>
     </div>
@@ -604,6 +611,8 @@
     <div id="erg-form-holder"></div>
     <div id="erg-recent"></div>
   </section>
+
+  <section class="panel" id="p-water"><div id="water-body"></div></section>
 
   <section class="panel" id="p-core">
     <div class="toolbar">

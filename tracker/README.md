@@ -18,7 +18,7 @@ totals through a `SECURITY DEFINER` function rather than by widening those polic
 
 | Path | What |
 |---|---|
-| `index.html` | The app - tabs grouped as Record (Weights / Erg / Core), Review (Progress / History), Squad (Board), Set up (Templates) |
+| `index.html` | The app - tabs grouped as Record (Weights / Erg / Water / Core), Review (Progress / History), Squad (Board), Set up (Templates) |
 | `login.html` | The public front door: what the tracker is, sign in / sign up / forgot / recovery, and **Try it without an account** |
 | `terms.html` | Terms of use and privacy notice. The version date at the top is the one stamped on the profile at signup |
 | `js/config.js` | Supabase URL + anon key + Edge Function endpoint. `sb` is a `let` so sample mode can swap it |
@@ -181,6 +181,20 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
 - **History is a ruled sheet, not a card stack.** One line per session in aligned columns (day,
   discipline, what it was), expanding in place, under the week strip. Results-board language
   throughout: hairlines, tabular figures, square corners.
+- **Water sessions are their own table, not a flag on the erg one.** The columns would nearly have
+  fitted - `tracker_erg_sessions` already has distance, time and notes - but `tracker_squad_board()`
+  sums that table as "erg metres", the Progress erg chart reads it, History labels it "erg" and
+  `parse-erg` writes to it. A single `mode` column would have made every one of those quietly mean
+  "erg or water". `tracker_water_sessions` costs one more table and keeps all four honest.
+
+  Distance is the only required field; time is optional and notes are free text. **The average split
+  is derived, never stored** - it is distance over time, and a stored copy can drift out of step with
+  the two numbers it came from. Durations use whole seconds (`fmtDur`) rather than the tenth
+  `fmtTime` gives an erg piece: an hour on the water is not timed to 0.1s and "56:55.0" is false
+  precision. The split keeps its decimal, because that one is a real measurement.
+
+  Progress treats water exactly like the erg - same weekly bars, same measures - so `WATER_METRICS`
+  is `ERG_METRICS` rather than a copy of it.
 - **Erg photo limits are enforced server-side, and the client only mirrors them.** A 402 (not on
   the plan), a 429 (over your quota or the site's) and a 503 (switched off) are all expected
   states with a message of their own, so the app shows them as warnings rather than dressing them

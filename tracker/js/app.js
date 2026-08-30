@@ -12,6 +12,7 @@ const S = {
   exercises: [],   // library rows (including retired - needed for history)
   workouts: [],    // weights sessions, sorted date+at desc
   ergs: [],        // erg sessions, sorted date+at desc
+  water: [],       // water outings, sorted date+at desc
   routines: [],    // core routine templates
   coreSessions: [],// logged runs through a core routine
 };
@@ -215,7 +216,7 @@ function paintTrialBar() {
   if (!el) return;
   if (!S.trial) { el.innerHTML = ''; return; }
   const c = trialCounts(trialRead());
-  const logged = c.weights + c.erg + c.core;
+  const logged = c.weights + c.erg + c.water + c.core;
   el.innerHTML =
     '<div class="trialbar">' +
       '<div class="tb-main"><b>Sample - nothing is saved to an account yet.</b>' +
@@ -239,8 +240,8 @@ async function migrateTrial() {
   if (!anything) { trialEnd(); return null; }
   // Exercises and routines first: a workout's `sets` is keyed by exercise id
   // and a core session points at a routine id.
-  for (const t of ['tracker_exercises', 'tracker_core_routines',
-                   'tracker_workouts', 'tracker_erg_sessions', 'tracker_core_sessions']) {
+  for (const t of ['tracker_exercises', 'tracker_core_routines', 'tracker_workouts',
+                   'tracker_erg_sessions', 'tracker_water_sessions', 'tracker_core_sessions']) {
     const rows = (store[t] || []).map(r => Object.assign({}, r, { profile_id: uid }));
     if (!rows.length) continue;
     const { error } = await sb.from(t).upsert(rows, { onConflict: 'id', ignoreDuplicates: true });
@@ -270,11 +271,12 @@ async function stampTerms() {
 /* ================= data access ================= */
 async function loadAll() {
   const uid = S.session.user.id;
-  const [prof, ex, wk, erg, rt, core] = await Promise.all([
+  const [prof, ex, wk, erg, water, rt, core] = await Promise.all([
     sb.from('profiles').select('*').eq('id', uid).single(),   // carries tracker_plan
     sb.from('tracker_exercises').select('*').order('position').order('created_at'),
     sb.from('tracker_workouts').select('*').order('date', { ascending: false }).limit(1000),
     sb.from('tracker_erg_sessions').select('*').order('date', { ascending: false }).limit(1000),
+    sb.from('tracker_water_sessions').select('*').order('date', { ascending: false }).limit(1000),
     sb.from('tracker_core_routines').select('*').order('position').order('created_at'),
     sb.from('tracker_core_sessions').select('*').order('date', { ascending: false }).limit(1000),
   ]);
@@ -282,9 +284,10 @@ async function loadAll() {
   S.exercises = ex.data || [];
   S.workouts = sortDesc(wk.data || []);
   S.ergs = sortDesc(erg.data || []);
+  S.water = sortDesc(water.data || []);
   S.routines = (rt.data || []).filter(r => !r.retired).concat((rt.data || []).filter(r => r.retired));
   S.coreSessions = sortDesc(core.data || []);
-  const errs = [prof.error, ex.error, wk.error, erg.error, rt.error, core.error].filter(Boolean);
+  const errs = [prof.error, ex.error, wk.error, erg.error, water.error, rt.error, core.error].filter(Boolean);
   return errs.length ? errs[0].message : null;
 }
 
@@ -303,6 +306,7 @@ function cacheData() {
     profile: S.profile, exercises: S.exercises, routines: S.routines,
     workouts: S.workouts.slice(0, CACHE_WORKOUTS),
     ergs: S.ergs.slice(0, CACHE_SESSIONS),
+    water: S.water.slice(0, CACHE_SESSIONS),
     coreSessions: S.coreSessions.slice(0, CACHE_SESSIONS),
     at: Date.now(),
   };
@@ -319,6 +323,7 @@ function loadCached() {
   S.routines = c.routines || [];
   S.workouts = sortDesc(c.workouts || []);
   S.ergs = sortDesc(c.ergs || []);
+  S.water = sortDesc(c.water || []);
   S.coreSessions = sortDesc(c.coreSessions || []);
   return true;
 }
@@ -753,10 +758,12 @@ function refreshWeekCount() {
   const wk = mondayOf(date);
   const weights = S.workouts.filter(s => mondayOf(s.date) === wk).length;
   const ergs = S.ergs.filter(s => mondayOf(s.date) === wk).length;
+  const waters = S.water.filter(s => mondayOf(s.date) === wk).length;
   const cores = S.coreSessions.filter(s => mondayOf(s.date) === wk).length;
   const today = S.workouts.filter(s => s.date === date).length;
   $('weekcount').innerHTML = 'Week of ' + prettyDate(wk) + ' - <b>' + weights + '</b> weights · <b>' +
-    ergs + '</b> erg' + (cores ? ' · <b>' + cores + '</b> core' : '') +
+    ergs + '</b> erg' + (waters ? ' · <b>' + waters + '</b> water' : '') +
+    (cores ? ' · <b>' + cores + '</b> core' : '') +
     (today ? ' · ' + today + ' already logged today' : '');
 }
 
@@ -1076,6 +1083,98 @@ async function handleErgPhoto(file) {
   $('erg-parse-status').innerHTML = '';
   track('erg_photo_parsed', {});
   openErgForm(out.session || {}, 'photo');
+}
+
+/* ================= water =================
+   Rowing on the water. The same weekly shape as the erg and none of the
+   machinery: no monitor to photograph, no splits table, no draft. Distance is
+   the point, time is optional, and the split is derived for display rather
+   than stored, so it can never disagree with the two numbers it came from. */
+const waterSplit = s => (s.total_time_s && s.distance_m)
+  ? round1(s.total_time_s / (s.distance_m / 500)) : null;
+// Whole seconds. fmtTime carries a tenth because an erg piece is timed to one;
+// an hour on the water is not, and "56:55.0" reads like false precision. The
+// split keeps its decimal - that one is a real measurement.
+const fmtDur = sec => {
+  const t = Math.round(sec);
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60);
+  return (h ? h + ':' + pad(m) : String(m)) + ':' + pad(t % 60);
+};
+
+function waterSummaryLine(s) {
+  const bits = [];
+  if (s.distance_m != null) bits.push('<b>' + s.distance_m.toLocaleString('en-GB') + 'm</b>');
+  if (s.total_time_s != null) bits.push(fmtDur(s.total_time_s));
+  const sp = waterSplit(s);
+  if (sp != null) bits.push(fmtSplit(sp));
+  return bits.join(' · ') || 'Water session';
+}
+
+function renderWaterTab() {
+  const el = $('water-body');
+  if (!el) return;
+  el.innerHTML =
+    '<div class="erg-form">' +
+      '<h3>Log a water session</h3>' +
+      '<div class="hint">Distance is the only thing needed. Time is optional; give both and the ' +
+      'split works itself out.</div>' +
+      '<div class="fgrid">' +
+        '<div><label for="wt-date">Date</label><input type="date" id="wt-date"></div>' +
+        '<div><label for="wt-dist">Distance (m)</label>' +
+          '<input type="number" id="wt-dist" inputmode="numeric" placeholder="e.g. 16000"></div>' +
+        '<div><label for="wt-time">Time (optional)</label>' +
+          '<input type="text" id="wt-time" inputmode="numeric" placeholder="e.g. 1:12:30"></div>' +
+      '</div>' +
+      '<div class="fwide"><label for="wt-notes">Notes</label>' +
+        '<input type="text" id="wt-notes" placeholder="Crew, conditions, how it went"></div>' +
+      '<button class="primary" id="wt-save" style="height:42px">Save water session</button>' +
+      '<div id="water-msg"></div>' +
+    '</div>' +
+    '<div id="water-recent"></div>';
+  $('wt-date').value = todayISO();
+  renderWaterRecent();
+}
+
+function renderWaterRecent() {
+  const el = $('water-recent');
+  if (!el) return;
+  const recent = S.water.slice(0, 6);
+  el.innerHTML = recent.length
+    ? '<div class="dsub" style="margin-top:24px">Recent water sessions</div>' +
+      recent.map(histWaterHTML).join('')
+    : '';
+}
+
+async function saveWater() {
+  const dist = parseInt($('wt-dist').value, 10);
+  const time = parseTimeStr($('wt-time').value);
+  if (isNaN(dist) && time == null) {
+    toast('water-msg', 'Enter at least a distance, or a time.', 'warn');
+    return;
+  }
+  const row = {
+    id: newId(),
+    profile_id: S.session.user.id,
+    date: $('wt-date').value || todayISO(),
+    at: nowHM(),
+    distance_m: isNaN(dist) ? null : dist,
+    total_time_s: time,
+    notes: $('wt-notes').value.trim() || null,
+  };
+  const { error } = await insertRow('tracker_water_sessions', row);
+  const queued = error && looksOffline(error);
+  if (error && !queued) { toast('water-msg', 'Save failed: ' + esc(error.message), 'err'); return; }
+  if (queued) queueWrite('tracker_water_sessions', row);
+
+  S.water.push(row); sortDesc(S.water);
+  track('water_saved', { queued: !!queued });
+  cacheData();
+  $('wt-dist').value = ''; $('wt-time').value = ''; $('wt-notes').value = '';
+  renderWaterRecent(); renderProgress(); renderHistory(); refreshWeekCount();
+  toast('water-msg',
+    (queued ? 'Saved on this device - no connection, so it will sync when you are back online. ' : 'Saved - ') +
+    prettyDate(row.date) + ' · ' + waterSummaryLine(row).replace(/<[^>]+>/g, '') + '.',
+    queued ? 'warn' : '');
 }
 
 /* ================= core routines ================= */
@@ -1661,6 +1760,15 @@ function ergWeekly() {
   });
   return out;
 }
+function waterWeekly() {
+  const out = {};
+  S.water.forEach(s => {
+    const w = mondayOf(s.date);
+    const e = out[w] = out[w] || { n: 0, km: 0, min: 0 };
+    e.n++; e.km += (s.distance_m || 0) / 1000; e.min += (s.total_time_s || 0) / 60;
+  });
+  return out;
+}
 function coreWeekly() {
   const out = {};
   S.coreSessions.forEach(s => {
@@ -1682,13 +1790,15 @@ const statCell = (lab, val, unit, note, dim) =>
 // The week across all three disciplines at once - the one view neither
 // Progress (one discipline, one measure) nor a session list gives you. It
 // heads each week in History.
-function weekStripHTML(wk, eg, cw) {
+function weekStripHTML(wk, eg, wa, cw) {
+  const dist = (a, lab) => statCell(lab, a ? round1(a.km) : '–', a ? 'km' : '',
+    a ? plural(a.n, 'session') + (a.min ? ' · ' + fmtHM(a.min) : '') : 'none logged', !a);
   return '<div class="sum-strip">' +
     statCell('Weights', wk ? wk.n : '–', '', wk ? wk.sets + ' sets' : 'none logged', !wk) +
-    statCell('Erg', eg ? round1(eg.km) : '–', eg ? 'km' : '',
-      eg ? eg.n + (eg.n === 1 ? ' session · ' : ' sessions · ') + fmtHM(eg.min) : 'none logged', !eg) +
+    dist(eg, 'Erg') +
+    dist(wa, 'Water') +
     statCell('Core', cw ? fmtHM(cw.min) : '–', '',
-      cw ? cw.n + (cw.n === 1 ? ' session' : ' sessions') : 'none logged', !cw) +
+      cw ? plural(cw.n, 'session') : 'none logged', !cw) +
     '</div>';
 }
 
@@ -1779,10 +1889,18 @@ const WEEK_RANGES = [
   { k: 'all', label: 'All time' },
 ];
 
+// Water takes the same measures as the erg - distance, time, sessions - so it
+// shares the list rather than duplicating it.
+const WATER_METRICS = ERG_METRICS;
 const weeklyMetrics = mode =>
-  mode === 'core' ? CORE_METRICS : mode === 'weights' ? WEIGHT_WEEK_METRICS : ERG_METRICS;
-// The weekly shape of the three, in the form weeklySeries() wants.
-const weeklyAgg = mode => mode === 'core' ? coreWeekly() : mode === 'erg' ? ergWeekly() : weightsWeekly();
+  mode === 'core' ? CORE_METRICS
+  : mode === 'weights' ? WEIGHT_WEEK_METRICS
+  : mode === 'water' ? WATER_METRICS : ERG_METRICS;
+// The weekly shape of each, in the form weeklySeries() wants.
+const weeklyAgg = mode =>
+  mode === 'core' ? coreWeekly()
+  : mode === 'erg' ? ergWeekly()
+  : mode === 'water' ? waterWeekly() : weightsWeekly();
 function weightsWeekly() {
   const out = {};
   const w = weeklyStats();
@@ -2001,7 +2119,7 @@ const tileHTML = (lab, val, note, cls) =>
 
 /* ---- controls ---- */
 function progControlsHTML() {
-  const seg = ['weights', 'erg', 'core'].map(k =>
+  const seg = ['weights', 'erg', 'water', 'core'].map(k =>
     '<button class="seg' + (PROG.mode === k ? ' active' : '') + '" data-pmode="' + k + '" ' +
     'role="tab" aria-selected="' + (PROG.mode === k) + '">' + cap(k) + '</button>').join('');
   let rest = '';
@@ -2175,7 +2293,7 @@ function renderProgWeights(body) {
 }
 
 function renderProgWeekly(body) {
-  const label = PROG.mode === 'erg' ? 'Erg' : 'Core';
+  const label = { erg: 'Erg', water: 'Water', core: 'Core' }[PROG.mode];
   const metric = pickMetric(weeklyMetrics(PROG.mode), PROG.metric);
   const pts = weeklySeries(weeklyAgg(PROG.mode), metric.k, PROG.weeks);
   const head = '<div class="prog-head"><h3 class="prog-title">' + label + ' load</h3>' +
@@ -2196,7 +2314,8 @@ function renderProgWeekly(body) {
     const a = agg[p.date] || { n: 0, km: 0, min: 0 };
     const detail = a.n
       ? plural(a.n, 'session') + ' \u00b7 ' +
-        (PROG.mode === 'erg' ? round1(a.km) + ' km \u00b7 ' + fmtHM(a.min) : fmtHM(a.min) + ' working')
+        (PROG.mode === 'core' ? fmtHM(a.min) + ' working'
+          : round1(a.km) + ' km' + (a.min ? ' \u00b7 ' + fmtHM(a.min) : ''))
       : 'nothing logged';
     return '<tr' + (p.v ? '' : ' class="offweek"') + '><td>' + shortDate(p.date) + ' - ' + shortDate(addDays(p.date, 6)) + '</td>' +
       '<td class="n">' + esc(metric.short(p.v)) + '</td>' +
@@ -2263,6 +2382,7 @@ function renderHistory() {
   const all = [
     ...S.workouts.map(r => ({ kind: 'w', r })),
     ...S.ergs.map(r => ({ kind: 'e', r })),
+    ...S.water.map(r => ({ kind: 'wa', r })),
     ...S.coreSessions.map(r => ({ kind: 'c', r })),
   ];
   if (!all.length) {
@@ -2275,16 +2395,17 @@ function renderHistory() {
   all.forEach(x => { const w = mondayOf(x.r.date); (weeks[w] = weeks[w] || []).push(x); });
   // Each week opens with what the week weighed in at across all three
   // disciplines, then the sessions that made it up.
-  const wStats = weeklyStats(), ergW = ergWeekly(), coreW = coreWeekly();
+  const wStats = weeklyStats(), ergW = ergWeekly(), waterW = waterWeekly(), coreW = coreWeekly();
 
   el.innerHTML = Object.keys(weeks).sort().reverse().map(w => {
     const items = weeks[w].sort((a, b) => sortKey(b.r).localeCompare(sortKey(a.r)));
     return '<section class="weekgroup"><h4><span class="wg-when">' +
       shortDate(w) + ' - ' + shortDate(addDays(w, 6)) + '</span>' +
       '<span class="wg-count">' + plural(items.length, 'session') + '</span></h4>' +
-      weekStripHTML(wStats[w], ergW[w], coreW[w]) +
+      weekStripHTML(wStats[w], ergW[w], waterW[w], coreW[w]) +
       items.map(x => x.kind === 'w' ? histWorkoutHTML(x.r)
-                   : x.kind === 'c' ? histCoreHTML(x.r) : histErgHTML(x.r)).join('') +
+                   : x.kind === 'c' ? histCoreHTML(x.r)
+                   : x.kind === 'wa' ? histWaterHTML(x.r) : histErgHTML(x.r)).join('') +
       '</section>';
   }).join('');
   // The sample banner counts sessions, and this runs after every save.
@@ -2363,6 +2484,19 @@ function histWorkoutHTML(s) {
   }).join('') + (s.notes ? '<div class="dnote">' + esc(s.notes) + '</div>' : '');
 
   return entryHTML(s, '', 'weights', summary, detail, 'w', 'edit-w');
+}
+
+function histWaterHTML(s) {
+  const sp = waterSplit(s);
+  const facts = [
+    s.distance_m != null ? ['Distance', s.distance_m.toLocaleString('en-GB') + ' m'] : null,
+    s.total_time_s != null ? ['Time', fmtDur(s.total_time_s)] : null,
+    sp != null ? ['Average split', fmtSplit(sp)] : null,
+  ].filter(Boolean);
+  const detail = '<dl class="dfacts">' +
+    facts.map(([k, v]) => '<dt>' + k + '</dt><dd>' + v + '</dd>').join('') + '</dl>' +
+    (s.notes ? '<div class="dnote">' + esc(s.notes) + '</div>' : '');
+  return entryHTML(s, 'water', 'water', waterSummaryLine(s), detail, 'wa');
 }
 
 function histErgHTML(s) {
@@ -3278,6 +3412,16 @@ document.addEventListener('click', async e => {
   }
   if (e.target.id === 'tm-auto') { localStorage.setItem(AUTONEXT_KEY, e.target.checked ? '1' : '0'); return; }
   if (e.target.id === 'core-save') { saveCoreSession(); return; }
+  const dw2 = e.target.closest('[data-del-wa]');
+  if (dw2) {
+    if (!confirm('Delete this water session for good?')) return;
+    const { error } = await sb.from('tracker_water_sessions').delete().eq('id', dw2.dataset.delWa);
+    if (!error) {
+      S.water = S.water.filter(s => s.id !== dw2.dataset.delWa);
+      renderHistory(); renderProgress(); renderWaterRecent(); refreshWeekCount();
+    }
+    return;
+  }
   const de = e.target.closest('[data-del-erg]');
   if (de) {
     if (!confirm('Delete this erg session for good?')) return;
@@ -3378,7 +3522,7 @@ document.addEventListener('click', async e => {
   if (!S.trial) stampTerms();
   $('log-date').value = todayISO();
   $('core-date').value = todayISO();
-  renderLog(); renderErgGate(); renderErgRecent(); renderCoreTab();
+  renderLog(); renderErgGate(); renderErgRecent(); renderWaterTab(); renderCoreTab();
   renderProgress(); renderHistory(); renderLibrary(); renderRoutines();
   restoreErgForm();
   paintSyncBadge();
@@ -3390,7 +3534,7 @@ document.addEventListener('click', async e => {
     toast('log-msg', 'Your sample is still on this device but could not be uploaded: ' +
       esc(migrated.error) + ' It will try again next time you open the tracker.', 'err');
   } else if (migrated) {
-    const n = migrated.weights + migrated.erg + migrated.core;
+    const n = migrated.weights + migrated.erg + migrated.water + migrated.core;
     toast('log-msg', 'Welcome in. ' + (n
       ? 'The ' + n + ' session' + (n === 1 ? '' : 's') + ' you logged as a sample ' +
         (n === 1 ? 'is' : 'are') + ' now saved to your account, along with your exercises.'
@@ -3450,6 +3594,10 @@ document.addEventListener('click', async e => {
   $('erg-photo-btn').onclick = () => $('erg-file').click();
   $('erg-file').onchange = () => { if ($('erg-file').files[0]) { handleErgPhoto($('erg-file').files[0]); $('erg-file').value = ''; } };
   $('erg-manual-btn').onclick = () => { openErgForm(null, 'manual'); saveErgDraft(); };
+
+  // The water form is rebuilt with its panel, so its button is wired by
+  // delegation rather than by id at boot.
+  document.addEventListener('click', ev => { if (ev.target.id === 'wt-save') saveWater(); });
 
   $('core-pick').onchange = () => loadRun($('core-pick').value);
   $('core-edit-rt').onclick = () => {

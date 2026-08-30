@@ -61,6 +61,7 @@ function trialSeed() {
     tracker_exercises: ex,
     tracker_workouts: [],
     tracker_erg_sessions: [],
+    tracker_water_sessions: [],
     tracker_core_routines: [{
       id: trialUuid(), profile_id: TRIAL_UID, name: 'Core circuit', position: 0, retired: false,
       steps: [
@@ -75,7 +76,8 @@ function trialSeed() {
   };
 }
 
-const TRIAL_LOGS = ['tracker_workouts', 'tracker_erg_sessions', 'tracker_core_sessions'];
+const TRIAL_LOGS = ['tracker_workouts', 'tracker_erg_sessions',
+                    'tracker_water_sessions', 'tracker_core_sessions'];
 
 function trialRead() {
   const raw = localStorage.getItem(TRIAL_STORE);
@@ -100,6 +102,7 @@ const trialHasWork = store => TRIAL_LOGS.some(t => (store[t] || []).length);
 const trialCounts = store => ({
   weights: (store.tracker_workouts || []).length,
   erg: (store.tracker_erg_sessions || []).length,
+  water: (store.tracker_water_sessions || []).length,
   core: (store.tracker_core_sessions || []).length,
   exercises: (store.tracker_exercises || []).length,
   routines: (store.tracker_core_routines || []).length,

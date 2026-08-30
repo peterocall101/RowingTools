@@ -118,6 +118,26 @@ create table if not exists public.tracker_core_sessions (
   created_at   timestamptz not null default now()
 );
 
+-- Rowing on the water. Deliberately NOT folded into tracker_erg_sessions,
+-- even though the columns would nearly fit: tracker_squad_board() sums
+-- that table as "erg metres", the Progress erg chart reads it, History
+-- labels it "erg", and parse-erg writes to it. One `mode` column would
+-- have made every one of those quietly mean "erg or water".
+--
+-- Distance is the only thing asked for; time and notes are optional. The
+-- average split is NOT stored - it is distance and time, and deriving it
+-- for display cannot drift out of step with them.
+create table if not exists public.tracker_water_sessions (
+  id           uuid        primary key default gen_random_uuid(),
+  profile_id   uuid        not null references public.profiles on delete cascade,
+  date         date        not null,
+  at           text,
+  distance_m   int,
+  total_time_s numeric,
+  notes        text,
+  created_at   timestamptz not null default now()
+);
+
 -- One row per call to parse-erg, including failures - a failed call is
 -- still billed. Written by the function with the SERVICE ROLE, so a user
 -- cannot clear their own quota.
@@ -165,6 +185,12 @@ alter table public.tracker_core_routines
   add column if not exists steps    jsonb   not null default '[]'::jsonb,
   add column if not exists position int     not null default 0,
   add column if not exists retired  boolean not null default false;
+
+alter table public.tracker_water_sessions
+  add column if not exists at           text,
+  add column if not exists distance_m   int,
+  add column if not exists total_time_s numeric,
+  add column if not exists notes        text;
 
 alter table public.tracker_core_sessions
   add column if not exists at           text,
@@ -220,6 +246,8 @@ create index if not exists tracker_core_routines_profile_idx
   on public.tracker_core_routines (profile_id);
 create index if not exists tracker_core_sessions_profile_date_idx
   on public.tracker_core_sessions (profile_id, date desc);
+create index if not exists tracker_water_profile_date_idx
+  on public.tracker_water_sessions (profile_id, date desc);
 create index if not exists tracker_erg_parses_profile_time_idx
   on public.tracker_erg_parses (profile_id, created_at desc);
 -- The global daily ceiling in parse-erg counts across all users, so it needs
@@ -234,6 +262,7 @@ alter table public.tracker_workouts      enable row level security;
 alter table public.tracker_erg_sessions  enable row level security;
 alter table public.tracker_core_routines enable row level security;
 alter table public.tracker_core_sessions enable row level security;
+alter table public.tracker_water_sessions enable row level security;
 alter table public.tracker_erg_parses    enable row level security;
 
 drop policy if exists "own exercises" on public.tracker_exercises;
@@ -254,6 +283,10 @@ create policy "own core routines" on public.tracker_core_routines
 
 drop policy if exists "own core sessions" on public.tracker_core_sessions;
 create policy "own core sessions" on public.tracker_core_sessions
+  for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
+
+drop policy if exists "own water sessions" on public.tracker_water_sessions;
+create policy "own water sessions" on public.tracker_water_sessions
   for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
 
 -- Read-only to the owner (so the UI can show "12 of 20 photos left").
@@ -659,6 +692,12 @@ $$;
 -- personal is absent by construction: this function never reads notes,
 -- per-exercise loads, or session dates.
 --
+-- KNOWN GAP: water sessions are not counted here yet. tracker_water_sessions
+-- arrived after this function and adding it changes the return signature, so
+-- it needs a `drop function` and a matching change to the client's METRICS
+-- list. Until then "days trained" under-counts anyone who mostly rows on the
+-- water - which, for a rowing app, is most people. Worth closing.
+--
 -- Members who have not opted in are returned with sharing = false and
 -- all measures null, so the board can show "3 of 8 sharing" honestly
 -- rather than silently pretending the squad is smaller than it is.
@@ -889,6 +928,8 @@ with expected(tbl, col) as (values
   ('tracker_core_routines','position'), ('tracker_core_routines','retired'),
   ('tracker_core_sessions','routine_id'), ('tracker_core_sessions','routine_name'),
   ('tracker_core_sessions','steps'), ('tracker_core_sessions','notes'),
+  ('tracker_water_sessions','distance_m'), ('tracker_water_sessions','total_time_s'),
+  ('tracker_water_sessions','notes'),
   ('tracker_sharing','group_id'), ('tracker_shared_templates','payload'),
   ('groups','join_code'),
   ('profiles','tracker_plan'), ('profiles','tracker_trial_ends_at'),
@@ -912,7 +953,8 @@ select section, item, result from (
                 where p.schemaname='public' and p.tablename=t.tbl) = 1
          then ' - ok' else ' - ** CHECK THIS **' end as result
   from (values ('tracker_exercises'), ('tracker_workouts'), ('tracker_erg_sessions'),
-               ('tracker_core_routines'), ('tracker_core_sessions')) as t(tbl)
+               ('tracker_core_routines'), ('tracker_core_sessions'),
+               ('tracker_water_sessions')) as t(tbl)
 
   -- 2. Tables present, and RLS actually on.
   union all
@@ -924,7 +966,8 @@ select section, item, result from (
                          where n.nspname='public' and c.relname=t.tbl)
                    then 'on' else '** OFF **' end end
   from (values ('tracker_exercises'), ('tracker_workouts'), ('tracker_erg_sessions'),
-               ('tracker_core_routines'), ('tracker_core_sessions'), ('tracker_erg_parses'),
+               ('tracker_core_routines'), ('tracker_core_sessions'),
+               ('tracker_water_sessions'), ('tracker_erg_parses'),
                ('groups'), ('group_members'), ('tracker_sharing'),
                ('tracker_shared_templates')) as t(tbl)
 
