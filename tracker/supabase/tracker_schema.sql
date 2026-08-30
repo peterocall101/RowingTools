@@ -171,6 +171,15 @@ create table if not exists public.tracker_races (
   clock      text,
   pct        numeric,
   venue      jsonb,
+  -- Where the crew finished in ITS OWN race (same comp, event and round),
+  -- how big that field was, and the gap to the winner in seconds. All three
+  -- are derived from the results file rather than published in it, and are
+  -- stored for the same reason as everything else here: so a race history
+  -- reads correctly offline and after the file is re-cut. The client fills
+  -- them in on claim, and backfills any nulls the next time it has the file.
+  place      int,
+  field      int,
+  gap_s      numeric,
   created_at timestamptz not null default now(),
   unique (profile_id, race_key)
 );
@@ -240,7 +249,10 @@ alter table public.tracker_races
   add column if not exists time       text,
   add column if not exists clock      text,
   add column if not exists pct        numeric,
-  add column if not exists venue      jsonb;
+  add column if not exists venue      jsonb,
+  add column if not exists place      int,
+  add column if not exists field      int,
+  add column if not exists gap_s      numeric;
 
 alter table public.tracker_core_sessions
   add column if not exists at           text,
@@ -758,6 +770,12 @@ $$;
 -- every athlete's row - would otherwise have under-counted anyone who mostly
 -- rows on the water, which in a rowing club is most people.
 --
+-- Racing was added the same day. A claimed race is ALREADY public - it is on
+-- the regatta leaderboard under the crew's name - so what crosses here is not
+-- the result but the association between an athlete and it, which is exactly
+-- what putting yourself on a squad board says. Still counts and totals: a race
+-- count and an average of the best three, never the list of races.
+--
 -- Members who have not opted in are returned with sharing = false and
 -- all measures null, so the board can show "3 of 8 sharing" honestly
 -- rather than silently pretending the squad is smaller than it is.
@@ -792,6 +810,8 @@ returns table (
   erg_seconds      numeric,
   water_metres     numeric,
   water_seconds    numeric,
+  races            int,
+  races_top3       numeric,
   core_work_s      numeric,
   core_rounds      int,
   weights_sets     int,
@@ -884,6 +904,30 @@ begin
     where tws.date >= p_since
     group by tws.profile_id
   ),
+  ra as (
+    -- Racing. Deliberately NOT folded into days_trained or sessions_total:
+    -- those count training that was logged as it happened, and a claimed race
+    -- is a public result attached retrospectively. Mixing them would let a
+    -- quiet afternoon of claiming last season's regattas read as a week of
+    -- training. It is its own mode on the board, with its own measures.
+    --
+    -- Top three, matching the Races tab: a person races a handful of times a
+    -- season, so a plain average is dragged down by the row you did in a gale
+    -- and a maximum is one good day.
+    select tr.profile_id as pid,
+           count(*)::int as races,
+           (select avg(x.pct) from (
+              select t2.pct from public.tracker_races t2
+              where t2.profile_id = tr.profile_id
+                and t2.date >= p_since
+                and t2.pct is not null
+              order by t2.pct desc
+              limit 3) x) as top3
+    from public.tracker_races tr
+    join shared on shared.pid = tr.profile_id
+    where tr.date >= p_since
+    group by tr.profile_id
+  ),
   c as (
     select tc.profile_id as pid,
            count(distinct tc.id)::int as sessions,
@@ -919,6 +963,10 @@ begin
     case when r.opted_in then coalesce(e.secs, 0) end,
     case when r.opted_in then coalesce(wa.metres, 0) end,
     case when r.opted_in then coalesce(wa.secs, 0) end,
+    case when r.opted_in then coalesce(ra.races, 0) end,
+    -- null rather than 0 when there are no races: nought would sort as the
+    -- worst GMT anyone ever rowed, when it means "has not raced".
+    case when r.opted_in then ra.top3 end,
     case when r.opted_in then coalesce(c.work_s, 0) end,
     case when r.opted_in then coalesce(c.rounds, 0) end,
     case when r.opted_in then coalesce(wsets.n_sets, 0) end,
@@ -929,6 +977,7 @@ begin
   left join wsets on wsets.pid = r.pid
   left join e     on e.pid     = r.pid
   left join wa    on wa.pid    = r.pid
+  left join ra    on ra.pid    = r.pid
   left join c     on c.pid     = r.pid;
 end;
 $$;
@@ -1019,7 +1068,8 @@ with expected(tbl, col) as (values
   ('tracker_races','date'), ('tracker_races','club'), ('tracker_races','crew'),
   ('tracker_races','event'), ('tracker_races','round'), ('tracker_races','boat'),
   ('tracker_races','time'), ('tracker_races','clock'), ('tracker_races','pct'),
-  ('tracker_races','venue'),
+  ('tracker_races','venue'), ('tracker_races','place'), ('tracker_races','field'),
+  ('tracker_races','gap_s'),
   ('tracker_sharing','group_id'), ('tracker_shared_templates','payload'),
   ('groups','join_code'),
   ('profiles','tracker_plan'), ('profiles','tracker_trial_ends_at'),

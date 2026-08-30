@@ -419,6 +419,24 @@
   .rhits{border-top:1px solid var(--border)}
   .rmore{width:100%;margin-top:12px}
   .rrow .rr-ops .wx{display:inline-flex;align-items:center;padding:4px 8px}
+  /* the season chart: one dot a race, on a real time axis */
+  .rchart{margin:2px 0 26px}
+  .rchart svg{display:block;max-width:100%;overflow:visible}
+  .rcgrid{stroke:var(--border);stroke-width:1}
+  .rcbase{stroke:var(--text3);stroke-width:1}
+  .rcyear{stroke:var(--border2);stroke-width:1;stroke-dasharray:3 3}
+  .rcax{font-family:var(--mono);font-size:9.5px;fill:var(--text3)}
+  .rcyearlab{font-family:var(--mono);font-size:10px;fill:var(--text3);letter-spacing:.08em}
+  .rcdot{cursor:pointer;stroke:var(--bg);stroke-width:1.5;transition:r .12s}
+  .rcdot:hover{r:7.5}
+  .rcdot.gmt-a{fill:#34d399}.rcdot.gmt-b{fill:#60a5fa}
+  .rcdot.gmt-c{fill:#fb923c}.rcdot.gmt-d{fill:#f87171}
+  .rcnote{font-family:var(--mono);font-size:10px;color:var(--text3);margin:8px 0 0;line-height:1.55}
+  .ry-count{display:inline-flex;align-items:baseline;gap:12px}
+  /* scoped past whatever sets the panel's button size - a bare .rshare loses */
+  .ryear h4 button.rshare{font-size:11px;font-family:var(--mono);font-weight:400;
+    padding:3px 9px;height:auto;letter-spacing:.04em;color:var(--text3)}
+  .ryear h4 button.rshare:hover{color:var(--text);border-color:var(--text3)}
   .mdate{display:none}
   @media(max-width:479px){
     /* Five columns will not fit a phone. The date leaves its own column and
@@ -505,17 +523,15 @@
      list, but plainly not a thing to press */
   .histfilter .seg.none{color:var(--text3);opacity:.5;cursor:default}
   .histfilter .seg.none:hover{background:transparent;color:var(--text3)}
-  /* Five modes will not sit on one phone-width line, and a scroller would hide
-     the far end of them. Three then two, on a six-column grid so both rows fill
-     the width, with the wrap seam drawn as a top rule instead of a doubled left
-     one. */
+  /* Six modes will not sit on one phone-width line, and a scroller would hide
+     half of them. Two rows of three, with the wrap seam drawn as a top rule
+     instead of a doubled left one. */
   .bmodes{display:flex}
   @media(max-width:479px){
     .histfilter .seg{padding:7px 9px;font-size:12px}
     .histfilter .seg small{display:none}
-    .bmodes{display:grid;grid-template-columns:repeat(6,1fr)}
-    .bmodes .seg{grid-column:span 2;padding:9px 4px;font-size:12px}
-    .bmodes .seg:nth-child(4),.bmodes .seg:nth-child(5){grid-column:span 3}
+    .bmodes{display:grid;grid-template-columns:repeat(3,1fr)}
+    .bmodes .seg{padding:9px 4px;font-size:12px}
     .bmodes .seg:nth-child(4){border-left:none}
     .bmodes .seg:nth-child(n+4){border-top:1px solid var(--border2)}
   }

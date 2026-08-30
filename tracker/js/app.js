@@ -2851,6 +2851,70 @@ async function loadRaceData() {
   })).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   RC.loaded = true;
   renderRaces();
+  backfillPlaces();
+}
+
+/* ---- where you came in your own race ----
+   A GMT percentage says how the crew went against the world best. It does not
+   say how the race went: 84% into a headwind at Nottingham can be a win, and
+   88% in a flat final can be last. The field is right there in the same file -
+   every crew in the same comp, event and round is that race - so place, field
+   size and the gap to the winner are a lookup, not a guess.
+
+   Rounds matter and are used: "Final B" is its own race, and calling someone
+   3rd when they were 3rd of the B final would be a lie by omission. */
+function raceField(comp, r) {
+  const same = comp.results.filter(x => x.event === r.event && x.round === r.round);
+  const timed = same.map(x => ({ x, s: parseTimeStr(x.time) })).filter(t => t.s != null);
+  if (!timed.length) return null;
+  timed.sort((a, b) => a.s - b.s);
+  const mine = parseTimeStr(r.time);
+  const i = timed.findIndex(t => t.x === r);
+  return {
+    place: i < 0 ? null : i + 1,
+    field: same.length,
+    gap_s: mine == null ? null : Math.round((mine - timed[0].s) * 100) / 100,
+  };
+}
+
+const ord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th'
+  : n % 10 === 1 ? 'st' : n % 10 === 2 ? 'nd' : n % 10 === 3 ? 'rd' : 'th');
+
+// "3rd of 8 · +2.31" - the gap is dropped on a win, where it is always zero.
+function placeLine(r) {
+  if (!r.place || !r.field) return '';
+  const gap = Number(r.gap_s);
+  return ord(r.place) + ' of ' + r.field +
+    (r.place > 1 && gap > 0 ? ' \u00b7 +' + gap.toFixed(2) : '');
+}
+
+/* Races claimed before this existed have no place, and neither does one
+   claimed offline. Both are filled in the next time the tab has the file, in
+   one pass, quietly - it is derived data, so there is nothing to tell the
+   athlete about and nothing to undo. */
+async function backfillPlaces() {
+  const gaps = S.races.filter(r => r.place == null && r.comp);
+  if (!gaps.length) return;
+  let done = 0;
+  for (const race of gaps) {
+    const comp = RC.comps.find(c => c.comp === race.comp);
+    if (!comp) continue;
+    const hit = comp.results.find(x => raceKey(comp.comp, x) === race.race_key);
+    if (!hit) continue;
+    const f = raceField(comp, hit);
+    if (!f || !f.place) continue;
+    Object.assign(race, f);
+    done++;
+    const { error } = await sb.from('tracker_races')
+      .update({ place: f.place, field: f.field, gap_s: f.gap_s }).eq('id', race.id);
+    // Offline is fine: the values are in memory for this visit and the next
+    // load will try again. Anything else is a real error and should surface.
+    if (error && !looksOffline(error)) {
+      toast('race-msg', 'Could not save the race positions: ' + esc(error.message), 'err');
+      break;
+    }
+  }
+  if (done) { cacheData(); renderRaces(); }
 }
 
 const myRaceKeys = () => new Set(S.races.map(r => r.race_key));
@@ -2874,6 +2938,7 @@ async function claimRace(compId, idx) {
     clock: r.clock || null, pct: r.pct == null ? null : r.pct,
     venue: comp.venue || null,
   };
+  Object.assign(row, raceField(comp, r) || { place: null, field: null, gap_s: null });
   const { error } = await insertRow('tracker_races', row);
   const queued = error && looksOffline(error);
   RC.busy = null;
@@ -2934,20 +2999,156 @@ const pctClass = p => p >= 87 ? 'gmt-a' : p >= 80 ? 'gmt-b' : p >= 72 ? 'gmt-c' 
 const pctHTML = p => p == null ? '<span class="na">-</span>'
   : '<span class="gmt ' + pctClass(p) + '">' + round1(p) + '%</span>';
 
+/* ---- every race you have ever claimed, in order ----
+   Deliberately NOT the weekly-bar treatment the training charts get. Racing is
+   not a volume you accumulate: it is a handful of separate afternoons, weeks
+   apart, and drawing them as adjacent bars would invent a rhythm that is not
+   there. One dot per race on a real time axis, so a season looks like a season
+   and the winter gap looks like a gap.
+
+   The y-axis stays: these are absolute percentages that mean the same thing
+   across every athlete and every year, which is exactly the case the weekly
+   charts do not have. Dots are coloured by the same four bands as everywhere
+   else, and every one of them is a target - tap it for the conditions on the
+   day, which is the question a dot on this chart provokes. */
+function raceChartHTML(W) {
+  const rows = S.races.filter(r => r.pct != null && r.date).slice()
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  if (rows.length < 2) return '';
+
+  const H = 210, P = { t: 16, r: 12, b: 30, l: 38 };
+  const iw = Math.max(60, W - P.l - P.r), ih = H - P.t - P.b;
+  const ts = rows.map(r => Date.parse(r.date));
+  const t0 = Math.min(...ts), t1 = Math.max(...ts);
+  const pad = Math.max((t1 - t0) * 0.03, 864e5 * 3);   // never zero-width
+  const X = t => P.l + ((t - (t0 - pad)) / ((t1 + pad) - (t0 - pad))) * iw;
+
+  const ps = rows.map(r => Number(r.pct));
+  // Rounded to whole percents so the gridlines land on readable numbers, with
+  // a point of air either side.
+  const lo = Math.floor(Math.min(...ps) - 1), hi = Math.ceil(Math.max(...ps) + 1);
+  const span = Math.max(1, hi - lo);
+  const Y = v => P.t + ih - ((v - lo) / span) * ih;
+
+  // Three or four ticks, on multiples of 1, 2 or 5 - whichever gives that.
+  const step = span <= 4 ? 1 : span <= 10 ? 2 : span <= 25 ? 5 : 10;
+  let grid = '', first = Math.ceil(lo / step) * step;
+  for (let v = first; v <= hi; v += step) {
+    grid += '<line class="rcgrid" x1="' + P.l + '" y1="' + Y(v).toFixed(1) +
+      '" x2="' + (P.l + iw) + '" y2="' + Y(v).toFixed(1) + '"/>' +
+      '<text class="rcax" x="' + (P.l - 7) + '" y="' + (Y(v) + 3.5).toFixed(1) +
+      '" text-anchor="end">' + v + '</text>';
+  }
+
+  // A rule at each new season, labelled - the one bit of structure a rower
+  // reads this chart by.
+  let seasons = '';
+  const seen = new Set();
+  rows.forEach((r, i) => {
+    const y = (r.date || '').slice(0, 4);
+    if (seen.has(y)) return;
+    seen.add(y);
+    const x = i === 0 ? P.l : X(Date.parse(y + '-01-01'));
+    const cx = Math.max(P.l, Math.min(P.l + iw, x));
+    seasons += (i === 0 ? '' : '<line class="rcyear" x1="' + cx.toFixed(1) + '" y1="' + P.t +
+      '" x2="' + cx.toFixed(1) + '" y2="' + (P.t + ih) + '"/>') +
+      '<text class="rcyearlab" x="' + (cx + 5).toFixed(1) + '" y="' + (P.t + 10) + '">' + y + '</text>';
+  });
+
+  const dots = rows.map((r, i) => {
+    const v = Number(r.pct);
+    return '<circle class="rcdot ' + pctClass(v) + '" data-race-dot="' + r.id + '" data-i="' + i +
+      '" cx="' + X(ts[i]).toFixed(1) + '" cy="' + Y(v).toFixed(1) + '" r="5.5"><title>' +
+      esc(shortDate(r.date) + ' \u00b7 ' + (r.event || '') + ' \u00b7 ' + round1(v) + '%') +
+      '</title></circle>';
+  }).join('');
+
+  return '<div class="rchart"><svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W +
+    '" height="' + H + '" role="img" aria-label="Every claimed race by date and GMT percentage">' +
+    grid + seasons +
+    '<line class="rcbase" x1="' + P.l + '" y1="' + (P.t + ih) + '" x2="' + (P.l + iw) +
+      '" y2="' + (P.t + ih) + '"/>' +
+    dots + '</svg>' +
+    '<p class="rcnote">One dot a race, GMT% up the side. Tap a dot for the conditions on the ' +
+    'day it was rowed.</p></div>';
+}
+
+/* ---- the season card ----
+   Same recipe as rowingtools-share.js on the leaderboards - an SVG drawn to a
+   canvas at 2x and handed over as a PNG - rather than a call into it: those
+   two functions read the page title and a button's dataset, neither of which
+   exists here. What is shared is the same shape, so a card from the tracker
+   and a card from a leaderboard look like they came from the same place. */
+function shareSeason(year) {
+  const rows = S.races.filter(r => (r.date || '').slice(0, 4) === year);
+  if (!rows.length) return;
+  const st = raceYearStats(rows);
+  const name = (S.profile && S.profile.display_name) || 'My season';
+  const col = st.top >= 87 ? '#34d399' : st.top >= 80 ? '#60a5fa' : st.top >= 72 ? '#fb923c' : '#f87171';
+  const best = st.bestRow || {};
+  const F = "-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif";
+  const W = 600, H = 300;
+  const t = (x, y, size, weight, fill, str, anchor) =>
+    '<text x="' + x + '" y="' + y + '" font-family="' + F + '" font-size="' + size +
+    '" font-weight="' + weight + '" fill="' + fill + '"' +
+    (anchor ? ' text-anchor="' + anchor + '"' : '') + '>' + esc(str) + '</text>';
+
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '">' +
+    '<rect width="' + W + '" height="' + H + '" fill="#0f0f0e"/>' +
+    '<rect width="' + W + '" height="4" fill="#c8472b"/>' +
+    t(24, 36, 13, 700, '#c8472b', 'rowingtools.co.uk') +
+    t(W - 24, 36, 12, 400, '#4b5563', year + ' season', 'end') +
+    '<line x1="24" y1="50" x2="' + (W - 24) + '" y2="50" stroke="#1c1c1c" stroke-width="1"/>' +
+    t(24, 102, 28, 700, '#f0f0ee', name.length > 30 ? name.slice(0, 29) + '\u2026' : name) +
+    t(24, 124, 13, 400, '#4b5563',
+      plural(st.races, 'race') + ' \u00b7 ' + plural(st.regattas, 'regatta')) +
+    t(24, 176, 14, 400, '#9ca3af', 'Top ' + st.topN + ' avg GMT%') +
+    t(W - 24, 196, 64, 800, col, round1(st.top) + '%', 'end') +
+    t(24, 212, 13, 400, '#4b5563', 'Best ' + round1(st.best) + '% \u00b7 ' +
+      (best.event || '') + (best.comp_title ? ' \u00b7 ' + compShort(best.comp_title, best.comp) : '')) +
+    '<line x1="24" y1="244" x2="' + (W - 24) + '" y2="244" stroke="#1c1c1c" stroke-width="1"/>' +
+    t(24, 270, 12, 400, '#4b5563', 'GMT% = World Best Time \u00f7 your time \u00d7 100') +
+    '</svg>';
+
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = W * 2; c.height = H * 2;
+    const ctx = c.getContext('2d');
+    ctx.scale(2, 2); ctx.drawImage(img, 0, 0);
+    c.toBlob(b => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(b);
+      a.download = 'season-' + year + '.png';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }, 'image/png');
+    URL.revokeObjectURL(url);
+    track('race_season_shared', { year: year, races: rows.length });
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); toast('race-msg', 'Could not draw the card.', 'warn'); };
+  img.src = url;
+}
+
 function myRacesHTML() {
   if (!S.races.length) {
     return '<p class="placeholder">No races yet. Find one below and press <b>+</b> to put it in ' +
       'your history. Everything on the RowingTools leaderboards is here, every regatta with a ' +
       'GMT percentage.</p>';
   }
+  const el = $('races-body');
+  const W = Math.max(280, Math.min(760, (el ? el.clientWidth : 0) || 700));
   const years = {};
   S.races.forEach(r => { const y = (r.date || '').slice(0, 4) || '?'; (years[y] = years[y] || []).push(r); });
-  return Object.keys(years).sort().reverse().map(y => {
+  return raceChartHTML(W) + Object.keys(years).sort().reverse().map(y => {
     const rows = years[y].slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     const st = raceYearStats(rows);
     return '<section class="ryear">' +
       '<h4><span class="ry-when">' + esc(y) + '</span>' +
-        '<span class="ry-count">' + plural(st.races, 'race') + '</span></h4>' +
+        '<span class="ry-count">' + plural(st.races, 'race') +
+          '<button class="ghost rshare" data-race-share="' + esc(y) + '" ' +
+          'title="Save a card for this season">\u2193 Card</button></span></h4>' +
       '<div class="rystats">' +
         '<div class="rystat"><div class="k">Top ' + st.topN + ' GMT</div><div class="v">' +
           (st.top == null ? '<span class="na">-</span>' : pctHTML(st.top)) + '</div>' +
@@ -2969,8 +3170,8 @@ function raceRowHTML(r) {
     '<div class="rr-what"><b>' + esc(r.event || '') + '</b>' +
       (r.round ? ' <span class="rr-round">' + esc(r.round) + '</span>' : '') +
       '<small><span class="mdate">' + shortDate(r.date) + ' \u00b7 </span>' +
-      esc([r.crew, compShort(r.comp_title, r.comp)].filter(Boolean).join(' \u00b7 ')) +
-      '</small></div>' +
+      esc([r.crew, placeLine(r), compShort(r.comp_title, r.comp)]
+        .filter(Boolean).join(' \u00b7 ')) + '</small></div>' +
     '<div class="rr-time">' + esc(r.time || '') + '</div>' +
     '<div class="rr-pct">' + pctHTML(r.pct == null ? null : Number(r.pct)) + '</div>' +
     '<div class="rr-ops">' +
@@ -3141,13 +3342,32 @@ const BOARD_MODES = [
   { k: 'core',    label: 'Core', metrics: [
       { k: 'core_work_s',      btn: 'Time',     unit: 'time' },
       { k: 'sessions_core',    btn: 'Sessions', unit: '' } ] },
+  // Racing ranks on results, not on training. A claimed race is already public
+  // on the regatta leaderboard, so what crosses to the squad is the athlete's
+  // own association with it - which is what being on a board says anyway.
+  { k: 'races',   label: 'Racing', metrics: [
+      { k: 'races_top3',       btn: 'Top 3 GMT', unit: 'pct' },
+      { k: 'races',            btn: 'Races',     unit: '' } ] },
 ];
 const boardMode = () => BOARD_MODES.find(m => m.k === SQ.bmode) || BOARD_MODES[0];
 const num = v => Number(v) || 0;
 // The only derived measures. Everything else is read straight off the row.
+// Percentages are compared against a floor rather than zero. A board of GMT
+// averages between 82 and 90 drawn from nought is eight identical bars; from a
+// floor a little under the worst of them, it is a ranking you can read.
+function barPct(v, top, metric) {
+  if (!v || !top) return 0;
+  if (metric.unit !== 'pct') return Math.round((v / top) * 100);
+  const floor = Math.max(0, Math.min(v, top) - 12);
+  return Math.round(((v - floor) / Math.max(1, top - floor)) * 100);
+}
+
 const boardVal = (r, k) =>
   k === 'combined_metres'  ? num(r.erg_metres) + num(r.water_metres)
   : k === 'combined_seconds' ? num(r.erg_seconds) + num(r.water_seconds)
+  // Kept null on purpose: nobody rows a 0% GMT, so a nought here would rank a
+  // squad-mate who has not raced below one who had a shocker.
+  : k === 'races_top3' ? (r.races_top3 == null ? null : Number(r.races_top3))
   : num(r[k]);
 
 const metricBy = k => {
@@ -3166,6 +3386,7 @@ function fmtMetric(v, unit) {
   if (unit === 'time') return fmtClock(v);
   if (unit === 'm') return v >= 10000 ? round1(v / 1000) + 'k' : String(Math.round(v));
   if (unit === 'kg') return Math.round(v).toLocaleString('en-GB');
+  if (unit === 'pct') return round1(v) + '%';
   return String(round1(v));
 }
 
@@ -3326,8 +3547,10 @@ function squadMainHTML() {
 
   const rows = SQ.board.filter(r => r.sharing);
   const quiet = SQ.board.filter(r => !r.sharing);
-  rows.sort((a, b) => boardVal(b, metric.k) - boardVal(a, metric.k));
-  const top = Math.max(...rows.map(r => boardVal(r, metric.k)), 0);
+  // A null measure sorts last rather than as a zero, and is drawn as a dash.
+  const sortVal = r => { const v = boardVal(r, metric.k); return v == null ? -Infinity : v; };
+  rows.sort((a, b) => sortVal(b) - sortVal(a));
+  const top = Math.max(...rows.map(r => boardVal(r, metric.k) || 0), 0);
 
   const rmBtn = r => (isAdmin && r.profile_id !== me)
     ? '<button class="brm" data-sq-rm="' + r.profile_id + '" data-sq-rmname="' + esc(r.display_name) +
@@ -3349,12 +3572,13 @@ function squadMainHTML() {
             '<span class="brank">' + (i + 1) + '</span>' +
             '<span class="bname">' + esc(r.display_name) + '</span>' +
             '<span class="bval">' + fmtMetric(v, metric.unit) +
-              (metric.unit && metric.unit !== 'time' ? '<small>' + metric.unit + '</small>' : '') + '</span>' +
+              (metric.unit && metric.unit !== 'time' && metric.unit !== 'pct'
+                ? '<small>' + metric.unit + '</small>' : '') + '</span>' +
             '<span class="bsub">' + r.days_trained + ' day' + (r.days_trained === 1 ? '' : 's') + ' \u00b7 ' +
               r.sessions_weights + ' weights \u00b7 ' + r.sessions_erg + ' erg \u00b7 ' +
               (r.sessions_water || 0) + ' water \u00b7 ' + r.sessions_core + ' core</span>' +
             rm +
-            '<span class="bbar"><i style="width:' + (top ? Math.round((v / top) * 100) : 0) + '%"></i></span>' +
+            '<span class="bbar"><i style="width:' + barPct(v, top, metric) + '%"></i></span>' +
           '</div>';
         }).join('') +
         (quiet.length ? quiet.map(r =>
@@ -3401,7 +3625,8 @@ function squadMainHTML() {
       esc(mode.label) + ', ' + esc(metric.btn.toLowerCase()) + ', ' +
       esc((PERIODS.find(p => p.k === SQ.period) || {}).label || '').toLowerCase() + '.<br>' +
       'Everyone here sees your <b>totals</b> - days trained, sessions, erg and water distance and ' +
-      'time, core time, weights sets and volume. Never a session, a lift, a date or a note. ' +
+      'time, core time, weights sets and volume, and how many races you have claimed with the ' +
+      'average of your best three. Never a session, a lift, a date or a note. ' +
       'They are self-reported: they show who is putting the work in, not who is fastest.' +
     '</p>' +
     '<div id="squad-msg"></div>' +
@@ -3894,6 +4119,10 @@ document.addEventListener('click', async e => {
   }
   const radd = e.target.closest('[data-race-add]');
   if (radd) { claimRace(radd.dataset.raceAdd, Number(radd.dataset.raceI)); return; }
+  const rdot = e.target.closest('[data-race-dot]');
+  if (rdot) { openRaceConditions(rdot.dataset.raceDot); return; }
+  const rsh = e.target.closest('[data-race-share]');
+  if (rsh) { shareSeason(rsh.dataset.raceShare); return; }
   const rwx = e.target.closest('[data-race-wx]');
   if (rwx) { openRaceConditions(rwx.dataset.raceWx); return; }
   const rrm = e.target.closest('[data-race-rm]');

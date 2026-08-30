@@ -262,6 +262,26 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   The club-name normalisation (`Univ`/`Coll`/`Sch` expansion, trailing `RC`/`BC`, the `(A)` crew
   suffix, then `data/club_aliases.json`) is a deliberate copy of the one in `clubs/index.html`. If
   that one changes, this has to change with it or a search here quietly misses results.
+- **A race also carries where you came, because GMT does not say that.** 84% into a headwind at
+  Nottingham can be a win; 88% in a flat final can be last. Every crew in the same `comp`, `event`
+  and `round` **is** that race, so `raceField()` reads place, field size and the gap to the winner
+  straight off the file - `3rd of 8 · +2.31` on the row. The round is part of the key on purpose:
+  "Final B" is its own race, and calling someone 3rd when they were 3rd of the B final would be a
+  lie by omission. The three numbers are stored with the claim (offline, and after the file is
+  re-cut) and **backfilled in one quiet pass** for races claimed before this existed - it is
+  derived data, so there is nothing to announce and nothing to undo.
+- **The season chart is dots on a real time axis, not weekly bars.** Racing is not a volume you
+  accumulate: it is a handful of separate afternoons, weeks apart, and bars would invent a rhythm
+  that is not there. It keeps its y-axis, unlike the training charts - these are absolute
+  percentages that mean the same thing for every athlete in every year, which is exactly the case
+  the weekly charts do not have. Season boundaries are ruled and labelled, dots take the same four
+  GMT colours as everywhere else, and **every dot opens the conditions for that race**, which is
+  the question a dot on this chart provokes.
+- **The season card is a copy of the leaderboards' recipe, not a call into it.** `shareSeason()`
+  draws the same 600x300 SVG, paints it to a canvas at 2x and hands over a PNG, exactly as
+  `rowingtools-share.js` does - but that file's two functions read `document.title` and a button's
+  dataset, neither of which exists here. Sharing the shape rather than the code means a card from
+  the tracker and a card from a leaderboard look like they came from the same place.
 - **Erg photo limits are enforced server-side, and the client only mirrors them.** A 402 (not on
   the plan), a 429 (over your quota or the site's) and a 503 (switched off) are all expected
   states with a message of their own, so the app shows them as warnings rather than dressing them
@@ -398,13 +418,25 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   raise and take the board down for *everyone* in the squad.
 - **Non-sharers are shown, greyed, as "not sharing".** The board says "2 of 3 sharing" rather than
   quietly pretending the squad is smaller than it is.
-- **The board ranks on one of five disciplines, chosen with buttons.** Erg, Water, Erg + Water,
-  Weights, Core - then a second row for the measure of whichever one is picked, on exactly the same
+- **The board ranks on one of six things, chosen with buttons.** Erg, Water, Erg + Water,
+  Weights, Core, Racing - then a second row for the measure of whichever one is picked, on exactly the same
   pattern as Progress (distance | time, sessions | sets, time | sessions), and a third for the
   period. It replaced two dropdowns. **Erg + Water is computed client-side** (`combined_metres`,
   `combined_seconds` in `boardVal`) rather than added to the SQL: it is the sum of two columns the
   function already returns, and a derived total that lives in the client cannot disagree with its
   own parts.
+
+  **Racing ranks on results rather than training** - a race count, and the average of the best
+  three, over the same window. A claimed race is *already* public: it is on the regatta leaderboard
+  under the crew's name. What crosses to the squad is the athlete's own association with it, which
+  is exactly what putting yourself on a board says. It is deliberately kept out of `days_trained`
+  and `sessions_total`: those count training logged as it happened, and a claimed race is attached
+  retrospectively, so mixing them would let an afternoon of claiming last season read as a week of
+  training. Two details that matter: a squad-mate who has not raced shows a dash, **not 0%** - the
+  SQL returns null and `boardVal` keeps it null, because nobody rows a nought and a zero would rank
+  them below someone who had a shocker; and the bars for a percentage measure are drawn from a
+  floor a little under the field rather than from zero, or eight averages between 82 and 90 would
+  be eight identical bars.
 
   **There is no cross-discipline "Overall" mode.** One was built - days trained / total sessions -
   and cut on 2026-08-30. Ranking a squad on an aggregate of four unlike things means deciding what
