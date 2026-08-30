@@ -1201,7 +1201,11 @@ function renderCoreTab() {
     ? live.map(r => '<option value="' + r.id + '">' + esc(r.name) + '</option>').join('')
     : '<option value="">No routines yet</option>';
   if (RUN.routineId && live.some(r => r.id === RUN.routineId)) pick.value = RUN.routineId;
-  $('core-edit-rt').disabled = !live.length;
+  // With no routines this is the only way to Templates from here, so it stays
+  // enabled and changes job: build the first one rather than edit nothing.
+  const edit = $('core-edit-rt');
+  edit.disabled = false;
+  edit.innerHTML = live.length ? '✎ Edit this routine' : '✎ Build a routine';
 
   if (!live.length) {
     stopTimer();
@@ -1850,7 +1854,7 @@ const e1rm = (w, reps) => w * (1 + reps / 30);
 // `col` the table header, `short` the compact form used on bars and in cells.
 const ERG_METRICS = [
   { k: 'km',  btn: 'Distance', label: 'Distance a week', col: 'Distance', dp: 1,
-    fmt: v => round1(v) + ' km', short: v => round1(v) + ' km', bar: v => round1(v) },
+    fmt: v => round1(v) + ' km', short: v => round1(v) + ' km', bar: v => round1(v) + ' km' },
   { k: 'min', btn: 'Time',     label: 'Time a week',     col: 'Time',     dp: 0,
     fmt: v => fmtHM(v), short: v => fmtHM(v), bar: v => fmtHM(v) },
 ];
@@ -2059,12 +2063,18 @@ function barsHTML(pts, metric, W) {
   // The week's figure above its own bar, so the chart reads without hovering.
   // Zoomed out to a year the slots are narrower than the text, and overlapping
   // numbers are worse than none - so they thin out and the tooltip takes over.
-  const labelEvery = slot >= 40 ? 1 : slot >= 22 ? 2 : 0;
+  // Thinning is driven by the width of the widest label, not a fixed slot
+  // width: "35.5 km" needs half again the room of "12", and a label that
+  // carries its unit is worth more than one that reads as a bare number.
+  const labelText = p => String((metric.bar || metric.short)(p.v));
+  const widest = pts.reduce((m, p) => p.v ? Math.max(m, labelText(p).length) : m, 0);
+  const need = widest * 6.3 + 8;               // mono 10.5px, plus a gap
+  const labelEvery = slot >= need ? 1 : slot * 2 >= need ? 2 : 0;
   const barLabels = !labelEvery ? '' : pts.map((p, i) => {
     if (!p.v || (pts.length - 1 - i) % labelEvery) return '';
     return '<text class="cbarlab' + (i === pts.length - 1 ? ' last' : '') + '" x="' + cx(i).toFixed(1) +
       '" y="' + (Y(p.v) - 7).toFixed(1) + '" text-anchor="middle">' +
-      esc(String((metric.bar || metric.short)(p.v))) + '</text>';
+      esc(labelText(p)) + '</text>';
   }).join('');
 
   // One flat average across what is on screen: "is this week above or below
@@ -2400,9 +2410,14 @@ function renderHistory() {
   const counts = { all: all.length, w: 0, e: 0, wa: 0, c: 0 };
   all.forEach(x => counts[x.kind]++);
   if (!counts[histFilter]) histFilter = 'all';      // filtered everything away
+  // All five are always shown, including the ones you have nothing in - hiding
+  // a discipline at zero makes the filter itself look like it is not there.
+  // Those are disabled rather than absent, so the row is a full contents list.
   const bar = '<div class="segmented histfilter" role="group" aria-label="Show which sessions">' +
-    HIST_KINDS.filter(k => k.k === 'all' || counts[k.k]).map(k =>
-      '<button class="seg' + (histFilter === k.k ? ' active' : '') + '" data-hfilter="' + k.k + '" ' +
+    HIST_KINDS.map(k =>
+      '<button class="seg' + (histFilter === k.k ? ' active' : '') +
+      (counts[k.k] ? '' : ' none') + '" data-hfilter="' + k.k + '"' +
+      (counts[k.k] ? '' : ' disabled') + ' ' +
       'aria-pressed="' + (histFilter === k.k) + '">' + k.label +
       '<small>' + counts[k.k] + '</small></button>').join('') + '</div>';
 
@@ -3759,8 +3774,11 @@ document.addEventListener('click', async e => {
   $('core-pick').onchange = () => loadRun($('core-pick').value);
   $('core-edit-rt').onclick = () => {
     const r = routineById($('core-pick').value);
-    if (!r) return;
-    editingRoutine = { id: r.id, name: r.name, steps: stepsOf(r).map(s => ({ ...s })) };
+    // No routine picked means there are none: open the builder on a blank one,
+    // which is what someone standing on an empty Core tab actually wants.
+    editingRoutine = r
+      ? { id: r.id, name: r.name, steps: stepsOf(r).map(s => ({ ...s })) }
+      : { id: null, name: '', steps: [{ name: '', target_s: 60 }] };
     renderRoutines();
     selectTab('p-lib');
     $('rt-builder').scrollIntoView({ behavior: 'smooth', block: 'start' });

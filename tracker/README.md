@@ -158,10 +158,13 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   states rather than a menu. The exercise list stays a `<select>` - it is the one control with
   more than a handful of options. The measure keys survive a mode change where they can (`min`
   means time everywhere), and reset to the mode's first measure where they cannot.
-- **The weekly figure sits above its own bar.** A chart you must hover to read is no use on a
-  phone. Each bar carries its value in mono above it, the latest week at full strength. Zoomed
-  out the slots get narrower than the text, so the labels thin to every other bar and then stop
-  altogether rather than overlap - the tap-for-a-chip tooltip is still there underneath.
+- **The weekly figure sits above its own bar, with its unit.** A chart you must hover to read is no
+  use on a phone. Each bar carries its value in mono above it - `35.5 km`, `1h 34m`, `4` - with the
+  latest week at full strength. The unit is there because a bare `35.5` over a bar is a number
+  looking for a caption, and the y-axis that would have carried one deliberately does not exist.
+  **The thinning is driven by the widest label, not a fixed bar width**: `35.5 km` needs half again
+  the room of `12`, so the labels drop to every other bar and then stop altogether at the width
+  where they would collide - the tap-for-a-chip tooltip is still there underneath.
 
   Never two measures on one axis. Both charts are drawn at a measured pixel width rather than
   scaled from a `viewBox`, so labels stay legible on a phone, and they re-render on resize and
@@ -196,11 +199,17 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   discipline, what it was), expanding in place, under the week strip. Results-board language
   throughout: hairlines, tabular figures, square corners.
 - **History filters by discipline, client-side.** All / Weights / Erg / Water / Core, each with its
-  count, over the sessions already loaded - so it is instant and works offline. A discipline you
-  have never recorded gets no button. Two deliberate details: the **week strip keeps showing the
+  count, over the sessions already loaded - so it is instant and works offline. Three deliberate
+  details: **all five are always shown**, the empty ones greyed and disabled rather than hidden -
+  hiding a discipline at zero shrinks the row to "All / Weights" and makes the filter itself look
+  like it is not there, which is exactly how it was first read; the **week strip keeps showing the
   whole week** even with a filter on, because it is the context for what you are reading and a
-  filtered week would otherwise look like a light one; and a filter that would empty the page
-  falls back to All rather than showing nothing.
+  filtered week would otherwise look like a light one; and a filter that would empty the page falls
+  back to All rather than showing nothing.
+- **The jump to Templates works before you have anything to edit.** The Core tab's button was
+  disabled with no routines - which is precisely when someone needs it, since an empty Core tab has
+  no other route to building one. It stays enabled and changes job instead: **Build a routine**
+  opens the builder on a blank routine, **Edit this routine** opens the one you have picked.
 - **The Weights picker lost its "Recent" row and gained a way out.** Recent duplicated the group
   rows underneath it - the same chips, one scroll apart - and the thing people actually wanted
   from the picker was a route to *edit* the library, which meant hunting for the Templates tab.

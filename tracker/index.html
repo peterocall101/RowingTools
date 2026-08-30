@@ -444,6 +444,10 @@
   .histfilter{margin-bottom:18px}
   .histfilter .seg{padding:7px 13px;font-size:12.5px}
   .histfilter .seg small{font-family:var(--mono);font-size:10px;opacity:.6;margin-left:6px}
+  /* a discipline you have nothing in: shown, so the row is a full contents
+     list, but plainly not a thing to press */
+  .histfilter .seg.none{color:var(--text3);opacity:.5;cursor:default}
+  .histfilter .seg.none:hover{background:transparent;color:var(--text3)}
   /* Five modes will not sit on one phone-width line, and a scroller would hide
      the far end of them. Three then two, on a six-column grid so both rows fill
      the width, with the wrap seam drawn as a top rule instead of a doubled left
