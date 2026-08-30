@@ -316,6 +316,16 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   `?club=` and uses it to jump to the Result Leaderboard tab, which is the view this is avoiding,
   and two scripts fighting over one parameter is a bug waiting to happen.
 
+  **The leaderboard pages come from two generations of the same template**, and the first version of
+  this only worked on one of them. `brcc26` puts the event on `caption[data-event]` and the round on
+  `td.rnd[data-round]`; the other 15 put both in the text and set no attribute - so a link to any
+  regatta but BRCC landed on the club-filtered heatmap with nothing ringed. The lookup now reads the
+  attribute first and the text second, which is the same fallback `conditions.js` already makes for
+  the same reason. Reading the text needs care: a caption can carry a day badge
+  (`span.cap-when`) and `conditions.js` injects its own `.wx-mini` button **into** the round cell, so
+  both are stripped from a clone before comparing, never from the page. Audited against the whole
+  file afterwards: **4,892 of 4,892 results resolve to a cell**, on all 14 regattas.
+
   It is on all 16 leaderboard pages as its own file rather than folded into `rowingtools-share.js`,
   because three of those pages (`bucs26`, `nottm25`, `reading26`) never included that script. Every
   step is guarded: a page whose markup differs, a regatta that has been re-cut, or a crew that is no

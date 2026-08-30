@@ -49,16 +49,36 @@
 
   var norm = function (s) { return (s || '').replace(/\s+/g, ' ').trim().toLowerCase(); };
 
+  /* The leaderboard pages come from two generations of the same template. The
+     newer one puts the event on `caption[data-event]` and the round on
+     `td.rnd[data-round]`; the older 15 put both in the text and nothing in an
+     attribute. So: attribute first, text second - which is exactly the fallback
+     conditions.js already makes for the same reason.
+
+     Reading the text needs care. A caption can carry a day badge
+     (`<span class="cap-when">Sun</span>`) and conditions.js injects its own
+     `.wx-mini` button INTO the round cell, so "Final A" becomes "Final A16:55"
+     if either is left in. They are stripped from a clone, never from the page. */
+  function label(el, attr) {
+    if (!el) return '';
+    var direct = el.getAttribute(attr);
+    if (direct) return norm(direct);
+    var copy = el.cloneNode(true);
+    var junk = copy.querySelectorAll('.cap-when, .wx-mini, .wx-ind, svg');
+    for (var i = 0; i < junk.length; i++) junk[i].remove();
+    return norm(copy.textContent);
+  }
+
   function findCell() {
     if (!ev && !crew) return null;
     var tables = document.querySelectorAll('#heatmap-out table');
     for (var i = 0; i < tables.length; i++) {
       var cap = tables[i].querySelector('caption');
-      if (ev && (!cap || norm(cap.getAttribute('data-event')) !== norm(ev))) continue;
+      if (ev && label(cap, 'data-event') !== norm(ev)) continue;
       var rows = tables[i].querySelectorAll('tbody tr');
       for (var j = 0; j < rows.length; j++) {
         var rnd = rows[j].querySelector('td.rnd');
-        if (rd && (!rnd || norm(rnd.getAttribute('data-round')) !== norm(rd))) continue;
+        if (rd && label(rnd, 'data-round') !== norm(rd)) continue;
         if (!crew) return rnd || rows[j].cells[0];
         var names = rows[j].querySelectorAll('td .cn');
         for (var k = 0; k < names.length; k++) {
