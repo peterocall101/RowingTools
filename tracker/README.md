@@ -95,6 +95,35 @@ The Races tab additionally reads two files from the main site - `/data/all_resul
 3. **Push to `main`.** GitHub Pages serves `/tracker/` automatically. The homepage links to it and
    `login.html` is in the sitemap; the app itself stays `noindex`.
 
+### Auth URLs - Supabase dashboard, not code
+
+**Authentication > URL Configuration**, and both fields matter:
+
+| Field | Value |
+|---|---|
+| Site URL | `https://rowingtools.co.uk` |
+| Redirect URLs | `https://rowingtools.co.uk/tracker/**` |
+
+`login.html` already asks for the right destination - `resetPasswordForEmail(email, { redirectTo })`
+and `signUp(..., { emailRedirectTo })`, both `origin + pathname`. But **Supabase silently ignores a
+`redirectTo` that is not on the allow list and falls back to the Site URL**, so getting this wrong
+does not error anywhere: the email simply arrives pointing at the wrong place.
+
+Found broken on 2026-08-30 - Site URL was still the `http://localhost:3000` default and the allow
+list was empty, so **every password-reset and every signup-confirmation link went to localhost**.
+Reset was fully broken (the recovery code has to reach the page for a new password to be set);
+signup was recoverable, because `/auth/v1/verify` confirms the account server-side *before* it
+redirects, so those users could still sign in afterwards.
+
+Check it without sending an email - an invalid token is enough, because the allow list is applied
+before the token is looked at:
+
+```bash
+curl -s -o /dev/null -D -   "https://tbhujqdflswhgxtioznb.supabase.co/auth/v1/verify?token=probe&type=recovery&redirect_to=https%3A%2F%2Frowingtools.co.uk%2Ftracker%2Flogin.html" | grep -i location
+```
+
+The `Location` header echoes your URL when it is allowed, and the Site URL when it is not.
+
 ## Local test
 
 ```bash

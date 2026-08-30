@@ -166,6 +166,10 @@
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const hasCode = params.has('code');
   let setPasswordMode = hash.get('type') === 'recovery' || hasCode;
+  // A link that has expired, been used, or been rejected comes back with the
+  // reason in the hash and nothing else. Without this the page just showed a
+  // blank sign-in form and the person had no idea why their link did nothing.
+  const linkErr = hash.get('error_description') || params.get('error_description');
 
   // A sample in progress, or an invite waiting: say so before asking for an
   // email, because both change what the person is being asked to do.
@@ -283,6 +287,13 @@
   });
 
   (async () => {
+    if (linkErr && !setPasswordMode) {
+      // setMode clears any message, so it has to come first.
+      setMode('forgot');
+      showErr(linkErr.replace(/\+/g, ' ') +
+        '. Reset links work once and expire after an hour - ask for a new one below.');
+      return;
+    }
     if (setPasswordMode) { enterSetPass(); return; }
     const { data: { session } } = await sb.auth.getSession();
     if (session) { window.location.replace('index.html'); return; }
