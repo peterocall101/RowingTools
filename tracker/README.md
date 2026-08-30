@@ -554,8 +554,27 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   function already returns, and a derived total that lives in the client cannot disagree with its
   own parts.
 
-  **Racing ranks on results rather than training** - a race count, and the average of the best
-  three, over the same window. A claimed race is *already* public: it is on the regatta leaderboard
+  **Racing is ranked by season, on one measure.** Every other mode uses a rolling window, and for
+  racing that is wrong: nobody races in February, so "last 4 weeks" is nought for the whole squad
+  for most of the year and the board reads as though everyone has stopped. Racing's period buttons
+  are years instead - the current one, the one before, and all time, generated from the clock so
+  they move on by themselves - and `tracker_squad_board` takes a four-digit year as a period keyword
+  alongside the existing ones. That stays safe for the reason the others are: the **boundaries are
+  fixed, not chosen**. Differencing two whole years only isolates a year's totals, which `all`
+  already exposes, and the parameter is matched on an exact `^[0-9]{4}$` and range-checked, so
+  nothing that is not a plain year can become a date. Adding it meant the function needed an upper
+  bound as well as a lower one, so every window is now `date >= p_since and date <= p_until`.
+
+  Switching modes carries the period across where it makes sense and swaps it where it does not:
+  leaving Racing puts you back on **4 weeks**, not on the first button, which is "This week" and
+  reads as a dead board on a Monday morning.
+
+  The measure is **top-3 GMT alone** - the race count that sat beside it is gone, because a race
+  count rewards entering everything, which is a function of what your club enters rather than of how
+  you went. The measure row is not drawn at all when a mode has only one.
+
+  **Racing ranks on results rather than training** - the average of the best
+  three, over the season. A claimed race is *already* public: it is on the regatta leaderboard
   under the crew's name. What crosses to the squad is the athlete's own association with it, which
   is exactly what putting yourself on a board says. It is deliberately kept out of `days_trained`
   and `sessions_total`: those count training logged as it happened, and a claimed race is attached

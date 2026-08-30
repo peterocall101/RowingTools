@@ -798,8 +798,16 @@ $$;
 -- apart and subtract: a days_trained delta of 1 says you trained on that
 -- exact date, and if the erg-session delta is 1 then the metres and
 -- seconds deltas ARE that single session's numbers. Iterating a year of
--- dates reconstructs the whole calendar. Four fixed windows, computed
+-- dates reconstructs the whole calendar. Fixed windows, computed
 -- server-side, leave nothing to difference.
+--
+-- A four-digit year is accepted as well, for the board's Racing mode: a
+-- rolling four-week window of racing is nought for everyone in September,
+-- so racing is ranked by season. It stays safe for the same reason the
+-- other keywords are - the BOUNDARIES are fixed, not chosen. Differencing
+-- two whole years only isolates a year's totals, which the 'all' window
+-- already exposes. It is matched on an exact ^[0-9]{4}$ and range-checked,
+-- so nothing that is not a plain year can get through and become a date.
 drop function if exists public.tracker_squad_board(uuid, date);
 -- The return signature changed when water was added, and CREATE OR REPLACE
 -- cannot change a function's OUT columns - it fails with "cannot change return
@@ -832,6 +840,7 @@ returns table (
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   p_since date;
+  p_until date;
 begin
   -- Not a member: no rows. Not an error, which would confirm the squad
   -- exists to someone guessing ids.
@@ -839,13 +848,22 @@ begin
     return;
   end if;
 
-  p_since := case p_period
-    when 'week' then date_trunc('week', now())::date
-    when '4w'   then date_trunc('week', now())::date - 21
-    when '12w'  then date_trunc('week', now())::date - 77
-    when 'all'  then date '2000-01-01'
-    else date_trunc('week', now())::date - 21      -- anything unrecognised
-  end;
+  if p_period ~ '^[0-9]{4}$' and p_period::int between 2000 and 2100 then
+    -- A whole calendar year. Calendar rather than "season" on purpose: the
+    -- Races tab groups by calendar year too, and every regatta in the results
+    -- file runs May to July, so for racing the two are the same thing.
+    p_since := (p_period || '-01-01')::date;
+    p_until := (p_period || '-12-31')::date;
+  else
+    p_since := case p_period
+      when 'week' then date_trunc('week', now())::date
+      when '4w'   then date_trunc('week', now())::date - 21
+      when '12w'  then date_trunc('week', now())::date - 77
+      when 'all'  then date '2000-01-01'
+      else date_trunc('week', now())::date - 21    -- anything unrecognised
+    end;
+    p_until := date '9999-12-31';
+  end if;
 
   return query
   with roster as (
@@ -863,7 +881,7 @@ begin
            array_agg(distinct tw.date) as dates
     from public.tracker_workouts tw
     join shared on shared.pid = tw.profile_id
-    where tw.date >= p_since
+    where tw.date >= p_since and tw.date <= p_until
     group by tw.profile_id
   ),
   wsets as (
@@ -891,7 +909,7 @@ begin
     -- and abort with invalid input syntax for uuid.
     left join public.tracker_exercises te
       on te.id = (case when public.tracker_is_uuid(ex.key) then ex.key::uuid end)
-    where tw.date >= p_since
+    where tw.date >= p_since and tw.date <= p_until
     group by tw.profile_id
   ),
   e as (
@@ -902,7 +920,7 @@ begin
            array_agg(distinct te2.date) as dates
     from public.tracker_erg_sessions te2
     join shared on shared.pid = te2.profile_id
-    where te2.date >= p_since
+    where te2.date >= p_since and te2.date <= p_until
     group by te2.profile_id
   ),
   wa as (
@@ -913,7 +931,7 @@ begin
            array_agg(distinct tws.date) as dates
     from public.tracker_water_sessions tws
     join shared on shared.pid = tws.profile_id
-    where tws.date >= p_since
+    where tws.date >= p_since and tws.date <= p_until
     group by tws.profile_id
   ),
   ra as (
@@ -932,12 +950,13 @@ begin
               select t2.pct from public.tracker_races t2
               where t2.profile_id = tr.profile_id
                 and t2.date >= p_since
+                and t2.date <= p_until
                 and t2.pct is not null
               order by t2.pct desc
               limit 3) x) as top3
     from public.tracker_races tr
     join shared on shared.pid = tr.profile_id
-    where tr.date >= p_since
+    where tr.date >= p_since and tr.date <= p_until
     group by tr.profile_id
   ),
   c as (
@@ -950,7 +969,7 @@ begin
     join shared on shared.pid = tc.profile_id
     left join lateral jsonb_array_elements(
       case when jsonb_typeof(tc.steps) = 'array' then tc.steps else '[]'::jsonb end) as stp(value) on true
-    where tc.date >= p_since
+    where tc.date >= p_since and tc.date <= p_until
     group by tc.profile_id
   )
   select

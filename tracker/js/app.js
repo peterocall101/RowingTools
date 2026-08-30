@@ -810,6 +810,11 @@ async function saveWorkout() {
 }
 
 /* ================= erg ================= */
+/* `step="1000"` on the distance boxes: a spinner that moves a metre at a time
+   is useless for a number that is always in the thousands, and 18,000 is 18
+   clicks rather than 18,000. Typing any value still works - the step only
+   governs the arrows, and nothing here reads the browser's validity, so a
+   6,500m piece that is not a multiple of the step saves exactly as typed. */
 function ergFormHTML(d, source) {
   d = d || {};
   const iv = Array.isArray(d.intervals) ? d.intervals : [];
@@ -826,7 +831,8 @@ function ergFormHTML(d, source) {
         '<option value="rowperfect"' + (d.erg_type === 'rowperfect' ? ' selected' : '') + '>RowPerfect</option></select></div>' +
       '<div><label>Session</label><input type="text" id="eg-session" value="' + esc(d.session_type || '') + '" placeholder="e.g. 2k test, 8x500m"></div>' +
       '<div><label>Total time</label><input type="text" id="eg-time" value="' + esc(d.total_time_s != null ? fmtTime(d.total_time_s) : '') + '" placeholder="mm:ss.t" inputmode="decimal"></div>' +
-      '<div><label>Distance m</label><input type="number" id="eg-dist" value="' + esc(d.distance_m != null ? d.distance_m : '') + '" inputmode="numeric"></div>' +
+      '<div><label>Distance m</label><input type="number" id="eg-dist" step="1000" min="0" value="' +
+        esc(d.distance_m != null ? d.distance_m : '') + '" inputmode="numeric"></div>' +
       '<div><label>Avg /500m</label><input type="text" id="eg-split" value="' + esc(d.avg_split_s != null ? fmtTime(d.avg_split_s) : '') + '" placeholder="m:ss.t" inputmode="decimal"></div>' +
       '<div><label>Avg rate</label><input type="number" id="eg-rate" value="' + esc(d.avg_rate != null ? d.avg_rate : '') + '" inputmode="numeric"></div>' +
       '<div><label>Avg HR</label><input type="number" id="eg-hr" value="' + esc(d.avg_hr != null ? d.avg_hr : '') + '" inputmode="numeric"></div>' +
@@ -1110,12 +1116,13 @@ function renderWaterTab() {
   el.innerHTML =
     '<div class="erg-form">' +
       '<h3>Log a water session</h3>' +
-      '<div class="hint">Distance is the only thing needed. Time is optional; give both and the ' +
-      'split works itself out.</div>' +
+      '<div class="hint">Distance is the only thing needed - the arrows move a kilometre a ' +
+      'click. Time is optional; give both and the split works itself out.</div>' +
       '<div class="fgrid">' +
         '<div><label for="wt-date">Date</label><input type="date" id="wt-date"></div>' +
         '<div><label for="wt-dist">Distance (m)</label>' +
-          '<input type="number" id="wt-dist" inputmode="numeric" placeholder="e.g. 16000"></div>' +
+          '<input type="number" id="wt-dist" step="1000" min="0" inputmode="numeric" ' +
+          'placeholder="e.g. 16000"></div>' +
         '<div><label for="wt-time">Time (optional)</label>' +
           '<input type="text" id="wt-time" inputmode="numeric" placeholder="e.g. 1:12:30"></div>' +
         '<div><label for="wt-boat">Boat (optional)</label>' +
@@ -3481,6 +3488,26 @@ const PERIODS = [
   { k: 'all',  short: 'All',   label: 'All time' },
 ];
 
+// Racing is ranked by season, not by a rolling window: nobody races in
+// February, so "last 4 weeks" is nought for the whole squad for most of the
+// year and the board reads as though the squad has stopped. Two years and all
+// time - generated from the clock, so it moves on by itself - and the function
+// takes a four-digit year as a period keyword.
+const seasonPeriods = () => {
+  const y = new Date().getFullYear();
+  return [
+    { k: String(y),     short: String(y),     label: 'the ' + y + ' season' },
+    { k: String(y - 1), short: String(y - 1), label: 'the ' + (y - 1) + ' season' },
+    { k: 'all',         short: 'All',         label: 'all time' },
+  ];
+};
+const periodsFor = mode => mode.periods ? mode.periods() : PERIODS;
+// Where a mode lands when the period it inherited means nothing to it. The
+// season list opens on the current year; the rolling list opens on 4 weeks,
+// which is the board's default everywhere else - NOT the first button, which
+// is "This week" and reads as a dead board on a Monday morning.
+const defaultPeriod = mode => mode.periods ? periodsFor(mode)[0].k : '4w';
+
 // Consistency first, volume second, and on purpose. A board topped by whoever
 // erged the most metres rewards junk volume and punishes the athlete on a
 // taper; "days trained" is the number that reflects turning up, is far harder
@@ -3511,9 +3538,11 @@ const BOARD_MODES = [
   // Racing ranks on results, not on training. A claimed race is already public
   // on the regatta leaderboard, so what crosses to the squad is the athlete's
   // own association with it - which is what being on a board says anyway.
-  { k: 'races',   label: 'Racing', metrics: [
-      { k: 'races_top3',       btn: 'Top 3 GMT', unit: 'pct' },
-      { k: 'races',            btn: 'Races',     unit: '' } ] },
+  // One measure on purpose. A race count rewards entering everything, which is
+  // a function of what your club enters rather than of how you went, and it
+  // sat next to the one number that does say something.
+  { k: 'races',   label: 'Racing', periods: seasonPeriods, metrics: [
+      { k: 'races_top3',       btn: 'Top 3 GMT', unit: 'pct' } ] },
 ];
 const boardMode = () => BOARD_MODES.find(m => m.k === SQ.bmode) || BOARD_MODES[0];
 const num = v => Number(v) || 0;
@@ -3777,19 +3806,21 @@ function squadMainHTML() {
         '" data-bmode="' + m.k + '" role="tab" aria-selected="' + (m.k === SQ.bmode) + '">' +
         m.label + '</button>').join('') + '</div>' +
     '<div class="boardctl">' +
-      '<div class="segmented sm" role="group" aria-label="Measure">' +
+      // With one measure there is nothing to choose, so the row is not drawn.
+      (mode.metrics.length < 2 ? '' :
+        '<div class="segmented sm" role="group" aria-label="Measure">' +
         mode.metrics.map(m => '<button class="seg' + (m.k === SQ.metric ? ' active' : '') +
           '" data-bmetric="' + m.k + '" aria-pressed="' + (m.k === SQ.metric) + '">' +
-          m.btn + '</button>').join('') + '</div>' +
+          m.btn + '</button>').join('') + '</div>') +
       '<div class="segmented sm" role="group" aria-label="Period">' +
-        PERIODS.map(p => '<button class="seg' + (p.k === SQ.period ? ' active' : '') +
+        periodsFor(mode).map(p => '<button class="seg' + (p.k === SQ.period ? ' active' : '') +
           '" data-bperiod="' + p.k + '" aria-pressed="' + (p.k === SQ.period) + '">' +
           p.short + '</button>').join('') + '</div>' +
     '</div>' +
     board +
     '<p class="squad-note">' + rows.length + ' of ' + SQ.board.length + ' on the board \u00b7 ' +
       esc(mode.label) + ', ' + esc(metric.btn.toLowerCase()) + ', ' +
-      esc((PERIODS.find(p => p.k === SQ.period) || {}).label || '').toLowerCase() + '.<br>' +
+      esc((periodsFor(mode).find(p => p.k === SQ.period) || {}).label || '').toLowerCase() + '.<br>' +
       'Everyone here sees your <b>totals</b> - days trained, sessions, erg and water distance and ' +
       'time, core time, weights sets and volume, and how many races you have claimed with the ' +
       'average of your best three. Never a session, a lift, a date or a note. ' +
@@ -4357,7 +4388,19 @@ document.addEventListener('click', async e => {
   // ---- squad ----
   const bm = e.target.closest('[data-bmode]');
   if (bm) {
-    if (SQ.bmode !== bm.dataset.bmode) { SQ.bmode = bm.dataset.bmode; SQ.metric = ''; renderSquad(); }
+    if (SQ.bmode !== bm.dataset.bmode) {
+      SQ.bmode = bm.dataset.bmode;
+      SQ.metric = '';
+      // Racing counts by season and everything else by rolling window, so a
+      // period that the mode being opened does not offer is swapped for that
+      // mode's first one - and because the window is computed server-side,
+      // that means going back for the data rather than just redrawing.
+      const now = boardMode();
+      if (!periodsFor(now).some(p => p.k === SQ.period)) {
+        SQ.period = defaultPeriod(now);
+        refreshSquad();
+      } else renderSquad();
+    }
     return;
   }
   const bmet = e.target.closest('[data-bmetric]');
