@@ -1024,15 +1024,23 @@ select section, item, result from (
       where created_at >= now() - interval '30 days')::text ||
     ' by ' || (select count(distinct profile_id) from public.tracker_erg_parses
       where created_at >= now() - interval '30 days')::text || ' user(s)'
-  -- Who is entitled to spend it at all. Anyone here can call the function;
-  -- nobody else can, provided PART 4 has been run.
+  -- Who has which allowance. Under the two-plan model everyone can read
+  -- photos, so the question is no longer "who is entitled" but "how many
+  -- accounts are on 20 a day rather than 2". A non-zero 'free' count means
+  -- rows predating the default change were missed - nothing assigns it now.
   union all
-  select 9, '9 erg photo spend', 'accounts that may read photos',
-    coalesce((select string_agg(coalesce(display_name, id::text) || ' (' || tracker_plan || ')', ', ')
-              from public.profiles
-              where tracker_plan = 'paid'
-                 or (tracker_plan = 'trial' and tracker_trial_ends_at > now())),
-             'nobody - the reader is closed to everyone')
+  select 9, '9 erg photo spend', 'accounts by plan',
+    (select count(*) from public.profiles where tracker_plan = 'paid')::text  || ' paid (20/day), ' ||
+    (select count(*) from public.profiles where tracker_plan = 'trial')::text || ' trial (2/day)' ||
+    case when (select count(*) from public.profiles where tracker_plan = 'free') > 0
+         then ', ** ' || (select count(*) from public.profiles where tracker_plan = 'free')::text ||
+              ' still on free - no photos at all, should be zero **'
+         else '' end
+  union all
+  select 9, '9 erg photo spend', 'paid accounts',
+    coalesce((select string_agg(coalesce(display_name, id::text), ', ')
+              from public.profiles where tracker_plan = 'paid'),
+             'none yet - everyone is on the free 2/day')
 
   -- 7. Which profiles columns a signed-in user may write. tracker_plan
   --    must NOT be here, or anyone can grant themselves the paid reader.
