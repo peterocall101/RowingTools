@@ -46,9 +46,24 @@ totals through a `SECURITY DEFINER` function rather than by widening those polic
    supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref tbhujqdflswhgxtioznb
    ```
 
-   The function uses `claude-opus-5` (roughly 5p per photo - the split rows are small, dense
-   digits and accuracy was worth the money). To trade accuracy for cost:
-   `supabase secrets set PARSE_ERG_MODEL=claude-sonnet-5 ...`.
+   The function uses `claude-opus-5`. **Measured cost: about 3.7p a photo** (2026-08-30, from the
+   tokens logged in `tracker_erg_parses`: ~7,330 input + ~430 output per successful read, at
+   $5/$25 per MTok). The split rows are small, dense digits and the accuracy was worth the money.
+   To trade accuracy for cost: `supabase secrets set PARSE_ERG_MODEL=claude-sonnet-5 ...`.
+
+   **Where the money goes, and what not to touch.** Input is ~77% of it, and ~5,600 of those input
+   tokens are the image itself - so image size is the only real lever, and it is the one that must
+   not be pulled: dropping below 2576px is what destroyed the split-row digits the first time
+   round. Output is only ~430 tokens, so adaptive thinking is barely engaging and lowering
+   `output_config.effort` would save a fraction of a penny for a real accuracy risk. Prompt caching
+   stays ruled out too: photos arrive minutes or days apart and cache writes cost 1.25x.
+
+   **This sets the floor under any subscription price.** At 3.7p, £5 a month breaks even at about
+   135 photos, and `MONTHLY_LIMIT` is 150 - so a user at the cap is a small loss. Either drop the
+   cap to ~120, price above £5, or accept it on the grounds that almost nobody reaches it.
+
+   To re-measure, query `tracker_erg_parses`; failed calls log with null tokens, so exclude them or
+   they drag the average down.
 
    **Then run PART 4 of the schema** (see *Who can spend the API key* below). Without it the
    entitlement check this function performs can be defeated by the caller.
