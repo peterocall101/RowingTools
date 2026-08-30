@@ -418,7 +418,22 @@
   .rfind-note{font-family:var(--mono);font-size:10.5px;color:var(--text3);margin:0 0 8px}
   .rhits{border-top:1px solid var(--border)}
   .rmore{width:100%;margin-top:12px}
-  .rrow .rr-ops .wx{display:inline-flex;align-items:center;padding:4px 8px}
+  /* The conditions button is the one thing on this row people are meant to
+     press, and an unlabelled glyph was not saying so. Same red-tinted treatment
+     the leaderboards use for it, in this page's square-cornered idiom. */
+  .wxbtn{display:inline-flex;align-items:center;gap:6px;height:auto;
+    padding:5px 11px;font-size:11.5px;font-weight:700;letter-spacing:.03em;
+    background:rgba(200,71,43,.16);border:1px solid rgba(200,71,43,.55);color:#ef8268}
+  .wxbtn:hover{background:var(--red-ink);border-color:var(--red-ink);color:#fff}
+  .wxbtn svg{flex-shrink:0}
+  .rr-rm{font-size:17px}
+  /* the result itself is a link to the regatta's leaderboard */
+  a.rr-what{text-decoration:none;color:inherit;display:block}
+  a.rr-what:hover b{text-decoration:underline;text-underline-offset:3px}
+  a.rr-what:hover small{color:var(--text2)}
+  .rsort{display:flex;align-items:center;gap:12px;margin:0 0 20px}
+  .rsort-lab{font-family:var(--mono);font-size:10px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--text3)}
   /* the season chart: one dot a race, on a real time axis */
   .rchart{margin:2px 0 26px}
   .rchart svg{display:block;max-width:100%;overflow:visible}
@@ -448,8 +463,13 @@
     .rrow .rr-what{grid-column:1;grid-row:1}
     .rrow .rr-time{grid-column:2;grid-row:1;font-size:12px}
     .rrow .rr-pct{grid-column:3;grid-row:1;font-size:13px}
-    .rrow .rr-ops{grid-column:4;grid-row:1}
-    .rrow .rr-ops button{padding:3px 6px}
+    /* the labelled conditions button needs the width, so the controls drop to
+       the second line and sit under the GMT figure they belong to */
+    .rrow{grid-template-columns:minmax(0,1fr) auto auto}
+    .rrow .rr-pct{grid-column:3;grid-row:1}
+    .rrow .rr-ops{grid-column:2/-1;grid-row:2;justify-self:end;align-self:center}
+    .rrow .rr-ops button{padding:4px 9px}
+    .wxbtn{font-size:11px;padding:4px 9px}
     .rystat{padding:10px 9px 11px}
     .rystat .v{font-size:20px}
   }

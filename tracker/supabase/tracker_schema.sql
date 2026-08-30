@@ -171,15 +171,14 @@ create table if not exists public.tracker_races (
   clock      text,
   pct        numeric,
   venue      jsonb,
-  -- Where the crew finished in ITS OWN race (same comp, event and round),
-  -- how big that field was, and the gap to the winner in seconds. All three
-  -- are derived from the results file rather than published in it, and are
-  -- stored for the same reason as everything else here: so a race history
-  -- reads correctly offline and after the file is re-cut. The client fills
-  -- them in on claim, and backfills any nulls the next time it has the file.
+  -- Where the crew finished in ITS OWN race (same comp, event and round) and
+  -- how big that field was. Both are derived from the results file rather than
+  -- published in it, and are stored for the same reason as everything else
+  -- here: so a race history reads correctly offline and after the file is
+  -- re-cut. The client fills them in on claim, and backfills any nulls the
+  -- next time it has the file.
   place      int,
   field      int,
-  gap_s      numeric,
   created_at timestamptz not null default now(),
   unique (profile_id, race_key)
 );
@@ -251,8 +250,13 @@ alter table public.tracker_races
   add column if not exists pct        numeric,
   add column if not exists venue      jsonb,
   add column if not exists place      int,
-  add column if not exists field      int,
-  add column if not exists gap_s      numeric;
+  add column if not exists field      int;
+
+-- The gap to the winner was shown for a day and cut: on a multi-lane course
+-- the number that matters is the placing, and a "+12.40" next to a 4th of 5
+-- says the same thing twice in a way that reads as a reproach. Dropped rather
+-- than left unused, so the table stays exactly what the app writes.
+alter table public.tracker_races drop column if exists gap_s;
 
 alter table public.tracker_core_sessions
   add column if not exists at           text,
@@ -1069,7 +1073,6 @@ with expected(tbl, col) as (values
   ('tracker_races','event'), ('tracker_races','round'), ('tracker_races','boat'),
   ('tracker_races','time'), ('tracker_races','clock'), ('tracker_races','pct'),
   ('tracker_races','venue'), ('tracker_races','place'), ('tracker_races','field'),
-  ('tracker_races','gap_s'),
   ('tracker_sharing','group_id'), ('tracker_shared_templates','payload'),
   ('groups','join_code'),
   ('profiles','tracker_plan'), ('profiles','tracker_trial_ends_at'),

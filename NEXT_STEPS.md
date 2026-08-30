@@ -182,9 +182,10 @@ exist - something like 30 questions a day, against 20 photos - but it is a guard
 **2026-08-30 - race history.** A Races tab claims results from the regatta leaderboards
 (`data/all_results.json`) into `tracker_races`, with a per-year summary and a top-3 GMT average, and
 opens the existing `conditions.js` weather card on any claimed race. Four follow-ons shipped the same
-day: **place in the field and the gap to the winner** on every race; a **season dot chart** of every
-claimed race, where a dot opens that race's conditions; a **Racing mode on the squad board** (top-3
-GMT, race count); and a **downloadable season card** in the leaderboards' house style.
+day: **place in the field** on every race (`3rd of 6`), each result linking back to its leaderboard
+filtered to the club; a **season dot chart** of every claimed race, where a dot opens that race's
+conditions; a **Racing mode on the squad board** (top-3 GMT, race count); and a **downloadable
+season card** in the leaderboards' house style.
 
 Still open from that list, and the one with no competitor: **training against racing** - what the
 eight weeks before your best race looked like versus your worst. It needs the flattened sets view

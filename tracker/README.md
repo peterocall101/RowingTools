@@ -264,12 +264,28 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   that one changes, this has to change with it or a search here quietly misses results.
 - **A race also carries where you came, because GMT does not say that.** 84% into a headwind at
   Nottingham can be a win; 88% in a flat final can be last. Every crew in the same `comp`, `event`
-  and `round` **is** that race, so `raceField()` reads place, field size and the gap to the winner
-  straight off the file - `3rd of 8 · +2.31` on the row. The round is part of the key on purpose:
-  "Final B" is its own race, and calling someone 3rd when they were 3rd of the B final would be a
-  lie by omission. The three numbers are stored with the claim (offline, and after the file is
-  re-cut) and **backfilled in one quiet pass** for races claimed before this existed - it is
-  derived data, so there is nothing to announce and nothing to undo.
+  and `round` **is** that race, so `raceField()` reads the placing and the field size straight off
+  the file - `3rd of 6` on the row. The round is part of the key on purpose: "Final B" is its own
+  race, and calling someone 3rd when they were 3rd of the B final would be a lie by omission. Both
+  numbers are stored with the claim (so they survive offline and a re-cut) and **backfilled in one
+  quiet pass** for races claimed before this existed - derived data, so there is nothing to
+  announce and nothing to undo.
+
+  **The gap to the winner was built and cut the same day.** On a multi-lane course the placing is
+  the fact; a `+12.40` beside a 4th of 5 says the same thing twice, in a way that reads as a
+  reproach on a page someone opens to see how their season went. `gap_s` is dropped in the schema
+  rather than left unused, so the table stays exactly what the app writes.
+- **A result is a link back to its leaderboard**, opened filtered to the club
+  (`/leaderboards/<comp>/?club=<club>` - those pages read `?club=` on load, via
+  `rowingtools-share.js`), so it lands on the crew rather than on 900 rows. New tab on purpose:
+  it is a reference, and losing a half-finished search to a back button is a poor trade.
+- **Races sort by date or best-first, inside the year.** Never across years: a season is the unit a
+  rower thinks in, and one list running best-to-worst over four years would bury this summer under
+  a good day two seasons ago. One control, applied to every year block.
+- **The conditions button is labelled and tinted, not a glyph.** It was a bare wind mark and nobody
+  could tell it was the thing to press. It now takes the same red-tinted treatment the leaderboards
+  give it (`.wx-mini` there), in this page's square-cornered idiom, with the word **Conditions** on
+  it. On a phone the row's controls drop to a second line rather than squeeze the label out.
 - **The season chart is dots on a real time axis, not weekly bars.** Racing is not a volume you
   accumulate: it is a handful of separate afternoons, weeks apart, and bars would invent a rhythm
   that is not there. It keeps its y-axis, unlike the training charts - these are absolute

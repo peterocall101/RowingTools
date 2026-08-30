@@ -2764,6 +2764,7 @@ const RC = {
   comps: [],        // [{comp,title,date,url,year,venue,results:[...]}]
   aliases: {},
   year: 'all', comp: 'all', q: '',
+  sort: 'date',     // how MY races are ordered inside each year: 'date' | 'gmt'
   limit: 30,        // how many search hits to draw; "show more" raises it
   busy: null,       // race_key currently being written
 };
@@ -2791,6 +2792,13 @@ const raceYearOf = comp => '20' + comp.slice(-2);
 // "British Rowing Club Championships 2026" is the full title; the year is
 // already the heading and the rest is a mouthful on a phone.
 const compShort = (title, comp) => (title || comp || '').replace(/\s+20\d\d\b/, '').trim();
+
+// The leaderboard the result came from, filtered to the club. Those pages read
+// ?club= on load (rowingtools-share.js does it), so the link lands on the crew
+// rather than on 900 rows. New tab on purpose: this is a reference, and losing
+// a half-finished search to a back button is a poor trade.
+const compHref = (url, comp, club) => !url && !comp ? ''
+  : (url || '/leaderboards/' + comp + '/') + (club ? '?club=' + encodeURIComponent(club) : '');
 
 function sessionCache(key, fetcher) {
   try {
@@ -2858,8 +2866,8 @@ async function loadRaceData() {
    A GMT percentage says how the crew went against the world best. It does not
    say how the race went: 84% into a headwind at Nottingham can be a win, and
    88% in a flat final can be last. The field is right there in the same file -
-   every crew in the same comp, event and round is that race - so place, field
-   size and the gap to the winner are a lookup, not a guess.
+   every crew in the same comp, event and round is that race - so the placing
+   and the size of the field are a lookup, not a guess.
 
    Rounds matter and are used: "Final B" is its own race, and calling someone
    3rd when they were 3rd of the B final would be a lie by omission. */
@@ -2868,25 +2876,17 @@ function raceField(comp, r) {
   const timed = same.map(x => ({ x, s: parseTimeStr(x.time) })).filter(t => t.s != null);
   if (!timed.length) return null;
   timed.sort((a, b) => a.s - b.s);
-  const mine = parseTimeStr(r.time);
   const i = timed.findIndex(t => t.x === r);
-  return {
-    place: i < 0 ? null : i + 1,
-    field: same.length,
-    gap_s: mine == null ? null : Math.round((mine - timed[0].s) * 100) / 100,
-  };
+  return { place: i < 0 ? null : i + 1, field: same.length };
 }
 
 const ord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th'
   : n % 10 === 1 ? 'st' : n % 10 === 2 ? 'nd' : n % 10 === 3 ? 'rd' : 'th');
 
-// "3rd of 8 · +2.31" - the gap is dropped on a win, where it is always zero.
-function placeLine(r) {
-  if (!r.place || !r.field) return '';
-  const gap = Number(r.gap_s);
-  return ord(r.place) + ' of ' + r.field +
-    (r.place > 1 && gap > 0 ? ' \u00b7 +' + gap.toFixed(2) : '');
-}
+// Just the placing. The gap to the winner was here for a day and cut: on a
+// multi-lane course the placing is the fact, and "+12.40" beside a 4th of 5
+// says the same thing twice in a way that reads as a reproach.
+const placeLine = r => (r.place && r.field) ? ord(r.place) + ' of ' + r.field : '';
 
 /* Races claimed before this existed have no place, and neither does one
    claimed offline. Both are filled in the next time the tab has the file, in
@@ -2906,7 +2906,7 @@ async function backfillPlaces() {
     Object.assign(race, f);
     done++;
     const { error } = await sb.from('tracker_races')
-      .update({ place: f.place, field: f.field, gap_s: f.gap_s }).eq('id', race.id);
+      .update({ place: f.place, field: f.field }).eq('id', race.id);
     // Offline is fine: the values are in memory for this visit and the next
     // load will try again. Anything else is a real error and should surface.
     if (error && !looksOffline(error)) {
@@ -2938,7 +2938,7 @@ async function claimRace(compId, idx) {
     clock: r.clock || null, pct: r.pct == null ? null : r.pct,
     venue: comp.venue || null,
   };
-  Object.assign(row, raceField(comp, r) || { place: null, field: null, gap_s: null });
+  Object.assign(row, raceField(comp, r) || { place: null, field: null });
   const { error } = await insertRow('tracker_races', row);
   const queued = error && looksOffline(error);
   RC.busy = null;
@@ -3141,8 +3141,20 @@ function myRacesHTML() {
   const W = Math.max(280, Math.min(760, (el ? el.clientWidth : 0) || 700));
   const years = {};
   S.races.forEach(r => { const y = (r.date || '').slice(0, 4) || '?'; (years[y] = years[y] || []).push(r); });
-  return raceChartHTML(W) + Object.keys(years).sort().reverse().map(y => {
-    const rows = years[y].slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const sortBtns = S.races.length < 2 ? '' :
+    '<div class="rsort"><span class="rsort-lab">Order</span>' +
+    '<div class="segmented sm" role="group" aria-label="Order races within each year">' +
+    [{ k: 'date', label: 'By date' }, { k: 'gmt', label: 'Best first' }].map(o =>
+      '<button class="seg' + (RC.sort === o.k ? ' active' : '') + '" data-rsort="' + o.k + '" ' +
+      'aria-pressed="' + (RC.sort === o.k) + '">' + o.label + '</button>').join('') + '</div></div>';
+
+  return raceChartHTML(W) + sortBtns + Object.keys(years).sort().reverse().map(y => {
+    // Sorting is inside the year, never across them: a season is the unit a
+    // rower thinks in, and a list that ran best-to-worst across four years
+    // would bury this summer under a good day in 2024.
+    const rows = years[y].slice().sort(RC.sort === 'gmt'
+      ? (a, b) => Number(b.pct || 0) - Number(a.pct || 0)
+      : (a, b) => (b.date || '').localeCompare(a.date || ''));
     const st = raceYearStats(rows);
     return '<section class="ryear">' +
       '<h4><span class="ry-when">' + esc(y) + '</span>' +
@@ -3167,19 +3179,22 @@ function myRacesHTML() {
 function raceRowHTML(r) {
   return '<div class="rrow">' +
     '<div class="rr-when">' + shortDate(r.date) + '</div>' +
-    '<div class="rr-what"><b>' + esc(r.event || '') + '</b>' +
+    '<a class="rr-what" href="' + esc(compHref(r.comp_url, r.comp, r.club)) +
+      '" target="_blank" rel="noopener"><b>' + esc(r.event || '') + '</b>' +
       (r.round ? ' <span class="rr-round">' + esc(r.round) + '</span>' : '') +
       '<small><span class="mdate">' + shortDate(r.date) + ' \u00b7 </span>' +
       esc([r.crew, placeLine(r), compShort(r.comp_title, r.comp)]
-        .filter(Boolean).join(' \u00b7 ')) + '</small></div>' +
+        .filter(Boolean).join(' \u00b7 ')) + '</small></a>' +
     '<div class="rr-time">' + esc(r.time || '') + '</div>' +
     '<div class="rr-pct">' + pctHTML(r.pct == null ? null : Number(r.pct)) + '</div>' +
     '<div class="rr-ops">' +
       (r.venue && r.clock
-        ? '<button class="ghost wx" data-race-wx="' + r.id +
-          '" title="Conditions on the day" aria-label="Conditions on the day">' + WIND_SVG + '</button>'
+        ? '<button class="wxbtn" data-race-wx="' + r.id +
+          '" title="Weather and wind at race time">' + WIND_SVG +
+          '<span>Conditions</span></button>'
         : '') +
-      '<button class="ghost" data-race-rm="' + r.id + '" title="Remove from my races">\u00d7</button>' +
+      '<button class="ghostx rr-rm" data-race-rm="' + r.id +
+        '" title="Remove from my races" aria-label="Remove from my races">\u00d7</button>' +
     '</div></div>';
 }
 
@@ -3224,11 +3239,12 @@ function raceSearchHTML() {
         const got = mine.has(key);
         return '<div class="rrow find' + (got ? ' got' : '') + '">' +
           '<div class="rr-when">' + shortDate(h.r.date || h.comp.date) + '</div>' +
-          '<div class="rr-what"><b>' + esc(h.r.event || '') + '</b>' +
+          '<a class="rr-what" href="' + esc(compHref(h.comp.url, h.comp.comp, h.r.club)) +
+            '" target="_blank" rel="noopener"><b>' + esc(h.r.event || '') + '</b>' +
             (h.r.round ? ' <span class="rr-round">' + esc(h.r.round) + '</span>' : '') +
             '<small><span class="mdate">' + shortDate(h.r.date || h.comp.date) + ' \u00b7 </span>' +
             esc([h.r.crew, compShort(h.comp.title, h.comp.comp)]
-              .filter(Boolean).join(' \u00b7 ')) + '</small></div>' +
+              .filter(Boolean).join(' \u00b7 ')) + '</small></a>' +
           '<div class="rr-time">' + esc(h.r.time || '') + '</div>' +
           '<div class="rr-pct">' + pctHTML(h.r.pct) + '</div>' +
           '<div class="rr-ops">' + (got
@@ -4121,6 +4137,11 @@ document.addEventListener('click', async e => {
   if (radd) { claimRace(radd.dataset.raceAdd, Number(radd.dataset.raceI)); return; }
   const rdot = e.target.closest('[data-race-dot]');
   if (rdot) { openRaceConditions(rdot.dataset.raceDot); return; }
+  const rso = e.target.closest('[data-rsort]');
+  if (rso) {
+    if (RC.sort !== rso.dataset.rsort) { RC.sort = rso.dataset.rsort; renderRaces(); }
+    return;
+  }
   const rsh = e.target.closest('[data-race-share]');
   if (rsh) { shareSeason(rsh.dataset.raceShare); return; }
   const rwx = e.target.closest('[data-race-wx]');
