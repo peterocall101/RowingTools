@@ -3008,32 +3008,54 @@ const pctHTML = p => p == null ? '<span class="na">-</span>'
 
    The y-axis stays: these are absolute percentages that mean the same thing
    across every athlete and every year, which is exactly the case the weekly
-   charts do not have. Dots are coloured by the same four bands as everywhere
-   else, and every one of them is a target - tap it for the conditions on the
-   day, which is the question a dot on this chart provokes. */
+   charts do not have. */
+
+// What a dot is called. NOT the event code: "W Ch Lwt 4x" carries a class and a
+// tier that mean nothing once you already know it is your own race. The boat
+// and the regatta are the two things that tell you which afternoon this was.
+const raceDotLab = r => [r.boat || r.event, compTiny(r.comp_title, r.comp)]
+  .filter(Boolean).join(' \u00b7 ');
+
+// A regatta name short enough to sit under a dot. Drop the word Regatta; if
+// what is left is still long, take the initials, which is what these are
+// called out loud anyway - British Rowing Club Championships is BRCC and
+// National Schools' Regatta is NSR.
+function compTiny(title, comp) {
+  const base = compShort(title, comp);
+  const trimmed = base.replace(/\s*\bRegatta\b\s*/, ' ')
+    // A two-day regatta is "Met - Saturday", and the day is the half that
+    // tells the two apart, so it is shortened rather than initialised away:
+    // initials would turn Met Regatta - Saturday into MRS, which is nothing.
+    .replace(/\b(Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day\b/, '$1')
+    .replace(/\bTues\b/, 'Tue').replace(/\bWednes\b/, 'Wed')
+    .replace(/\bThurs\b/, 'Thu').replace(/\bSatur\b/, 'Sat')
+    .replace(/\s+/g, ' ').trim();
+  if (trimmed.length <= 14) return trimmed;
+  const initials = base.split(/[\s-]+/).filter(w => /^[A-Z]/.test(w)).map(w => w[0]).join('');
+  return initials.length >= 2 ? initials : trimmed.slice(0, 13) + '\u2026';
+}
+
 function raceChartHTML(W) {
   const rows = S.races.filter(r => r.pct != null && r.date).slice()
     .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   if (rows.length < 2) return '';
 
-  const H = 210, P = { t: 16, r: 12, b: 30, l: 38 };
+  // Room above and below the dots for their labels, and for the season row.
+  const H = 250, P = { t: 34, r: 14, b: 44, l: 38 };
   const iw = Math.max(60, W - P.l - P.r), ih = H - P.t - P.b;
   const ts = rows.map(r => Date.parse(r.date));
   const t0 = Math.min(...ts), t1 = Math.max(...ts);
-  const pad = Math.max((t1 - t0) * 0.03, 864e5 * 3);   // never zero-width
+  const pad = Math.max((t1 - t0) * 0.04, 864e5 * 3);   // never zero-width
   const X = t => P.l + ((t - (t0 - pad)) / ((t1 + pad) - (t0 - pad))) * iw;
 
   const ps = rows.map(r => Number(r.pct));
-  // Rounded to whole percents so the gridlines land on readable numbers, with
-  // a point of air either side.
   const lo = Math.floor(Math.min(...ps) - 1), hi = Math.ceil(Math.max(...ps) + 1);
   const span = Math.max(1, hi - lo);
   const Y = v => P.t + ih - ((v - lo) / span) * ih;
 
-  // Three or four ticks, on multiples of 1, 2 or 5 - whichever gives that.
   const step = span <= 4 ? 1 : span <= 10 ? 2 : span <= 25 ? 5 : 10;
-  let grid = '', first = Math.ceil(lo / step) * step;
-  for (let v = first; v <= hi; v += step) {
+  let grid = '';
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
     grid += '<line class="rcgrid" x1="' + P.l + '" y1="' + Y(v).toFixed(1) +
       '" x2="' + (P.l + iw) + '" y2="' + Y(v).toFixed(1) + '"/>' +
       '<text class="rcax" x="' + (P.l - 7) + '" y="' + (Y(v) + 3.5).toFixed(1) +
@@ -3052,25 +3074,88 @@ function raceChartHTML(W) {
     const cx = Math.max(P.l, Math.min(P.l + iw, x));
     seasons += (i === 0 ? '' : '<line class="rcyear" x1="' + cx.toFixed(1) + '" y1="' + P.t +
       '" x2="' + cx.toFixed(1) + '" y2="' + (P.t + ih) + '"/>') +
-      '<text class="rcyearlab" x="' + (cx + 5).toFixed(1) + '" y="' + (P.t + 10) + '">' + y + '</text>';
+      '<text class="rcyearlab" x="' + (cx + 5).toFixed(1) + '" y="14">' + y + '</text>';
+  });
+
+  /* Labels on the chart itself rather than only in a tooltip: a scatter you
+     have to hover to read is no use on a phone, and hovering was the whole
+     complaint. They are placed greedily - above the dot first, then below -
+     and a label that would collide in both bands is dropped rather than
+     overlapped. The chip still has everything for the ones that get dropped. */
+  const CH = 5.4;                                   // mono 9.5px, per character
+  const placed = [];                                // {x0,x1,y} of labels already drawn
+  const pts = rows.map((r, i) => ({ x: X(ts[i]), y: Y(Number(r.pct)) }));
+  let labels = '';
+  rows.forEach((r, i) => {
+    const text = raceDotLab(r);
+    if (!text) return;
+    const w = text.length * CH + 8;
+    // Nudge the label in at the edges so it cannot run out of the chart.
+    const x = Math.max(P.l + w / 2 + 2, Math.min(P.l + iw - w / 2 - 2, pts[i].x));
+    const x0 = x - w / 2, x1 = x + w / 2;
+    // Above the dot first, then below. A label must clear the other LABELS and
+    // the other DOTS - the first version only checked labels, so a neighbouring
+    // dot sat in the middle of the text.
+    // Inside the plot only: a label that drops below the baseline lands on the
+    // axis numbers, and one above the top rides over the season row.
+    const y = [pts[i].y - 13, pts[i].y + 20].find(cand =>
+      cand >= P.t + 9 && cand <= P.t + ih - 4 &&
+      placed.every(o => x1 < o.x0 || x0 > o.x1 || Math.abs(cand - o.y) > 11) &&
+      pts.every((p, j) => j === i || Math.abs(p.x - x) > w / 2 + 9 || Math.abs(p.y - cand) > 12));
+    if (y == null) return;                          // no room: the chip still has it
+    placed.push({ x0: x0, x1: x1, y: y });
+    labels += '<text class="rcdotlab" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) +
+      '" text-anchor="middle">' + esc(text) + '</text>';
   });
 
   const dots = rows.map((r, i) => {
     const v = Number(r.pct);
-    return '<circle class="rcdot ' + pctClass(v) + '" data-race-dot="' + r.id + '" data-i="' + i +
-      '" cx="' + X(ts[i]).toFixed(1) + '" cy="' + Y(v).toFixed(1) + '" r="5.5"><title>' +
-      esc(shortDate(r.date) + ' \u00b7 ' + (r.event || '') + ' \u00b7 ' + round1(v) + '%') +
-      '</title></circle>';
+    const cx = X(ts[i]).toFixed(1), cy = Y(v).toFixed(1);
+    // Two circles: a much larger transparent one you can actually hit with a
+    // thumb - 7px of dot is not a tap target - and then the dot you see. The
+    // hit circle comes FIRST so the CSS can light its own dot with `+`; with
+    // the dot first, the adjacent-sibling rule lit the next race along.
+    return '<circle class="rchit" data-race-dot="' + r.id + '" data-i="' + i +
+      '" cx="' + cx + '" cy="' + cy + '" r="17"/>' +
+      '<circle class="rcdot ' + pctClass(v) + '" cx="' + cx + '" cy="' + cy + '" r="7"/>';
   }).join('');
 
-  return '<div class="rchart"><svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W +
-    '" height="' + H + '" role="img" aria-label="Every claimed race by date and GMT percentage">' +
-    grid + seasons +
+  // The chip is filled in by wireRaceChart(); the data it needs rides along on
+  // the hit circles, so the markup stays a pure function of the rows.
+  return '<div class="rchart" id="rchartwrap">' +
+    '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H +
+    '" role="img" aria-label="Every claimed race by date and GMT percentage">' +
+    grid + seasons + labels + dots +
     '<line class="rcbase" x1="' + P.l + '" y1="' + (P.t + ih) + '" x2="' + (P.l + iw) +
       '" y2="' + (P.t + ih) + '"/>' +
-    dots + '</svg>' +
+    '</svg><div class="ctip" id="rc-tip" style="display:none"></div>' +
     '<p class="rcnote">One dot a race, GMT% up the side. Tap a dot for the conditions on the ' +
     'day it was rowed.</p></div>';
+}
+
+// Hover or tap fills the chip; the click itself opens the conditions card and
+// is handled by the delegated click listener like every other button.
+function wireRaceChart() {
+  const wrap = $('rchartwrap'), tip = $('rc-tip');
+  if (!wrap || !tip) return;
+  const show = ev => {
+    const hit = ev.target.closest('.rchit');
+    if (!hit) return;
+    const r = S.races.find(x => x.id === hit.dataset.raceDot);
+    if (!r) return;
+    const box = wrap.getBoundingClientRect(), c = hit.getBoundingClientRect();
+    tip.innerHTML = '<span class="tdate">' + esc(prettyDate(r.date)) + '</span><br>' +
+      '<b>' + esc(raceDotLab(r)) + '</b><br>' +
+      '<span class="tsub">' + round1(Number(r.pct)) + '% GMT' +
+      (r.time ? ' \u00b7 ' + esc(r.time) : '') +
+      (placeLine(r) ? ' \u00b7 ' + esc(placeLine(r)) : '') + '</span>';
+    tip.style.display = '';
+    tip.style.left = Math.min(box.width - 8, Math.max(8, c.left - box.left + c.width / 2)) + 'px';
+    tip.style.top = (c.top - box.top + c.height / 2 - 12) + 'px';
+  };
+  wrap.addEventListener('pointermove', show);
+  wrap.addEventListener('pointerdown', show);
+  wrap.addEventListener('pointerleave', () => { tip.style.display = 'none'; });
 }
 
 /* ---- the season card ----
@@ -3302,6 +3387,7 @@ function renderRaces() {
     'Adding one keeps a copy, so your history stands even if the leaderboard is re-cut.</p>' +
     raceSearchHTML() + '</section>' +
     '<div id="race-msg"></div>';
+  wireRaceChart();
 }
 
 /* ================= squad =================

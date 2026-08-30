@@ -293,6 +293,23 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   the weekly charts do not have. Season boundaries are ruled and labelled, dots take the same four
   GMT colours as everywhere else, and **every dot opens the conditions for that race**, which is
   the question a dot on this chart provokes.
+
+  **A dot is labelled with the boat and the regatta, not the event code.** `W Ch Lwt 4x` carries a
+  class and a tier that mean nothing once you already know it is your own race; `W4x · Marlow` is
+  the pair of facts that says which afternoon this was. Long regatta names collapse to what they
+  are called out loud - British Rowing Club Championships is `BRCC`, National Schools' is `NSR` -
+  except a two-day regatta, where the day is the half that tells the two apart, so `Met Regatta -
+  Saturday` becomes `Met - Sat` rather than the useless `MRS` initials would give.
+
+  **The labels are placed, not just drawn.** Greedily: above the dot, then below, and a candidate
+  is rejected if it would collide with a label already placed, with any *other dot*, or with the
+  axis or the season row. Whatever will not fit is dropped rather than overlapped - at 22 races on
+  a desktop 13 labels fit, on a phone 6 - and the chip has the rest.
+
+  **Each dot has a 17px invisible hit circle under it.** A 7px dot is not a tap target, and hover
+  was the only way to read the thing. The hit circle is emitted *before* its dot so `.rchit:hover +
+  .rcdot` lights the right one; with the dot first, the adjacent-sibling rule lit the next race
+  along.
 - **The season card is a copy of the leaderboards' recipe, not a call into it.** `shareSeason()`
   draws the same 600x300 SVG, paints it to a canvas at 2x and hands over a PNG, exactly as
   `rowingtools-share.js` does - but that file's two functions read `document.title` and a button's

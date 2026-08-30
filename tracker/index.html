@@ -435,15 +435,18 @@
   .rsort-lab{font-family:var(--mono);font-size:10px;letter-spacing:.12em;
     text-transform:uppercase;color:var(--text3)}
   /* the season chart: one dot a race, on a real time axis */
-  .rchart{margin:2px 0 26px}
+  .rchart{margin:2px 0 26px;position:relative}
   .rchart svg{display:block;max-width:100%;overflow:visible}
   .rcgrid{stroke:var(--border);stroke-width:1}
   .rcbase{stroke:var(--text3);stroke-width:1}
   .rcyear{stroke:var(--border2);stroke-width:1;stroke-dasharray:3 3}
   .rcax{font-family:var(--mono);font-size:9.5px;fill:var(--text3)}
   .rcyearlab{font-family:var(--mono);font-size:10px;fill:var(--text3);letter-spacing:.08em}
-  .rcdot{cursor:pointer;stroke:var(--bg);stroke-width:1.5;transition:r .12s}
-  .rcdot:hover{r:7.5}
+  .rcdot{stroke:var(--bg);stroke-width:1.5;pointer-events:none}
+  /* the tap target, well wider than the dot it sits on */
+  .rchit{fill:transparent;cursor:pointer}
+  .rchit:hover + .rcdot{stroke:var(--text);r:9}
+  .rcdotlab{font-family:var(--mono);font-size:9.5px;fill:var(--text2);letter-spacing:.01em}
   .rcdot.gmt-a{fill:#34d399}.rcdot.gmt-b{fill:#60a5fa}
   .rcdot.gmt-c{fill:#fb923c}.rcdot.gmt-d{fill:#f87171}
   .rcnote{font-family:var(--mono);font-size:10px;color:var(--text3);margin:8px 0 0;line-height:1.55}
