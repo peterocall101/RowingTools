@@ -173,12 +173,32 @@ alter table public.tracker_core_sessions
   add column if not exists steps        jsonb not null default '[]'::jsonb,
   add column if not exists notes        text;
 
--- Entitlement. Only the service role may write these two - see the
--- column grants near the end.
+-- Entitlement. Only the service role may write these - see the column
+-- grants near the end.
+--
+-- TWO KINDS OF MEMBER, and the only thing separating them is how many erg
+-- photos a day they get: 'trial' is free and gets 2, 'paid' is £5 a month
+-- and gets 20. Everything else in the tracker is identical, and nobody is
+-- ever locked out of the photo reader entirely - a trial is not a countdown,
+-- it is just the smaller allowance. "First 100 free for life" is a promise
+-- kept by never converting those accounts, not a state in this column.
+--
+-- 'free' survives in the CHECK for old rows and as somewhere for a lapsed
+-- subscription to land later; nothing assigns it now.
 alter table public.profiles
   add column if not exists tracker_plan text not null default 'free'
     check (tracker_plan in ('free', 'trial', 'paid')),
   add column if not exists tracker_trial_ends_at timestamptz;
+
+-- ADD COLUMN IF NOT EXISTS will not change the default on a column that
+-- already exists, so the new default is set explicitly and the rows that
+-- predate it are moved across.
+alter table public.profiles alter column tracker_plan set default 'trial';
+update public.profiles set tracker_plan = 'trial' where tracker_plan = 'free';
+
+-- tracker_trial_ends_at is no longer read by anything: a trial does not
+-- expire. Kept rather than dropped - it is the obvious column to reach for
+-- if a time-limited offer ever comes back.
 
 -- Terms acceptance. The tick on the signup form is the record that
 -- matters, but it lives in auth.users.raw_user_meta_data where the app

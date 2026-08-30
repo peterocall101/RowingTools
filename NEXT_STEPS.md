@@ -10,79 +10,67 @@ Last reviewed: 2026-08-30.
 
 ---
 
-## 1. Stripe, and the copy that depends on it
+## 1. Pricing and billing
 
-**Status:** critical path. Nothing else about the tracker should ship before it.
-**Decided:** signing up will cost money. Not freemium, not a free tier with a paid photo reader.
+**Settled 2026-08-30. Two kinds of member, and the daily erg-photo allowance is the only thing that
+separates them.**
 
-This is one job, not three: the billing plumbing, the copy pass, and the terms rewrite all have to
-land together, because today every user-facing surface says the tracker is free.
+| Plan | Cost | Erg photos | Everything else |
+|---|---|---|---|
+| `trial` | free, no time limit | 2 a day | all of it |
+| `paid` | £5 a month | 20 a day | all of it |
 
-### The code
+A trial does not expire; it is the smaller allowance, indefinitely. Nobody is ever locked out of
+their own training log, and **"first 100 members free for life" is a promise kept by never
+converting those accounts, not a state in the database.**
 
-The pattern is already proven by `parse-erg`: an Edge Function holding a secret, deployed from
-`tracker/` with the CLI. Three pieces:
+This replaces the earlier paid-at-signup decision, which was reversed because it put a card form in
+front of a product nobody had seen and broke the squad mechanic: a captain cannot onboard twenty
+clubmates who each have to pay first.
 
-- **`create-checkout`** - takes the caller's JWT, opens a Stripe Checkout Session with the profile
-  id attached, returns the URL. Small.
-- **`stripe-webhook`** - verifies the signature, handles subscription created / updated / cancelled,
-  writes `tracker_plan`. **`verify_jwt` must be OFF on this one**, because Stripe is not a signed-in
-  user. That makes the signature check the only thing standing between the internet and a function
-  that grants paid access, so it has to be right, and it needs to be idempotent because Stripe
-  retries.
-- **Schema** - `stripe_customer_id`, `stripe_subscription_id`, `subscription_status` on `profiles`,
-  service-role write only, the same treatment `tracker_plan` has.
+### Done (2026-08-30) - none of it needed Stripe
 
-Plus, client side: the paywall screen, the return-from-checkout path, and a link into Stripe's
-billing portal so cancellations are never handled by hand.
+- `tracker_plan` now defaults to `trial`, with existing `free` rows moved across.
+- `parse-erg` takes the allowance from the plan (2 / 20) instead of one number plus an entitlement
+  check. The 402 "not on the plan" branch is gone.
+- The Erg tab states the allowance quietly instead of showing a paywall, and the photo button works
+  for every account.
 
-### The copy that has to change with it
+Needs the schema re-run and `supabase functions deploy parse-erg` to take effect.
 
-Every one of these currently promises free:
+### Still to do: take the money
 
-| Where | What it says |
-|---|---|
-| `index.html` | "Free · try it without an account" on the tracker panel |
-| `tracker/login.html` | "Free. Weights, erg and core in one log…", and the meta description |
-| `tracker/js/app.js` | the erg gate: "logging weights and typing erg sessions in by hand is free, and always unlimited" |
-| `tracker/js/app.js` | "Create a free account" in the sample banner and the squad gate |
-| `tracker/terms.html` | several, including the one below |
+**You can launch without this.** Billing is only needed once you want to charge someone, so the
+tracker can go in front of your club now.
 
-The two "Free tools for UK club rowing" lines on the homepage are fine - that is the
-GMT%/leaderboards side, which stays free - but the page has to make clear the tracker is the
-exception.
+- `create-checkout` and `stripe-webhook` Edge Functions. The pattern is proven by `parse-erg`.
+  **`verify_jwt` must be OFF on the webhook** - Stripe is not a signed-in user, which makes the
+  signature check the only thing guarding a function that grants the larger allowance, so it must be
+  right and it must be idempotent.
+- `stripe_customer_id`, `stripe_subscription_id`, `subscription_status` on `profiles`, service-role
+  write only.
+- The upgrade screen, the return-from-checkout path, and a link into Stripe's billing portal.
+- **Start the Stripe account verification now** - business details and bank verification take days;
+  the code is about a day.
 
-**One line in the terms is a commitment, not copy:**
+### What it costs to run
 
-> If a paid tier is introduced, you will be told before anything is charged and nothing you already
-> have will be taken away from you retrospectively.
+At the measured 3.7p a photo, the 2/day cap makes the free tier predictable: 100 active members
+photographing one or two pieces a week lands around **£20-45 a month**. The aggregate control is
+`PARSE_ERG_GLOBAL_DAILY_LIMIT` - **40 is a sensible setting** (about £1.50 a day). Watch section 9
+of the schema report.
 
-That binds anyone who signed up under it. Changing it is clean while there are no users. It is not
-clean afterwards, so it has to be rewritten **before** the first paying signup, not after.
+Paid is thinner than it looks: 150 photos a month is £5.55 of API cost against £5 of revenue. Almost
+nobody reaches it; drop `PARSE_ERG_MONTHLY_LIMIT` to 120 if you want the cap on the right side of
+break-even.
 
-### Open decisions, needed before any of it can be built
+### Copy and terms, to do with Stripe
 
-1. **Subscription or one-off?** Monthly, annual, or both?
-2. **Does sample mode stay free?** Assumed yes - under paid signup it is the entire shop window.
-3. **What happens when someone cancels?** A training log that deletes your history when you stop
-   paying is hostile, and it will cost word of mouth in a small community. The normal answer is
-   read-only plus export. Whatever is chosen has to be stated in the terms.
-4. **Any founding-member or club rate?** Much cheaper to build in now than to retrofit.
-
-### Timing
-
-The code is about a day. Getting to actually taking money is a week or two, and almost all of that
-is **Stripe account verification** (business details, bank verification). That has a queue in front
-of it and costs nothing to start early, so start it before the code.
-
-### The funnel problem to solve alongside it
-
-Under paid signup, sample mode is the whole sales pitch - and it deliberately excludes erg photo
-reading and squads, which are the two features most likely to justify the price. So a prospect is
-asked to pay for the two things they cannot try.
-
-Not built, suggested: a canned demo of both inside the sample. A stock monitor photo that returns a
-real parse **without calling the API**, and a board with three invented squadmates.
+`index.html`, `tracker/login.html` and `tracker/terms.html` still describe the tracker as flatly
+free. It nearly is - the only paid thing is the larger photo allowance - but the terms need to say
+so, along with what happens on cancellation (assumed: back to `trial`, keeps the log, keeps 2 a
+day). The clause about not taking things away retrospectively **stays**: under this model it is
+exactly what "free for life" means to the first hundred.
 
 ---
 

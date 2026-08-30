@@ -236,10 +236,13 @@ the Edge Function, because the app is a static file anyone can skip:
 1. **`verify_jwt`** (Supabase default) - no account, no call.
 2. **The plan is read with the service role**, from `profiles`, never taken from the request. The
    `canReadPhotos()` check in `app.js` is only there to grey out a button.
-3. **Per-user quotas** - 20 a day and 150 a month on a rolling window, counted from
-   `tracker_erg_parses`. That table has a SELECT-only policy and *no* insert, update or delete
-   policy at all, so nobody can clear their own quota. Failed calls are logged too: a retry loop
-   burns quota rather than only money.
+3. **Per-user daily allowance, set by the plan.** There are two kinds of member and this is the
+   only thing separating them: `trial` is free and gets **2 photos a day**, `paid` is £5 a month and
+   gets **20**, with a 150/month ceiling that only a paid account can reach. A trial is not a
+   countdown - it is the smaller allowance, indefinitely - so nobody is refused the reader outright
+   and there is no 402 path any more. Counted from `tracker_erg_parses`, which has a SELECT-only
+   policy and *no* insert, update or delete policy at all, so nobody can clear their own quota.
+   Failed calls are logged too: a retry loop burns allowance rather than only money.
 4. **A global daily ceiling and a kill switch.** Gate 3 bounds what one account can spend; it says
    nothing about how many accounts exist, so it cannot bound the bill. `GLOBAL_DAILY_LIMIT`
    (default 100, about £5 a day at the current model) is the number that actually decides the
@@ -252,7 +255,8 @@ the Edge Function, because the app is a static file anyone can skip:
 
 **Gate 2 is only as strong as the column grants, and by default it is not strong at all.** Supabase
 gives `authenticated` a blanket UPDATE on `public.profiles`, so a signed-in user can set
-`tracker_plan = 'paid'` on themselves with one REST call and walk through the entitlement check.
+`tracker_plan = 'paid'` on themselves with one REST call and help themselves to the larger
+allowance.
 PART 4 of `tracker_schema.sql` is the fix and is **left commented out on purpose**, because
 re-running it blindly would revoke any user-writable column added since. The order is: run the
 file, read section 7 of the report (it prints the columns `authenticated` may currently write),

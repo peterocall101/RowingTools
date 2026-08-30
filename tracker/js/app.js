@@ -985,13 +985,11 @@ function renderErgRecent() {
 /* ---- entitlement: photo reading is the one paid feature ---- */
 // The server decides this too - this is only so free users see an honest
 // message up front instead of uploading a photo and being refused.
-function canReadPhotos() {
-  if (S.trial) return false;      // every parse costs money; a sample cannot spend it
-  const p = S.profile || {};
-  if (p.tracker_plan === 'paid') return true;
-  return p.tracker_plan === 'trial' && p.tracker_trial_ends_at
-    && new Date(p.tracker_trial_ends_at) > new Date();
-}
+// Every account can read photos; the plan only decides how many a day, and
+// the server is what counts them. Sample mode is the one case that cannot:
+// a parse costs real money and a sample has no account to bill it against.
+function canReadPhotos() { return !S.trial; }
+const onPaidPlan = () => ((S.profile || {}).tracker_plan === 'paid');
 
 function renderErgGate() {
   const wrap = $('erg-gate');
@@ -999,19 +997,21 @@ function renderErgGate() {
   if (canReadPhotos()) {
     $('erg-photo-btn').disabled = false;
     $('erg-photo-btn').title = '';
-    wrap.innerHTML = '';
+    // Not a gate - the button works. Free accounts get a smaller allowance,
+    // and saying so up front beats letting someone find out by being refused
+    // on the third photo. The server is what actually enforces it.
+    wrap.innerHTML = onPaidPlan() ? ''
+      : '<p class="allowance">Photo reading: <b>2 a day</b> on the free plan, 20 on £5 a month. ' +
+        'Typing sessions in by hand is free and unlimited either way.</p>';
     return;
   }
   $('erg-photo-btn').disabled = true;
-  $('erg-photo-btn').title = S.trial ? 'Needs an account' : 'Part of the £5/month plan';
-  wrap.innerHTML = S.trial
-    ? '<div class="gate"><b>Reading erg photos needs an account.</b>' +
-      '<span>Every photo is read by an AI model and costs real money per picture, so it is the ' +
-      'one thing the sample cannot do. <b>Enter manually</b> works exactly as it will once you ' +
-      'sign up.</span></div>'
-    : '<div class="gate"><b>Reading erg photos is part of the £5/month plan.</b>' +
-      '<span>Logging weights and typing erg sessions in by hand is free, and always unlimited. ' +
-      'The photo reader turns a picture of the monitor into a full session, splits and all.</span></div>';
+  $('erg-photo-btn').title = 'Needs an account';
+  wrap.innerHTML =
+    '<div class="gate"><b>Reading erg photos needs an account.</b>' +
+    '<span>Every photo is read by an AI model and costs real money per picture, so it is the ' +
+    'one thing the sample cannot do. <b>Enter manually</b> works exactly as it will once you ' +
+    'sign up.</span></div>';
 }
 
 /* ---- photo capture -> Edge Function ---- */

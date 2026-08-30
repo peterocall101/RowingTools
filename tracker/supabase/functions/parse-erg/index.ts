@@ -16,10 +16,12 @@
 // file anyone can skip:
 //   1. verify_jwt - no account, no call.
 //   2. tracker_plan read with the SERVICE ROLE - the plan is never taken from
-//      the request. NOTE: this is only as good as the column grants. If
-//      `authenticated` still holds a blanket UPDATE on public.profiles, any
-//      signed-in user can set tracker_plan='paid' on themselves and let
-//      themselves in. Run PART 4 of tracker_schema.sql.
+//      the request. It sets the daily allowance (2 on trial, 20 on paid),
+//      not whether the reader works at all. NOTE: this is only as good as the
+//      column grants. If `authenticated` still holds a blanket UPDATE on
+//      public.profiles, any signed-in user can set tracker_plan='paid' on
+//      themselves and take the larger allowance. Run PART 4 of
+//      tracker_schema.sql.
 //   3. Per-user quotas, counted from tracker_erg_parses, which the user cannot
 //      write or clear.
 //   4. A GLOBAL daily ceiling, plus PARSE_ERG_ENABLED=0 as a kill switch.
@@ -32,7 +34,12 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 // Anthropic key, so these are the ceiling on what one account can spend.
 // A real athlete logs one or two pieces a day; anything near these numbers is
 // either testing or abuse. Override without redeploying via secrets.
-const DAILY_LIMIT = Number(Deno.env.get("PARSE_ERG_DAILY_LIMIT") || 20);
+// Two kinds of member, and the daily allowance is the only difference
+// between them. A trial is not a countdown - it is the smaller allowance,
+// indefinitely - so nobody is ever refused the reader outright.
+const TRIAL_DAILY_LIMIT = Number(Deno.env.get("PARSE_ERG_TRIAL_DAILY_LIMIT") || 2);
+const PAID_DAILY_LIMIT = Number(Deno.env.get("PARSE_ERG_DAILY_LIMIT") || 20);
+// Only ever binds a paid account: 2 a day cannot reach it.
 const MONTHLY_LIMIT = Number(Deno.env.get("PARSE_ERG_MONTHLY_LIMIT") || 150);
 
 // Ceiling across EVERYONE, not per user. Per-user limits bound what one
@@ -246,28 +253,16 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPA_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-  // Reading erg photos is the one paid feature - everything else in the tracker
-  // is free and unlimited. Read the plan with the service role, never from
-  // anything the client sent us.
+  // How many photos a day this account gets. Read with the SERVICE ROLE,
+  // never from anything the client sent us.
   const { data: prof } = await admin
     .from("profiles")
-    .select("tracker_plan, tracker_trial_ends_at")
+    .select("tracker_plan")
     .eq("id", user.id)
     .single();
 
-  const plan = prof?.tracker_plan || "free";
-  const trialLive = plan === "trial" && prof?.tracker_trial_ends_at
-    && new Date(prof.tracker_trial_ends_at) > new Date();
-  if (plan !== "paid" && !trialLive) {
-    return json({
-      error: plan === "trial"
-        ? "Your free trial has ended. Reading erg photos is part of the £5/month plan - " +
-          "logging weights and typing erg sessions in stays free and unlimited."
-        : "Reading erg photos is part of the £5/month plan. Logging weights and typing " +
-          "erg sessions in by hand is free and unlimited.",
-      reason: "upgrade_required",
-    }, 402);
-  }
+  const paid = prof?.tracker_plan === "paid";
+  const DAILY_LIMIT = paid ? PAID_DAILY_LIMIT : TRIAL_DAILY_LIMIT;
 
   const since = (mins: number) => new Date(Date.now() - mins * 60_000).toISOString();
   // One helper, two questions: without a uid it is the whole site's usage,
@@ -300,8 +295,13 @@ Deno.serve(async (req) => {
   ]);
   if (today >= DAILY_LIMIT) {
     return json({
-      error: `Daily limit reached (${DAILY_LIMIT} photos). It resets on a rolling 24 hours - ` +
-        `enter this one by hand for now.`,
+      error: paid
+        ? `Daily limit reached (${DAILY_LIMIT} photos). It resets on a rolling 24 hours - ` +
+          `enter this one by hand for now.`
+        : `That is your ${DAILY_LIMIT} photo${DAILY_LIMIT === 1 ? "" : "s"} for today. It resets ` +
+          `on a rolling 24 hours, and £5 a month lifts it to ${PAID_DAILY_LIMIT} a day. Typing ` +
+          `sessions in by hand is free and unlimited either way.`,
+      reason: paid ? "daily_limit" : "upgrade_available",
     }, 429);
   }
   if (month >= MONTHLY_LIMIT) {
