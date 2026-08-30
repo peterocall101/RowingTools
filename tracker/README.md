@@ -59,6 +59,22 @@ The Races tab additionally reads two files from the main site - `/data/all_resul
    $5/$25 per MTok). The split rows are small, dense digits and the accuracy was worth the money.
    To trade accuracy for cost: `supabase secrets set PARSE_ERG_MODEL=claude-sonnet-5 ...`.
 
+   **If the photo reader says it is "not available":** that is almost always the key. Check the
+   function logs (Supabase dashboard > Edge Functions > parse-erg > Logs) for
+   `parse-erg: Anthropic rejected the key 401`. The three causes, in order of likelihood:
+
+   1. **The key was rotated, revoked or expired** in the Anthropic console. This is what happened on
+      2026-08-30: `supabase secrets list` showed `ANTHROPIC_API_KEY` present and last set on
+      2026-07-27, so the secret was there and Anthropic was rejecting its value. Mint a new key and:
+      `supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref tbhujqdflswhgxtioznb`.
+      Setting a secret restarts the function's workers rather than redeploying it, so the new key
+      should take on the next request; if the log still shows 401, redeploy and try again.
+   2. **The secret was never set, or was set on the wrong project.** `supabase secrets list
+      --project-ref tbhujqdflswhgxtioznb` shows the names and a hash of each value, never the value
+      itself - so it tells you the secret exists, not whether it is the right key.
+   3. **The organisation has no credit.** That shows as a 400 with a credit-balance message rather
+      than a 401, and surfaces as a 502 with the text, so read the logs before assuming the key.
+
    **Where the money goes, and what not to touch.** Input is ~77% of it, and ~5,600 of those input
    tokens are the image itself - so image size is the only real lever, and it is the one that must
    not be pulled: dropping below 2576px is what destroyed the split-row digits the first time
@@ -237,6 +253,13 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
 
   Progress treats water exactly like the erg - same weekly bars, same measures - so `WATER_METRICS`
   is `ERG_METRICS` rather than a copy of it.
+
+  **The boat is a `<datalist>`, not a `<select>` or a CHECK constraint.** The nine common classes
+  (1x through 8+) cover almost every outing, but a club with a 2x- or a coxed pair must still be
+  able to log one, and a constraint in the database would reject a legitimate session with no way
+  for the athlete to argue. It uses the same strings as `boat` on `tracker_races`, so "what do I go
+  quickest in" stays answerable later. **It is the one field not cleared after a save**: date,
+  distance and time all change between outings; the boat rarely does.
 - **Races are claimed, never matched.** The Races tab reads `data/all_results.json` - the same
   file behind the regatta leaderboards and club pages, 4,900-odd results across every regatta with
   a GMT percentage. A result there is a *crew*, and no results file published anywhere names who
@@ -326,6 +349,13 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   axis or the season row. Whatever will not fit is dropped rather than overlapped - at 22 races on
   a desktop 13 labels fit, on a phone 6 - and the chip has the rest.
 
+  **A dot opens the race, not the weather.** Tapping one used to jump straight to the conditions
+  card, which answered a question nobody had asked yet - the first thing you want off a dot is
+  *which race that was*. A tap now opens a panel under the chart with the event, round, date,
+  regatta, time, GMT, placing and crew, and puts the two things you might want next on it as
+  buttons: **Conditions**, and **Heatmap for this race**. Tapping the same dot again closes it, and
+  the open one is ringed so the panel and the dot cannot drift apart.
+
   **Each dot has a 17px invisible hit circle under it.** A 7px dot is not a tap target, and hover
   was the only way to read the thing. The hit circle is emitted *before* its dot so `.rchit:hover +
   .rcdot` lights the right one; with the dot first, the adjacent-sibling rule lit the next race
@@ -339,6 +369,12 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   the plan), a 429 (over your quota or the site's) and a 503 (switched off) are all expected
   states with a message of their own, so the app shows them as warnings rather than dressing them
   up as errors, and offers manual entry.
+- **A 401 or 403 from Anthropic is reported as "not available", not as an error.** A rejected key
+  is an operator problem - wrong secret, revoked key, no credit - and there is nothing the athlete
+  can do about it, so `parse-erg` maps it onto the same calm 503 the kill switch uses and offers
+  manual entry. The detail goes to `console.error` in the function logs, which is where it gets
+  fixed, and it means **"api key is invalid" is never echoed back to an end user**. Everything else
+  from the API still surfaces as a 502 with its status, because those are worth seeing.
 - **Erg photo parses are never auto-saved**: the parsed numbers land in an editable
   confirmation card first. `source` on each erg row records `photo` / `manual` (and later
   `c2-logbook` for the planned Concept2 Logbook API sync).

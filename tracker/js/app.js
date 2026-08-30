@@ -1090,12 +1090,19 @@ const fmtDur = sec => {
 
 function waterSummaryLine(s) {
   const bits = [];
+  if (s.boat) bits.push('<b>' + esc(s.boat) + '</b>');
   if (s.distance_m != null) bits.push('<b>' + s.distance_m.toLocaleString('en-GB') + 'm</b>');
   if (s.total_time_s != null) bits.push(fmtDur(s.total_time_s));
   const sp = waterSplit(s);
   if (sp != null) bits.push(fmtSplit(sp));
   return bits.join(' · ') || 'Water session';
 }
+
+// The boats a UK club actually owns, smallest first, sweep and scull together
+// because that is the order a rower says them in. A datalist, not a select:
+// these cover the vast majority without making a 2x- or a coxed pair
+// unloggable, and the same strings are what tracker_races stores in `boat`.
+const WATER_BOATS = ['1x', '2x', '2-', '2+', '4x', '4x+', '4-', '4+', '8+'];
 
 function renderWaterTab() {
   const el = $('water-body');
@@ -1111,6 +1118,11 @@ function renderWaterTab() {
           '<input type="number" id="wt-dist" inputmode="numeric" placeholder="e.g. 16000"></div>' +
         '<div><label for="wt-time">Time (optional)</label>' +
           '<input type="text" id="wt-time" inputmode="numeric" placeholder="e.g. 1:12:30"></div>' +
+        '<div><label for="wt-boat">Boat (optional)</label>' +
+          '<input type="text" id="wt-boat" list="wt-boats" placeholder="e.g. 4x-" autocomplete="off">' +
+          '<datalist id="wt-boats">' +
+          WATER_BOATS.map(b => '<option value="' + b + '"></option>').join('') +
+          '</datalist></div>' +
       '</div>' +
       '<div class="fwide"><label for="wt-notes">Notes</label>' +
         '<input type="text" id="wt-notes" placeholder="Crew, conditions, how it went"></div>' +
@@ -1146,6 +1158,7 @@ async function saveWater() {
     at: nowHM(),
     distance_m: isNaN(dist) ? null : dist,
     total_time_s: time,
+    boat: $('wt-boat').value.trim() || null,
     notes: $('wt-notes').value.trim() || null,
   };
   const { error } = await insertRow('tracker_water_sessions', row);
@@ -1157,6 +1170,9 @@ async function saveWater() {
   track('water_saved', { queued: !!queued });
   cacheData();
   $('wt-dist').value = ''; $('wt-time').value = ''; $('wt-notes').value = '';
+  // The boat is deliberately NOT cleared: an outing is usually followed by
+  // another in the same boat, and retyping it every time is friction for
+  // nothing. Date, distance and time all change; the boat rarely does.
   renderWaterRecent(); renderProgress(); renderHistory(); refreshWeekCount();
   toast('water-msg',
     (queued ? 'Saved on this device - no connection, so it will sync when you are back online. ' : 'Saved - ') +
@@ -2766,6 +2782,7 @@ const RC = {
   year: 'all', comp: 'all', q: '',
   sort: 'date',     // how MY races are ordered inside each year: 'date' | 'gmt'
   limit: 30,        // how many search hits to draw; "show more" raises it
+  picked: null,     // id of the race whose detail panel is open under the chart
   busy: null,       // race_key currently being written
 };
 
@@ -2980,6 +2997,36 @@ async function unclaimRace(id) {
   cacheData(); renderRaces();
 }
 
+/* Tapping a dot used to jump straight to the weather card, which answered a
+   question nobody had asked yet: the first thing you want off a dot is which
+   race it was. So a tap opens a panel under the chart with the race in full,
+   and the two things you might then want - the conditions, and the regatta's
+   heatmap - are buttons on it. */
+function raceDetailHTML() {
+  const r = S.races.find(x => x.id === RC.picked);
+  if (!r) return '';
+  const bits = [
+    r.time ? '<span><i>Time</i>' + esc(r.time) + '</span>' : '',
+    r.pct != null ? '<span><i>GMT</i>' + pctHTML(Number(r.pct)) + '</span>' : '',
+    placeLine(r) ? '<span><i>Placing</i>' + esc(placeLine(r)) + '</span>' : '',
+    r.crew ? '<span><i>Crew</i>' + esc(r.crew) + '</span>' : '',
+  ].filter(Boolean).join('');
+  return '<div class="rdet">' +
+    '<div class="rdet-head"><div><b>' + esc(r.event || r.boat || 'Race') + '</b>' +
+      (r.round ? ' <span class="rr-round">' + esc(r.round) + '</span>' : '') +
+      '<small>' + esc(prettyDate(r.date)) + ' \u00b7 ' +
+      esc(compShort(r.comp_title, r.comp)) + '</small></div>' +
+      '<button class="ghostx" data-race-close aria-label="Close">\u00d7</button></div>' +
+    '<div class="rdet-grid">' + bits + '</div>' +
+    '<div class="rdet-acts">' +
+      (r.venue && r.clock
+        ? '<button class="wxbtn" data-race-wx="' + r.id + '">' + WIND_SVG +
+          '<span>Conditions</span></button>' : '') +
+      '<a class="ghost rdet-lb" href="' + esc(compHref(r, r.comp, r.club)) +
+        '" target="_blank" rel="noopener">Heatmap for this race \u2197</a>' +
+    '</div></div>';
+}
+
 function openRaceConditions(id) {
   const r = S.races.find(x => x.id === id);
   if (!r || !r.venue || !r.clock) return;
@@ -3132,7 +3179,8 @@ function raceChartHTML(W) {
     // the dot first, the adjacent-sibling rule lit the next race along.
     return '<circle class="rchit" data-race-dot="' + r.id + '" data-i="' + i +
       '" cx="' + cx + '" cy="' + cy + '" r="17"/>' +
-      '<circle class="rcdot ' + pctClass(v) + '" cx="' + cx + '" cy="' + cy + '" r="7"/>';
+      '<circle class="rcdot ' + pctClass(v) + (RC.picked === r.id ? ' picked' : '') +
+      '" cx="' + cx + '" cy="' + cy + '" r="7"/>';
   }).join('');
 
   // The chip is filled in by wireRaceChart(); the data it needs rides along on
@@ -3144,8 +3192,8 @@ function raceChartHTML(W) {
     '<line class="rcbase" x1="' + P.l + '" y1="' + (P.t + ih) + '" x2="' + (P.l + iw) +
       '" y2="' + (P.t + ih) + '"/>' +
     '</svg><div class="ctip" id="rc-tip" style="display:none"></div>' +
-    '<p class="rcnote">One dot a race, GMT% up the side. Tap a dot for the conditions on the ' +
-    'day it was rowed.</p></div>';
+    raceDetailHTML() +
+    '<p class="rcnote">One dot a race, GMT% up the side. Tap a dot to open it.</p></div>';
 }
 
 // Hover or tap fills the chip; the click itself opens the conditions card and
@@ -4238,7 +4286,13 @@ document.addEventListener('click', async e => {
   const radd = e.target.closest('[data-race-add]');
   if (radd) { claimRace(radd.dataset.raceAdd, Number(radd.dataset.raceI)); return; }
   const rdot = e.target.closest('[data-race-dot]');
-  if (rdot) { openRaceConditions(rdot.dataset.raceDot); return; }
+  if (rdot) {
+    // Tapping the open one again closes it, which is what a toggle should do.
+    RC.picked = RC.picked === rdot.dataset.raceDot ? null : rdot.dataset.raceDot;
+    renderRaces();
+    return;
+  }
+  if (e.target.closest('[data-race-close]')) { RC.picked = null; renderRaces(); return; }
   const rso = e.target.closest('[data-rsort]');
   if (rso) {
     if (RC.sort !== rso.dataset.rsort) { RC.sort = rso.dataset.rsort; renderRaces(); }

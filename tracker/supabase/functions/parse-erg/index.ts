@@ -356,6 +356,20 @@ Deno.serve(async (req) => {
       return json({ error: "Rate limited - try again in a minute." }, 429);
     }
     if (e instanceof Anthropic.APIError) {
+      // 401/403 from Anthropic means the key is wrong, revoked or out of
+      // credit. That is an operator problem and there is nothing the athlete
+      // can do about it, so it is reported as "switched off" - the state the
+      // app already knows how to present calmly - rather than as a raw upstream
+      // error. It also stops "api key is invalid" being echoed to end users.
+      // The detail goes to the function logs, which is where it is fixed:
+      //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref <ref>
+      if (e.status === 401 || e.status === 403) {
+        console.error("parse-erg: Anthropic rejected the key", e.status, e.message);
+        return json({
+          error: "The photo reader is not available at the moment. Enter this one by hand - " +
+            "everything else in the tracker is unaffected.",
+        }, 503);
+      }
       return json({ error: `Vision API error (${e.status}): ${e.message}` }, 502);
     }
     throw e;

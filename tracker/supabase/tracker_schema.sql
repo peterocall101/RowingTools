@@ -124,9 +124,15 @@ create table if not exists public.tracker_core_sessions (
 -- labels it "erg", and parse-erg writes to it. One `mode` column would
 -- have made every one of those quietly mean "erg or water".
 --
--- Distance is the only thing asked for; time and notes are optional. The
+-- Distance is the only thing asked for; boat, time and notes are optional. The
 -- average split is NOT stored - it is distance and time, and deriving it
 -- for display cannot drift out of step with them.
+--
+-- boat is the class rowed (1x, 2-, 4+, 8+ ...), free text with a datalist
+-- rather than a CHECK: the list of boats a club owns is longer than any list
+-- worth hard-coding, and a constraint here would reject a legitimate session
+-- with no way for the athlete to argue. It matches the `boat` on
+-- tracker_races, so "what do I go quickest in" is answerable later.
 create table if not exists public.tracker_water_sessions (
   id           uuid        primary key default gen_random_uuid(),
   profile_id   uuid        not null references public.profiles on delete cascade,
@@ -134,6 +140,7 @@ create table if not exists public.tracker_water_sessions (
   at           text,
   distance_m   int,
   total_time_s numeric,
+  boat         text,
   notes        text,
   created_at   timestamptz not null default now()
 );
@@ -235,6 +242,7 @@ alter table public.tracker_water_sessions
   add column if not exists at           text,
   add column if not exists distance_m   int,
   add column if not exists total_time_s numeric,
+  add column if not exists boat         text,
   add column if not exists notes        text;
 
 alter table public.tracker_races
@@ -1067,7 +1075,7 @@ with expected(tbl, col) as (values
   ('tracker_core_sessions','routine_id'), ('tracker_core_sessions','routine_name'),
   ('tracker_core_sessions','steps'), ('tracker_core_sessions','notes'),
   ('tracker_water_sessions','distance_m'), ('tracker_water_sessions','total_time_s'),
-  ('tracker_water_sessions','notes'),
+  ('tracker_water_sessions','boat'), ('tracker_water_sessions','notes'),
   ('tracker_races','race_key'), ('tracker_races','comp'), ('tracker_races','comp_title'),
   ('tracker_races','date'), ('tracker_races','club'), ('tracker_races','crew'),
   ('tracker_races','event'), ('tracker_races','round'), ('tracker_races','boat'),
