@@ -557,8 +557,9 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   **Racing is ranked by season, on one measure.** Every other mode uses a rolling window, and for
   racing that is wrong: nobody races in February, so "last 4 weeks" is nought for the whole squad
   for most of the year and the board reads as though everyone has stopped. Racing's period buttons
-  are years instead - the current one, the one before, and all time, generated from the clock so
-  they move on by themselves - and `tracker_squad_board` takes a four-digit year as a period keyword
+  are years and nothing else - the current one and the one before, generated from the clock so they
+  move on by themselves. There is no all-time button: an average of your best three across two
+  seasons flatters whoever had one good summer and says nothing about this one. And `tracker_squad_board` takes a four-digit year as a period keyword
   alongside the existing ones. That stays safe for the reason the others are: the **boundaries are
   fixed, not chosen**. Differencing two whole years only isolates a year's totals, which `all`
   already exposes, and the parameter is matched on an exact `^[0-9]{4}$` and range-checked, so

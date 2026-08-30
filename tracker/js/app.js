@@ -3490,15 +3490,17 @@ const PERIODS = [
 
 // Racing is ranked by season, not by a rolling window: nobody races in
 // February, so "last 4 weeks" is nought for the whole squad for most of the
-// year and the board reads as though the squad has stopped. Two years and all
-// time - generated from the clock, so it moves on by itself - and the function
-// takes a four-digit year as a period keyword.
+// year and the board reads as though the squad has stopped. A year is the only
+// choice offered - there is no all-time button, because an average of your best
+// three across two seasons is not a figure anyone wants: it flatters whoever
+// had one good summer and says nothing about this one. The list is generated
+// from the clock, so it moves on by itself, and the board function takes a
+// four-digit year as a period keyword.
 const seasonPeriods = () => {
   const y = new Date().getFullYear();
   return [
     { k: String(y),     short: String(y),     label: 'the ' + y + ' season' },
     { k: String(y - 1), short: String(y - 1), label: 'the ' + (y - 1) + ' season' },
-    { k: 'all',         short: 'All',         label: 'all time' },
   ];
 };
 const periodsFor = mode => mode.periods ? mode.periods() : PERIODS;
