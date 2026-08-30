@@ -2727,7 +2727,7 @@ const SQ = {
   loaded: false, tried: false, ready: false, error: null,
   squads: [], groupId: null, sharing: new Set(),
   board: [], templates: [], tmplError: null,
-  period: '4w', bmode: 'all', metric: 'days_trained', busy: false, adding: false, posting: false,
+  period: '4w', bmode: 'erg', metric: 'erg_metres', busy: false, adding: false, posting: false,
   settings: false,   // the admin drawer is closed until asked for
   preview: null,     // id of the shared template being read before importing
   picked: null,      // Set of exercise names ticked in that preview
@@ -2752,9 +2752,6 @@ const PERIODS = [
 // separately, and adding a third pre-summed column would be a column that can
 // disagree with the two it came from.
 const BOARD_MODES = [
-  { k: 'all',     label: 'Overall', metrics: [
-      { k: 'days_trained',     btn: 'Days trained', unit: '' },
-      { k: 'sessions_total',   btn: 'Sessions',     unit: '' } ] },
   { k: 'erg',     label: 'Erg', metrics: [
       { k: 'erg_metres',       btn: 'Distance', unit: 'm' },
       { k: 'erg_seconds',      btn: 'Time',     unit: 'time' } ] },

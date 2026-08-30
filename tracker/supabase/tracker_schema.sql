@@ -692,9 +692,10 @@ $$;
 -- personal is absent by construction: this function never reads notes,
 -- per-exercise loads, or session dates.
 --
--- Water is counted here as of 2026-08-30. It had to be: "days trained" is the
--- board's default measure, and without water it under-counted anyone who
--- mostly rows on the water, which in a rowing club is most people.
+-- Water is counted here as of 2026-08-30. It had to be: water is a discipline
+-- the board ranks on in its own right, and "days trained" - shown as context on
+-- every athlete's row - would otherwise have under-counted anyone who mostly
+-- rows on the water, which in a rowing club is most people.
 --
 -- Members who have not opted in are returned with sharing = false and
 -- all measures null, so the board can show "3 of 8 sharing" honestly

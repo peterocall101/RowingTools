@@ -356,13 +356,19 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   raise and take the board down for *everyone* in the squad.
 - **Non-sharers are shown, greyed, as "not sharing".** The board says "2 of 3 sharing" rather than
   quietly pretending the squad is smaller than it is.
-- **The board is five things you can be ranked on, chosen with buttons.** Overall, Erg, Water,
-  Erg + Water, Weights, Core - then a second row for the measure of whichever one is picked, on
-  exactly the same pattern as Progress (distance | time, sessions | sets, time | sessions), and a
-  third for the period. It replaced two dropdowns. **Erg + Water is computed client-side**
-  (`combined_metres`, `combined_seconds` in `boardVal`) rather than added to the SQL: it is the sum
-  of two columns the function already returns, and a derived total that lives in the client cannot
-  disagree with its own parts.
+- **The board ranks on one of five disciplines, chosen with buttons.** Erg, Water, Erg + Water,
+  Weights, Core - then a second row for the measure of whichever one is picked, on exactly the same
+  pattern as Progress (distance | time, sessions | sets, time | sessions), and a third for the
+  period. It replaced two dropdowns. **Erg + Water is computed client-side** (`combined_metres`,
+  `combined_seconds` in `boardVal`) rather than added to the SQL: it is the sum of two columns the
+  function already returns, and a derived total that lives in the client cannot disagree with its
+  own parts.
+
+  **There is no cross-discipline "Overall" mode.** One was built - days trained / total sessions -
+  and cut on 2026-08-30. Ranking a squad on an aggregate of four unlike things means deciding what
+  an erg piece is worth against a core circuit, and no honest exchange rate exists; a board people
+  cannot see the working behind is one they stop trusting. Days trained survives as context on each
+  athlete's own row, where it explains a number rather than being one. Do not re-add it as a mode.
 - **Everything you *do* to a squad is behind Board settings.** The board itself is a thing you
   read; inviting, removing people, sharing templates, importing one and leaving are things you do,
   and they were all sitting above and below the standings, on every visit, for the one visit in
@@ -377,13 +383,12 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   disabled until something is ticked. The selection lives in `SQ.picked`, in memory only - it is a
   selection, not a setting, and it dies with the preview. The merge rules are unchanged and still
   additive: importing never edits or removes anything you already have.
-- **The default metric is days trained, not volume.** A board topped by whoever erged the most
-  metres rewards junk volume and punishes the athlete on a taper. Days trained reflects turning
-  up, is far harder to inflate than a distance you type in, and does not disadvantage the lighter
-  athlete the way tonnage does. Volume metrics are available but secondary, and the board says
-  in as many words that the numbers are self-reported and are not race results. Days trained
-  counts water outings too - it had to, or it would have under-counted anyone who mostly rows on
-  the water, which in a rowing club is most people.
+- **It opens on erg distance, and every mode says what it is measuring.** The line under the board
+  names the discipline, the measure and the window in words, and says in as many words that the
+  numbers are self-reported and are not race results. Volume is a weak thing to rank on - it rewards
+  junk metres and punishes the athlete on a taper - so the breakdown under each name (days, weights,
+  erg, water, core) is always there to put a big number in context, and days trained counts water
+  outings as well as erg and gym.
 - **Join by six-character code, or by link.** The alphabet omits O/0, I/1 and S/5 - these get read
   aloud in a boathouse and typed with cold hands. Codes are not readable by non-members, so they
   cannot be enumerated; joining goes through an RPC. An invite link is

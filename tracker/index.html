@@ -444,15 +444,17 @@
   .histfilter{margin-bottom:18px}
   .histfilter .seg{padding:7px 13px;font-size:12.5px}
   .histfilter .seg small{font-family:var(--mono);font-size:10px;opacity:.6;margin-left:6px}
-  /* Six modes will not sit on one phone-width line, and a scroller would hide
-     half of them. Two rows of three, with the wrap seam drawn as a top rule
-     instead of a doubled left one. */
+  /* Five modes will not sit on one phone-width line, and a scroller would hide
+     the far end of them. Three then two, on a six-column grid so both rows fill
+     the width, with the wrap seam drawn as a top rule instead of a doubled left
+     one. */
   .bmodes{display:flex}
   @media(max-width:479px){
     .histfilter .seg{padding:7px 9px;font-size:12px}
     .histfilter .seg small{display:none}
-    .bmodes{display:grid;grid-template-columns:repeat(3,1fr)}
-    .bmodes .seg{padding:9px 4px;font-size:12px}
+    .bmodes{display:grid;grid-template-columns:repeat(6,1fr)}
+    .bmodes .seg{grid-column:span 2;padding:9px 4px;font-size:12px}
+    .bmodes .seg:nth-child(4),.bmodes .seg:nth-child(5){grid-column:span 3}
     .bmodes .seg:nth-child(4){border-left:none}
     .bmodes .seg:nth-child(n+4){border-top:1px solid var(--border2)}
   }
