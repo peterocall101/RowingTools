@@ -8,6 +8,22 @@ This README is the single source of truth for the repo's structure, architecture
 
 ---
 
+
+## Page head conventions
+
+Every page a person can land on declares its own icon:
+
+```html
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+```
+
+Both, on every page, and it matters: with **no** `rel="icon"` a browser falls back to requesting
+`/favicon.ico`, which does not exist here, so every visit to a leaderboard used to log a 404 in the
+console. Added site-wide on 2026-08-30. The redirect stubs (`clubs.html`, `heatmap-*.html`) are left
+alone deliberately - they replace themselves in under a second - as are `gmt_processor/` and
+`scripts/`, which render images rather than serve pages.
+
 ## Quick start (for a new developer)
 
 The **public website is static** - HTML, CSS and vanilla JS, no build step, no framework, no backend. To work on it:
