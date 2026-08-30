@@ -205,6 +205,13 @@ body.loading .btog .dot{opacity:0}
 a.sec-tab{text-decoration:none;display:inline-flex;align-items:center}
 .back-link{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:500;color:var(--text3);text-decoration:none;margin-bottom:1.75rem;transition:color .15s;font-family:var(--mono);letter-spacing:0.02em}
 .back-link:hover{color:var(--red-ink)}
+/* Section pages carry one nav line: back to the tools, and across to the
+   tracker. Worth its own row because a visitor who arrived on a regatta page
+   from a WhatsApp link has no other way to find out the tracker exists. */
+.xnav{display:flex;gap:8px 22px;flex-wrap:wrap;align-items:center;margin-bottom:1.75rem}
+.xnav .back-link{margin-bottom:0}
+.xnav .to-tracker{color:var(--text2)}
+.xnav .to-tracker:hover{color:var(--red-ink)}
 /* ══ Home page ══ */
 .home-mast{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:2.2rem 0 1.1rem;border-bottom:1px solid var(--text)}
 .home-mast .brand-mark{font-size:clamp(24px,3vw,28px)}

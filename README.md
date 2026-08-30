@@ -254,6 +254,21 @@ General-purpose results scraper for a source that has **no dedicated generator**
 #### `met_finals_scraper.py`
 Benchmark maintenance. Scrapes Met A/B/C final results across years from rowresults.co.uk and emits `met_finals_data.json` - the depth benchmarks (2nd-slowest finisher per final, per boat class) ready to paste into the next `benchmarks_v(N+1).json`. See [Workflow: updating benchmarks](#workflow-updating-benchmarks).
 
+#### `og_cards.html` (in `scripts/`)
+
+Source of truth for the social share images in `assets/og/*.png` - the cards that unfurl when a link
+is pasted into WhatsApp, Slack or a Google result. The PNGs are what the site serves; this file is
+what they were rendered from, so a card can be corrected rather than recreated.
+
+Open it in a browser to preview all seven, labelled. Add `?v=<name>` (`default`, `gmt`,
+`leaderboards`, `regatta`, `clubs`, `henley`, `tracker`) to get one card alone at exactly 1200x630
+with no page chrome, then screenshot the viewport at that size and save over
+`assets/og/<name>.png`. The file's own comment header has the headless recipe.
+
+Some of the copy dates: `311 clubs` and `13 UK regattas` are the numbers that move. If the card
+dimensions ever change, the `og:image:width` and `og:image:height` meta tags on every page have to
+change with them.
+
 #### `generate_app_icons.py` (in `scripts/`)
 Renders the PWA icons in `icons/` from the brand mark (Pillow). Re-run only after a brand/icon change.
 

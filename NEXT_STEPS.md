@@ -6,7 +6,7 @@ deliberately has no roadmap in it; this is where the roadmap lives.
 Ordered by what blocks what, not by size. Each item records what is **decided** so it does not get
 re-argued, and what is still **open** so it is obvious what a session needs before it can start.
 
-Last reviewed: 2026-08-29.
+Last reviewed: 2026-08-30.
 
 ---
 
@@ -86,31 +86,49 @@ real parse **without calling the API**, and a board with three invented squadmat
 
 ---
 
-## 2. `og:image` across the site
+## 2. `og:image` across the site - DONE 2026-08-30
 
-**Status:** not blocked by anything. Can be done any time.
+Seven cards in `assets/og/`, 1200x630, rendered from the site's own visual language: red top rule,
+Fraunces wordmark, Archivo title, and the same motif that sits on the matching homepage panel, so a
+shared link looks like the page it came from.
 
-There is not a single `og:image` on the site. Rowing clubs run on WhatsApp, and every link anyone
-shares - a leaderboard, a Henley result, a club profile - currently renders as bare text. That is a
-tax on the sharing the site already gets for free.
+| Card | Used by |
+|---|---|
+| `default.png` | homepage, `henley/methodology/` |
+| `gmt.png` `leaderboards.png` `clubs.png` `henley.png` | the matching section pages |
+| `regatta.png` | all 16 `leaderboards/<regatta>/` pages |
+| `tracker.png` | `tracker/login.html` |
 
-`rowingtools-share.js` already builds share cards for individual crew results, so the machinery is
-not foreign to the codebase.
+Tags added to 23 pages: `og:image` plus width, height and alt, and `twitter:card=summary_large_image`.
+Pages that had no Open Graph at all (`clubs/`, and every regatta page) also got `og:title`,
+`og:description`, `og:url`, `og:type` and `og:site_name`, derived from the `<title>`, meta
+description and canonical each page already had.
 
-Worth doing before Stripe, because it improves every page that already exists rather than only the
-tracker.
+The `heatmap-*.html` files at the repo root were skipped on purpose: they are `noindex` meta-refresh
+stubs that redirect to `/leaderboards/<regatta>/`, so nothing ever unfurls them.
+
+**To regenerate:** `scripts/og_cards.html` is the checked-in source, documented in `README.md`
+alongside the other two scripts. Open it to preview all seven; `?v=<name>` gives one card alone at
+1200x630 for screenshotting. Verified to reproduce all seven shipped PNGs byte for byte. Some copy
+dates - `311 clubs` and `13 UK regattas` are the numbers that move.
 
 ---
 
-## 3. Cross-links to the tracker from the high-traffic pages
+## 3. Cross-links to the tracker from the high-traffic pages - DONE 2026-08-30
 
-**Status:** blocked on Stripe. The link copy depends on whether the tracker is free.
+Was marked blocked on Stripe. It was not: the blocker was the *word* "free", not the link. The copy
+is now pricing-neutral - **"Training Tracker →"** and nothing else - so none of it needs revisiting
+when the tracker starts charging.
 
-Only `index.html` links to the tracker. Real traffic lands on `/leaderboards/`, `/clubs/`,
-`/henley/` and `/gmt/` from WhatsApp and Google, and none of those pages mention the tracker exists.
+- `gmt/`, `leaderboards/`, `henley/` - the existing single "Back to main tools" line became a
+  two-link `.xnav` row (new rule in `assets/app.css`).
+- `clubs/` - styles itself and does not load `app.css`, so the link went inline in its header,
+  separated by a middot, using its own local `.back-link` class.
+- All 16 `leaderboards/<regatta>/` pages - their own template and their own CSS, so the link went in
+  the footer beside "rowingtools.co.uk" rather than a nav row they have no styling for. **These are
+  the pages that actually matter**: they are where a WhatsApp link from a regatta lands.
 
-Held back only because there is no point writing "Training Tracker · free" into four page headers
-the week before it stops being free.
+21 pages outside `tracker/` now link to it, against one before.
 
 ---
 
