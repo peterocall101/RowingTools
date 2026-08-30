@@ -50,6 +50,18 @@ const MONTHLY_LIMIT = Number(Deno.env.get("PARSE_ERG_MONTHLY_LIMIT") || 150);
 // 100 the most this function can cost in 24 hours is about £5.
 const GLOBAL_DAILY_LIMIT = Number(Deno.env.get("PARSE_ERG_GLOBAL_DAILY_LIMIT") || 100);
 
+// Accounts that skip every cap - the per-user daily, the monthly, and the
+// site-wide ceiling. This is for the owner of the key: the limits exist to stop
+// other people spending his money, and it is absurd for them to stop him.
+//   supabase secrets set PARSE_ERG_UNLIMITED=you@example.com --project-ref <ref>
+// Comma-separated, and each entry is matched against the caller's profile id
+// AND their email, because an email is the thing an operator actually knows.
+// Emails are compared lower-cased; ids are uuids and already lower-case.
+// Every call is still LOGGED, so an unlimited account is visible in the spend
+// report - unmetered is not the same as unwatched.
+const UNLIMITED = (Deno.env.get("PARSE_ERG_UNLIMITED") || "")
+  .split(",").map((v) => v.trim().toLowerCase()).filter(Boolean);
+
 // Kill switch. Something looking wrong at 11pm should be stoppable in one
 // command, without a redeploy and without revoking the key the function needs:
 //   supabase secrets set PARSE_ERG_ENABLED=0 --project-ref <ref>
@@ -277,10 +289,13 @@ Deno.serve(async (req) => {
     return count ?? 0;
   };
 
+  const unmetered = UNLIMITED.includes(user.id.toLowerCase()) ||
+    UNLIMITED.includes((user.email || "").toLowerCase());
+
   // The whole site's spend in the last 24 hours, checked before the caller's
   // own. A per-user limit cannot bound the owner's bill, because the number of
   // users is not fixed; this can.
-  const globalToday = await countSince(since(60 * 24));
+  const globalToday = unmetered ? 0 : await countSince(since(60 * 24));
   if (globalToday >= GLOBAL_DAILY_LIMIT) {
     return json({
       error: "The site has hit its daily limit for reading erg photos. It resets on a rolling " +
@@ -289,7 +304,7 @@ Deno.serve(async (req) => {
     }, 429);
   }
 
-  const [today, month] = await Promise.all([
+  const [today, month] = unmetered ? [0, 0] : await Promise.all([
     countSince(since(60 * 24), user.id),
     countSince(since(60 * 24 * 30), user.id),
   ]);
@@ -318,7 +333,18 @@ Deno.serve(async (req) => {
       output_tokens: usage?.output_tokens ?? null,
     });
 
-  const client = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
+  // An identity-linked API key belongs to a person rather than to a workspace,
+  // so it will not act until it is told which workspace to bill and log the
+  // call against - without the header it authenticates and then fails
+  // validation with "anthropic-workspace-id is required". A workspace-scoped
+  // key needs no header, so this is set only when the secret exists and both
+  // kinds of key work:
+  //   supabase secrets set ANTHROPIC_WORKSPACE_ID=wrkspc_... --project-ref <ref>
+  const workspace = (Deno.env.get("ANTHROPIC_WORKSPACE_ID") || "").trim();
+  const client = new Anthropic({
+    apiKey: Deno.env.get("ANTHROPIC_API_KEY"),
+    ...(workspace ? { defaultHeaders: { "anthropic-workspace-id": workspace } } : {}),
+  });
 
   // The API is stateless - nothing persists between photos, so the standing
   // rules are re-sent on every request. PROMPT is their home; EXTRA_RULES lets

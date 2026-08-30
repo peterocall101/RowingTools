@@ -1061,7 +1061,10 @@ async function handleErgPhoto(file) {
   if (!resp.ok) {
     let msg = '', reason = '';
     try { const j = await resp.json(); msg = j.error || ''; reason = j.reason || ''; }
-    catch (e) { msg = 'Something went wrong reading the photo.'; }
+    catch (e) { msg = ''; }
+    // A response with no message of its own must not toast an empty box: say
+    // something plain rather than nothing.
+    if (!msg.trim()) msg = 'The photo could not be read just now.';
     // 402 = not on the plan, 429 = over quota (yours or the site's), 503 = the
     // reader is switched off. All three are expected states with a useful
     // message of their own, not crashes, so don't dress them up as errors.

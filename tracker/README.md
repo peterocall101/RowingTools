@@ -59,6 +59,18 @@ The Races tab additionally reads two files from the main site - `/data/all_resul
    $5/$25 per MTok). The split rows are small, dense digits and the accuracy was worth the money.
    To trade accuracy for cost: `supabase secrets set PARSE_ERG_MODEL=claude-sonnet-5 ...`.
 
+   **Taking the caps off one account** (the owner's, normally - the limits exist to stop other
+   people spending his money and it is absurd for them to stop him):
+
+   ```bash
+   supabase secrets set PARSE_ERG_UNLIMITED=you@example.com --project-ref tbhujqdflswhgxtioznb
+   ```
+
+   Comma-separated, matched against both the profile id and the email, so an email is enough. It
+   skips the per-user daily cap, the monthly cap **and** the site-wide ceiling. Calls are still
+   written to `tracker_erg_parses`, so an unmetered account still shows up in the spend report -
+   unmetered is not unwatched.
+
    **If the photo reader says it is "not available":** that is almost always the key. Check the
    function logs (Supabase dashboard > Edge Functions > parse-erg > Logs) for
    `parse-erg: Anthropic rejected the key 401`. The three causes, in order of likelihood:
@@ -69,11 +81,36 @@ The Races tab additionally reads two files from the main site - `/data/all_resul
       `supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref tbhujqdflswhgxtioznb`.
       Setting a secret restarts the function's workers rather than redeploying it, so the new key
       should take on the next request; if the log still shows 401, redeploy and try again.
+   1b. **The key string is wrong even though the secret exists.** Test the key itself, outside all
+      of this - a bad copy-paste (surrounding quotes, a trailing newline, half a key) looks
+      identical to a revoked one from inside the function:
+
+      ```bash
+      curl -s -o /dev/null -w "%{http_code}
+" https://api.anthropic.com/v1/models         -H "x-api-key: sk-ant-..." -H "anthropic-version: 2023-06-01"
+      ```
+
+      `200` means the key is good and the problem is the secret; `401` means the key is the problem.
+      Note that `supabase secrets set KEY="value"` can store the quotes in some shells - set it
+      without quotes.
    2. **The secret was never set, or was set on the wrong project.** `supabase secrets list
       --project-ref tbhujqdflswhgxtioznb` shows the names and a hash of each value, never the value
       itself - so it tells you the secret exists, not whether it is the right key.
    3. **The organisation has no credit.** That shows as a 400 with a credit-balance message rather
       than a 401, and surfaces as a 502 with the text, so read the logs before assuming the key.
+   4. **The key is identity-linked and has no workspace.** Hit on 2026-08-31. A key created against
+      a person rather than a workspace authenticates perfectly well and then fails validation:
+      `anthropic-workspace-id is required when authenticating with an identity-linked API key`.
+      Either create a **workspace-scoped** key instead, or name the workspace:
+
+      ```bash
+      supabase secrets set ANTHROPIC_WORKSPACE_ID=wrkspc_... --project-ref tbhujqdflswhgxtioznb
+      ```
+
+      The function sends the header only when that secret is set, so both kinds of key work.
+      Distinguishing this from a dead key takes one line: the probe above with the body printed
+      (`-w` instead of `-o NUL`) says `invalid_request_error` here and `authentication_error` for a
+      key that is genuinely revoked.
 
    **Where the money goes, and what not to touch.** Input is ~77% of it, and ~5,600 of those input
    tokens are the image itself - so image size is the only real lever, and it is the one that must
