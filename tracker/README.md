@@ -135,19 +135,33 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   - **Weights** opens on **All lifts** - sets or sessions a week as bars, then every lift in
     every week underneath with its change in average load. "How much am I lifting" comes before
     "how is the squat going", and the first question has no answer anywhere else in the app.
-    Picking a single lift from the same dropdown switches to one lift, one measure, a line by
+    Picking a single lift from the same picker switches to one lift, one measure, a line by
     session: heaviest set and estimated 1RM (Epley, labelled as an estimate) for reps-and-weight
     exercises, longest hold and total time held for timed ones. The set that produced the number
     is on the tile, the tooltip and the table, so a measure can never quietly gloss over the reps
     behind it.
-  - **Erg / Core** - weekly load: km, time or sessions a week for the erg, time working or
-    sessions a week for core. Weeks with nothing in them are drawn as gaps, not skipped, because
-    a fortnight off is the most important thing a load chart can show.
+  - **Erg / Water / Core** - weekly load: distance or time a week on the erg and on the water,
+    time working or sessions a week for core. Weeks with nothing in them are drawn as gaps, not
+    skipped, because a fortnight off is the most important thing a load chart can show.
   - **Session tonnage was removed on purpose.** It moves whenever the rep scheme moves and says
     nothing about whether you got stronger, so it is not offered as a measure of anything - not
     on Progress, and not as the collapsed summary line in History. Core **rounds** went the same
     way: a round count is a property of the routine, not of the work done, so core is counted in
     sessions and time working.
+
+- **Every choice on Progress is a button, and the range is one toggle.** The controls were four
+  dropdowns; each held two or three options, and a dropdown that hides two alternatives behind a
+  click is a worse control than the two buttons themselves. What is left is: the discipline
+  (Weights / Erg / Water / Core), the measure (Distance | Time, Time | Sessions, Sessions | Sets),
+  and one **Show all time / Last 12 weeks** toggle in place of the four-way range list. Twelve
+  weeks is the block a rower thinks in and everything else is "zoom out", so the range is two
+  states rather than a menu. The exercise list stays a `<select>` - it is the one control with
+  more than a handful of options. The measure keys survive a mode change where they can (`min`
+  means time everywhere), and reset to the mode's first measure where they cannot.
+- **The weekly figure sits above its own bar.** A chart you must hover to read is no use on a
+  phone. Each bar carries its value in mono above it, the latest week at full strength. Zoomed
+  out the slots get narrower than the text, so the labels thin to every other bar and then stop
+  altogether rather than overlap - the tap-for-a-chip tooltip is still there underneath.
 
   Never two measures on one axis. Both charts are drawn at a measured pixel width rather than
   scaled from a `viewBox`, so labels stay legible on a phone, and they re-render on resize and
@@ -181,6 +195,17 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
 - **History is a ruled sheet, not a card stack.** One line per session in aligned columns (day,
   discipline, what it was), expanding in place, under the week strip. Results-board language
   throughout: hairlines, tabular figures, square corners.
+- **History filters by discipline, client-side.** All / Weights / Erg / Water / Core, each with its
+  count, over the sessions already loaded - so it is instant and works offline. A discipline you
+  have never recorded gets no button. Two deliberate details: the **week strip keeps showing the
+  whole week** even with a filter on, because it is the context for what you are reading and a
+  filtered week would otherwise look like a light one; and a filter that would empty the page
+  falls back to All rather than showing nothing.
+- **The Weights picker lost its "Recent" row and gained a way out.** Recent duplicated the group
+  rows underneath it - the same chips, one scroll apart - and the thing people actually wanted
+  from the picker was a route to *edit* the library, which meant hunting for the Templates tab.
+  The header line is now one sentence plus **Edit exercises**, which jumps to Templates and scrolls
+  the library into view. Core's runner has the same jump to its routine.
 - **Water sessions are their own table, not a flag on the erg one.** The columns would nearly have
   fitted - `tracker_erg_sessions` already has distance, time and notes - but `tracker_squad_board()`
   sums that table as "erg metres", the Progress erg chart reads it, History labels it "erg" and
@@ -331,11 +356,34 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   raise and take the board down for *everyone* in the squad.
 - **Non-sharers are shown, greyed, as "not sharing".** The board says "2 of 3 sharing" rather than
   quietly pretending the squad is smaller than it is.
+- **The board is five things you can be ranked on, chosen with buttons.** Overall, Erg, Water,
+  Erg + Water, Weights, Core - then a second row for the measure of whichever one is picked, on
+  exactly the same pattern as Progress (distance | time, sessions | sets, time | sessions), and a
+  third for the period. It replaced two dropdowns. **Erg + Water is computed client-side**
+  (`combined_metres`, `combined_seconds` in `boardVal`) rather than added to the SQL: it is the sum
+  of two columns the function already returns, and a derived total that lives in the client cannot
+  disagree with its own parts.
+- **Everything you *do* to a squad is behind Board settings.** The board itself is a thing you
+  read; inviting, removing people, sharing templates, importing one and leaving are things you do,
+  and they were all sitting above and below the standings, on every visit, for the one visit in
+  twenty that needed them. They now live in a drawer that opens on **Board settings** and is shut
+  by default. Nothing changed about who can do what - the drawer just stops a rarely-used admin
+  surface from being the loudest thing on the page.
+- **A shared template is read before it is imported, and imported in part.** "Import" used to be a
+  button on a name and a count, which is asking someone to take a stranger's whole library on
+  trust. Opening one lists every exercise with its group, movement type and coaching note; the ones
+  already in your library are ticked out and greyed as **already yours** (matched on lower-cased
+  name, the same rule the import itself uses), and the import button names the count and stays
+  disabled until something is ticked. The selection lives in `SQ.picked`, in memory only - it is a
+  selection, not a setting, and it dies with the preview. The merge rules are unchanged and still
+  additive: importing never edits or removes anything you already have.
 - **The default metric is days trained, not volume.** A board topped by whoever erged the most
   metres rewards junk volume and punishes the athlete on a taper. Days trained reflects turning
   up, is far harder to inflate than a distance you type in, and does not disadvantage the lighter
   athlete the way tonnage does. Volume metrics are available but secondary, and the board says
-  in as many words that the numbers are self-reported and are not race results.
+  in as many words that the numbers are self-reported and are not race results. Days trained
+  counts water outings too - it had to, or it would have under-counted anyone who mostly rows on
+  the water, which in a rowing club is most people.
 - **Join by six-character code, or by link.** The alphabet omits O/0, I/1 and S/5 - these get read
   aloud in a boathouse and typed with cold hands. Codes are not readable by non-members, so they
   cannot be enumerated; joining goes through an RPC. An invite link is
@@ -395,8 +443,10 @@ Real, and deliberately not built yet - none of them risks data, but they will bi
   (section 8) - a template count of 0 there means the post never landed, above 0 means the
   reader's SELECT is what is broken.
 - **Shared templates include each exercise's coaching cue** (the `note` field on the library), which
-  is a deliberate part of posting a template but is worth a preview before posting. This is
-  unrelated to the "never shared" line in the consent panel, which is about *session* notes.
+  is a deliberate part of posting a template. The *reading* half of this is now covered - the
+  preview shows every exercise and its note before any of it lands in your library - but there is
+  still no preview of your own library on the way **out**, so posting is the step taken on trust.
+  This is unrelated to the "never shared" line in the consent panel, which is about *session* notes.
 
 ## Offline
 

@@ -692,11 +692,9 @@ $$;
 -- personal is absent by construction: this function never reads notes,
 -- per-exercise loads, or session dates.
 --
--- KNOWN GAP: water sessions are not counted here yet. tracker_water_sessions
--- arrived after this function and adding it changes the return signature, so
--- it needs a `drop function` and a matching change to the client's METRICS
--- list. Until then "days trained" under-counts anyone who mostly rows on the
--- water - which, for a rowing app, is most people. Worth closing.
+-- Water is counted here as of 2026-08-30. It had to be: "days trained" is the
+-- board's default measure, and without water it under-counted anyone who
+-- mostly rows on the water, which in a rowing club is most people.
 --
 -- Members who have not opted in are returned with sharing = false and
 -- all measures null, so the board can show "3 of 8 sharing" honestly
@@ -711,6 +709,11 @@ $$;
 -- dates reconstructs the whole calendar. Four fixed windows, computed
 -- server-side, leave nothing to difference.
 drop function if exists public.tracker_squad_board(uuid, date);
+-- The return signature changed when water was added, and CREATE OR REPLACE
+-- cannot change a function's OUT columns - it fails with "cannot change return
+-- type of existing function". Dropping first is what makes this file still
+-- idempotent against a database that has the older version.
+drop function if exists public.tracker_squad_board(uuid, text);
 
 create or replace function public.tracker_squad_board(p_group uuid, p_period text)
 returns table (
@@ -721,9 +724,12 @@ returns table (
   sessions_total   int,
   sessions_weights int,
   sessions_erg     int,
+  sessions_water   int,
   sessions_core    int,
   erg_metres       numeric,
   erg_seconds      numeric,
+  water_metres     numeric,
+  water_seconds    numeric,
   core_work_s      numeric,
   core_rounds      int,
   weights_sets     int,
@@ -805,6 +811,17 @@ begin
     where te2.date >= p_since
     group by te2.profile_id
   ),
+  wa as (
+    select tws.profile_id as pid,
+           count(*)::int as sessions,
+           coalesce(sum(tws.distance_m), 0)::numeric as metres,
+           coalesce(sum(tws.total_time_s), 0)::numeric as secs,
+           array_agg(distinct tws.date) as dates
+    from public.tracker_water_sessions tws
+    join shared on shared.pid = tws.profile_id
+    where tws.date >= p_since
+    group by tws.profile_id
+  ),
   c as (
     select tc.profile_id as pid,
            count(distinct tc.id)::int as sessions,
@@ -824,17 +841,22 @@ begin
     r.opted_in,
     case when r.opted_in then (
       select count(distinct d)::int from unnest(
-        coalesce(w.dates, '{}'::date[]) ||
-        coalesce(e.dates, '{}'::date[]) ||
-        coalesce(c.dates, '{}'::date[])
+        coalesce(w.dates,  '{}'::date[]) ||
+        coalesce(e.dates,  '{}'::date[]) ||
+        coalesce(wa.dates, '{}'::date[]) ||
+        coalesce(c.dates,  '{}'::date[])
       ) as d
     ) end,
-    case when r.opted_in then coalesce(w.sessions, 0) + coalesce(e.sessions, 0) + coalesce(c.sessions, 0) end,
+    case when r.opted_in then coalesce(w.sessions, 0) + coalesce(e.sessions, 0)
+                            + coalesce(wa.sessions, 0) + coalesce(c.sessions, 0) end,
     case when r.opted_in then coalesce(w.sessions, 0) end,
     case when r.opted_in then coalesce(e.sessions, 0) end,
+    case when r.opted_in then coalesce(wa.sessions, 0) end,
     case when r.opted_in then coalesce(c.sessions, 0) end,
     case when r.opted_in then coalesce(e.metres, 0) end,
     case when r.opted_in then coalesce(e.secs, 0) end,
+    case when r.opted_in then coalesce(wa.metres, 0) end,
+    case when r.opted_in then coalesce(wa.secs, 0) end,
     case when r.opted_in then coalesce(c.work_s, 0) end,
     case when r.opted_in then coalesce(c.rounds, 0) end,
     case when r.opted_in then coalesce(wsets.n_sets, 0) end,
@@ -844,6 +866,7 @@ begin
   left join w     on w.pid     = r.pid
   left join wsets on wsets.pid = r.pid
   left join e     on e.pid     = r.pid
+  left join wa    on wa.pid    = r.pid
   left join c     on c.pid     = r.pid;
 end;
 $$;

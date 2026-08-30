@@ -82,7 +82,9 @@
   .weekcount b{color:var(--red-ink);font-weight:600}
 
   .picker{border-top:1px solid var(--border2);border-bottom:1px solid var(--border2);padding:12px 0 14px;margin-bottom:22px}
-  .picker-head{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:9px}
+  .picker-head{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--text3);margin-bottom:9px;display:flex;justify-content:space-between;
+    align-items:center;gap:10px;flex-wrap:wrap}
   .picker-session{font-size:13.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text);
     border-bottom:1px solid var(--text);padding-bottom:3px;margin:18px 0 8px;
     display:flex;justify-content:space-between;align-items:baseline;gap:10px}
@@ -330,8 +332,26 @@
   .consent ul{margin:9px 0 0;padding-left:17px;font-size:12.5px;color:var(--text2);line-height:1.65}
   .consent li::marker{color:var(--text3)}
   .consent .never{color:var(--text3)}
-  .boardctl{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
-  .boardctl select{flex:1;min-width:145px}
+  .boardctl{display:flex;gap:10px 14px;flex-wrap:wrap;margin-bottom:18px}
+  /* the admin drawer: everything you do to a squad rather than read from it */
+  .bsettings{border:1px solid var(--border2);padding:14px 15px;margin-bottom:22px}
+  .bsettings .invite{border-top:none;padding-top:0}
+  .tsec{border-top:1px solid var(--border);padding-top:14px;margin-top:16px}
+  .tsec h4{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+  /* reading someone's library before any of it lands in yours */
+  .tprev{border:1px solid var(--border);border-top:none;padding:12px 13px 14px;margin-bottom:10px}
+  .tprev-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--text3);
+    border-bottom:1px solid var(--border);padding-bottom:7px;margin-bottom:4px}
+  .tprev-row{display:grid;grid-template-columns:18px 1fr;gap:2px 10px;align-items:baseline;
+    padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer}
+  .tprev-row:last-of-type{border-bottom:none}
+  .tprev-row input{accent-color:var(--red);width:15px;height:15px;grid-row:1}
+  .tprev-row .tp-name{font-weight:600;font-size:14px}
+  .tprev-row .tp-meta,.tprev-row .tp-note{grid-column:2;font-family:var(--mono);font-size:10.5px;color:var(--text3)}
+  .tprev-row .tp-note{color:var(--text2);font-style:italic}
+  .tprev-row.dup{opacity:.45;cursor:default}
+  .tprev button[disabled]{opacity:.45;cursor:not-allowed}
   /* the board reads as a results sheet: rank, name, number, all on one baseline */
   .bhead{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:12px;padding:0 2px 6px;
     border-bottom:1px solid var(--text);font-family:var(--mono);font-size:9.5px;
@@ -349,6 +369,8 @@
     font-variant-numeric:tabular-nums;text-align:right;line-height:1;white-space:nowrap}
   .bval small{font-size:11px;color:var(--text3);font-weight:400;margin-left:2px}
   .bsub{grid-column:2/-1;grid-row:2;font-family:var(--mono);font-size:10.5px;color:var(--text3);letter-spacing:.02em}
+  /* an admin row keeps column 3 free for the remove link */
+  .brow.adm .bsub{grid-column:2}
   .bbar{grid-column:2/-1;grid-row:3;height:2px;background:var(--bg3);margin-top:7px;overflow:hidden}
   .bbar i{display:block;height:100%;background:var(--red-ink);width:0}
   .brow.lead .bbar i{background:var(--text)}
@@ -413,6 +435,27 @@
   .seg+.seg{border-left:1px solid var(--border2)}
   .seg.active{background:var(--text);color:var(--bg)}
   .seg:hover:not(.active){color:var(--text);background:var(--bg3)}
+  /* second-rank toggles: the measure, the range, the History filter */
+  .segmented.sm{margin-bottom:0}
+  .segmented.sm .seg{padding:7px 14px;font-size:12px}
+  .seg.solo{border:1px solid var(--border2);padding:7px 14px;font-size:12px;font-weight:600;
+    background:transparent;color:var(--text2);height:auto}
+  .seg.solo:hover{color:var(--text);background:var(--bg3);border-color:var(--border2)}
+  .histfilter{margin-bottom:18px}
+  .histfilter .seg{padding:7px 13px;font-size:12.5px}
+  .histfilter .seg small{font-family:var(--mono);font-size:10px;opacity:.6;margin-left:6px}
+  /* Six modes will not sit on one phone-width line, and a scroller would hide
+     half of them. Two rows of three, with the wrap seam drawn as a top rule
+     instead of a doubled left one. */
+  .bmodes{display:flex}
+  @media(max-width:479px){
+    .histfilter .seg{padding:7px 9px;font-size:12px}
+    .histfilter .seg small{display:none}
+    .bmodes{display:grid;grid-template-columns:repeat(3,1fr)}
+    .bmodes .seg{padding:9px 4px;font-size:12px}
+    .bmodes .seg:nth-child(4){border-left:none}
+    .bmodes .seg:nth-child(n+4){border-top:1px solid var(--border2)}
+  }
   .progbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
   .progbar select{min-width:150px;flex:1}
   .prog-head{border-top:2px solid var(--text);padding-top:8px;margin-bottom:0}
@@ -449,6 +492,9 @@
   .cbar.last{opacity:.9}
   .cbar.on{opacity:1}
   .cavg{stroke:var(--text3);stroke-width:1;stroke-dasharray:4 4}
+  /* the week's figure above its own bar, so the chart reads without hovering */
+  .cbarlab{font-family:var(--mono);font-size:10.5px;fill:var(--text3);font-variant-numeric:tabular-nums}
+  .cbarlab.last{fill:var(--text)}
   .clab{font-family:var(--mono);font-size:10.5px;fill:var(--text2);font-variant-numeric:tabular-nums}
   .ccross{stroke:var(--border2);stroke-width:1;stroke-dasharray:3 3}
   .ctip{position:absolute;pointer-events:none;background:var(--bg3);border:1px solid var(--border2);
@@ -587,7 +633,8 @@
     <p class="weekcount" id="weekcount"></p>
     <div id="edit-bar"></div>
     <div class="picker">
-      <div class="picker-head">Tap what you're doing - it drops into its section below. Tap as many as you like; the page stays put.</div>
+      <div class="picker-head"><span>Tap what you're doing - add as many as you like.</span>
+        <button class="repeat" id="edit-lib">&#9998; Edit exercises</button></div>
       <input type="search" id="chip-search" class="chipsearch" placeholder="Filter exercises&hellip;" autocomplete="off">
       <div id="chips"></div>
     </div>

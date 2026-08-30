@@ -177,6 +177,15 @@ exist - something like 30 questions a day, against 20 photos - but it is a guard
 
 ---
 
+## Recently closed
+
+**2026-08-30 - the squad board counts water sessions.** `tracker_squad_board()` gained a `wa`
+CTE and four columns (`sessions_water`, `water_metres`, `water_seconds`, plus water in `days_trained`
+and `sessions_total`); the return signature changed, so the schema file drops the function before
+recreating it and **`tracker_schema.sql` has to be re-run** for the board to work at all.
+
+---
+
 ## Below the line
 
 Real, none of them urgent at ten users, all worth closing before a hundred. Written up properly in
@@ -187,11 +196,8 @@ Real, none of them urgent at ten users, all worth closing before a hundred. Writ
 - No way to promote a member to admin (`tracker_set_role`).
 - Server-sent invite emails. Invites currently open the sender's own mail app.
 - Concept2 Logbook OAuth sync. The `source` column on `tracker_erg_sessions` is ready for it.
-- **The squad board does not count water sessions.** `tracker_water_sessions` arrived after
-  `tracker_squad_board()`, and adding it changes the function's return signature - so it needs a
-  `drop function` plus a matching change to the client's `METRICS` list. Until then **"days trained",
-  the board's default metric, under-counts anyone who mostly rows on the water**, which in a rowing
-  club is most people. The most worthwhile thing on this list.
+- No preview of your own library before you post it as a shared template. Reading someone else's
+  before importing is now covered; posting yours is still the step taken on trust.
 
 ---
 

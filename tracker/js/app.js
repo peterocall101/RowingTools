@@ -490,19 +490,6 @@ function repeatGroup(group) {
     : 'Nothing in that session is still in your library.');
 }
 
-// Exercises in the order they were last actually done. With a big library this
-// is the row you use; the session groups below it are for everything else.
-function recentExercises(lib, limit) {
-  const seen = [], byId = new Set(lib.map(e => e.id));
-  for (const w of S.workouts) {
-    for (const id of Object.keys(w.sets)) {
-      if (byId.has(id) && !seen.includes(id)) seen.push(id);
-    }
-    if (seen.length >= limit) break;
-  }
-  return seen.slice(0, limit).map(exById);
-}
-
 const chipHTML = e => '<button class="chip" aria-pressed="false" data-chip="' + e.id + '">' + esc(e.name) + '</button>';
 
 function renderLog(snap) {
@@ -512,14 +499,8 @@ function renderLog(snap) {
   if (!lib.length) {
     chipsEl.innerHTML = '<p class="placeholder">No exercises yet - set up your library in the <b>Templates</b> tab first (or upload a crewmate\'s template there).</p>';
   } else {
-    const recent = recentExercises(lib, 10);
-    const recentHTML = recent.length
-      ? '<div class="picker-session">Recent</div>' +
-        '<div class="picker-row"><span class="rowlab">last used</span><div class="chips">' +
-        recent.map(chipHTML).join('') + '</div></div>'
-      : '';
     const groupings = allGroups(lib);
-    chipsEl.innerHTML = recentHTML + groupings.map(g => {
+    chipsEl.innerHTML = groupings.map(g => {
       const inG = lib.filter(e => groupsOf(e).includes(g));
       const pats = [...new Set(inG.map(e => e.pattern))].sort((a, b) => patIdx(a) - patIdx(b));
       const last = lastSessionForGroup(g, lib);
@@ -1840,20 +1821,23 @@ function liftWeekHTML(wk, prev) {
      is a question about weeks, not about single sessions.
    Never two measures on one axis. Session tonnage is gone on purpose: it moves
    when the rep scheme changes and says nothing about whether you got stronger. */
+// Twelve weeks is the block a rower actually thinks in; everything else is
+// "zoom out". Two states, one button, instead of a four-way dropdown.
+const RANGE_DEFAULT = '12';
 // Not a uuid, so it can never collide with a real exercise id.
 const ALL_LIFTS = 'all-lifts';
 // Weights opens on the whole picture, not on whichever lift happened to be
 // first alphabetically: "how much am I lifting" comes before "how is the squat
 // going", and the second question is one dropdown away.
-const PROG = { mode: 'weights', ex: ALL_LIFTS, metric: '', weeks: '12' };
+const PROG = { mode: 'weights', ex: ALL_LIFTS, metric: '', weeks: RANGE_DEFAULT };
 
 const REP_METRICS = [
-  { k: 'top',  label: 'Heaviest set',  unit: 'kg' },
-  { k: 'e1rm', label: 'Estimated 1RM', unit: 'kg' },
+  { k: 'top',  btn: 'Heaviest set', label: 'Heaviest set',  unit: 'kg' },
+  { k: 'e1rm', btn: 'Est. 1RM',     label: 'Estimated 1RM', unit: 'kg' },
 ];
 const SEC_METRICS = [
-  { k: 'top',    label: 'Longest hold',   unit: 's' },
-  { k: 'volume', label: 'Total time held', unit: 's' },
+  { k: 'top',    btn: 'Longest hold', label: 'Longest hold',    unit: 's' },
+  { k: 'volume', btn: 'Total held',   label: 'Total time held', unit: 's' },
 ];
 const metricsFor = m => (m && m.unit === 'secs') ? SEC_METRICS : REP_METRICS;
 // Epley. Named on the chart, because an estimate presented as a measurement is
@@ -1862,31 +1846,25 @@ const e1rm = (w, reps) => w * (1 + reps / 30);
 
 // dp is the precision the number is SHOWN at; week-on-week change is computed
 // from the rounded figures so the table can never read "8m, 8m, +0.1".
+// `btn` is the word on the toggle, `label` the sentence under the heading,
+// `col` the table header, `short` the compact form used on bars and in cells.
 const ERG_METRICS = [
-  { k: 'km',  label: 'Distance a week', col: 'Distance', dp: 1,
-    fmt: v => round1(v) + ' km', short: v => round1(v) + ' km' },
-  { k: 'min', label: 'Time a week',     col: 'Time',     dp: 0,
-    fmt: v => fmtHM(v), short: v => fmtHM(v) },
-  { k: 'n',   label: 'Sessions a week', col: 'Sessions', dp: 0,
-    fmt: v => Math.round(v) + (v === 1 ? ' session' : ' sessions'), short: v => String(Math.round(v)) },
+  { k: 'km',  btn: 'Distance', label: 'Distance a week', col: 'Distance', dp: 1,
+    fmt: v => round1(v) + ' km', short: v => round1(v) + ' km', bar: v => round1(v) },
+  { k: 'min', btn: 'Time',     label: 'Time a week',     col: 'Time',     dp: 0,
+    fmt: v => fmtHM(v), short: v => fmtHM(v), bar: v => fmtHM(v) },
 ];
 const WEIGHT_WEEK_METRICS = [
-  { k: 'sets', label: 'Sets a week',     col: 'Sets',     dp: 0,
-    fmt: v => plural(Math.round(v), 'set'),     short: v => String(Math.round(v)) },
-  { k: 'n',    label: 'Sessions a week', col: 'Sessions', dp: 0,
-    fmt: v => plural(Math.round(v), 'session'), short: v => String(Math.round(v)) },
+  { k: 'n',    btn: 'Sessions', label: 'Sessions a week', col: 'Sessions', dp: 0,
+    fmt: v => plural(Math.round(v), 'session'), short: v => String(Math.round(v)), bar: v => Math.round(v) },
+  { k: 'sets', btn: 'Sets',     label: 'Sets a week',     col: 'Sets',     dp: 0,
+    fmt: v => plural(Math.round(v), 'set'),     short: v => String(Math.round(v)), bar: v => Math.round(v) },
 ];
 const CORE_METRICS = [
-  { k: 'min', label: 'Time working a week', col: 'Working',  dp: 0,
-    fmt: v => fmtHM(v), short: v => fmtHM(v) },
-  { k: 'n',   label: 'Sessions a week',     col: 'Sessions', dp: 0,
-    fmt: v => Math.round(v) + (v === 1 ? ' session' : ' sessions'), short: v => String(Math.round(v)) },
-];
-const WEEK_RANGES = [
-  { k: '8',   label: 'Last 8 weeks' },
-  { k: '12',  label: 'Last 12 weeks' },
-  { k: '26',  label: 'Last 26 weeks' },
-  { k: 'all', label: 'All time' },
+  { k: 'min', btn: 'Time',     label: 'Time working a week', col: 'Working',  dp: 0,
+    fmt: v => fmtHM(v), short: v => fmtHM(v), bar: v => fmtHM(v) },
+  { k: 'n',   btn: 'Sessions', label: 'Sessions a week',     col: 'Sessions', dp: 0,
+    fmt: v => plural(Math.round(v), 'session'), short: v => String(Math.round(v)), bar: v => Math.round(v) },
 ];
 
 // Water takes the same measures as the erg - distance, time, sessions - so it
@@ -2056,7 +2034,8 @@ const topSetText = (s, timeOnly) => !s ? ''
 // axis ticks would be a third copy of them. Reading a single bar is a hover
 // or a tap.
 function barsHTML(pts, metric, W) {
-  const H = 186, P = { t: 12, r: 10, b: 26, l: 10 };
+  // Top padding carries the value labels that sit above each bar.
+  const H = 196, P = { t: 24, r: 10, b: 26, l: 10 };
   const iw = Math.max(40, W - P.l - P.r), ih = H - P.t - P.b;
   const vs = pts.map(p => p.v);
   const hi = Math.max(...vs, 0);
@@ -2075,6 +2054,17 @@ function barsHTML(pts, metric, W) {
     return '<rect class="cbar' + (i === pts.length - 1 ? ' last' : '') + '" data-bar="' + i + '" x="' +
       (cx(i) - bw / 2).toFixed(1) + '" y="' + (P.t + ih - h).toFixed(1) +
       '" width="' + bw.toFixed(1) + '" height="' + h.toFixed(1) + '"/>';
+  }).join('');
+
+  // The week's figure above its own bar, so the chart reads without hovering.
+  // Zoomed out to a year the slots are narrower than the text, and overlapping
+  // numbers are worse than none - so they thin out and the tooltip takes over.
+  const labelEvery = slot >= 40 ? 1 : slot >= 22 ? 2 : 0;
+  const barLabels = !labelEvery ? '' : pts.map((p, i) => {
+    if (!p.v || (pts.length - 1 - i) % labelEvery) return '';
+    return '<text class="cbarlab' + (i === pts.length - 1 ? ' last' : '') + '" x="' + cx(i).toFixed(1) +
+      '" y="' + (Y(p.v) - 7).toFixed(1) + '" text-anchor="middle">' +
+      esc(String((metric.bar || metric.short)(p.v))) + '</text>';
   }).join('');
 
   // One flat average across what is on screen: "is this week above or below
@@ -2105,7 +2095,7 @@ function barsHTML(pts, metric, W) {
 
   return '<div class="chartwrap" id="chartwrap">' +
     '<svg width="' + W + '" height="' + H + '" role="img" aria-label="Weekly training load; the same numbers are in the table below">' +
-      bars + avgLine +
+      bars + barLabels + avgLine +
       '<line class="caxis" x1="' + P.l + '" y1="' + (P.t + ih) + '" x2="' + (P.l + iw) + '" y2="' + (P.t + ih) + '"/>' +
       xlabs +
       '<rect id="ch-hit" x="' + P.l + '" y="' + P.t + '" width="' + iw + '" height="' + (ih + 10) + '" fill="transparent"/>' +
@@ -2118,6 +2108,17 @@ const tileHTML = (lab, val, note, cls) =>
   '<div class="tile-note">' + note + '</div></div>';
 
 /* ---- controls ---- */
+// Everything on this row is a button now, because every choice here has two or
+// three options and a dropdown hides the alternatives behind a click.
+const metricToggle = (metrics, current) => metrics.length < 2 ? '' :
+  '<div class="segmented sm" role="group" aria-label="Measure">' + metrics.map(m =>
+    '<button class="seg' + (m.k === current ? ' active' : '') + '" data-pmetric="' + m.k + '" ' +
+    'aria-pressed="' + (m.k === current) + '">' + esc(m.btn || m.label) + '</button>').join('') + '</div>';
+
+const rangeToggle = () =>
+  '<button class="seg solo" data-prange="' + (PROG.weeks === 'all' ? RANGE_DEFAULT : 'all') + '">' +
+  (PROG.weeks === 'all' ? 'Last ' + RANGE_DEFAULT + ' weeks' : 'Show all time') + '</button>';
+
 function progControlsHTML() {
   const seg = ['weights', 'erg', 'water', 'core'].map(k =>
     '<button class="seg' + (PROG.mode === k ? ' active' : '') + '" data-pmode="' + k + '" ' +
@@ -2130,8 +2131,9 @@ function progControlsHTML() {
     if (opts.length) {
       if (PROG.ex !== ALL_LIFTS && !opts.some(e => e.id === PROG.ex)) PROG.ex = opts[0].id;
       const all = PROG.ex === ALL_LIFTS;
-      // All lifts is a weekly load view like Erg and Core, so it takes their
-      // controls; one lift takes the per-lift measures.
+      // All lifts is a weekly load view like the rest; one lift takes the
+      // per-lift measures. The exercise list stays a select - it is the one
+      // control here with more than a handful of options.
       const metrics = all ? WEIGHT_WEEK_METRICS : metricsFor(exById(PROG.ex));
       if (!metrics.some(x => x.k === PROG.metric)) PROG.metric = metrics[0].k;
       rest =
@@ -2141,23 +2143,13 @@ function progControlsHTML() {
           opts.map(e =>
           '<option value="' + e.id + '"' + (e.id === PROG.ex ? ' selected' : '') + '>' +
           esc(e.name) + (e.retired ? ' (retired)' : '') + '</option>').join('') + '</select>' +
-        '<select id="prog-metric" aria-label="Measure">' + metrics.map(x =>
-          '<option value="' + x.k + '"' + (x.k === PROG.metric ? ' selected' : '') + '>' +
-          x.label + '</option>').join('') + '</select>' +
-        (all ? '<select id="prog-weeks" aria-label="Range">' + WEEK_RANGES.map(r =>
-          '<option value="' + r.k + '"' + (r.k === PROG.weeks ? ' selected' : '') + '>' +
-          r.label + '</option>').join('') + '</select>' : '');
+        metricToggle(metrics, PROG.metric) +
+        (all ? rangeToggle() : '');
     }
   } else {
     const metrics = weeklyMetrics(PROG.mode);
     if (!metrics.some(x => x.k === PROG.metric)) PROG.metric = metrics[0].k;
-    rest =
-      '<select id="prog-metric" aria-label="Measure">' + metrics.map(x =>
-        '<option value="' + x.k + '"' + (x.k === PROG.metric ? ' selected' : '') + '>' +
-        x.label + '</option>').join('') + '</select>' +
-      '<select id="prog-weeks" aria-label="Range">' + WEEK_RANGES.map(r =>
-        '<option value="' + r.k + '"' + (r.k === PROG.weeks ? ' selected' : '') + '>' +
-        r.label + '</option>').join('') + '</select>';
+    rest = metricToggle(metrics, PROG.metric) + rangeToggle();
   }
   return '<div class="segmented" role="tablist" aria-label="What to chart">' + seg + '</div>' +
     (rest ? '<div class="progbar">' + rest + '</div>' : '');
@@ -2374,6 +2366,20 @@ function wireChart() {
 }
 
 /* ================= history =================
+   Filtering is client-side over what is already loaded, so it is instant and
+   works offline. The week strip keeps showing the WHOLE week even when a
+   filter is on: it is the context for what you are looking at, and hiding
+   three quarters of it would make a filtered week look like a light one. */
+let histFilter = 'all';
+const HIST_KINDS = [
+  { k: 'all',   label: 'All' },
+  { k: 'w',     label: 'Weights' },
+  { k: 'e',     label: 'Erg' },
+  { k: 'wa',    label: 'Water' },
+  { k: 'c',     label: 'Core' },
+];
+
+/* ================= history =================
    A ruled list, one line per session, grouped by week. Date, discipline and a
    one-line summary line up in columns down the page so a month of training can
    be read without opening anything; the detail is one tap away. */
@@ -2391,13 +2397,23 @@ function renderHistory() {
     return;
   }
 
+  const counts = { all: all.length, w: 0, e: 0, wa: 0, c: 0 };
+  all.forEach(x => counts[x.kind]++);
+  if (!counts[histFilter]) histFilter = 'all';      // filtered everything away
+  const bar = '<div class="segmented histfilter" role="group" aria-label="Show which sessions">' +
+    HIST_KINDS.filter(k => k.k === 'all' || counts[k.k]).map(k =>
+      '<button class="seg' + (histFilter === k.k ? ' active' : '') + '" data-hfilter="' + k.k + '" ' +
+      'aria-pressed="' + (histFilter === k.k) + '">' + k.label +
+      '<small>' + counts[k.k] + '</small></button>').join('') + '</div>';
+
+  const shown = histFilter === 'all' ? all : all.filter(x => x.kind === histFilter);
   const weeks = {};
-  all.forEach(x => { const w = mondayOf(x.r.date); (weeks[w] = weeks[w] || []).push(x); });
+  shown.forEach(x => { const w = mondayOf(x.r.date); (weeks[w] = weeks[w] || []).push(x); });
   // Each week opens with what the week weighed in at across all three
   // disciplines, then the sessions that made it up.
   const wStats = weeklyStats(), ergW = ergWeekly(), waterW = waterWeekly(), coreW = coreWeekly();
 
-  el.innerHTML = Object.keys(weeks).sort().reverse().map(w => {
+  el.innerHTML = bar + Object.keys(weeks).sort().reverse().map(w => {
     const items = weeks[w].sort((a, b) => sortKey(b.r).localeCompare(sortKey(a.r)));
     return '<section class="weekgroup"><h4><span class="wg-when">' +
       shortDate(w) + ' - ' + shortDate(addDays(w, 6)) + '</span>' +
@@ -2711,33 +2727,62 @@ const SQ = {
   loaded: false, tried: false, ready: false, error: null,
   squads: [], groupId: null, sharing: new Set(),
   board: [], templates: [], tmplError: null,
-  period: '4w', metric: 'days_trained', busy: false, adding: false, posting: false,
+  period: '4w', bmode: 'all', metric: 'days_trained', busy: false, adding: false, posting: false,
+  settings: false,   // the admin drawer is closed until asked for
+  preview: null,     // id of the shared template being read before importing
+  picked: null,      // Set of exercise names ticked in that preview
 };
 
 const PERIODS = [
-  { k: 'week', label: 'This week' },
-  { k: '4w',   label: 'Last 4 weeks' },
-  { k: '12w',  label: 'Last 12 weeks' },
-  { k: 'all',  label: 'All time' },
+  { k: 'week', short: 'Week',  label: 'This week' },
+  { k: '4w',   short: '4 wks', label: 'Last 4 weeks' },
+  { k: '12w',  short: '12 wks', label: 'Last 12 weeks' },
+  { k: 'all',  short: 'All',   label: 'All time' },
 ];
 
 // Consistency first, volume second, and on purpose. A board topped by whoever
 // erged the most metres rewards junk volume and punishes the athlete on a
-// taper; "days trained" is the number that actually reflects turning up, and
-// it is far harder to inflate than a distance you type in yourself.
-const METRICS = [
-  { k: 'days_trained',     label: 'Days trained',      unit: '',    group: 'Consistency' },
-  { k: 'sessions_total',   label: 'Sessions',          unit: '',    group: 'Consistency' },
-  { k: 'erg_metres',       label: 'Erg metres',        unit: 'm',   group: 'Erg' },
-  { k: 'erg_seconds',      label: 'Erg time',          unit: 'time',group: 'Erg' },
-  { k: 'sessions_erg',     label: 'Erg sessions',      unit: '',    group: 'Erg' },
-  { k: 'core_work_s',      label: 'Core time working', unit: 'time',group: 'Core' },
-  { k: 'sessions_core',    label: 'Core sessions',     unit: '',    group: 'Core' },
-  { k: 'weights_sets',     label: 'Weights sets',      unit: '',    group: 'Weights' },
-  { k: 'weights_volume',   label: 'Weights volume',    unit: 'kg',  group: 'Weights' },
-  { k: 'sessions_weights', label: 'Weights sessions',  unit: '',    group: 'Weights' },
+// taper; "days trained" is the number that reflects turning up, is far harder
+// to inflate than a distance you type in, and does not disadvantage the
+// lighter athlete the way tonnage does. It stays the default, which is why
+// Overall is the first mode rather than a footnote.
+//
+// Two levels, both buttons: what you are looking at, then which measure of it.
+// Erg + Water is summed on the client - the function returns the two
+// separately, and adding a third pre-summed column would be a column that can
+// disagree with the two it came from.
+const BOARD_MODES = [
+  { k: 'all',     label: 'Overall', metrics: [
+      { k: 'days_trained',     btn: 'Days trained', unit: '' },
+      { k: 'sessions_total',   btn: 'Sessions',     unit: '' } ] },
+  { k: 'erg',     label: 'Erg', metrics: [
+      { k: 'erg_metres',       btn: 'Distance', unit: 'm' },
+      { k: 'erg_seconds',      btn: 'Time',     unit: 'time' } ] },
+  { k: 'water',   label: 'Water', metrics: [
+      { k: 'water_metres',     btn: 'Distance', unit: 'm' },
+      { k: 'water_seconds',    btn: 'Time',     unit: 'time' } ] },
+  { k: 'both',    label: 'Erg + Water', metrics: [
+      { k: 'combined_metres',  btn: 'Distance', unit: 'm' },
+      { k: 'combined_seconds', btn: 'Time',     unit: 'time' } ] },
+  { k: 'weights', label: 'Weights', metrics: [
+      { k: 'sessions_weights', btn: 'Sessions', unit: '' },
+      { k: 'weights_sets',     btn: 'Sets',     unit: '' } ] },
+  { k: 'core',    label: 'Core', metrics: [
+      { k: 'core_work_s',      btn: 'Time',     unit: 'time' },
+      { k: 'sessions_core',    btn: 'Sessions', unit: '' } ] },
 ];
-const metricBy = k => METRICS.find(m => m.k === k) || METRICS[0];
+const boardMode = () => BOARD_MODES.find(m => m.k === SQ.bmode) || BOARD_MODES[0];
+const num = v => Number(v) || 0;
+// The only derived measures. Everything else is read straight off the row.
+const boardVal = (r, k) =>
+  k === 'combined_metres'  ? num(r.erg_metres) + num(r.water_metres)
+  : k === 'combined_seconds' ? num(r.erg_seconds) + num(r.water_seconds)
+  : num(r[k]);
+
+const metricBy = k => {
+  const ms = boardMode().metrics;
+  return ms.find(m => m.k === k) || ms[0];
+};
 
 // The window is NOT computed here. tracker_squad_board takes a period keyword
 // and derives the date itself, because a caller-supplied date would let anyone
@@ -2860,8 +2905,7 @@ function renderSquad() {
     (SQ.squads.length && SQ.adding ? squadJoinHTML(false) : '');
   const sel = $('squad-pick');
   if (sel) sel.value = SQ.groupId;
-  const p = $('squad-period'); if (p) p.value = SQ.period;
-  const m = $('squad-metric'); if (m) m.value = SQ.metric;
+  // period and measure are buttons now; see the click handler.
 }
 
 function squadJoinHTML(alone) {
@@ -2903,18 +2947,17 @@ const joinLink = code =>
 
 function squadMainHTML() {
   const sq = SQ.squads.find(s => s.id === SQ.groupId) || SQ.squads[0];
-  const metric = metricBy(SQ.metric);
-  const me = S.session.user.id;
   const isAdmin = !!(sq && sq.role === 'admin');
-  const sharing = SQ.sharing.has(SQ.groupId);
+  const me = S.session.user.id;
+  const mode = boardMode();
+  if (!mode.metrics.some(m => m.k === SQ.metric)) SQ.metric = mode.metrics[0].k;
+  const metric = metricBy(SQ.metric);
 
   const rows = SQ.board.filter(r => r.sharing);
   const quiet = SQ.board.filter(r => !r.sharing);
-  rows.sort((a, b) => (Number(b[metric.k]) || 0) - (Number(a[metric.k]) || 0));
-  const top = Math.max(...rows.map(r => Number(r[metric.k]) || 0), 0);
+  rows.sort((a, b) => boardVal(b, metric.k) - boardVal(a, metric.k));
+  const top = Math.max(...rows.map(r => boardVal(r, metric.k)), 0);
 
-  // Only an admin can remove anyone, and never themselves - leaving is the
-  // way out for you. Matches tracker_admin_remove_member().
   const rmBtn = r => (isAdmin && r.profile_id !== me)
     ? '<button class="brm" data-sq-rm="' + r.profile_id + '" data-sq-rmname="' + esc(r.display_name) +
       '">remove</button>' : '';
@@ -2924,29 +2967,30 @@ function squadMainHTML() {
     : !SQ.board.length
     ? '<p class="empty">Nobody in this squad yet.</p>'
     : '<div class="bhead"><span>#</span><span>Athlete</span><span class="r">' +
-        esc(metric.label) + '</span></div>' +
+        esc(mode.label) + ' \u00b7 ' + esc(metric.btn) + '</span></div>' +
       rows.map((r, i) => {
-          const v = Number(r[metric.k]) || 0;
+          const v = boardVal(r, metric.k);
+          const rm = rmBtn(r);
+          // `adm` tells the CSS to stop the breakdown line short of the remove
+          // link; without it the two share the same grid cell and overlap.
           return '<div class="brow' + (i ? '' : ' lead') + (r.profile_id === me ? ' me' : '') +
-            (v ? '' : ' zero') + '">' +
+            (v ? '' : ' zero') + (rm ? ' adm' : '') + '">' +
             '<span class="brank">' + (i + 1) + '</span>' +
             '<span class="bname">' + esc(r.display_name) + '</span>' +
             '<span class="bval">' + fmtMetric(v, metric.unit) +
               (metric.unit && metric.unit !== 'time' ? '<small>' + metric.unit + '</small>' : '') + '</span>' +
-            '<span class="bsub">' + r.days_trained + ' day' + (r.days_trained === 1 ? '' : 's') + ' · ' +
-              r.sessions_weights + ' weights · ' + r.sessions_erg + ' erg · ' + r.sessions_core + ' core</span>' +
-            rmBtn(r) +
+            '<span class="bsub">' + r.days_trained + ' day' + (r.days_trained === 1 ? '' : 's') + ' \u00b7 ' +
+              r.sessions_weights + ' weights \u00b7 ' + r.sessions_erg + ' erg \u00b7 ' +
+              (r.sessions_water || 0) + ' water \u00b7 ' + r.sessions_core + ' core</span>' +
+            rm +
             '<span class="bbar"><i style="width:' + (top ? Math.round((v / top) * 100) : 0) + '%"></i></span>' +
           '</div>';
         }).join('') +
-        // Anyone here predates sharing-follows-membership and has not had the
-        // backfill run over them yet. Yours is fixable from here; other
-        // people's is theirs to fix.
         (quiet.length ? quiet.map(r =>
           '<div class="brow bquiet' + (r.profile_id === me ? ' me' : '') + '">' +
-            '<span class="brank">–</span>' +
+            '<span class="brank">\u2013</span>' +
             '<span class="bname">' + esc(r.display_name) + '</span>' +
-            '<span class="bval">–</span>' +
+            '<span class="bval">\u2013</span>' +
             '<span class="bsub">not on the board' +
               (r.profile_id === me
                 ? ' <button class="blink" id="sq-share-me" data-group="' + SQ.groupId + '">show my totals</button>'
@@ -2955,14 +2999,49 @@ function squadMainHTML() {
 
   return '<div class="setup-sec">' +
     '<div class="squad-bar">' +
-      '<select id="squad-pick">' + SQ.squads.map(s =>
-        '<option value="' + s.id + '">' + esc(s.name) + '</option>').join('') + '</select>' +
-      '<button id="sq-add">+ Join another</button>' +
+      (SQ.squads.length > 1
+        ? '<select id="squad-pick">' + SQ.squads.map(x =>
+            '<option value="' + x.id + '">' + esc(x.name) + '</option>').join('') + '</select>'
+        : '<h3 class="setup-head" style="flex:1;margin:0;border:none;padding:0">' +
+          esc((sq && sq.name) || 'Squad') + '</h3>') +
+      '<button class="seg solo' + (SQ.settings ? ' active' : '') + '" id="sq-settings">' +
+        (SQ.settings ? '\u2715 Close settings' : '\u2699 Board settings') + '</button>' +
     '</div>' +
 
-    // Getting someone in is the thing this tab is for, so it is the first
-    // thing on it - link, email or the phone's own share sheet, all carrying
-    // the same code.
+    (SQ.settings ? squadSettingsHTML(sq, isAdmin) : '') +
+
+    // what you are looking at, then which measure of it
+    '<div class="segmented bmodes" role="tablist" aria-label="What to rank by">' +
+      BOARD_MODES.map(m => '<button class="seg' + (m.k === SQ.bmode ? ' active' : '') +
+        '" data-bmode="' + m.k + '" role="tab" aria-selected="' + (m.k === SQ.bmode) + '">' +
+        m.label + '</button>').join('') + '</div>' +
+    '<div class="boardctl">' +
+      '<div class="segmented sm" role="group" aria-label="Measure">' +
+        mode.metrics.map(m => '<button class="seg' + (m.k === SQ.metric ? ' active' : '') +
+          '" data-bmetric="' + m.k + '" aria-pressed="' + (m.k === SQ.metric) + '">' +
+          m.btn + '</button>').join('') + '</div>' +
+      '<div class="segmented sm" role="group" aria-label="Period">' +
+        PERIODS.map(p => '<button class="seg' + (p.k === SQ.period ? ' active' : '') +
+          '" data-bperiod="' + p.k + '" aria-pressed="' + (p.k === SQ.period) + '">' +
+          p.short + '</button>').join('') + '</div>' +
+    '</div>' +
+    board +
+    '<p class="squad-note">' + rows.length + ' of ' + SQ.board.length + ' on the board \u00b7 ' +
+      esc(mode.label) + ', ' + esc(metric.btn.toLowerCase()) + ', ' +
+      esc((PERIODS.find(p => p.k === SQ.period) || {}).label || '').toLowerCase() + '.<br>' +
+      'Everyone here sees your <b>totals</b> - days trained, sessions, erg and water distance and ' +
+      'time, core time, weights sets and volume. Never a session, a lift, a date or a note. ' +
+      'They are self-reported: they show who is putting the work in, not who is fastest.' +
+    '</p>' +
+    '<div id="squad-msg"></div>' +
+  '</div>';
+}
+
+// Everything you do to a squad rather than read from it: the invite, who is in
+// it, and the shared templates. It lives behind one button because it is all
+// occasional - you set a squad up once and then look at the board every week.
+function squadSettingsHTML(sq, isAdmin) {
+  return '<div class="bsettings">' +
     (sq && sq.code
       ? '<div class="invite">' +
           '<div class="inv-code">Invite code <b>' + esc(sq.code) + '</b>' +
@@ -2977,72 +3056,91 @@ function squadMainHTML() {
             (isAdmin ? ' A new code stops every link you have already sent from working.' : '') +
           '</p>' +
         '</div>'
-      // Squads inherited from the coach dashboard predate join codes and
-      // have none, which leaves their admin with no way to invite anyone.
-      : '<div class="invite">' +
-          '<div class="inv-code">No invite code yet</div>' +
+      : '<div class="invite"><div class="inv-code">No invite code yet</div>' +
           (isAdmin
-            ? '<div class="inv-acts"><button class="primary" id="sq-newcode" ' +
-                'style="height:38px">Create an invite code</button></div>' +
+            ? '<div class="inv-acts"><button class="primary" id="sq-newcode" style="height:38px">' +
+              'Create an invite code</button></div>' +
               '<p class="inv-note">This squad was made before invite codes existed, so there is ' +
                 'nothing to hand out yet. Generate one and you can invite people by email or link.</p>'
-            : '<p class="inv-note">This squad has no invite code, so there is nothing to pass on ' +
-                'yet. Whoever started it can create one from this tab.</p>') +
+            : '<p class="inv-note">This squad has no invite code. Whoever started it can create ' +
+                'one from here.</p>') +
         '</div>') +
-
-    '<div class="boardctl">' +
-      '<select id="squad-metric">' +
-        [...new Set(METRICS.map(m => m.group))].map(g =>
-          '<optgroup label="' + g + '">' + METRICS.filter(m => m.group === g).map(m =>
-            '<option value="' + m.k + '">' + m.label + '</option>').join('') + '</optgroup>').join('') +
-      '</select>' +
-      '<select id="squad-period">' + PERIODS.map(p =>
-        '<option value="' + p.k + '">' + p.label + '</option>').join('') + '</select>' +
-    '</div>' +
-    board +
-    // What sharing means, said once, in one paragraph. Being in the squad is
-    // being on the board; leaving is how you take yourself off it.
-    '<p class="squad-note">' + rows.length + ' of ' + SQ.board.length + ' on the board · ' +
-      esc(metricBy(SQ.metric).label) + ', ' +
-      esc((PERIODS.find(p => p.k === SQ.period) || {}).label || '').toLowerCase() + '.<br>' +
-      'Everyone here sees your <b>totals</b> - days trained, sessions, erg metres and time, core ' +
-      'time, weights sets and volume. Never a session, a lift, a date or a note. ' +
-      (sharing ? 'Leave the squad and your numbers go with you. ' : '') +
-      'They are self-reported: they show who is putting the work in, not who is fastest.' +
-      '<br><button class="blink" id="sq-leave">Leave ' + esc((sq && sq.name) || 'this squad') + '</button>' +
-      (isAdmin ? ' · you started this squad, so you can remove people from it' : '') +
+    squadTemplatesHTML() +
+    '<p class="squad-note" style="margin-bottom:0">' +
+      '<button class="blink" id="sq-leave">Leave ' + esc((sq && sq.name) || 'this squad') + '</button>' +
+      (isAdmin ? ' \u00b7 you started this squad, so you can remove people from the board above' : '') +
+      ' \u00b7 <button class="blink" id="sq-add">join another squad</button>' +
     '</p>' +
-    '<div id="squad-msg"></div>' +
-  '</div>' + squadTemplatesHTML();
+  '</div>';
 }
 
 function squadTemplatesHTML() {
-  return '<div class="setup-sec"><h3 class="setup-head">Shared templates</h3>' +
-    '<p class="setup-intro">Post your exercise library so the rest of the squad can pick it up, ' +
-    'or take someone else\'s. Importing adds anything you do not already have and never overwrites ' +
-    'your own setup.</p>' +
+  const mine = S.session.user.id;
+  return '<div class="tsec"><h4>Shared templates</h4>' +
+    '<p class="inv-note" style="margin:0 0 12px">Post your exercise library so the squad can pick ' +
+    'it up, or take someone else\'s. Importing only ever adds - it never changes or removes what ' +
+    'you already have.</p>' +
     (SQ.tmplError
       ? '<div class="toast err">Could not read this squad\u2019s templates: ' + esc(SQ.tmplError) +
         '<br>If that mentions a missing table or a policy, run ' +
         '<b>tracker/supabase/tracker_schema.sql</b> in the Supabase SQL editor.</div>'
       : SQ.templates.length
       ? SQ.templates.map(t => {
-          const n = (t.payload && Array.isArray(t.payload.exercises)) ? t.payload.exercises.length : 0;
-          // created_at is server-set; a row that somehow lacks it must not take
-          // the whole panel down
+          const list = (t.payload && Array.isArray(t.payload.exercises)) ? t.payload.exercises : [];
           const when = (t.created_at || '').slice(0, 10);
+          const open = SQ.preview === t.id;
           return '<div class="lib-item"><div><div class="nm">' + esc(t.name) + '</div>' +
-            '<div class="meta">' + n + ' exercise' + (n === 1 ? '' : 's') +
-            (when ? ' · ' + shortDate(when) : '') +
-            (t.profile_id === S.session.user.id ? ' · yours' : '') + '</div></div>' +
-            '<div class="ops"><button class="ghost" data-tmpl-get="' + t.id + '">Import</button>' +
-            (t.profile_id === S.session.user.id
-              ? '<button class="ghost" data-tmpl-del="' + t.id + '" title="Remove">×</button>' : '') +
-            '</div></div>';
+            '<div class="meta">' + plural(list.length, 'exercise') +
+            (when ? ' \u00b7 ' + shortDate(when) : '') +
+            (t.profile_id === mine ? ' \u00b7 yours' : '') + '</div></div>' +
+            '<div class="ops">' +
+              '<button class="ghost" data-tmpl-open="' + t.id + '" style="font-size:12.5px">' +
+                (open ? 'Close' : 'Read') + '</button>' +
+              (t.profile_id === mine
+                ? '<button class="ghost" data-tmpl-del="' + t.id + '" title="Remove">\u00d7</button>' : '') +
+            '</div></div>' +
+            (open ? tmplPreviewHTML(t, list) : '');
         }).join('')
       : '<p class="placeholder">Nothing shared with this squad yet.</p>') +
     '<div class="tmpl-row"><button id="sq-post">&#8593; Share my exercise library</button></div>' +
     '<div id="squad-tmsg"></div></div>';
+}
+
+// You should be able to see what is in someone's library before it lands in
+// yours, and take the four lifts you wanted rather than all twenty. Anything
+// already in your library by name is ticked off and labelled, so importing
+// cannot look like it silently did nothing.
+function tmplPreviewHTML(t, list) {
+  const have = new Set(activeLibrary().map(e => e.name.trim().toLowerCase()));
+  const picked = SQ.picked || new Set();
+  const fresh = list.filter(x => !have.has(String(x.name || '').trim().toLowerCase()));
+  return '<div class="tprev">' +
+    '<div class="tprev-head">' +
+      '<span>' + plural(fresh.length, 'exercise') + ' you do not have' +
+        (list.length - fresh.length ? ' \u00b7 ' + (list.length - fresh.length) + ' already yours' : '') +
+      '</span>' +
+      '<span><button class="blink" data-tmpl-all="' + t.id + '">all</button> \u00b7 ' +
+        '<button class="blink" data-tmpl-none="' + t.id + '">none</button></span>' +
+    '</div>' +
+    list.map(x => {
+      const nm = String(x.name || '');
+      const dup = have.has(nm.trim().toLowerCase());
+      return '<label class="tprev-row' + (dup ? ' dup' : '') + '">' +
+        '<input type="checkbox" data-tmpl-pick="' + esc(nm) + '"' +
+          (picked.has(nm) && !dup ? ' checked' : '') + (dup ? ' disabled' : '') + '>' +
+        '<span class="tp-name">' + esc(nm) + '</span>' +
+        '<span class="tp-meta">' + esc(x.pattern || 'other') +
+          (x.unit === 'secs' ? ' \u00b7 timed' : '') +
+          (x.per_side ? ' \u00b7 each side' : '') +
+          (x.bodyweight ? ' \u00b7 bodyweight' : '') +
+          (dup ? ' \u00b7 already yours' : '') + '</span>' +
+        (x.note ? '<span class="tp-note">' + esc(x.note) + '</span>' : '') +
+      '</label>';
+    }).join('') +
+    '<button class="primary" data-tmpl-get="' + t.id + '" style="height:40px;margin-top:12px"' +
+      (picked.size ? '' : ' disabled') + '>' +
+      (picked.size ? 'Import ' + plural(picked.size, 'exercise') : 'Tick what you want') + '</button>' +
+  '</div>';
 }
 
 /* ---- actions ---- */
@@ -3208,9 +3306,18 @@ async function squadPostTemplate() {
 async function squadImportTemplate(id) {
   const t = SQ.templates.find(x => x.id === id);
   if (!t) return;
-  // same merge rules as a file upload: additive, never overwrites
-  const n = await importExercises(t.payload, 'squad-tmsg');
-  if (n) track('squad_template_imported', { exercises: n });
+  const picked = SQ.picked || new Set();
+  const all = (t.payload && Array.isArray(t.payload.exercises)) ? t.payload.exercises : [];
+  const wanted = all.filter(x => picked.has(String(x.name || '')));
+  if (!wanted.length) { toast('squad-tmsg', 'Tick the exercises you want first.', 'warn'); return; }
+  // Same merge rules as a file upload - additive, never overwrites - applied to
+  // the subset that was ticked rather than the whole library.
+  const n = await importExercises(Object.assign({}, t.payload, { exercises: wanted }), 'squad-tmsg');
+  if (n) {
+    track('squad_template_imported', { exercises: n, of: all.length });
+    SQ.preview = null; SQ.picked = null;
+    renderLibrary(); renderLog(snapshotLog()); renderSquad();
+  }
 }
 
 async function squadDeleteTemplate(id) {
@@ -3248,8 +3355,7 @@ document.addEventListener('change', e => {
   // The progress controls are rebuilt with the panel, so they are wired by
   // delegation rather than by id at boot.
   if (e.target.id === 'prog-pick')   { PROG.ex = e.target.value; PROG.metric = ''; renderProgress(); return; }
-  if (e.target.id === 'prog-metric') { PROG.metric = e.target.value; renderProgress(); return; }
-  if (e.target.id === 'prog-weeks')  { PROG.weeks = e.target.value; renderProgress(); return; }
+  // prog-metric and prog-weeks are buttons now; see the click handler.
 });
 
 document.addEventListener('click', async e => {
@@ -3395,6 +3501,23 @@ document.addEventListener('click', async e => {
     if (PROG.mode !== pm.dataset.pmode) { PROG.mode = pm.dataset.pmode; PROG.metric = ''; renderProgress(); }
     return;
   }
+  const pmet = e.target.closest('[data-pmetric]');
+  if (pmet) {
+    if (PROG.metric !== pmet.dataset.pmetric) { PROG.metric = pmet.dataset.pmetric; renderProgress(); }
+    return;
+  }
+  const prng = e.target.closest('[data-prange]');
+  if (prng) { PROG.weeks = prng.dataset.prange; renderProgress(); return; }
+  const hf = e.target.closest('[data-hfilter]');
+  if (hf) {
+    if (histFilter !== hf.dataset.hfilter) { histFilter = hf.dataset.hfilter; renderHistory(); }
+    return;
+  }
+  if (e.target.id === 'edit-lib') {
+    selectTab('p-lib');
+    $('lib-list').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
   // ---- timer ----
   const cSplit = e.target.closest('[data-csplit]');
   if (cSplit) { splitRound(Number(cSplit.dataset.csplit)); return; }
@@ -3434,6 +3557,43 @@ document.addEventListener('click', async e => {
   const dx = e.target.closest('[data-del-ex]');
   if (dx) { deleteLibExercise(dx.dataset.delEx); return; }
   // ---- squad ----
+  const bm = e.target.closest('[data-bmode]');
+  if (bm) {
+    if (SQ.bmode !== bm.dataset.bmode) { SQ.bmode = bm.dataset.bmode; SQ.metric = ''; renderSquad(); }
+    return;
+  }
+  const bmet = e.target.closest('[data-bmetric]');
+  if (bmet) {
+    if (SQ.metric !== bmet.dataset.bmetric) { SQ.metric = bmet.dataset.bmetric; renderSquad(); }
+    return;
+  }
+  const bper = e.target.closest('[data-bperiod]');
+  if (bper) {
+    // the period is a server-side window, so this one has to go back for data
+    if (SQ.period !== bper.dataset.bperiod) { SQ.period = bper.dataset.bperiod; refreshSquad(); }
+    return;
+  }
+  if (e.target.id === 'sq-settings') { SQ.settings = !SQ.settings; renderSquad(); return; }
+  const tOpen = e.target.closest('[data-tmpl-open]');
+  if (tOpen) {
+    const id = tOpen.dataset.tmplOpen;
+    SQ.preview = SQ.preview === id ? null : id;
+    SQ.picked = new Set();
+    renderSquad();
+    return;
+  }
+  const tAll = e.target.closest('[data-tmpl-all]');
+  if (tAll) {
+    const t = SQ.templates.find(x => x.id === tAll.dataset.tmplAll);
+    const have = new Set(activeLibrary().map(x => x.name.trim().toLowerCase()));
+    SQ.picked = new Set(((t && t.payload && t.payload.exercises) || [])
+      .map(x => String(x.name || ''))
+      .filter(n => n && !have.has(n.trim().toLowerCase())));
+    renderSquad();
+    return;
+  }
+  const tNone = e.target.closest('[data-tmpl-none]');
+  if (tNone) { SQ.picked = new Set(); renderSquad(); return; }
   if (e.target.id === 'sq-create') { squadCreate(); return; }
   if (e.target.id === 'sq-join')   { squadJoin(); return; }
   if (e.target.id === 'sq-leave')  { squadLeave(); return; }
@@ -3617,8 +3777,14 @@ document.addEventListener('click', async e => {
   // wired by delegation rather than by id.
   document.addEventListener('change', ev => {
     if (ev.target.id === 'squad-pick')   { SQ.groupId = ev.target.value; refreshSquad(); }
-    if (ev.target.id === 'squad-period') { SQ.period = ev.target.value; refreshSquad(); }
-    if (ev.target.id === 'squad-metric') { SQ.metric = ev.target.value; renderSquad(); }
+    // Ticking an exercise in a shared template. Held in memory only - it is a
+    // selection, not a setting, and it dies with the preview.
+    if (ev.target.dataset && ev.target.dataset.tmplPick !== undefined) {
+      SQ.picked = SQ.picked || new Set();
+      if (ev.target.checked) SQ.picked.add(ev.target.dataset.tmplPick);
+      else SQ.picked.delete(ev.target.dataset.tmplPick);
+      renderSquad();
+    }
   });
   let resizeTimer = null;
   window.addEventListener('resize', () => {
