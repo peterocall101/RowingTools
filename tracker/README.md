@@ -60,9 +60,10 @@ The Races tab additionally reads two files from the main site - `/data/all_resul
    To trade accuracy for cost: `supabase secrets set PARSE_ERG_MODEL=claude-sonnet-5 ...`.
 
    **On trial since 2026-10-13: `PARSE_ERG_MODEL=claude-haiku-5-5`.** At $0.10/$0.50 per MTok
-   that is about 0.07p a photo on the same token counts, so the cost figures in this file are the
-   Opus ones and overstate the live bill roughly fiftyfold. Accuracy on dense split tables is
-   unproven - check real photos against the monitor, and re-measure cost from
+   that measured **0.08p a photo** on the first real read (7,332 input + 623 output tokens), so
+   the cost figures in this file are the Opus ones and overstate the live bill about 45-fold.
+   Accuracy on dense split tables is unproven beyond that one read - check real photos against
+   the monitor, and re-measure cost from
    `tracker_erg_parses` (it logs the model per call). To go back:
    `supabase secrets unset PARSE_ERG_MODEL --project-ref tbhujqdflswhgxtioznb`.
 
@@ -519,8 +520,11 @@ the Edge Function, because the app is a static file anyone can skip:
    Failed calls are logged too: a retry loop burns allowance rather than only money.
 4. **A global daily ceiling and a kill switch.** Gate 3 bounds what one account can spend; it says
    nothing about how many accounts exist, so it cannot bound the bill. `GLOBAL_DAILY_LIMIT`
-   (default 100, about £5 a day at the current model) is the number that actually decides the
-   worst case, and `PARSE_ERG_ENABLED=0` stops the feature in one command with no redeploy:
+   (default 100) does. **Since 2026-10-13 its secret is 1000**, a backstop far above real use
+   (80p a day on Haiku), so the 2-a-day allowance is the limit athletes actually meet. **The hard
+   stop on spend is the prepaid Anthropic balance with auto-reload off**: when it is empty,
+   Anthropic answers 400 "credit balance" and the function reports the reader as unavailable.
+   `PARSE_ERG_ENABLED=0` stops the feature in one command with no redeploy:
 
    ```bash
    supabase secrets set PARSE_ERG_ENABLED=0 --project-ref tbhujqdflswhgxtioznb

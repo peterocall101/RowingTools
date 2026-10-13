@@ -45,11 +45,12 @@ const PAID_DAILY_LIMIT = Number(Deno.env.get("PARSE_ERG_DAILY_LIMIT") || 20);
 const MONTHLY_LIMIT = Number(Deno.env.get("PARSE_ERG_MONTHLY_LIMIT") || 150);
 
 // Ceiling across EVERYONE, not per user. Per-user limits bound what one
-// account can spend; they do nothing about how many accounts there are. Twenty
-// paid athletes at the per-user daily limit is 400 photos, and at roughly 5p a
-// photo that is £20 in a day off one key. This is the number that decides the
-// owner's worst case, so it is the one to set deliberately: at the default of
-// 100 the most this function can cost in 24 hours is about £5.
+// account can spend; they do nothing about how many accounts there are.
+// Since 2026-10-13 this is a backstop rather than the working limit: the
+// secret is set to 1000, far above real use, so the 2-a-day per-user allowance
+// is what athletes actually meet. On Haiku at about 0.08p a photo, 1000 is
+// 80p a day. The hard stop on spend is the prepaid Anthropic balance with
+// auto-reload OFF - when it is empty the reader reports itself unavailable.
 const GLOBAL_DAILY_LIMIT = Number(Deno.env.get("PARSE_ERG_GLOBAL_DAILY_LIMIT") || 100);
 
 // Accounts that skip every cap - the per-user daily, the monthly, and the
@@ -392,8 +393,15 @@ Deno.serve(async (req) => {
       // error. It also stops "api key is invalid" being echoed to end users.
       // The detail goes to the function logs, which is where it is fixed:
       //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref <ref>
-      if (e.status === 401 || e.status === 403) {
-        console.error("parse-erg: Anthropic rejected the key", e.status, e.message);
+      // An empty prepaid balance is the same kind of thing and is the intended
+      // hard stop on spend: Anthropic answers 400 with a credit-balance message,
+      // and the athlete should see the reader as off, not a billing error.
+      const outOfCredit = e.status === 400 && /credit balance/i.test(e.message);
+      if (e.status === 401 || e.status === 403 || outOfCredit) {
+        console.error(
+          outOfCredit ? "parse-erg: Anthropic account is out of credit"
+                      : "parse-erg: Anthropic rejected the key",
+          e.status, e.message);
         return json({
           error: "The photo reader is not available at the moment. Enter this one by hand - " +
             "everything else in the tracker is unaffected.",
