@@ -59,6 +59,13 @@ The Races tab additionally reads two files from the main site - `/data/all_resul
    $5/$25 per MTok). The split rows are small, dense digits and the accuracy was worth the money.
    To trade accuracy for cost: `supabase secrets set PARSE_ERG_MODEL=claude-sonnet-5 ...`.
 
+   **On trial since 2026-10-13: `PARSE_ERG_MODEL=claude-haiku-5-5`.** At $0.10/$0.50 per MTok
+   that is about 0.07p a photo on the same token counts, so the cost figures in this file are the
+   Opus ones and overstate the live bill roughly fiftyfold. Accuracy on dense split tables is
+   unproven - check real photos against the monitor, and re-measure cost from
+   `tracker_erg_parses` (it logs the model per call). To go back:
+   `supabase secrets unset PARSE_ERG_MODEL --project-ref tbhujqdflswhgxtioznb`.
+
    **Taking the caps off one account** (the owner's, normally - the limits exist to stop other
    people spending his money and it is absurd for them to stop him):
 
@@ -502,9 +509,10 @@ the Edge Function, because the app is a static file anyone can skip:
 1. **`verify_jwt`** (Supabase default) - no account, no call.
 2. **The plan is read with the service role**, from `profiles`, never taken from the request. The
    `canReadPhotos()` check in `app.js` is only there to grey out a button.
-3. **Per-user daily allowance, set by the plan.** There are two kinds of member and this is the
-   only thing separating them: `trial` is free and gets **2 photos a day**, `paid` is £5 a month and
-   gets **20**, with a 150/month ceiling that only a paid account can reach. A trial is not a
+3. **Per-user daily allowance, set by the plan.** Every member is on `trial`, which is free and
+   gets **2 photos a day**. `paid` gets **20**, with a 150/month ceiling that only a paid account
+   can reach, but **the paid tier is parked (2026-10-13)**: it is the owner's own account, there
+   is no checkout, and nothing user-facing mentions a price. A trial is not a
    countdown - it is the smaller allowance, indefinitely - so nobody is refused the reader outright
    and there is no 402 path any more. Counted from `tracker_erg_parses`, which has a SELECT-only
    policy and *no* insert, update or delete policy at all, so nobody can clear their own quota.

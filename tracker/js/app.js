@@ -982,7 +982,7 @@ function renderErgRecent() {
     : '<div class="dsub" style="margin-top:24px">Recent erg sessions</div>' + recent.map(histErgHTML).join('');
 }
 
-/* ---- entitlement: photo reading is the one paid feature ---- */
+/* ---- entitlement: photo reading is the one metered feature ---- */
 // The server decides this too - this is only so free users see an honest
 // message up front instead of uploading a photo and being refused.
 // Every account can read photos; the plan only decides how many a day, and
@@ -997,12 +997,13 @@ function renderErgGate() {
   if (canReadPhotos()) {
     $('erg-photo-btn').disabled = false;
     $('erg-photo-btn').title = '';
-    // Not a gate - the button works. Free accounts get a smaller allowance,
-    // and saying so up front beats letting someone find out by being refused
-    // on the third photo. The server is what actually enforces it.
+    // Not a gate - the button works. Every account gets the same small
+    // allowance, and saying so up front beats letting someone find out by
+    // being refused on the third photo. The server is what actually enforces
+    // it. There is no paid tier on offer: 'paid' is the owner's account only.
     wrap.innerHTML = onPaidPlan() ? ''
-      : '<p class="allowance">Photo reading: <b>2 a day</b> on the free plan, 20 on £5 a month. ' +
-        'Typing sessions in by hand is free and unlimited either way.</p>';
+      : '<p class="allowance">Photo reading: <b>2 a day</b>. ' +
+        'Typing sessions in by hand is free and unlimited.</p>';
     return;
   }
   $('erg-photo-btn').disabled = true;

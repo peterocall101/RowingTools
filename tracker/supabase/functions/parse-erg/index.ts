@@ -37,6 +37,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 // Two kinds of member, and the daily allowance is the only difference
 // between them. A trial is not a countdown - it is the smaller allowance,
 // indefinitely - so nobody is ever refused the reader outright.
+// There is no paid tier on offer (2026-10-13): 'paid' is the owner's own
+// account and nothing user-facing mentions it.
 const TRIAL_DAILY_LIMIT = Number(Deno.env.get("PARSE_ERG_TRIAL_DAILY_LIMIT") || 2);
 const PAID_DAILY_LIMIT = Number(Deno.env.get("PARSE_ERG_DAILY_LIMIT") || 20);
 // Only ever binds a paid account: 2 a day cannot reach it.
@@ -74,6 +76,8 @@ const OFF = ["0", "off", "false", "no"]
 // top-tier model - accuracy matters more than the couple of pence per photo,
 // and a wrong split silently poisons the athlete's history. Set
 // PARSE_ERG_MODEL to "claude-sonnet-5" to trade some accuracy for cost.
+// On trial since 2026-10-13: the secret is set to "claude-haiku-5-5", about
+// 0.07p a photo against 3.7p. Unset the secret to come back to this default.
 const MODEL = Deno.env.get("PARSE_ERG_MODEL") || "claude-opus-5";
 
 // Scratchpad for trialling a new reading rule without a redeploy:
@@ -314,9 +318,8 @@ Deno.serve(async (req) => {
         ? `Daily limit reached (${DAILY_LIMIT} photos). It resets on a rolling 24 hours - ` +
           `enter this one by hand for now.`
         : `That is your ${DAILY_LIMIT} photo${DAILY_LIMIT === 1 ? "" : "s"} for today. It resets ` +
-          `on a rolling 24 hours, and £5 a month lifts it to ${PAID_DAILY_LIMIT} a day. Typing ` +
-          `sessions in by hand is free and unlimited either way.`,
-      reason: paid ? "daily_limit" : "upgrade_available",
+          `on a rolling 24 hours. Typing sessions in by hand is free and unlimited.`,
+      reason: "daily_limit",
     }, 429);
   }
   if (month >= MONTHLY_LIMIT) {
