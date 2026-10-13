@@ -320,7 +320,9 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   `parse-erg` writes to it. A single `mode` column would have made every one of those quietly mean
   "erg or water". `tracker_water_sessions` costs one more table and keeps all four honest.
 
-  Distance is the only required field; time is optional and notes are free text. **The average split
+  Distance and time are both required, on erg sessions as well (since 2026-10-13, enforced in the
+  save functions, not the database: older rows have a distance alone, so the columns stay nullable
+  and totals still have to tolerate a missing time). Notes are free text. **The average split
   is derived, never stored** - it is distance over time, and a stored copy can drift out of step with
   the two numbers it came from. Durations use whole seconds (`fmtDur`) rather than the tenth
   `fmtTime` gives an erg piece: an hour on the water is not timed to 0.1s and "56:55.0" is false

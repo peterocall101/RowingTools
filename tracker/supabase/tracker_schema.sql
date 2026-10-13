@@ -124,7 +124,9 @@ create table if not exists public.tracker_core_sessions (
 -- labels it "erg", and parse-erg writes to it. One `mode` column would
 -- have made every one of those quietly mean "erg or water".
 --
--- Distance is the only thing asked for; boat, time and notes are optional. The
+-- Distance and time are both required by the app (since 2026-10-13); boat and
+-- notes are optional. The columns stay nullable because older rows were saved
+-- with a distance alone, and a NOT NULL here would refuse to apply. The
 -- average split is NOT stored - it is distance and time, and deriving it
 -- for display cannot drift out of step with them.
 --

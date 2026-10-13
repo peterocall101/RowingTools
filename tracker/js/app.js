@@ -822,7 +822,7 @@ function ergFormHTML(d, source) {
     '<h3>' + (source === 'photo' ? 'Check the numbers' : 'Erg session') + '</h3>' +
     '<div class="hint">' + (source === 'photo'
       ? 'Read from your photo - check every field before saving, especially splits.'
-      : 'Fill in what you have; anything can be left blank.') + '</div>' +
+      : 'Total time and distance are needed; anything else can be left blank.') + '</div>' +
     (d.warnings && d.warnings.length ? '<div class="parse-note">⚠ ' + esc(d.warnings.join(' · ')) + '</div>' : '') +
     '<div class="fgrid">' +
       '<div><label>Date</label><input type="date" id="eg-date" value="' + esc(d.date || todayISO()) + '"></div>' +
@@ -925,8 +925,13 @@ async function saveErg() {
   if (distance_m == null && intervals.length && intervals.every(r => r.distance_m != null))
     distance_m = Math.round(intervals.reduce((a, r) => a + r.distance_m, 0));
 
-  if (total_time_s == null && distance_m == null && !intervals.length) {
-    toast('erg-parse-status', 'Nothing to save - enter at least a time, distance or interval.', 'warn'); return;
+  // Both are required, checked AFTER the blanks above are derived, so a piece
+  // entered as intervals alone still saves. A session with only one of them is
+  // a week where the distance and time totals quietly disagree.
+  if (!total_time_s || !distance_m) {
+    const missing = !total_time_s && !distance_m ? 'a total time and a distance'
+      : !total_time_s ? 'a total time' : 'a distance';
+    toast('erg-parse-status', 'Enter ' + missing + ' - every erg session needs both.', 'warn'); return;
   }
 
   const row = {
@@ -1085,7 +1090,7 @@ async function handleErgPhoto(file) {
 /* ================= water =================
    Rowing on the water. The same weekly shape as the erg and none of the
    machinery: no monitor to photograph, no splits table, no draft. Distance is
-   the point, time is optional, and the split is derived for display rather
+   the point, time is required alongside it, and the split is derived for display rather
    than stored, so it can never disagree with the two numbers it came from. */
 const waterSplit = s => (s.total_time_s && s.distance_m)
   ? round1(s.total_time_s / (s.distance_m / 500)) : null;
@@ -1120,14 +1125,14 @@ function renderWaterTab() {
   el.innerHTML =
     '<div class="erg-form">' +
       '<h3>Log a water session</h3>' +
-      '<div class="hint">Distance is the only thing needed - the arrows move a kilometre a ' +
-      'click. Time is optional; give both and the split works itself out.</div>' +
+      '<div class="hint">Distance and time are both needed - the arrows move a kilometre a ' +
+      'click, and the split works itself out.</div>' +
       '<div class="fgrid">' +
         '<div><label for="wt-date">Date</label><input type="date" id="wt-date"></div>' +
         '<div><label for="wt-dist">Distance (m)</label>' +
           '<input type="number" id="wt-dist" step="1000" min="0" inputmode="numeric" ' +
           'placeholder="e.g. 16000"></div>' +
-        '<div><label for="wt-time">Time (optional)</label>' +
+        '<div><label for="wt-time">Time</label>' +
           '<input type="text" id="wt-time" inputmode="numeric" placeholder="e.g. 1:12:30"></div>' +
         '<div><label for="wt-boat">Boat (optional)</label>' +
           '<input type="text" id="wt-boat" list="wt-boats" placeholder="e.g. 4x-" autocomplete="off">' +
@@ -1158,8 +1163,12 @@ function renderWaterRecent() {
 async function saveWater() {
   const dist = parseInt($('wt-dist').value, 10);
   const time = parseTimeStr($('wt-time').value);
-  if (isNaN(dist) && time == null) {
-    toast('water-msg', 'Enter at least a distance, or a time.', 'warn');
+  // Both, for the same reason as the erg: one without the other makes the
+  // week's distance and time totals disagree.
+  if (!(dist > 0) || !time) {
+    const missing = !(dist > 0) && !time ? 'a distance and a time'
+      : !time ? 'a time' : 'a distance';
+    toast('water-msg', 'Enter ' + missing + ' - every water session needs both.', 'warn');
     return;
   }
   const row = {
@@ -1167,7 +1176,7 @@ async function saveWater() {
     profile_id: S.session.user.id,
     date: $('wt-date').value || todayISO(),
     at: nowHM(),
-    distance_m: isNaN(dist) ? null : dist,
+    distance_m: dist,
     total_time_s: time,
     boat: $('wt-boat').value.trim() || null,
     notes: $('wt-notes').value.trim() || null,
