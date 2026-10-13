@@ -801,13 +801,15 @@ $$;
 -- dates reconstructs the whole calendar. Fixed windows, computed
 -- server-side, leave nothing to difference.
 --
--- A four-digit year is accepted as well, for the board's Racing mode: a
--- rolling four-week window of racing is nought for everyone in September,
--- so racing is ranked by season. It stays safe for the same reason the
--- other keywords are - the BOUNDARIES are fixed, not chosen. Differencing
--- two whole years only isolates a year's totals, which the 'all' window
--- already exposes. It is matched on an exact ^[0-9]{4}$ and range-checked,
--- so nothing that is not a plain year can get through and become a date.
+-- The keywords are 'week' (since Monday), 'lastweek' (the Monday to Sunday
+-- before it) and 'month' (since the 1st). A
+-- four-digit year is accepted as well: it is the board's "This year", and
+-- its Racing mode ranks by season because a week or a month of racing is
+-- nought for everyone in September. It stays safe for the same reason the
+-- keywords are - the BOUNDARIES are fixed, not chosen. Differencing two
+-- whole years only isolates a year's totals. It is matched on an exact
+-- ^[0-9]{4}$ and range-checked, so nothing that is not a plain year can
+-- get through and become a date.
 drop function if exists public.tracker_squad_board(uuid, date);
 -- The return signature changed when water was added, and CREATE OR REPLACE
 -- cannot change a function's OUT columns - it fails with "cannot change return
@@ -856,13 +858,15 @@ begin
     p_until := (p_period || '-12-31')::date;
   else
     p_since := case p_period
-      when 'week' then date_trunc('week', now())::date
-      when '4w'   then date_trunc('week', now())::date - 21
-      when '12w'  then date_trunc('week', now())::date - 77
-      when 'all'  then date '2000-01-01'
-      else date_trunc('week', now())::date - 21    -- anything unrecognised
+      when 'month' then date_trunc('month', now())::date
+      when 'lastweek' then date_trunc('week', now())::date - 7
+      else date_trunc('week', now())::date          -- 'week', and anything unrecognised
     end;
-    p_until := date '9999-12-31';
+    -- Last week is the one keyword with an end: the Sunday before this Monday.
+    p_until := case p_period
+      when 'lastweek' then date_trunc('week', now())::date - 1
+      else date '9999-12-31'
+    end;
   end if;
 
   return query

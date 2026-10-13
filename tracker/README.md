@@ -250,7 +250,8 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
 - **Every choice on Progress is a button, and the range is one toggle.** The controls were four
   dropdowns; each held two or three options, and a dropdown that hides two alternatives behind a
   click is a worse control than the two buttons themselves. What is left is: the discipline
-  (Weights / Erg / Water / Core), the measure (Distance | Time, Time | Sessions, Sessions | Sets),
+  (Erg / Water / Erg + Water / Weights / Core, opening on Erg; Erg + Water is the two weekly
+  series added together on the client), the measure (Distance | Time, Time | Sessions, Sessions | Sets),
   and one **Show all time / Last 12 weeks** toggle in place of the four-way range list. Twelve
   weeks is the block a rower thinks in and everything else is "zoom out", so the range is two
   states rather than a menu. The exercise list stays a `<select>` - it is the one control with
@@ -575,8 +576,10 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   the SQL file asserts those four tables still have exactly one policy each - if that count ever
   rises, someone has widened `SELECT` and the guarantee is gone.
 - **The period is a keyword, never a caller-supplied date.** This one is load-bearing and was
-  wrong in the first draft. `tracker_squad_board(p_group, p_period)` takes `week` / `4w` / `12w` /
-  `all` and derives the boundary itself. With a free `date` parameter - which the function is
+  wrong in the first draft. `tracker_squad_board(p_group, p_period)` takes `week` / `lastweek` /
+  `month` / a four-digit year and derives the boundary itself (since Monday, the Monday to
+  Sunday before it, since the 1st, the calendar year). The board offers exactly those four: This
+  week, Last week, This month, This year, opening on This week (changed 2026-10-13 from rolling 4 and 12 week windows and all time). With a free `date` parameter - which the function is
   granted to `authenticated` and callable directly over `/rest/v1/rpc/` - anyone could call it
   twice a day apart and subtract: a `days_trained` delta of 1 proves the athlete trained on that
   exact date, and where the erg-session delta is 1 the metres and seconds deltas **are** that
@@ -608,8 +611,8 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   function already returns, and a derived total that lives in the client cannot disagree with its
   own parts.
 
-  **Racing is ranked by season, on one measure.** Every other mode uses a rolling window, and for
-  racing that is wrong: nobody races in February, so "last 4 weeks" is nought for the whole squad
+  **Racing is ranked by season, on one measure.** Every other mode offers this week and this month, and for
+  racing those are wrong: nobody races in February, so "this month" is nought for the whole squad
   for most of the year and the board reads as though everyone has stopped. Racing's period buttons
   are years and nothing else - the current one and the one before, generated from the clock so they
   move on by themselves. There is no all-time button: an average of your best three across two
@@ -621,8 +624,8 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   bound as well as a lower one, so every window is now `date >= p_since and date <= p_until`.
 
   Switching modes carries the period across where it makes sense and swaps it where it does not:
-  leaving Racing puts you back on **4 weeks**, not on the first button, which is "This week" and
-  reads as a dead board on a Monday morning.
+  the current year is "This year" in every mode, so it survives the switch, and leaving Racing
+  on last season puts you back on **This week**, the board's default.
 
   The measure is **top-3 GMT alone** - the race count that sat beside it is gone, because a race
   count rewards entering everything, which is a function of what your club enters rather than of how

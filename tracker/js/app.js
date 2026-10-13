@@ -1787,6 +1787,16 @@ function waterWeekly() {
   });
   return out;
 }
+// Erg and water added together, week by week. Summed here from the two
+// series rather than from the sessions, so it cannot disagree with either tab.
+function bothWeekly() {
+  const out = {};
+  [ergWeekly(), waterWeekly()].forEach(agg => Object.keys(agg).forEach(w => {
+    const e = out[w] = out[w] || { n: 0, km: 0, min: 0 };
+    e.n += agg[w].n; e.km += agg[w].km; e.min += agg[w].min;
+  }));
+  return out;
+}
 function coreWeekly() {
   const out = {};
   S.coreSessions.forEach(s => {
@@ -1866,7 +1876,15 @@ const ALL_LIFTS = 'all-lifts';
 // Weights opens on the whole picture, not on whichever lift happened to be
 // first alphabetically: "how much am I lifting" comes before "how is the squat
 // going", and the second question is one dropdown away.
-const PROG = { mode: 'weights', ex: ALL_LIFTS, metric: '', weeks: RANGE_DEFAULT };
+const PROG = { mode: 'erg', ex: ALL_LIFTS, metric: '', weeks: RANGE_DEFAULT };
+// In tab order. The page opens on the first.
+const PROG_MODES = [
+  { k: 'erg',     label: 'Erg' },
+  { k: 'water',   label: 'Water' },
+  { k: 'both',    label: 'Erg + Water' },
+  { k: 'weights', label: 'Weights' },
+  { k: 'core',    label: 'Core' },
+];
 
 const REP_METRICS = [
   { k: 'top',  btn: 'Heaviest set', label: 'Heaviest set',  unit: 'kg' },
@@ -1915,7 +1933,8 @@ const weeklyMetrics = mode =>
 const weeklyAgg = mode =>
   mode === 'core' ? coreWeekly()
   : mode === 'erg' ? ergWeekly()
-  : mode === 'water' ? waterWeekly() : weightsWeekly();
+  : mode === 'water' ? waterWeekly()
+  : mode === 'both' ? bothWeekly() : weightsWeekly();
 function weightsWeekly() {
   const out = {};
   const w = weeklyStats();
@@ -2163,9 +2182,9 @@ const rangeToggle = () =>
   (PROG.weeks === 'all' ? 'Last ' + RANGE_DEFAULT + ' weeks' : 'Show all time') + '</button>';
 
 function progControlsHTML() {
-  const seg = ['weights', 'erg', 'water', 'core'].map(k =>
-    '<button class="seg' + (PROG.mode === k ? ' active' : '') + '" data-pmode="' + k + '" ' +
-    'role="tab" aria-selected="' + (PROG.mode === k) + '">' + cap(k) + '</button>').join('');
+  const seg = PROG_MODES.map(m =>
+    '<button class="seg' + (PROG.mode === m.k ? ' active' : '') + '" data-pmode="' + m.k + '" ' +
+    'role="tab" aria-selected="' + (PROG.mode === m.k) + '">' + m.label + '</button>').join('');
   let rest = '';
   if (PROG.mode === 'weights') {
     const done = new Set();
@@ -2328,15 +2347,16 @@ function renderProgWeights(body) {
 }
 
 function renderProgWeekly(body) {
-  const label = { erg: 'Erg', water: 'Water', core: 'Core' }[PROG.mode];
+  const label = PROG_MODES.find(m => m.k === PROG.mode).label;
+  const both = PROG.mode === 'both';
   const metric = pickMetric(weeklyMetrics(PROG.mode), PROG.metric);
   const pts = weeklySeries(weeklyAgg(PROG.mode), metric.k, PROG.weeks);
   const head = '<div class="prog-head"><h3 class="prog-title">' + label + ' load</h3>' +
     '<span class="prog-sub">' + esc(metric.label) + ', Monday to Sunday</span></div>';
 
   if (!pts.length) {
-    body.innerHTML = head + '<p class="empty">No ' + label.toLowerCase() +
-      ' sessions logged yet. Anything you record on the ' + label +
+    body.innerHTML = head + '<p class="empty">No ' + (both ? 'erg or water' : label.toLowerCase()) +
+      ' sessions logged yet. Anything you record on the ' + (both ? 'Erg or Water' : label) +
       ' tab shows up here as weekly load.</p>';
     return;
   }
@@ -3479,17 +3499,22 @@ const SQ = {
   loaded: false, tried: false, ready: false, error: null,
   squads: [], groupId: null, sharing: new Set(),
   board: [], templates: [], tmplError: null,
-  period: '4w', bmode: 'erg', metric: 'erg_metres', busy: false, adding: false, posting: false,
+  period: 'week', bmode: 'erg', metric: 'erg_metres', busy: false, adding: false, posting: false,
   settings: false,   // the admin drawer is closed until asked for
   preview: null,     // id of the shared template being read before importing
   picked: null,      // Set of exercise names ticked in that preview
 };
 
-const PERIODS = [
-  { k: 'week', short: 'Week',  label: 'This week' },
-  { k: '4w',   short: '4 wks', label: 'Last 4 weeks' },
-  { k: '12w',  short: '12 wks', label: 'Last 12 weeks' },
-  { k: 'all',  short: 'All',   label: 'All time' },
+// Calendar periods, each from its own fixed start: Monday, the 1st, 1 January.
+// Last week is there so a Monday-morning board is not the only thing on offer.
+// The year is sent as its four digits, which is the keyword the board function
+// already takes for a calendar year, so it is generated from the clock like the
+// season list below and the two agree when you move between modes.
+const boardPeriods = () => [
+  { k: 'week',     short: 'This week',  label: 'This week' },
+  { k: 'lastweek', short: 'Last week',  label: 'Last week' },
+  { k: 'month',    short: 'This month', label: 'This month' },
+  { k: String(new Date().getFullYear()), short: 'This year', label: 'This year' },
 ];
 
 // Racing is ranked by season, not by a rolling window: nobody races in
@@ -3507,12 +3532,11 @@ const seasonPeriods = () => {
     { k: String(y - 1), short: String(y - 1), label: 'the ' + (y - 1) + ' season' },
   ];
 };
-const periodsFor = mode => mode.periods ? mode.periods() : PERIODS;
-// Where a mode lands when the period it inherited means nothing to it. The
-// season list opens on the current year; the rolling list opens on 4 weeks,
-// which is the board's default everywhere else - NOT the first button, which
-// is "This week" and reads as a dead board on a Monday morning.
-const defaultPeriod = mode => mode.periods ? periodsFor(mode)[0].k : '4w';
+const periodsFor = mode => mode.periods ? mode.periods() : boardPeriods();
+// Where a mode lands when the period it inherited means nothing to it: the
+// first button in both lists, which is the current season for racing and this
+// week for everything else.
+const defaultPeriod = mode => periodsFor(mode)[0].k;
 
 // Consistency first, volume second, and on purpose. A board topped by whoever
 // erged the most metres rewards junk volume and punishes the athlete on a
@@ -4397,7 +4421,7 @@ document.addEventListener('click', async e => {
     if (SQ.bmode !== bm.dataset.bmode) {
       SQ.bmode = bm.dataset.bmode;
       SQ.metric = '';
-      // Racing counts by season and everything else by rolling window, so a
+      // Racing counts by season and everything else by week, month or year, so a
       // period that the mode being opened does not offer is swapped for that
       // mode's first one - and because the window is computed server-side,
       // that means going back for the data rather than just redrawing.
