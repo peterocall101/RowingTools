@@ -467,6 +467,13 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   rather than today - which is what makes logging last week's pieces from old photos bearable. A
   screen with no date, a date in the future, or one before 2010 (a monitor whose clock was never
   set) falls back to today. It trusts the monitor's clock, so a wrongly set one gives a wrong date.
+- **Every kind of session can be edited from History**, not just weights (erg, water and core
+  since 2026-10-13). "Edit this session" reopens it on its own tab and saving updates the row in
+  place. Erg and water reuse their entry forms; core gets a plain table of round times in the
+  runner's place, because the runner is a stopwatch and cannot be rewound onto old numbers. The
+  rounds of a core session are fixed, only times, date and notes change. An edit is an `update`
+  and is **not** queued offline, same as weights. An erg edit left open survives a reload as an
+  edit (the draft carries `editId`), so it cannot come back as a second copy.
 - **Erg photo parses are never auto-saved**: the parsed numbers land in an editable
   confirmation card first. `source` on each erg row records `photo` / `manual` (and later
   `c2-logbook` for the planned Concept2 Logbook API sync).

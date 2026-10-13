@@ -815,12 +815,19 @@ async function saveWorkout() {
    clicks rather than 18,000. Typing any value still works - the step only
    governs the arrows, and nothing here reads the browser's validity, so a
    6,500m piece that is not a multiple of the step saves exactly as typed. */
+// Set while the form holds a session that is already in History, so saving
+// replaces that row instead of adding another.
+let editingErgId = null;
+
 function ergFormHTML(d, source) {
   d = d || {};
   const iv = Array.isArray(d.intervals) ? d.intervals : [];
+  const editing = !!editingErgId;
   return '<div class="erg-form" id="erg-form" data-source="' + esc(source) + '">' +
-    '<h3>' + (source === 'photo' ? 'Check the numbers' : 'Erg session') + '</h3>' +
-    '<div class="hint">' + (source === 'photo'
+    '<h3>' + (editing ? 'Edit erg session' : source === 'photo' ? 'Check the numbers' : 'Erg session') + '</h3>' +
+    '<div class="hint">' + (editing
+      ? 'Saving replaces the saved session rather than adding another.'
+      : source === 'photo'
       ? 'Read from your photo - check every field before saving, especially splits.'
       : 'Total time and distance are needed; anything else can be left blank.') + '</div>' +
     (d.warnings && d.warnings.length ? '<div class="parse-note">⚠ ' + esc(d.warnings.join(' · ')) + '</div>' : '') +
@@ -842,8 +849,8 @@ function ergFormHTML(d, source) {
     '<tbody id="eg-ivs">' + iv.map((r, i) => ergIvRowHTML(i, r)).join('') + '</tbody></table>' +
     '<button class="addset" id="eg-addiv">+ add interval</button>' +
     '<div class="fwide" style="margin-top:10px"><label>Notes</label><input type="text" id="eg-notes" value="' + esc(d.notes || '') + '"></div>' +
-    '<button class="primary" id="eg-save" style="height:44px">Save erg session</button>' +
-    '<button id="eg-cancel" style="width:100%;margin-top:8px">Discard</button>' +
+    '<button class="primary" id="eg-save" style="height:44px">' + (editing ? 'Update' : 'Save') + ' erg session</button>' +
+    '<button id="eg-cancel" style="width:100%;margin-top:8px">' + (editing ? 'Cancel edit' : 'Discard') + '</button>' +
   '</div>';
 }
 function ergIvRowHTML(i, r) {
@@ -861,6 +868,22 @@ function openErgForm(data, source, quiet) {
   if (!quiet) $('erg-form-holder').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+/* ---- amending an erg session already in History ---- */
+function startEditErg(id) {
+  const s = S.ergs.find(x => x.id === id);
+  if (!s) return;
+  editingErgId = id;
+  $('erg-parse-status').innerHTML = '';
+  selectTab('p-erg');
+  openErgForm(s, s.source);
+  saveErgDraft();
+}
+function closeErgForm() {
+  editingErgId = null;
+  $('erg-form-holder').innerHTML = '';
+  clearErgDraft();
+}
+
 /* ---- an open confirm card survives leaving the page. A photo parse costs real
    money, so losing one to a stray tab switch is the expensive kind of mistake.
    Raw field values are stored rather than parsed numbers, so a half-typed
@@ -874,6 +897,7 @@ function ergSnapshot() {
   if (!f) return null;
   return {
     source: f.dataset.source,
+    editId: editingErgId,
     fields: ERG_FIELDS.reduce((o, id) => { o[id] = $(id) ? $(id).value : ''; return o; }, {}),
     intervals: [...document.querySelectorAll('#eg-ivs tr')].map(tr =>
       IV_FIELDS.reduce((o, c) => { o[c] = tr.querySelector('.' + c).value; return o; }, {})),
@@ -892,6 +916,10 @@ const queueErgDraft = () => { clearTimeout(ergDraftTimer); ergDraftTimer = setTi
 function restoreErgForm() {
   const snap = readJSON(ergDraftKey(), null);
   if (!snap || !snap.fields) return false;
+  // A draft of an edit comes back as an edit. If the session it was amending
+  // has since gone, it is dropped rather than saved as a second copy.
+  if (snap.editId && !S.ergs.some(s => s.id === snap.editId)) { clearErgDraft(); return false; }
+  editingErgId = snap.editId || null;
   openErgForm({ intervals: snap.intervals.map(() => ({})) }, snap.source, true);
   Object.keys(snap.fields).forEach(id => { if ($(id)) $(id).value = snap.fields[id]; });
   [...document.querySelectorAll('#eg-ivs tr')].forEach((tr, i) => {
@@ -934,12 +962,8 @@ async function saveErg() {
     toast('erg-parse-status', 'Enter ' + missing + ' - every erg session needs both.', 'warn'); return;
   }
 
-  const row = {
-    id: newId(),
-    profile_id: S.session.user.id,
+  const fields = {
     date: $('eg-date').value || todayISO(),
-    at: nowHM(),
-    source: form.dataset.source,
     erg_type: $('eg-type').value,
     session_type: $('eg-session').value.trim() || null,
     total_time_s, distance_m, avg_split_s,
@@ -948,6 +972,23 @@ async function saveErg() {
     intervals: intervals.length ? intervals : null,
     notes: $('eg-notes').value.trim() || null,
   };
+
+  // ---- amending a session that is already in History ----
+  if (editingErgId) {
+    const id = editingErgId;
+    const { error } = await updateRow('tracker_erg_sessions', fields, id);
+    if (error) { toast('erg-parse-status', 'Update failed: ' + esc(error.message), 'err'); return; }
+    Object.assign(S.ergs.find(x => x.id === id), fields);
+    sortDesc(S.ergs);
+    track('erg_edited', { intervals: intervals.length });
+    closeErgForm();
+    cacheData();
+    toast('erg-parse-status', 'Session updated - ' + prettyDate(fields.date) + ' · ' + distance_m + 'm.');
+    renderErgRecent(); renderHistory(); renderProgress(); refreshWeekCount();
+    return;
+  }
+
+  const row = { id: newId(), profile_id: S.session.user.id, at: nowHM(), source: form.dataset.source, ...fields };
   const { error } = await insertRow('tracker_erg_sessions', row);
   const queued = error && looksOffline(error);
   if (error && !queued) { toast('erg-parse-status', 'Save failed: ' + esc(error.message), 'err'); return; }
@@ -1084,6 +1125,7 @@ async function handleErgPhoto(file) {
   const out = await resp.json();
   $('erg-parse-status').innerHTML = '';
   track('erg_photo_parsed', {});
+  editingErgId = null;
   openErgForm(out.session || {}, 'photo');
 }
 
@@ -1119,14 +1161,21 @@ function waterSummaryLine(s) {
 // unloggable, and the same strings are what tracker_races stores in `boat`.
 const WATER_BOATS = ['1x', '2x', '2-', '2+', '4x', '4x+', '4-', '4+', '8+'];
 
+// Set while the form holds a session that is already in History.
+let editingWaterId = null;
+
 function renderWaterTab() {
   const el = $('water-body');
   if (!el) return;
+  const ed = editingWaterId ? S.water.find(x => x.id === editingWaterId) : null;
+  if (!ed) editingWaterId = null;
   el.innerHTML =
     '<div class="erg-form">' +
-      '<h3>Log a water session</h3>' +
-      '<div class="hint">Distance and time are both needed - the arrows move a kilometre a ' +
-      'click, and the split works itself out.</div>' +
+      '<h3>' + (ed ? 'Edit water session' : 'Log a water session') + '</h3>' +
+      '<div class="hint">' + (ed
+        ? 'Saving replaces the saved session rather than adding another.'
+        : 'Distance and time are both needed - the arrows move a kilometre a ' +
+          'click, and the split works itself out.') + '</div>' +
       '<div class="fgrid">' +
         '<div><label for="wt-date">Date</label><input type="date" id="wt-date"></div>' +
         '<div><label for="wt-dist">Distance (m)</label>' +
@@ -1142,11 +1191,18 @@ function renderWaterTab() {
       '</div>' +
       '<div class="fwide"><label for="wt-notes">Notes</label>' +
         '<input type="text" id="wt-notes" placeholder="Crew, conditions, how it went"></div>' +
-      '<button class="primary" id="wt-save" style="height:42px">Save water session</button>' +
+      '<button class="primary" id="wt-save" style="height:42px">' + (ed ? 'Update' : 'Save') + ' water session</button>' +
+      (ed ? '<button id="wt-cancel" style="width:100%;margin-top:8px">Cancel edit</button>' : '') +
       '<div id="water-msg"></div>' +
     '</div>' +
     '<div id="water-recent"></div>';
-  $('wt-date').value = todayISO();
+  $('wt-date').value = ed ? ed.date : todayISO();
+  if (ed) {
+    $('wt-dist').value = ed.distance_m != null ? ed.distance_m : '';
+    $('wt-time').value = ed.total_time_s != null ? fmtDur(ed.total_time_s) : '';
+    $('wt-boat').value = ed.boat || '';
+    $('wt-notes').value = ed.notes || '';
+  }
   renderWaterRecent();
 }
 
@@ -1160,6 +1216,15 @@ function renderWaterRecent() {
     : '';
 }
 
+/* ---- amending a water session already in History ---- */
+function startEditWater(id) {
+  if (!S.water.some(x => x.id === id)) return;
+  editingWaterId = id;
+  renderWaterTab();
+  selectTab('p-water');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 async function saveWater() {
   const dist = parseInt($('wt-dist').value, 10);
   const time = parseTimeStr($('wt-time').value);
@@ -1171,16 +1236,31 @@ async function saveWater() {
     toast('water-msg', 'Enter ' + missing + ' - every water session needs both.', 'warn');
     return;
   }
-  const row = {
-    id: newId(),
-    profile_id: S.session.user.id,
+  const fields = {
     date: $('wt-date').value || todayISO(),
-    at: nowHM(),
     distance_m: dist,
     total_time_s: time,
     boat: $('wt-boat').value.trim() || null,
     notes: $('wt-notes').value.trim() || null,
   };
+
+  // ---- amending a session that is already in History ----
+  if (editingWaterId) {
+    const id = editingWaterId;
+    const { error } = await updateRow('tracker_water_sessions', fields, id);
+    if (error) { toast('water-msg', 'Update failed: ' + esc(error.message), 'err'); return; }
+    const saved = Object.assign(S.water.find(x => x.id === id), fields);
+    sortDesc(S.water);
+    track('water_edited', {});
+    editingWaterId = null;
+    cacheData();
+    renderWaterTab(); renderProgress(); renderHistory(); refreshWeekCount();
+    toast('water-msg', 'Session updated - ' + prettyDate(saved.date) + ' · ' +
+      waterSummaryLine(saved).replace(/<[^>]+>/g, '') + '.');
+    return;
+  }
+
+  const row = { id: newId(), profile_id: S.session.user.id, at: nowHM(), ...fields };
   const { error } = await insertRow('tracker_water_sessions', row);
   const queued = error && looksOffline(error);
   if (error && !queued) { toast('water-msg', 'Save failed: ' + esc(error.message), 'err'); return; }
@@ -1237,6 +1317,7 @@ const liveRoutines = () => S.routines.filter(r => !r.retired);
 
 // Core tab = run a routine. Building and editing them lives in Set up > Templates.
 function renderCoreTab() {
+  editingCoreId = null;   // this redraws the runner, which is where an edit lives
   const pick = $('core-pick');
   const live = liveRoutines();
   pick.innerHTML = live.length
@@ -1681,6 +1762,75 @@ function coreTotals(steps) {
   return { work, rest, total: work + rest };
 }
 
+/* ---- amending a core session already in History ----
+   The runner is a stopwatch and a saved session is a table of numbers, so an
+   edit is a plain form in the runner's place rather than the timer rewound.
+   The rounds themselves are fixed - what was done is what was done - and only
+   the times, the date and the notes can change. */
+let editingCoreId = null;
+
+function startEditCore(id) {
+  const s = S.coreSessions.find(x => x.id === id);
+  if (!s) return;
+  if (RUN.started && !confirm('A routine is in progress. Editing a saved session discards the times recorded so far - carry on?')) return;
+  stopTimer();
+  RUN.started = false;
+  editingCoreId = id;
+  $('core-date').value = s.date;
+  $('core-msg').innerHTML = '';
+  $('core-runner').innerHTML =
+    '<div class="editbar"><div><b>Editing a saved session</b>' +
+      '<span>' + esc(s.routine_name || 'Core') + ' · ' + prettyDate(s.date) + (s.at ? ' · ' + esc(s.at) : '') +
+      ' · saving replaces it rather than adding another</span></div>' +
+      '<button id="core-edit-cancel">Cancel</button></div>' +
+    '<table class="itbl"><thead><tr><th>#</th><th>Exercise</th><th>Target</th><th>Actual s</th><th>Reset s</th></tr></thead>' +
+    '<tbody id="core-edit-rows">' + (Array.isArray(s.steps) ? s.steps : []).map((x, i) =>
+      '<tr><td class="setno">' + (i + 1) + '</td>' +
+      '<td>' + esc(x.name) + (x.side ? ' (' + esc(x.side) + ')' : '') + '</td>' +
+      '<td>' + (x.target_s ? x.target_s + 's' : '–') + '</td>' +
+      '<td><input type="number" class="ce-actual" min="0" inputmode="numeric" value="' + esc(x.actual_s != null ? x.actual_s : '') + '"></td>' +
+      '<td><input type="number" class="ce-rest" min="0" inputmode="numeric" value="' + esc(x.rest_s || 0) + '"></td></tr>').join('') +
+    '</tbody></table>' +
+    '<p class="crow-hint">Times are in seconds. Clear the actual time on a round to drop that round from the session.</p>' +
+    '<div class="fwide" style="margin-top:12px"><label>Notes</label>' +
+      '<input type="text" id="core-edit-notes" value="' + esc(s.notes || '') + '"></div>' +
+    '<button class="save" id="core-update">Update core session</button>';
+  selectTab('p-core');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function updateCoreSession() {
+  const s = S.coreSessions.find(x => x.id === editingCoreId);
+  if (!s) return;
+  const rows = [...document.querySelectorAll('#core-edit-rows tr')];
+  const steps = (Array.isArray(s.steps) ? s.steps : []).map((x, i) => {
+    const a = parseInt(rows[i].querySelector('.ce-actual').value, 10);
+    const r = parseInt(rows[i].querySelector('.ce-rest').value, 10);
+    return { ...x, actual_s: isNaN(a) ? null : a, rest_s: isNaN(r) ? 0 : r };
+  }).filter(x => x.actual_s != null);
+  if (!steps.length) {
+    toast('core-msg', 'Nothing to save - a session needs at least one timed round. To remove it, delete it from History.', 'warn');
+    return;
+  }
+  const patch = {
+    date: $('core-date').value || s.date,
+    steps,
+    notes: $('core-edit-notes').value.trim() || null,
+  };
+  const { error } = await updateRow('tracker_core_sessions', patch, s.id);
+  if (error) { toast('core-msg', 'Update failed: ' + esc(error.message), 'err'); return; }
+  Object.assign(s, patch);
+  sortDesc(S.coreSessions);
+  const t = coreTotals(steps);
+  track('core_edited', { rounds: steps.length });
+  cacheData();
+  $('core-date').value = todayISO();
+  renderCoreTab();
+  toast('core-msg', 'Session updated - ' + prettyDate(patch.date) + ' · ' + plural(steps.length, 'round') +
+    ' · ' + fmtTime(t.total) + ' total.');
+  renderHistory(); renderProgress(); refreshWeekCount();
+}
+
 async function saveCoreSession() {
   syncActualsFromDOM();   // hand-typed overrides win over whatever the timer recorded
   const steps = RUN.steps.filter(s => s.actual_s != null)
@@ -1738,7 +1888,7 @@ function histCoreHTML(s) {
         '</td><td>' + (x.rest_s ? x.rest_s + 's' : '<span class="na">–</span>') + '</td></tr>';
     }).join('') + '</tbody></table></div>' +
     (s.notes ? '<div class="dnote">' + esc(s.notes) + '</div>' : '');
-  return entryHTML(s, 'core', 'core', summary, detail, 'c');
+  return entryHTML(s, 'core', 'core', summary, detail, 'c', 'edit-c');
 }
 
 /* ================= summary =================
@@ -2589,7 +2739,7 @@ function histWaterHTML(s) {
   const detail = '<dl class="dfacts">' +
     facts.map(([k, v]) => '<dt>' + k + '</dt><dd>' + v + '</dd>').join('') + '</dl>' +
     (s.notes ? '<div class="dnote">' + esc(s.notes) + '</div>' : '');
-  return entryHTML(s, 'water', 'water', waterSummaryLine(s), detail, 'wa');
+  return entryHTML(s, 'water', 'water', waterSummaryLine(s), detail, 'wa', 'edit-wa');
 }
 
 function histErgHTML(s) {
@@ -2622,7 +2772,7 @@ function histErgHTML(s) {
     facts.map(([k, v]) => '<dt>' + k + '</dt><dd>' + v + '</dd>').join('') + '</dl>' +
     table + (s.notes ? '<div class="dnote">' + esc(s.notes) + '</div>' : '');
 
-  return entryHTML(s, 'erg', 'erg', ergSummaryLine(s) || 'Erg session', detail, 'erg');
+  return entryHTML(s, 'erg', 'erg', ergSummaryLine(s) || 'Erg session', detail, 'erg', 'edit-erg');
 }
 
 /* ================= library ================= */
@@ -4255,6 +4405,12 @@ document.addEventListener('click', async e => {
   if (e.target.id === 'edit-cancel-top' || e.target.id === 'cancel-edit') { cancelEditWorkout(); return; }
   const ew = e.target.closest('[data-edit-w]');
   if (ew) { startEditWorkout(ew.dataset.editW); return; }
+  const ee = e.target.closest('[data-edit-erg]');
+  if (ee) { startEditErg(ee.dataset.editErg); return; }
+  const ewa = e.target.closest('[data-edit-wa]');
+  if (ewa) { startEditWater(ewa.dataset.editWa); return; }
+  const ec = e.target.closest('[data-edit-c]');
+  if (ec) { startEditCore(ec.dataset.editC); return; }
   if (e.target.id === 'sync-now') { flushOutbox(true); return; }
   if (e.target.classList.contains('addset')) {
     // .addset is shared styling, so route the other users of it first
@@ -4305,6 +4461,7 @@ document.addEventListener('click', async e => {
   if (dc) {
     if (!confirm('Delete this core session for good?')) return;
     const { error } = await sb.from('tracker_core_sessions').delete().eq('id', dc.dataset.delC);
+    if (!error && editingCoreId === dc.dataset.delC) renderCoreTab();
     if (!error) { S.coreSessions = S.coreSessions.filter(s => s.id !== dc.dataset.delC); renderHistory(); renderProgress(); refreshWeekCount(); }
     return;
   }
@@ -4409,6 +4566,7 @@ document.addEventListener('click', async e => {
     const { error } = await sb.from('tracker_water_sessions').delete().eq('id', dw2.dataset.delWa);
     if (!error) {
       S.water = S.water.filter(s => s.id !== dw2.dataset.delWa);
+      if (editingWaterId === dw2.dataset.delWa) renderWaterTab();
       renderHistory(); renderProgress(); renderWaterRecent(); refreshWeekCount();
     }
     return;
@@ -4417,6 +4575,7 @@ document.addEventListener('click', async e => {
   if (de) {
     if (!confirm('Delete this erg session for good?')) return;
     const { error } = await sb.from('tracker_erg_sessions').delete().eq('id', de.dataset.delErg);
+    if (!error && editingErgId === de.dataset.delErg) closeErgForm();
     if (!error) { S.ergs = S.ergs.filter(s => s.id !== de.dataset.delErg); renderHistory(); renderProgress(); renderErgRecent(); refreshWeekCount(); }
     return;
   }
@@ -4500,12 +4659,28 @@ document.addEventListener('click', async e => {
   if (td) { squadDeleteTemplate(td.dataset.tmplDel); return; }
   if (e.target.id === 'eg-save') { saveErg(); return; }
   if (e.target.id === 'eg-cancel') {
+    if (editingErgId) {
+      closeErgForm();
+      toast('erg-parse-status', 'Edit cancelled - the saved session is untouched.');
+      return;
+    }
     if (!confirm('Discard this session without saving it?')) return;
-    $('erg-form-holder').innerHTML = '';
-    clearErgDraft();
+    closeErgForm();
     $('erg-parse-status').innerHTML = '';
     return;
   }
+  if (e.target.id === 'wt-cancel') {
+    editingWaterId = null;
+    renderWaterTab();
+    toast('water-msg', 'Edit cancelled - the saved session is untouched.');
+    return;
+  }
+  if (e.target.id === 'core-edit-cancel') {
+    renderCoreTab();
+    toast('core-msg', 'Edit cancelled - the saved session is untouched.');
+    return;
+  }
+  if (e.target.id === 'core-update') { updateCoreSession(); return; }
 });
 
 /* ================= boot ================= */
@@ -4636,7 +4811,7 @@ document.addEventListener('click', async e => {
 
   $('erg-photo-btn').onclick = () => $('erg-file').click();
   $('erg-file').onchange = () => { if ($('erg-file').files[0]) { handleErgPhoto($('erg-file').files[0]); $('erg-file').value = ''; } };
-  $('erg-manual-btn').onclick = () => { openErgForm(null, 'manual'); saveErgDraft(); };
+  $('erg-manual-btn').onclick = () => { editingErgId = null; openErgForm(null, 'manual'); saveErgDraft(); };
 
   // The water form is rebuilt with its panel, so its button is wired by
   // delegation rather than by id at boot.
