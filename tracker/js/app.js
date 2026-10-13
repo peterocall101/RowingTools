@@ -3853,8 +3853,7 @@ function renderSquad() {
       'other is getting through - days trained, sessions, metres, time - and swap exercise ' +
       'templates. Totals only: never a session, a lift or a note.</p>' +
       '<div class="gate"><b>Squads need an account.</b><span>' +
-      (S.joinCode ? 'You arrived on an invite for code <b>' + esc(S.joinCode) + '</b>, and it is being ' +
-        'held for you: create an account and you can accept it straight away. ' : '') +
+      (S.joinCode ? 'You arrived on a squad invite, and it is being held for you: create an account and you can accept it straight away. ' : '') +
       'Your squad-mates have to be able to find you, which a sample on one device cannot be. ' +
       'Everything you have logged so far comes with you when you sign up.</span></div>' +
       '<a class="primary" id="sq-signup" href="login.html?signup=1" style="display:block;text-align:center;' +
@@ -3892,13 +3891,17 @@ function squadJoinHTML(alone) {
       'is getting through - days trained, sessions, metres, time - and swap exercise templates. ' +
       'Joining puts your <b>totals</b> on that squad’s board; never a session, a lift, a date or a ' +
       'note. Leaving takes them straight back off.</p>' : '<h3 class="setup-head" style="margin-top:8px">Join another squad</h3>') +
-    '<div class="lib-form"><h3>' + (invited ? 'You have been invited' : 'Join with a code') + '</h3>' +
-      (invited ? '<p class="fhint" style="margin:-4px 0 12px">Someone sent you the code below. ' +
-        'Join and your totals go on their board.</p>' : '') +
-      '<div class="fwide"><label>Six-character code from a squad-mate</label>' +
-        '<input type="text" id="sq-code" placeholder="e.g. K7RMQ2" maxlength="10" ' +
-        'value="' + esc(S.joinCode || '') + '" ' +
-        'autocapitalize="characters" autocomplete="off" style="letter-spacing:.24em;text-transform:uppercase"></div>' +
+    // An invite is a link. Opening it lands here with the squad already
+    // chosen, so there is nothing to type; the box is only for someone who
+    // was sent the link and opened the app some other way.
+    '<div class="lib-form"><h3>' + (invited ? 'You have been invited' : 'Join with an invite link') + '</h3>' +
+      (invited
+        ? '<p class="fhint" style="margin:-4px 0 12px">Join and your totals go on their board.</p>' +
+          '<input type="hidden" id="sq-code" value="' + esc(S.joinCode) + '">'
+        : '<p class="fhint" style="margin:-4px 0 12px">Open the link you were sent and you land here ' +
+          'ready to join. Or paste it below.</p>' +
+          '<div class="fwide"><label>Invite link</label>' +
+          '<input type="text" id="sq-code" placeholder="Paste the link here" autocomplete="off"></div>') +
       '<button class="primary" id="sq-join" style="height:42px">Join squad</button>' +
       (invited ? '<button id="sq-nojoin" style="width:100%;margin-top:8px">Not now</button>' : '') +
     '</div>' +
@@ -3906,7 +3909,8 @@ function squadJoinHTML(alone) {
       '<div class="fwide"><label>Squad name</label>' +
         '<input type="text" id="sq-name" placeholder="e.g. Senior Men 2026" maxlength="60"></div>' +
       '<button id="sq-create" style="width:100%;height:42px">Create squad</button>' +
-      '<div class="fhint">You get a code to pass on. Anyone with it can join.</div>' +
+      '<div class="fhint">You get an invite link to post in a group chat or send by email. ' +
+        'Anyone with it can join.</div>' +
     '</div>' +
     // distinct id: when this block sits below an existing board the page
     // already has a #squad-msg, and a duplicate id would send every message
@@ -4026,25 +4030,26 @@ function squadSettingsHTML(sq, isAdmin) {
   return '<div class="bsettings">' +
     (sq && sq.code
       ? '<div class="invite">' +
-          '<div class="inv-code">Invite code <b>' + esc(sq.code) + '</b>' +
-            (isAdmin ? '<button class="blink" id="sq-newcode">new code</button>' : '') + '</div>' +
+          '<div class="inv-code">Invite people' +
+            (isAdmin ? '<button class="blink" id="sq-newcode">reset link</button>' : '') + '</div>' +
           '<div class="inv-acts">' +
-            '<button id="sq-mail">Invite by email</button>' +
+            '<button class="primary" id="sq-copy">Copy invite link</button>' +
             (navigator.share ? '<button id="sq-share">Share&hellip;</button>' : '') +
-            '<button id="sq-copy">Copy link</button>' +
+            '<button id="sq-mail">Invite by email</button>' +
           '</div>' +
-          '<p class="inv-note">Anyone with the link or the code can join, and joining puts them on ' +
-            'this board. Email opens your own mail app with the link in it.' +
-            (isAdmin ? ' A new code stops every link you have already sent from working.' : '') +
+          '<p class="inv-note">Copy the link and post it in your squad\u2019s group chat, or send it ' +
+            'by email. Anyone who opens it can join, and joining puts them on this board. Email ' +
+            'opens your own mail app with the link in it.' +
+            (isAdmin ? ' Resetting the link stops every one you have already sent from working.' : '') +
           '</p>' +
         '</div>'
-      : '<div class="invite"><div class="inv-code">No invite code yet</div>' +
+      : '<div class="invite"><div class="inv-code">No invite link yet</div>' +
           (isAdmin
             ? '<div class="inv-acts"><button class="primary" id="sq-newcode" style="height:38px">' +
-              'Create an invite code</button></div>' +
-              '<p class="inv-note">This squad was made before invite codes existed, so there is ' +
-                'nothing to hand out yet. Generate one and you can invite people by email or link.</p>'
-            : '<p class="inv-note">This squad has no invite code. Whoever started it can create ' +
+              'Create an invite link</button></div>' +
+              '<p class="inv-note">This squad was made before invite links existed, so there is ' +
+                'nothing to hand out yet. Create one and you can invite people by link or email.</p>'
+            : '<p class="inv-note">This squad has no invite link. Whoever started it can create ' +
                 'one from here.</p>') +
         '</div>') +
     squadTemplatesHTML() +
@@ -4137,16 +4142,27 @@ async function squadCreate() {
   SQ.loaded = false;
   SQ.groupId = made ? made.group_id : null;
   track('squad_created', {});
-  await refreshSquad('Squad created. Its code is ' + esc((made && made.join_code) || '') +
-    ' - pass that on and people can join.');
+  // Open on the invite: a squad of one is no use, and the link is the next step.
+  SQ.settings = true;
+  await refreshSquad('Squad created. Copy the invite link above and post it in your group chat, ' +
+    'or send it by email.');
 }
 
 async function squadJoin() {
   const msg = squadMsg();
-  const code = ($('sq-code').value || '').trim();
-  if (!code) { toast(msg, 'Enter the code you were given.', 'warn'); return; }
+  // A pasted link carries the code as ?join=; anything else is taken as the
+  // code itself, which is also what the hidden field on an invite holds.
+  const raw = ($('sq-code').value || '').trim();
+  const m = raw.match(/[?&]join=([^&#\s]+)/i);
+  const code = m ? decodeURIComponent(m[1]) : raw;
+  if (!code) { toast(msg, 'Paste the invite link you were sent.', 'warn'); return; }
   const { data, error } = await sb.rpc('tracker_join_group', { p_code: code });
-  if (error) { toast(msg, esc(error.message), 'err'); return; }
+  if (error) {
+    toast(msg, /no squad has that code/i.test(error.message)
+      ? 'That invite link does not match a squad. It may have been reset - ask for a new one.'
+      : esc(error.message), 'err');
+    return;
+  }
   SQ.adding = false;
   const j = Array.isArray(data) ? data[0] : data;
   SQ.loaded = false;
@@ -4210,18 +4226,18 @@ async function squadRemoveMember(pid, name) {
 // Gives a squad its first code, or replaces one that has got out. Both are
 // the same operation; only the warning differs.
 async function squadRotateCode(hadOne) {
-  if (hadOne && !confirm('Give this squad a new invite code?' + String.fromCharCode(10, 10) +
-      'Every link and code you have already sent out stops working. Anyone already in the squad ' +
+  if (hadOne && !confirm('Reset this squad\u2019s invite link?' + String.fromCharCode(10, 10) +
+      'Every link you have already sent out stops working. Anyone already in the squad ' +
       'stays in it.')) return;
   const { data, error } = await sb.rpc('tracker_rotate_code', { p_group: SQ.groupId });
-  if (error) { toast('squad-msg', 'Could not change the code: ' + esc(error.message), 'err'); return; }
+  if (error) { toast('squad-msg', 'Could not change the link: ' + esc(error.message), 'err'); return; }
   const sq = SQ.squads.find(x => x.id === SQ.groupId);
   if (sq) sq.code = data;
   track('squad_code_rotated', { first: !hadOne });
   renderSquad();
   toast('squad-msg', hadOne
-    ? 'New code: <b>' + esc(data) + '</b>. The old one no longer works.'
-    : 'Invite code <b>' + esc(data) + '</b> created - you can send it out now.');
+    ? 'New invite link ready - copy it from above. The old one no longer works.'
+    : 'Invite link created - copy it from above and send it out.');
 }
 
 // Share sheet, mail app, clipboard - the same link three ways, because how a
@@ -4235,7 +4251,6 @@ function squadInvite(how) {
   const subject = 'Join ' + sq.name + ' on RowingTools';
   const body = name + ' has invited you to ' + sq.name + ' on the RowingTools training tracker.' + NL + NL +
     'Open this link to join:' + NL + url + NL + NL +
-    'Or enter the code ' + sq.code + ' on the Board tab.' + NL + NL +
     'A squad shows how much training each of you is getting through - days trained, sessions, ' +
     'erg metres and time. Totals only: nobody sees your individual sessions, lifts or notes.';
 

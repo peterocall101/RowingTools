@@ -677,7 +677,12 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   junk metres and punishes the athlete on a taper - so the breakdown under each name (days, weights,
   erg, water, core) is always there to put a big number in context, and days trained counts water
   outings as well as erg and gym.
-- **Join by six-character code, or by link.** The alphabet omits O/0, I/1 and S/5 - these get read
+- **Join by link. The six-character code still exists but is no longer shown to anyone**
+  (2026-10-13): typing a code was a step nobody needed when the link carries it. The invite panel
+  leads with **Copy invite link** for a group chat, then Share and email; a new squad opens
+  straight onto it; and the join box takes a pasted link (a bare code still works there, quietly).
+  "New code" is now "reset link" - the same `tracker_rotate_code` call. The alphabet omits O/0,
+  I/1 and S/5, from when codes were read
   aloud in a boathouse and typed with cold hands. Codes are not readable by non-members, so they
   cannot be enumerated; joining goes through an RPC. An invite link is
   `/tracker/?join=CODE`, and the Board tab offers it three ways: **Invite by email** (a `mailto:`

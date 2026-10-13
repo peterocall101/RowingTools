@@ -185,8 +185,7 @@
   const pendingJoin = localStorage.getItem('rt-pending-join');
   if (pendingJoin) {
     flags.push('<div class="flag"><b>You have a squad invite waiting.</b>' +
-      'Code <b style="display:inline">' + pendingJoin.replace(/[^A-Z0-9]/gi, '') + '</b> is held on this ' +
-      'device. Sign in or create an account and you can accept it.</div>');
+      'It is held on this device. Sign in or create an account and you can accept it.</div>');
   }
   $('flags').innerHTML = flags.join('');
 
