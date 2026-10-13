@@ -112,6 +112,11 @@ const ERG_TOOL: Anthropic.Tool = {
     type: "object",
     required: ["intervals", "warnings"],
     properties: {
+      date: {
+        type: "string",
+        description:
+          "The date the piece was rowed, as YYYY-MM-DD, only if a full date including the year is displayed on the monitor.",
+      },
       erg_type: {
         type: "string",
         enum: ["concept2", "rowperfect"],
@@ -220,6 +225,14 @@ SANITY CHECKS BEFORE YOU ANSWER
   certainly an elapsed time you have put in the wrong field.
 - Is the total time roughly the sum of the interval times?
 If a check fails and you cannot resolve it from the image, say so in warnings.
+
+THE DATE
+Memory and detail screens usually print the date the piece was rowed, e.g. "Oct 13 2026"; the
+screen shown at the end of a live workout usually does not. If a full date with its year is
+displayed, record it in \`date\` as YYYY-MM-DD. If no date is shown, or the year is missing, omit
+\`date\` - the app then uses today. If the date is all numbers and you cannot tell the day from
+the month (03/04/2026), omit it and say so in warnings. Never take the date from anything but
+the monitor's own display.
 
 CONVERSIONS
 - Every clock value becomes seconds: 7:12.3 -> 432.3, 1:48.1 -> 108.1, 20:00 -> 1200.
@@ -422,5 +435,22 @@ Deno.serve(async (req) => {
     return json({ error: "No structured data returned - try a clearer photo." }, 422);
   }
 
-  return json({ session: toolUse.input, model: response.model });
+  // The date pre-fills the confirm card, where a wrong one is easy to miss, so
+  // it is only passed on if it is a real day that has already happened. A
+  // monitor whose clock was never set reports a date years in the past, and
+  // tomorrow is allowed because this compares against UTC.
+  const session = toolUse.input as Record<string, unknown>;
+  if (session.date !== undefined) {
+    const d = String(session.date);
+    const t = /^\d{4}-\d{2}-\d{2}$/.test(d) ? Date.parse(d + "T00:00:00Z") : NaN;
+    const real = !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === d;
+    if (!real || t > Date.now() + 86_400_000 || d < "2010-01-01") {
+      delete session.date;
+      if (Array.isArray(session.warnings)) {
+        session.warnings.push("The date on the monitor could not be used - set the date yourself.");
+      }
+    }
+  }
+
+  return json({ session, model: response.model });
 });

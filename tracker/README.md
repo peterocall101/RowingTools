@@ -459,6 +459,11 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   manual entry. The detail goes to `console.error` in the function logs, which is where it gets
   fixed, and it means **"api key is invalid" is never echoed back to an end user**. Everything else
   from the API still surfaces as a 502 with its status, because those are worth seeing.
+- **The date comes off the monitor when it shows one.** Memory and detail screens print the date
+  the piece was rowed, and `parse-erg` returns it as `date` so the confirm card opens on that day
+  rather than today - which is what makes logging last week's pieces from old photos bearable. A
+  screen with no date, a date in the future, or one before 2010 (a monitor whose clock was never
+  set) falls back to today. It trusts the monitor's clock, so a wrongly set one gives a wrong date.
 - **Erg photo parses are never auto-saved**: the parsed numbers land in an editable
   confirmation card first. `source` on each erg row records `photo` / `manual` (and later
   `c2-logbook` for the planned Concept2 Logbook API sync).
