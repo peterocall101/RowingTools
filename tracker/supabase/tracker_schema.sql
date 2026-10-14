@@ -21,7 +21,8 @@
 -- The one deliberate exception is a HARD ERG (part 2, section 4): a
 -- session the athlete has tagged, one at a time, as an attempt at the
 -- squad's erg of the week. tracker_hard_erg_board() returns that
--- session's split, time and distance - still never its date or notes.
+-- session's split, time and distance - still never its date or notes - and,
+-- if the athlete ticked it while logging, the photo of the monitor.
 --
 -- The report at the bottom checks that, and much else. Read it.
 -- ================================================================
@@ -255,7 +256,11 @@ alter table public.tracker_erg_sessions
   add column if not exists avg_rate     int,
   add column if not exists avg_hr       int,
   add column if not exists intervals    jsonb,
-  add column if not exists notes        text;
+  add column if not exists notes        text,
+  -- Where the monitor photo is, in the erg-screens bucket, for a session the
+  -- athlete chose to show as a hard erg attempt. Null for nearly every row:
+  -- a photo is only kept when that box is ticked.
+  add column if not exists screen_path  text;
 
 alter table public.tracker_core_routines
   add column if not exists steps    jsonb   not null default '[]'::jsonb,
@@ -1170,6 +1175,9 @@ $$;
 -- The split is the stored average where there is one, else time over
 -- distance, so a session typed in as just a time and a distance still
 -- ranks.
+-- best_screen was added after the first version, and CREATE OR REPLACE cannot
+-- change a function's OUT columns.
+drop function if exists public.tracker_hard_erg_board(uuid);
 create or replace function public.tracker_hard_erg_board(p_hard_erg uuid)
 returns table (
   athlete_id      uuid,
@@ -1177,7 +1185,8 @@ returns table (
   best_split_s    numeric,
   best_time_s     numeric,
   best_distance_m int,
-  attempts        int
+  attempts        int,
+  best_screen     text
 )
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 #variable_conflict use_column
@@ -1198,6 +1207,7 @@ begin
     select e.profile_id as pid,
            s.total_time_s as t_s,
            s.distance_m as d_m,
+           s.screen_path as shot,
            coalesce(s.avg_split_s,
              case when s.distance_m > 0 and s.total_time_s > 0
                   then s.total_time_s / (s.distance_m / 500.0) end) as split
@@ -1210,18 +1220,76 @@ begin
       and s.date between v_from and v_to
   ),
   best as (
-    select distinct on (pid) pid, split, t_s, d_m,
+    select distinct on (pid) pid, split, t_s, d_m, shot,
            count(*) over (partition by pid) as n
     from tagged
     where split is not null
     order by pid, split asc
   )
   select b.pid, coalesce(p.display_name, 'Athlete'), round(b.split, 1),
-         b.t_s, b.d_m, b.n::int
+         b.t_s, b.d_m, b.n::int, b.shot
   from best b
   left join public.profiles p on p.id = b.pid;
 end;
 $$;
+
+-- ---- erg screens ----------------------------------------------------
+-- The monitor photo behind a hard erg attempt, kept only when the athlete
+-- ticked "show my erg screen" while logging it. Private bucket, one file per
+-- session at <owner uuid>/<session uuid>.jpg. The app deletes the file once
+-- the session has no hard erg tags left.
+--
+-- Read: the owner, or a member of a squad whose hard erg the session is
+-- tagged to. The tag rows are owner-only under RLS, so a policy cannot look
+-- through them as the reader - this SECURITY DEFINER helper does, and answers
+-- only yes or no.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('erg-screens', 'erg-screens', false, 1048576, array['image/jpeg'])
+on conflict (id) do update
+  set public = false, file_size_limit = 1048576, allowed_mime_types = array['image/jpeg'];
+
+create or replace function public.tracker_can_see_screen(p_name text)
+returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select exists (
+    select 1
+    from public.tracker_hard_erg_entries e
+    join public.tracker_hard_ergs h on h.id = e.hard_erg_id
+    where public.tracker_is_uuid(split_part(p_name, '/', 1))
+      and public.tracker_is_uuid(split_part(split_part(p_name, '/', 2), '.', 1))
+      and e.profile_id::text     = split_part(p_name, '/', 1)
+      and e.erg_session_id::text = split_part(split_part(p_name, '/', 2), '.', 1)
+      and public.is_group_member(h.group_id)
+  );
+$$;
+revoke execute on function public.tracker_can_see_screen(text) from public, anon;
+grant  execute on function public.tracker_can_see_screen(text) to authenticated, service_role;
+
+drop policy if exists "erg screens: read own or tagged" on storage.objects;
+create policy "erg screens: read own or tagged" on storage.objects
+  for select to authenticated using (
+    bucket_id = 'erg-screens'
+    and ((storage.foldername(name))[1] = auth.uid()::text or public.tracker_can_see_screen(name))
+  );
+
+drop policy if exists "erg screens: upload own" on storage.objects;
+create policy "erg screens: upload own" on storage.objects
+  for insert to authenticated with check (
+    bucket_id = 'erg-screens' and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- upsert on upload needs UPDATE as well as INSERT
+drop policy if exists "erg screens: replace own" on storage.objects;
+create policy "erg screens: replace own" on storage.objects
+  for update to authenticated using (
+    bucket_id = 'erg-screens' and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "erg screens: delete own" on storage.objects;
+create policy "erg screens: delete own" on storage.objects
+  for delete to authenticated using (
+    bucket_id = 'erg-screens' and (storage.foldername(name))[1] = auth.uid()::text
+  );
 
 -- EXECUTE: revoke from PUBLIC first, then grant.
 --
@@ -1301,6 +1369,7 @@ with expected(tbl, col) as (values
   ('tracker_erg_sessions','distance_m'), ('tracker_erg_sessions','avg_split_s'),
   ('tracker_erg_sessions','avg_rate'), ('tracker_erg_sessions','avg_hr'),
   ('tracker_erg_sessions','intervals'), ('tracker_erg_sessions','notes'),
+  ('tracker_erg_sessions','screen_path'),
   ('tracker_core_routines','name'), ('tracker_core_routines','steps'),
   ('tracker_core_routines','position'), ('tracker_core_routines','retired'),
   ('tracker_core_sessions','routine_id'), ('tracker_core_sessions','routine_name'),
@@ -1383,6 +1452,9 @@ select section, item, result from (
     union all select 'tracker_new_join_code()',    to_regprocedure('public.tracker_new_join_code()') is not null
     union all select 'tracker_squad_board(uuid,text)', to_regprocedure('public.tracker_squad_board(uuid,text)') is not null
     union all select 'tracker_hard_erg_board(uuid)', to_regprocedure('public.tracker_hard_erg_board(uuid)') is not null
+    union all select 'tracker_can_see_screen(text)', to_regprocedure('public.tracker_can_see_screen(text)') is not null
+    union all select 'erg-screens bucket (private)',
+      exists (select 1 from storage.buckets b where b.id = 'erg-screens' and not b.public)
   ) f
   -- The date-taking board is the differencing hole. It must NOT exist.
   union all
@@ -1403,6 +1475,7 @@ select section, item, result from (
   where n.nspname='public'
     and p.proname in ('tracker_create_group','tracker_join_group',
                       'tracker_leave_group','tracker_squad_board','tracker_hard_erg_board',
+                      'tracker_can_see_screen',
                       'tracker_admin_remove_member','tracker_rotate_code',
                       'tracker_new_join_code')
 

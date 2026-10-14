@@ -641,6 +641,20 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   failing that, time over distance; best attempt counts. Leaving or being removed from a squad
   deletes your tags on its hard ergs. Boxes stay up for six weeks after a hard erg closes. On a
   phone the column sits above the board rather than under it.
+
+  **Erg screens** (2026-10-14): when an erg is logged *from a photo* and ticked as a hard erg
+  attempt, a second tick box, **Show my erg screen too**, appears and defaults to on. If it stays
+  on, a 1280px copy of the photo (redrawn through a canvas, so no EXIF or location) is uploaded to
+  the private `erg-screens` bucket at `<owner>/<session>.jpg`, and the session's `screen_path` points
+  at it. The board shows **view screen** on that athlete's row, opened through a one-hour signed URL.
+  Untick it, or log by hand, and the photo is never stored - it only ever lived in the page's memory
+  (`ERG_SHOT`). The option exists only at logging time; tagging afterwards carries numbers alone.
+  Readers are the owner and members of a squad the session is tagged to, decided by the
+  `tracker_can_see_screen()` definer helper because the tag rows are owner-only. Storage files do
+  not cascade, so the app deletes a screen as soon as its session has no tags left (`sweepScreen`,
+  run after untagging, editing, deleting the session or the hard erg, and on every load to catch a
+  hard erg someone else removed). Known gap: deleting a whole account leaves its screens in the
+  bucket.
 - **Non-sharers are shown, greyed, as "not sharing".** The board says "2 of 3 sharing" rather than
   quietly pretending the squad is smaller than it is.
 - **The board ranks on one of eight things, chosen with buttons.** Erg, Water, Other, Erg + Water,

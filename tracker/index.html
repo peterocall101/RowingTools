@@ -391,6 +391,14 @@
   .hepick-row{display:flex;gap:10px;align-items:flex-start;padding:5px 0;cursor:pointer}
   .hepick-row input{accent-color:var(--red);width:16px;height:16px;margin-top:3px;flex-shrink:0}
   .hepick-row small{display:block;font-family:var(--mono);font-size:10.5px;color:var(--text3);margin-top:1px}
+  .hepick-shot{border-top:1px solid var(--border);margin-top:4px;padding-top:8px}
+  .hepick-shot[hidden]{display:none}
+  /* an erg screen, opened from the hard erg board */
+  .shotbox{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.88);display:flex;
+    align-items:center;justify-content:center;padding:16px;cursor:zoom-out}
+  .shotbox img{max-width:100%;max-height:100%;object-fit:contain}
+  .shot-x{position:absolute;top:12px;right:12px;background:var(--bg2);color:var(--text);
+    height:36px;width:36px;padding:0;font-size:15px}
   /* the admin drawer: everything you do to a squad rather than read from it */
   .bsettings{border:1px solid var(--border2);padding:14px 15px;margin-bottom:22px}
   .bsettings .invite{border-top:none;padding-top:0}

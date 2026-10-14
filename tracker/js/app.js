@@ -947,6 +947,7 @@ function startEditErg(id) {
 }
 function closeErgForm() {
   editingErgId = null;
+  ERG_SHOT = null;
   $('erg-form-holder').innerHTML = '';
   clearErgDraft();
 }
@@ -1004,6 +1005,8 @@ async function saveErg() {
   const form = $('erg-form');
   // Read before the form is torn down below.
   const wantTags = [...document.querySelectorAll('#eg-hard .he-tag')].map(x => ({ id: x.value, on: x.checked }));
+  const wantShot = !!(ERG_SHOT && !editingErgId && $('he-shot') && $('he-shot').checked &&
+                      wantTags.some(t => t.on));
   const num = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
   const intervals = [...document.querySelectorAll('#eg-ivs tr')].map(tr => ({
     time_s: parseTimeStr(tr.querySelector('.iv-time').value),
@@ -1055,6 +1058,7 @@ async function saveErg() {
     closeErgForm();
     cacheData();
     const tagErr = await syncHardTags(id, wantTags, false);
+    await sweepScreen(id);
     toast('erg-parse-status', 'Session updated - ' + prettyDate(fields.date) + ' · ' + distance_m + 'm.' +
       (tagErr.length ? ' The hard erg tag could not be saved: ' + esc(tagErr[0]) : ''), tagErr.length ? 'warn' : '');
     renderErgRecent(); renderHistory(); renderProgress(); refreshWeekCount();
@@ -1062,6 +1066,15 @@ async function saveErg() {
   }
 
   const row = { id: newId(), profile_id: S.session.user.id, at: nowHM(), source: form.dataset.source, ...fields };
+  // The screen goes up first so the row can say where it is. Not ticked, or
+  // no connection, and the photo is simply never stored: it only ever lived
+  // in this page's memory.
+  let shotErr = null;
+  if (wantShot) {
+    const path = await uploadScreen(row.id, ERG_SHOT);
+    if (path) row.screen_path = path; else shotErr = 'the erg screen could not be uploaded';
+  }
+  ERG_SHOT = null;
   const { error } = await insertRow('tracker_erg_sessions', row);
   const queued = error && looksOffline(error);
   if (error && !queued) { toast('erg-parse-status', 'Save failed: ' + esc(error.message), 'err'); return; }
@@ -1073,6 +1086,8 @@ async function saveErg() {
   cacheData();
   clearErgDraft();
   const tagErr = await syncHardTags(row.id, wantTags, queued);
+  if (shotErr) tagErr.push(shotErr);
+  if (row.screen_path && !HE.tags.some(t => t.erg_session_id === row.id)) await sweepScreen(row.id);
   toast('erg-parse-status',
     (queued ? 'Saved on this device - it will sync when you are back online. ' : 'Saved - ') +
     prettyDate(row.date) +
@@ -1152,7 +1167,19 @@ function downscale(file) {
       const ctx = c.getContext('2d');
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, w, h);
-      resolve(c.toDataURL('image/jpeg', 0.92).split(',')[1]);
+      const b64 = c.toDataURL('image/jpeg', 0.92).split(',')[1];
+      // A second, smaller copy for the squad to look at if this ends up
+      // tagged to a hard erg: plenty to read a monitor by eye, a tenth of the
+      // size. Redrawn through a canvas, so like the copy above it carries no
+      // EXIF - no location, no device.
+      const SHOW = 1280;
+      const k2 = Math.min(1, SHOW / Math.max(w, h));
+      const c2 = document.createElement('canvas');
+      c2.width = Math.round(w * k2); c2.height = Math.round(h * k2);
+      const ctx2 = c2.getContext('2d');
+      ctx2.imageSmoothingQuality = 'high';
+      ctx2.drawImage(c, 0, 0, c2.width, c2.height);
+      c2.toBlob(shot => resolve({ b64, shot }), 'image/jpeg', 0.8);
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that image.')); };
     img.src = url;
@@ -1161,8 +1188,8 @@ function downscale(file) {
 
 async function handleErgPhoto(file) {
   $('erg-parse-status').innerHTML = '<div class="toast"><span class="spin"></span>Reading the monitor… usually a few seconds.</div>';
-  let b64;
-  try { b64 = await downscale(file); }
+  let b64, shot;
+  try { ({ b64, shot } = await downscale(file)); }
   catch (e) { toast('erg-parse-status', esc(e.message), 'err'); return; }
 
   // fetch a fresh token - the boot-time one can have expired mid-session
@@ -1199,6 +1226,7 @@ async function handleErgPhoto(file) {
   $('erg-parse-status').innerHTML = '';
   track('erg_photo_parsed', {});
   editingErgId = null;
+  ERG_SHOT = shot || null;
   openErgForm(out.session || {}, 'photo');
 }
 
@@ -4067,6 +4095,59 @@ function fmtMetric(v, unit) {
    and never its date or notes (see tracker_hard_erg_board in the schema). */
 const HE = { list: [], tags: [], loaded: false, error: null, board: [], boardError: null, adding: false };
 
+/* ---- erg screens ----
+   The photo behind a hard erg attempt, kept ONLY when the athlete ticks
+   "show my erg screen" while logging it. Until then it lives in ERG_SHOT, in
+   this page's memory, and is gone when the form closes. Stored at
+   <owner>/<session>.jpg in a private bucket; the storage policy lets the
+   owner, and members of a squad the session is tagged to, read it. Once a
+   session has no tags left its screen is deleted (sweepScreen), so a photo
+   never outlives the reason it was shared. */
+const SCREEN_BUCKET = 'erg-screens';
+let ERG_SHOT = null;
+
+async function uploadScreen(sid, blob) {
+  if (!blob || !navigator.onLine) return null;
+  const path = S.session.user.id + '/' + sid + '.jpg';
+  try {
+    const { error } = await sb.storage.from(SCREEN_BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+    return error ? null : path;
+  } catch (e) {
+    if (!(e instanceof TypeError)) throw e;   // a dropped connection, nothing else
+    return null;
+  }
+}
+
+// A screen with no hard erg left to belong to is deleted, and the session
+// forgets it had one. Called after anything that can remove the last tag.
+async function sweepScreen(sid) {
+  const s = S.ergs.find(x => x.id === sid);
+  if (!s || !s.screen_path || HE.tags.some(t => t.erg_session_id === sid)) return;
+  const { error } = await sb.storage.from(SCREEN_BUCKET).remove([s.screen_path]);
+  if (error) return;
+  const { error: e2 } = await updateRow('tracker_erg_sessions', { screen_path: null }, sid);
+  if (!e2) { s.screen_path = null; cacheData(); }
+}
+
+// Hard ergs can vanish under you - someone deletes one, or you leave the
+// squad - and the tags go with them server-side. Tidy any screen left behind.
+async function sweepScreens() {
+  for (const s of S.ergs.filter(x => x.screen_path)) await sweepScreen(s.id);
+}
+
+// The screen, full size, over the page. A signed URL rather than a public
+// one: the bucket is private and the link dies in an hour.
+async function openScreen(path) {
+  const { data, error } = await sb.storage.from(SCREEN_BUCKET).createSignedUrl(path, 3600);
+  if (error || !data) { toast('squad-msg', 'Could not open that erg screen.', 'err'); return; }
+  const box = document.createElement('div');
+  box.className = 'shotbox';
+  box.innerHTML = '<button class="shot-x" aria-label="Close">\u2715</button>' +
+    '<img src="' + esc(data.signedUrl) + '" alt="Erg monitor screen">';
+  box.addEventListener('click', () => box.remove());
+  document.body.appendChild(box);
+}
+
 const heOn = (h, date) => date >= h.starts_on && date <= h.ends_on;
 const heWindow = h => shortDate(h.starts_on) + ' - ' + shortDate(h.ends_on);
 const heTagged = (hid, sid) => HE.tags.some(t => t.hard_erg_id === hid && t.erg_session_id === sid);
@@ -4089,6 +4170,7 @@ async function loadHardErgs() {
   HE.loaded = !HE.error;
   HE.list = h.error ? [] : (h.data || []);
   HE.tags = t.error ? [] : (t.data || []);
+  if (HE.loaded) await sweepScreens();
 }
 
 async function loadHardBoard() {
@@ -4107,8 +4189,21 @@ function hardPickerHTML(date, sid, first) {
       (first && sid && heTagged(h.id, sid) ? ' checked' : '') + '>' +
       '<span><b>' + esc(h.title) + '</b><small>' + esc((h.groups && h.groups.name) || 'Squad') +
       ' · ' + heWindow(h) + '</small></span></label>').join('') +
+    // Only while logging from a photo: afterwards there is no photo to keep.
+    (ERG_SHOT && !editingErgId
+      ? '<label class="hepick-row hepick-shot" hidden><input type="checkbox" id="he-shot" checked>' +
+        '<span><b>Show my erg screen too</b><small>Your squad can open the photo from the board. ' +
+        'Untick and it is deleted when you save.</small></span></label>' : '') +
     '<div class="fhint">Tick to put this session\'s split, time and distance on that squad\'s ' +
       'hard erg board. Nothing else about it is shared.</div></div>';
+}
+// The screen option shows once a hard erg is ticked, and comes on with it.
+function paintShotRow() {
+  const row = document.querySelector('#eg-hard .hepick-shot');
+  if (!row) return;
+  const any = [...document.querySelectorAll('#eg-hard .he-tag')].some(x => x.checked);
+  if (any && row.hidden) $('he-shot').checked = true;
+  row.hidden = !any;
 }
 // `first` paints from the saved tags; otherwise (the date changed) whatever is
 // ticked stays ticked.
@@ -4116,8 +4211,11 @@ function paintHardPicker(first) {
   const el = $('eg-hard');
   if (!el || !$('eg-date')) return;
   const keep = new Set([...el.querySelectorAll('.he-tag:checked')].map(x => x.value));
+  const shotOff = $('he-shot') && !$('he-shot').checked;
   el.innerHTML = hardPickerHTML($('eg-date').value || todayISO(), editingErgId, first);
   if (!first) el.querySelectorAll('.he-tag').forEach(x => { if (keep.has(x.value)) x.checked = true; });
+  paintShotRow();
+  if (shotOff && $('he-shot')) $('he-shot').checked = false;
 }
 
 async function addHardTag(hid, sid, queued) {
@@ -4241,6 +4339,7 @@ async function deleteHardErg(id) {
   HE.list = HE.list.filter(x => x.id !== id);
   HE.tags = HE.tags.filter(t => t.hard_erg_id !== id);
   if (SQ.hard === id) SQ.hard = null;
+  await sweepScreens();
   renderSquad(); paintHardPicker();
 }
 
@@ -4267,7 +4366,9 @@ function hardBoardHTML(h) {
         '<span class="bval">' + fmtTime(v) + '<small>/500m</small></span>' +
         '<span class="bsub">' + [r.best_distance_m ? Number(r.best_distance_m).toLocaleString('en-GB') + 'm' : null,
           r.best_time_s ? fmtTime(Number(r.best_time_s)) : null,
-          r.attempts > 1 ? 'best of ' + r.attempts : null].filter(Boolean).join(' \u00b7 ') + '</span>' +
+          r.attempts > 1 ? 'best of ' + r.attempts : null].filter(Boolean).join(' \u00b7 ') +
+          (r.best_screen ? ' <button class="blink" data-he-screen="' + esc(r.best_screen) + '">view screen</button>' : '') +
+        '</span>' +
         '<span class="bbar"><i style="width:' + pct + '%"></i></span>' +
       '</div>';
     }).join('');
@@ -4869,6 +4970,7 @@ document.addEventListener('input', e => {
 document.addEventListener('change', e => {
   if (e.target.closest && e.target.closest('#erg-form')) {
     if (e.target.id === 'eg-date') paintHardPicker();
+    if (e.target.classList.contains('he-tag')) paintShotRow();
     queueErgDraft();
     return;
   }
@@ -5122,7 +5224,9 @@ document.addEventListener('click', async e => {
   const de = e.target.closest('[data-del-erg]');
   if (de) {
     if (!confirm('Delete this erg session for good?')) return;
+    const gone = S.ergs.find(x => x.id === de.dataset.delErg);
     const { error } = await sb.from('tracker_erg_sessions').delete().eq('id', de.dataset.delErg);
+    if (!error && gone && gone.screen_path) await sb.storage.from(SCREEN_BUCKET).remove([gone.screen_path]);
     if (!error && editingErgId === de.dataset.delErg) closeErgForm();
     if (!error) {
       S.ergs = S.ergs.filter(s => s.id !== de.dataset.delErg);
@@ -5178,10 +5282,13 @@ document.addEventListener('click', async e => {
     renderSquad();
     return;
   }
+  const heScr = e.target.closest('[data-he-screen]');
+  if (heScr) { openScreen(heScr.dataset.heScreen); return; }
   const heUn = e.target.closest('[data-he-untag]');
   if (heUn) {
     const err = await dropHardTag(heUn.dataset.heUntag, heUn.dataset.sid);
     if (err) { toast('squad-msg', 'Could not untag it: ' + esc(err), 'err'); return; }
+    await sweepScreen(heUn.dataset.sid);
     if (SQ.hard === heUn.dataset.heUntag) await loadHardBoard();
     renderSquad();
     return;
@@ -5393,7 +5500,7 @@ document.addEventListener('click', async e => {
 
   $('erg-photo-btn').onclick = () => $('erg-file').click();
   $('erg-file').onchange = () => { if ($('erg-file').files[0]) { handleErgPhoto($('erg-file').files[0]); $('erg-file').value = ''; } };
-  $('erg-manual-btn').onclick = () => { editingErgId = null; openErgForm(null, 'manual'); saveErgDraft(); };
+  $('erg-manual-btn').onclick = () => { editingErgId = null; ERG_SHOT = null; openErgForm(null, 'manual'); saveErgDraft(); };
 
   // The water form is rebuilt with its panel, so its button is wired by
   // delegation rather than by id at boot.
