@@ -4093,7 +4093,8 @@ function fmtMetric(v, unit) {
    rank on it, fastest average split first. A tag is the athlete choosing to
    show that one session's split, time and distance; nothing untagged is read,
    and never its date or notes (see tracker_hard_erg_board in the schema). */
-const HE = { list: [], tags: [], loaded: false, error: null, board: [], boardError: null, adding: false };
+const HE = { list: [], tags: [], loaded: false, error: null, board: [], boardError: null, adding: false,
+             pastOpen: false };
 
 /* ---- erg screens ----
    The photo behind a hard erg attempt, kept ONLY when the athlete ticks
@@ -4162,7 +4163,7 @@ const ergOptionText = s => [shortDate(s.date), s.session_type, s.distance_m ? s.
 async function loadHardErgs() {
   if (S.trial) return;
   const [h, t] = await Promise.all([
-    sb.from('tracker_hard_ergs').select('*, groups(name)').order('starts_on', { ascending: false }).limit(200),
+    sb.from('tracker_hard_ergs').select('*, groups(name)').order('starts_on', { ascending: false }).limit(1000),
     sb.from('tracker_hard_erg_entries').select('hard_erg_id, erg_session_id, profile_id')
       .eq('profile_id', S.session.user.id),
   ]);
@@ -4248,12 +4249,24 @@ async function syncHardTags(sid, want, queued) {
 
 // The same hard ergs as the side column, as a row of buttons with the modes,
 // so ranking on one is as direct as ranking on erg metres.
+// Current: open, coming up, or closed in the last week (results still
+// landing). Everything older is in Past, newest first - never deleted, and
+// its ranking can be pulled up any time.
+const HARD_GRACE = 7;
 const hardShown = () => {
-  const cutoff = addDays(todayISO(), -42);
+  const cutoff = addDays(todayISO(), -HARD_GRACE);
   return HE.list.filter(h => h.group_id === SQ.groupId && h.ends_on >= cutoff);
+};
+const hardPast = () => {
+  const cutoff = addDays(todayISO(), -HARD_GRACE);
+  return HE.list.filter(h => h.group_id === SQ.groupId && h.ends_on < cutoff)
+    .sort((a, b) => b.ends_on.localeCompare(a.ends_on));
 };
 function hardModesHTML() {
   const list = hardShown();
+  // A past one being ranked joins the row, so it is plain what is on screen.
+  const sel = SQ.hard && !list.some(h => h.id === SQ.hard) && HE.list.find(h => h.id === SQ.hard);
+  if (sel) list.push(sel);
   if (!list.length) return '';
   return '<div class="hemodes"><span class="ttog-lab">Hard ergs</span>' +
     '<div class="segmented bmodes he-row" role="group" aria-label="Rank by a hard erg" style="--n:' +
@@ -4266,9 +4279,8 @@ function hardModesHTML() {
 /* ---- the side column on the Board ---- */
 function hardErgsHTML(isAdmin) {
   const me = S.session.user.id;
-  // Recent ones stay up for a few weeks after they close, so the result can
-  // still be looked at; older ones drop off.
   const list = hardShown();
+  const past = hardPast();
   return '<aside class="hecol" aria-label="Hard ergs">' +
     '<div class="hecol-head"><h4>Hard ergs</h4>' +
       '<button class="blink" id="he-new">' + (HE.adding ? 'cancel' : '+ add one') + '</button></div>' +
@@ -4278,6 +4290,14 @@ function hardErgsHTML(isAdmin) {
     (!list.length && !HE.adding && !HE.error
       ? '<p class="he-empty">No hard erg set. Add the piece of the week and the squad can rank on it.</p>' : '') +
     list.map(h => hardBoxHTML(h, me, isAdmin)).join('') +
+    (past.length ? '<div class="hepast">' +
+      '<button class="blink hepast-tog" id="he-past" aria-expanded="' + HE.pastOpen + '">' +
+        (HE.pastOpen ? '\u25be' : '\u25b8') + ' Past hard ergs \u00b7 ' + past.length + '</button>' +
+      (HE.pastOpen ? past.map(h =>
+        '<button class="hepast-row' + (SQ.hard === h.id ? ' active' : '') + '" data-he-rank="' + h.id + '">' +
+          '<b>' + esc(h.title) + '</b><span>' + heWindow(h) + ' ' + h.ends_on.slice(0, 4) + '</span></button>'
+        ).join('') : '') +
+    '</div>' : '') +
   '</aside>';
 }
 
@@ -5312,6 +5332,7 @@ document.addEventListener('click', async e => {
   if (e.target.id === 'sq-settings') { SQ.settings = !SQ.settings; renderSquad(); return; }
   if (e.target.id === 'he-new') { HE.adding = !HE.adding; renderSquad(); if (HE.adding) $('he-title').focus(); return; }
   if (e.target.id === 'he-save') { saveHardErg(); return; }
+  if (e.target.closest('#he-past')) { HE.pastOpen = !HE.pastOpen; renderSquad(); return; }
   const heDel = e.target.closest('[data-he-del]');
   if (heDel) { deleteHardErg(heDel.dataset.heDel); return; }
   const heRank = e.target.closest('[data-he-rank]');

@@ -639,7 +639,9 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   from `tracker_hard_erg_board()`, which reads only tagged sessions and returns only split, time and
   distance - never the date, the notes or the splits table. The split is the stored average or,
   failing that, time over distance; best attempt counts. Leaving or being removed from a squad
-  deletes your tags on its hard ergs. Boxes stay up for six weeks after a hard erg closes. On a
+  deletes your tags on its hard ergs. A hard erg keeps its box for a week after it closes; after that it moves to **Past hard ergs**
+  (collapsed, newest first) in the same column, where any ranking can still be opened. Nothing is
+  ever deleted by time - only by its setter or the admin. On a
   phone the column sits above the board rather than under it.
 
   **Erg screens** (2026-10-14): when an erg is logged *from a photo* and ticked as a hard erg
