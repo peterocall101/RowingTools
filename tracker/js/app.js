@@ -1121,10 +1121,7 @@ function renderErgGate() {
   $('erg-photo-btn').disabled = true;
   $('erg-photo-btn').title = 'Needs an account';
   wrap.innerHTML =
-    '<div class="gate"><b>Reading erg photos needs an account.</b>' +
-    '<span>Every photo is read by an AI model and costs real money per picture, so it is the ' +
-    'one thing the sample cannot do. <b>Enter manually</b> works exactly as it will once you ' +
-    'sign up.</span></div>';
+    '<div class="gate"><b>This feature requires an account.</b></div>';
 }
 
 /* ---- photo capture -> Edge Function ---- */
