@@ -93,6 +93,56 @@ function fmtTime(sec) {
 }
 const fmtSplit = sec => sec == null ? '' : fmtTime(sec) + '/500m';
 
+// A choice set out one block a line (see .segrows): `items` carry a `row`
+// number, and each row becomes its own segmented control.
+function segRows(items, btn, cls, attrs) {
+  const rows = [];
+  items.forEach(m => { (rows[m.row || 0] = rows[m.row || 0] || []).push(m); });
+  return '<div class="segrows" ' + attrs + '>' + rows.filter(Boolean).map(r =>
+    '<div class="segmented ' + cls + '" role="presentation" style="--n:' + r.length + '">' +
+    r.map(btn).join('') + '</div>').join('') + '</div>';
+}
+
+/* ---- time fields ----
+   Every typed time is colon-separated, and the commonest mistake is a bare
+   number: "45" is read as 45 seconds, not 45 minutes. So each time field
+   says its format in the label, and spells back what it has understood as
+   you type. Inputs carry class "tm"; a form field has a .t-read line under
+   it, a table cell just turns red with the reading in its tooltip. */
+const fmtLab = f => ' <span class="tfmt">' + f + '</span>';
+const timeInput = (attrs, val, placeholder) =>
+  '<input type="text" class="tm' + (attrs.cls ? ' ' + attrs.cls : '') + '"' +
+  (attrs.id ? ' id="' + attrs.id + '"' : '') + ' value="' + esc(val || '') + '"' +
+  ' placeholder="' + placeholder + '" autocomplete="off" spellcheck="false">';
+
+function timeReading(str) {
+  const t = String(str == null ? '' : str).trim();
+  if (!t) return null;
+  const sec = parseTimeStr(t);
+  if (sec == null || sec <= 0) return { bad: true, text: 'Not a time - use colons, e.g. 45:00 or 1:12:30' };
+  const r = round1(sec);
+  const h = Math.floor(r / 3600), m = Math.floor((r % 3600) / 60), x = round1(r % 60);
+  const bits = [];
+  if (h) bits.push(h + ' h');
+  if (m) bits.push(m + ' min');
+  if (x || !bits.length) bits.push(x + ' s');
+  let text = '= ' + bits.join(' ');
+  // A bare number was most likely meant as minutes, so say how to type that.
+  if (!t.includes(':')) text += ' - for ' + t + ' minutes type ' + t + ':00';
+  return { bad: false, text };
+}
+function paintTime(el) {
+  const rd = timeReading(el.value);
+  el.classList.toggle('bad', !!(rd && rd.bad));
+  el.title = rd ? rd.text : '';
+  const out = el.parentElement && el.parentElement.querySelector('.t-read');
+  if (out) {
+    out.textContent = rd ? rd.text : '';
+    out.classList.toggle('bad', !!(rd && rd.bad));
+  }
+}
+const paintTimes = root => (root || document).querySelectorAll('input.tm').forEach(paintTime);
+
 // Null-safe: several holders live inside panels that are rebuilt wholesale, so
 // a message can outrace its container. Losing the message beats a crash.
 function toast(holderId, msg, cls) {
@@ -758,7 +808,7 @@ function refreshWeekCount() {
   const today = S.workouts.filter(s => s.date === date).length;
   $('weekcount').innerHTML = 'Week of ' + prettyDate(wk) + ' - <b>' + weights + '</b> weights · <b>' +
     ergs + '</b> erg' + (waters ? ' · <b>' + waters + '</b> water' : '') +
-    (cardios ? ' · <b>' + cardios + '</b> cardio' : '') +
+    (cardios ? ' · <b>' + cardios + '</b> other' : '') +
     (cores ? ' · <b>' + cores + '</b> core' : '') +
     (today ? ' · ' + today + ' already logged today' : '');
 }
@@ -846,15 +896,20 @@ function ergFormHTML(d, source) {
         '<option value="concept2"' + (d.erg_type === 'concept2' || !d.erg_type ? ' selected' : '') + '>Concept2</option>' +
         '<option value="rowperfect"' + (d.erg_type === 'rowperfect' ? ' selected' : '') + '>RowPerfect</option></select></div>' +
       '<div><label>Session</label><input type="text" id="eg-session" value="' + esc(d.session_type || '') + '" placeholder="e.g. 2k test, 8x500m"></div>' +
-      '<div><label>Total time</label><input type="text" id="eg-time" value="' + esc(d.total_time_s != null ? fmtTime(d.total_time_s) : '') + '" placeholder="mm:ss.t"></div>' +
+      '<div><label for="eg-time">Total time' + fmtLab('m:ss.t') + '</label>' +
+        timeInput({ id: 'eg-time' }, d.total_time_s != null ? fmtTime(d.total_time_s) : '', 'e.g. 7:12.3') +
+        '<div class="t-read"></div></div>' +
       '<div><label>Distance m</label><input type="number" id="eg-dist" step="1000" min="0" value="' +
         esc(d.distance_m != null ? d.distance_m : '') + '" inputmode="numeric"></div>' +
-      '<div><label>Avg /500m</label><input type="text" id="eg-split" value="' + esc(d.avg_split_s != null ? fmtTime(d.avg_split_s) : '') + '" placeholder="m:ss.t"></div>' +
+      '<div><label for="eg-split">Avg /500m' + fmtLab('m:ss.t') + '</label>' +
+        timeInput({ id: 'eg-split' }, d.avg_split_s != null ? fmtTime(d.avg_split_s) : '', 'e.g. 1:48.0') +
+        '<div class="t-read"></div></div>' +
       '<div><label>Avg rate</label><input type="number" id="eg-rate" value="' + esc(d.avg_rate != null ? d.avg_rate : '') + '" inputmode="numeric"></div>' +
       '<div><label>Avg HR</label><input type="number" id="eg-hr" value="' + esc(d.avg_hr != null ? d.avg_hr : '') + '" inputmode="numeric"></div>' +
     '</div>' +
     '<label style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Intervals / splits</label>' +
-    '<table class="itbl"><thead><tr><th>#</th><th>Time</th><th>Dist m</th><th>/500m</th><th>Rate</th><th>HR</th><th></th></tr></thead>' +
+    '<table class="itbl"><thead><tr><th>#</th><th>Time' + fmtLab('m:ss.t') + '</th><th>Dist m</th>' +
+      '<th>/500m' + fmtLab('m:ss.t') + '</th><th>Rate</th><th>HR</th><th></th></tr></thead>' +
     '<tbody id="eg-ivs">' + iv.map((r, i) => ergIvRowHTML(i, r)).join('') + '</tbody></table>' +
     '<button class="addset" id="eg-addiv">+ add interval</button>' +
     '<div class="fwide" style="margin-top:10px"><label>Notes</label><input type="text" id="eg-notes" value="' + esc(d.notes || '') + '"></div>' +
@@ -865,15 +920,16 @@ function ergFormHTML(d, source) {
 function ergIvRowHTML(i, r) {
   r = r || {};
   return '<tr><td class="setno">' + (i + 1) + '</td>' +
-    '<td><input type="text" class="iv-time" value="' + esc(r.time_s != null ? fmtTime(r.time_s) : '') + '"></td>' +
+    '<td>' + timeInput({ cls: 'iv-time' }, r.time_s != null ? fmtTime(r.time_s) : '', '1:45.0') + '</td>' +
     '<td><input type="number" class="iv-dist" value="' + esc(r.distance_m != null ? r.distance_m : '') + '" inputmode="numeric"></td>' +
-    '<td><input type="text" class="iv-split" value="' + esc(r.split_s != null ? fmtTime(r.split_s) : '') + '"></td>' +
+    '<td>' + timeInput({ cls: 'iv-split' }, r.split_s != null ? fmtTime(r.split_s) : '', '1:45.0') + '</td>' +
     '<td><input type="number" class="iv-rate" value="' + esc(r.rate != null ? r.rate : '') + '" inputmode="numeric"></td>' +
     '<td><input type="number" class="iv-hr" value="' + esc(r.hr != null ? r.hr : '') + '" inputmode="numeric"></td>' +
     '<td><button class="ghostx iv-rm" title="Remove">×</button></td></tr>';
 }
 function openErgForm(data, source, quiet) {
   $('erg-form-holder').innerHTML = ergFormHTML(data, source);
+  paintTimes($('erg-form-holder'));
   if (!quiet) $('erg-form-holder').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -935,6 +991,7 @@ function restoreErgForm() {
     const r = snap.intervals[i];
     if (r) IV_FIELDS.forEach(c => { tr.querySelector('.' + c).value = r[c]; });
   });
+  paintTimes($('erg-form-holder'));
   toast('erg-parse-status', 'Picked up the session you had open' +
     (snap.source === 'photo' ? ' from your photo' : '') + '. Check it over and save, or discard it.', 'warn');
   return true;
@@ -1190,8 +1247,9 @@ function renderWaterTab() {
         '<div><label for="wt-dist">Distance (m)</label>' +
           '<input type="number" id="wt-dist" step="1000" min="0" inputmode="numeric" ' +
           'placeholder="e.g. 16000"></div>' +
-        '<div><label for="wt-time">Time</label>' +
-          '<input type="text" id="wt-time" placeholder="e.g. 1:12:30"></div>' +
+        '<div><label for="wt-time">Time' + fmtLab('h:mm:ss') + '</label>' +
+          timeInput({ id: 'wt-time' }, '', 'e.g. 1:12:30') +
+          '<div class="t-read"></div></div>' +
         '<div><label for="wt-boat">Boat (optional)</label>' +
           '<input type="text" id="wt-boat" list="wt-boats" placeholder="e.g. 4x-" autocomplete="off">' +
           '<datalist id="wt-boats">' +
@@ -1209,6 +1267,7 @@ function renderWaterTab() {
   if (ed) {
     $('wt-dist').value = ed.distance_m != null ? ed.distance_m : '';
     $('wt-time').value = ed.total_time_s != null ? fmtDur(ed.total_time_s) : '';
+    paintTime($('wt-time'));
     $('wt-boat').value = ed.boat || '';
     $('wt-notes').value = ed.notes || '';
   }
@@ -1279,6 +1338,7 @@ async function saveWater() {
   track('water_saved', { queued: !!queued });
   cacheData();
   $('wt-dist').value = ''; $('wt-time').value = ''; $('wt-notes').value = '';
+  paintTime($('wt-time'));
   // The boat is deliberately NOT cleared: an outing is usually followed by
   // another in the same boat, and retyping it every time is friction for
   // nothing. Date, distance and time all change; the boat rarely does.
@@ -1300,7 +1360,7 @@ function cardioSummaryLine(s) {
   const bits = [];
   if (s.activity) bits.push('<b>' + esc(s.activity) + '</b>');
   if (s.total_time_s != null) bits.push(fmtDur(s.total_time_s));
-  return bits.join(' · ') || 'Cardio session';
+  return bits.join(' · ') || 'Other session';
 }
 
 // Set while the form holds a session that is already in History.
@@ -1313,7 +1373,7 @@ function renderCardioTab() {
   if (!ed) editingCardioId = null;
   el.innerHTML =
     '<div class="erg-form">' +
-      '<h3>' + (ed ? 'Edit cardio session' : 'Log other cardio') + '</h3>' +
+      '<h3>' + (ed ? 'Edit other session' : 'Log other cardio') + '</h3>' +
       '<div class="hint">' + (ed
         ? 'Saving replaces the saved session rather than adding another.'
         : 'Anything that is not rowing - a run, a bike, a swim. Say what it was and how long it took.') +
@@ -1325,12 +1385,13 @@ function renderCardioTab() {
           '<datalist id="oc-kinds">' +
           CARDIO_KINDS.map(k => '<option value="' + k + '"></option>').join('') +
           '</datalist></div>' +
-        '<div><label for="oc-time">Time</label>' +
-          '<input type="text" id="oc-time" placeholder="e.g. 45:00"></div>' +
+        '<div><label for="oc-time">Time' + fmtLab('h:mm:ss') + '</label>' +
+          timeInput({ id: 'oc-time' }, '', 'e.g. 45:00') +
+          '<div class="t-read"></div></div>' +
       '</div>' +
       '<div class="fwide"><label for="oc-notes">Notes</label>' +
         '<input type="text" id="oc-notes" placeholder="Distance, effort, how it went"></div>' +
-      '<button class="primary" id="oc-save" style="height:42px">' + (ed ? 'Update' : 'Save') + ' cardio session</button>' +
+      '<button class="primary" id="oc-save" style="height:42px">' + (ed ? 'Update' : 'Save') + ' session</button>' +
       (ed ? '<button id="oc-cancel" style="width:100%;margin-top:8px">Cancel edit</button>' : '') +
       '<div id="cardio-msg"></div>' +
     '</div>' +
@@ -1339,6 +1400,7 @@ function renderCardioTab() {
   if (ed) {
     $('oc-kind').value = ed.activity || '';
     $('oc-time').value = ed.total_time_s != null ? fmtDur(ed.total_time_s) : '';
+    paintTime($('oc-time'));
     $('oc-notes').value = ed.notes || '';
   } else if (S.cardio.length) {
     // Most people do the same other thing every time, so start from it.
@@ -1352,7 +1414,7 @@ function renderCardioRecent() {
   if (!el) return;
   const recent = S.cardio.slice(0, 6);
   el.innerHTML = recent.length
-    ? '<div class="dsub" style="margin-top:24px">Recent cardio sessions</div>' +
+    ? '<div class="dsub" style="margin-top:24px">Recent other sessions</div>' +
       recent.map(histCardioHTML).join('')
     : '';
 }
@@ -1407,6 +1469,7 @@ async function saveCardio() {
   cacheData();
   // The type is kept, like the boat on the Water tab.
   $('oc-time').value = ''; $('oc-notes').value = '';
+  paintTime($('oc-time'));
   renderCardioRecent(); renderProgress(); renderHistory(); refreshWeekCount();
   toast('cardio-msg',
     (queued ? 'Saved on this device - no connection, so it will sync when you are back online. ' : 'Saved - ') +
@@ -1634,7 +1697,7 @@ function renderRunner() {
       '<div class="timer-tot" id="tm-tot"></div>' +
       (done ? '<div class="timer-done">Routine complete - check the times and save.</div>' : '') +
     '</div>' +
-    '<div class="chead run"><span>#</span><span>Exercise</span><span>Target</span><span>Actual</span><span>Reset</span></div>' +
+    '<div class="chead run"><span>#</span><span>Exercise</span><span>Target</span><span>Actual s</span><span>Reset</span></div>' +
     '<div id="core-rows">' + RUN.steps.map(rowRunHTML).join('') + '</div>' +
     '<p class="crow-hint">Tap <b>e/s</b> on a round to time left and right separately - it becomes two ' +
       'rounds, two times, saved side by side. That is for this run; tick <b>E/S</b> in the routine ' +
@@ -2130,7 +2193,7 @@ function weekStripHTML(wk, eg, wa, oc, cw) {
     statCell('Weights', wk ? wk.n : '–', '', wk ? wk.sets + ' sets' : 'none logged', !wk) +
     dist(eg, 'Erg') +
     dist(wa, 'Water') +
-    statCell('Cardio', oc ? fmtHM(oc.min) : '–', '',
+    statCell('Other', oc ? fmtHM(oc.min) : '–', '',
       oc ? plural(oc.n, 'session') : 'none logged', !oc) +
     statCell('Core', cw ? fmtHM(cw.min) : '–', '',
       cw ? plural(cw.n, 'session') : 'none logged', !cw) +
@@ -2190,11 +2253,11 @@ const PROG = { mode: 'erg', ex: ALL_LIFTS, metric: '', weeks: RANGE_DEFAULT };
 const PROG_MODES = [
   { k: 'erg',     label: 'Erg' },
   { k: 'water',   label: 'Water' },
-  { k: 'cardio',  label: 'Cardio' },
+  { k: 'cardio',  label: 'Other' },
   { k: 'both',    label: 'Erg + Water', combo: true },
   { k: 'all',     label: 'All cardio', combo: true },
-  { k: 'weights', label: 'Weights' },
-  { k: 'core',    label: 'Core' },
+  { k: 'weights', label: 'Weights', row: 1 },
+  { k: 'core',    label: 'Core',    row: 1 },
 ];
 
 const REP_METRICS = [
@@ -2243,10 +2306,14 @@ const CARDIO_METRICS = [
   { k: 'n',   btn: 'Sessions', label: 'Sessions a week', col: 'Sessions', dp: 0,
     fmt: v => plural(Math.round(v), 'session'), short: v => String(Math.round(v)), bar: v => Math.round(v) },
 ];
+// All cardio is time only: a session count across an erg, an outing and a
+// run says little, and time is the one thing they share.
+const ALL_CARDIO_METRICS = CARDIO_METRICS.slice(0, 1);
 const weeklyMetrics = mode =>
   mode === 'core' ? CORE_METRICS
   : mode === 'weights' ? WEIGHT_WEEK_METRICS
-  : mode === 'cardio' || mode === 'all' ? CARDIO_METRICS
+  : mode === 'all' ? ALL_CARDIO_METRICS
+  : mode === 'cardio' ? CARDIO_METRICS
   : mode === 'water' ? WATER_METRICS : ERG_METRICS;
 // The weekly shape of each, in the form weeklySeries() wants.
 const weeklyAgg = mode =>
@@ -2503,10 +2570,11 @@ const rangeToggle = () =>
   (PROG.weeks === 'all' ? 'Last ' + RANGE_DEFAULT + ' weeks' : 'Show all time') + '</button>';
 
 function progControlsHTML() {
-  const seg = PROG_MODES.map(m =>
+  const seg = segRows(PROG_MODES, m =>
     '<button class="seg' + (PROG.mode === m.k ? ' active' : '') + (m.combo ? ' combo' : '') +
     ' m-' + m.k + '" data-pmode="' + m.k + '" ' +
-    'role="tab" aria-selected="' + (PROG.mode === m.k) + '">' + m.label + '</button>').join('');
+    'role="tab" aria-selected="' + (PROG.mode === m.k) + '">' + m.label + '</button>',
+    'modes', 'role="tablist" aria-label="What to chart"');
   let rest = '';
   if (PROG.mode === 'weights') {
     const done = new Set();
@@ -2535,7 +2603,7 @@ function progControlsHTML() {
     if (!metrics.some(x => x.k === PROG.metric)) PROG.metric = metrics[0].k;
     rest = metricToggle(metrics, PROG.metric) + rangeToggle();
   }
-  return '<div class="segmented modes" role="tablist" aria-label="What to chart">' + seg + '</div>' +
+  return seg +
     (rest ? '<div class="progbar">' + rest + '</div>' : '');
 }
 
@@ -2672,7 +2740,7 @@ function renderProgWeekly(body) {
   const label = PROG_MODES.find(m => m.k === PROG.mode).label;
   // What the empty state names, in sentence case and as tab names.
   const empty = { both: ['erg or water', 'Erg or Water'],
-                  all: ['erg, water or cardio', 'Erg, Water or Cardio'] }[PROG.mode] ||
+                  all: ['erg, water or other', 'Erg, Water or Other'] }[PROG.mode] ||
                 [label.toLowerCase(), label];
   const metric = pickMetric(weeklyMetrics(PROG.mode), PROG.metric);
   const pts = weeklySeries(weeklyAgg(PROG.mode), metric.k, PROG.weeks);
@@ -2763,11 +2831,11 @@ function wireChart() {
 let histFilter = 'all';
 const HIST_KINDS = [
   { k: 'all',   label: 'All' },
-  { k: 'w',     label: 'Weights' },
   { k: 'e',     label: 'Erg' },
   { k: 'wa',    label: 'Water' },
-  { k: 'oc',    label: 'Cardio' },
-  { k: 'c',     label: 'Core' },
+  { k: 'oc',    label: 'Other' },
+  { k: 'w',     label: 'Weights', row: 1 },
+  { k: 'c',     label: 'Core',    row: 1 },
 ];
 
 /* ================= history =================
@@ -2785,7 +2853,7 @@ function renderHistory() {
   ];
   if (!all.length) {
     el.innerHTML = '<p class="empty">No sessions logged yet. Whatever you record on the ' +
-      'Weights, Erg, Water, Cardio and Core tabs lands here, newest first.</p>';
+      'Erg, Water, Other, Weights and Core tabs lands here, newest first.</p>';
     return;
   }
 
@@ -2795,13 +2863,13 @@ function renderHistory() {
   // All five are always shown, including the ones you have nothing in - hiding
   // a discipline at zero makes the filter itself look like it is not there.
   // Those are disabled rather than absent, so the row is a full contents list.
-  const bar = '<div class="segmented histfilter" role="group" aria-label="Show which sessions">' +
-    HIST_KINDS.map(k =>
+  const bar = segRows(HIST_KINDS, k =>
       '<button class="seg' + (histFilter === k.k ? ' active' : '') +
       (counts[k.k] ? '' : ' none') + '" data-hfilter="' + k.k + '"' +
       (counts[k.k] ? '' : ' disabled') + ' ' +
       'aria-pressed="' + (histFilter === k.k) + '">' + k.label +
-      '<small>' + counts[k.k] + '</small></button>').join('') + '</div>';
+      '<small>' + counts[k.k] + '</small></button>',
+    'histfilter modes', 'role="group" aria-label="Show which sessions"');
 
   const shown = histFilter === 'all' ? all : all.filter(x => x.kind === histFilter);
   const weeks = {};
@@ -2922,7 +2990,7 @@ function histCardioHTML(s) {
   const detail = '<dl class="dfacts">' +
     facts.map(([k, v]) => '<dt>' + k + '</dt><dd>' + v + '</dd>').join('') + '</dl>' +
     (s.notes ? '<div class="dnote">' + esc(s.notes) + '</div>' : '');
-  return entryHTML(s, 'cardio', 'cardio', cardioSummaryLine(s), detail, 'oc', 'edit-oc');
+  return entryHTML(s, 'cardio', 'other', cardioSummaryLine(s), detail, 'oc', 'edit-oc');
 }
 
 function histErgHTML(s) {
@@ -3898,7 +3966,7 @@ const BOARD_MODES = [
   { k: 'water',   label: 'Water', metrics: [
       { k: 'water_metres',     btn: 'Distance', unit: 'm' },
       { k: 'water_seconds',    btn: 'Time',     unit: 'time' } ] },
-  { k: 'cardio',  label: 'Cardio', metrics: [
+  { k: 'cardio',  label: 'Other', metrics: [
       { k: 'cardio_seconds',   btn: 'Time',     unit: 'time' },
       { k: 'sessions_cardio',  btn: 'Sessions', unit: '' } ] },
   // `combo` modes add disciplines together and get the striped button.
@@ -3909,10 +3977,10 @@ const BOARD_MODES = [
   { k: 'all',     label: 'All cardio', combo: true, metrics: [
       { k: 'all_seconds',      btn: 'Time',     unit: 'time' },
       { k: 'all_sessions',     btn: 'Sessions', unit: '' } ] },
-  { k: 'weights', label: 'Weights', metrics: [
+  { k: 'weights', label: 'Weights', row: 1, metrics: [
       { k: 'sessions_weights', btn: 'Sessions', unit: '' },
       { k: 'weights_sets',     btn: 'Sets',     unit: '' } ] },
-  { k: 'core',    label: 'Core', metrics: [
+  { k: 'core',    label: 'Core', row: 1, metrics: [
       { k: 'core_work_s',      btn: 'Time',     unit: 'time' },
       { k: 'sessions_core',    btn: 'Sessions', unit: '' } ] },
   // Racing ranks on results, not on training. A claimed race is already public
@@ -3921,7 +3989,7 @@ const BOARD_MODES = [
   // One measure on purpose. A race count rewards entering everything, which is
   // a function of what your club enters rather than of how you went, and it
   // sat next to the one number that does say something.
-  { k: 'races',   label: 'Racing', periods: seasonPeriods, metrics: [
+  { k: 'races',   label: 'Racing', row: 2, periods: seasonPeriods, metrics: [
       { k: 'races_top3',       btn: 'Top 3 GMT', unit: 'pct' } ] },
 ];
 const boardMode = () => BOARD_MODES.find(m => m.k === SQ.bmode) || BOARD_MODES[0];
@@ -4157,7 +4225,7 @@ function squadMainHTML() {
                 ? '<small>' + metric.unit + '</small>' : '') + '</span>' +
             '<span class="bsub">' + r.days_trained + ' day' + (r.days_trained === 1 ? '' : 's') + ' \u00b7 ' +
               r.sessions_weights + ' weights \u00b7 ' + r.sessions_erg + ' erg \u00b7 ' +
-              (r.sessions_water || 0) + ' water \u00b7 ' + (r.sessions_cardio || 0) + ' cardio \u00b7 ' +
+              (r.sessions_water || 0) + ' water \u00b7 ' + (r.sessions_cardio || 0) + ' other \u00b7 ' +
               r.sessions_core + ' core</span>' +
             rm +
             '<span class="bbar"><i style="width:' + barPct(v, top, metric) + '%"></i></span>' +
@@ -4188,11 +4256,10 @@ function squadMainHTML() {
     (SQ.settings ? squadSettingsHTML(sq, isAdmin) : '') +
 
     // what you are looking at, then which measure of it
-    '<div class="segmented bmodes" role="tablist" aria-label="What to rank by">' +
-      BOARD_MODES.map(m => '<button class="seg' + (m.k === SQ.bmode ? ' active' : '') +
+    segRows(BOARD_MODES, m => '<button class="seg' + (m.k === SQ.bmode ? ' active' : '') +
         (m.combo ? ' combo' : '') + ' m-' + m.k +
         '" data-bmode="' + m.k + '" role="tab" aria-selected="' + (m.k === SQ.bmode) + '">' +
-        m.label + '</button>').join('') + '</div>' +
+        m.label + '</button>', 'bmodes', 'role="tablist" aria-label="What to rank by"') +
     '<div class="boardctl">' +
       // With one measure there is nothing to choose, so the row is not drawn.
       (mode.metrics.length < 2 ? '' :
@@ -4525,6 +4592,7 @@ document.addEventListener('input', e => {
   const el = e.target;
   if (!el.classList) return;
   if (el.id === 'chip-search') { filterChips(); return; }
+  if (el.classList.contains('tm')) paintTime(el);   // and fall through: erg fields also save a draft
   if (el.id === 'race-q') {
     RC.q = el.value; RC.limit = 30;
     const at = el.selectionStart;
@@ -4785,7 +4853,7 @@ document.addEventListener('click', async e => {
   }
   const doc = e.target.closest('[data-del-oc]');
   if (doc) {
-    if (!confirm('Delete this cardio session for good?')) return;
+    if (!confirm('Delete this session for good?')) return;
     const { error } = await sb.from('tracker_cardio_sessions').delete().eq('id', doc.dataset.delOc);
     if (!error) {
       S.cardio = S.cardio.filter(s => s.id !== doc.dataset.delOc);

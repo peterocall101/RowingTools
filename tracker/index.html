@@ -66,6 +66,9 @@
   .tabgrp-lab{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
     color:var(--text3);padding:0 14px}
   .tabgrp-tabs{display:flex}
+  /* Record holds two blocks - rowing and cardio, then gym - split by a short
+     rule rather than a second label, which would crowd the row on a phone. */
+  .tabsep{width:1px;background:var(--border);margin:5px 6px 11px;flex-shrink:0}
   .tabs.grouped .tab{padding:4px 14px 9px}
   @media(max-width:559px){
     .tabs.grouped{gap:10px 18px}
@@ -202,6 +205,12 @@
   .fgrid label,.fwide label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;
     text-transform:uppercase;color:var(--text3);margin-bottom:4px}
   .fgrid input,.fgrid select,.fwide input{width:100%}
+  /* Time fields: the format sits in the label in lower case (it is a pattern,
+     not a word), and the line under the field says what was understood. */
+  .tfmt{text-transform:none;letter-spacing:0;color:var(--text2);font-weight:400;margin-left:3px}
+  .t-read{font-family:var(--mono);font-size:11px;color:var(--text2);margin-top:4px;min-height:1.4em;line-height:1.4}
+  .t-read.bad{color:#f87171}
+  input.tm.bad{border-color:#f87171}
   .fwide{margin-bottom:10px}
   .itbl{width:100%;border-collapse:collapse;margin:6px 0 8px;font-size:13px}
   .itbl th{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);
@@ -562,9 +571,12 @@
      list, but plainly not a thing to press */
   .histfilter .seg.none{color:var(--text3);opacity:.5;cursor:default}
   .histfilter .seg.none:hover{background:transparent;color:var(--text3)}
-  /* The Progress and Board modes will not sit on one phone-width line, and a
-     scroller would hide half of them. Rows of four, with the wrap seam drawn
-     as a top rule instead of a doubled left one. */
+  /* The Progress, History and Board choices are set out one block a line:
+     rowing and cardio, then gym, then (on the Board) racing. Each line is its
+     own segmented control; --n is how many buttons it holds, so on a phone a
+     line can be a grid that fills the width. */
+  .segrows{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-bottom:14px}
+  .segrows .segmented{margin-bottom:0}
   .bmodes,.modes{display:flex;flex-wrap:wrap}
   /* A bar along the top of each rowing/cardio mode in its History colour, so
      a combined mode shows what is in it: Erg + Water is blue then purple, All
@@ -582,10 +594,9 @@
   @media(max-width:519px){
     .histfilter .seg{padding:7px 9px;font-size:12px}
     .histfilter .seg small{display:none}
-    .bmodes,.modes{display:grid;grid-template-columns:repeat(4,1fr)}
+    .segrows{align-items:stretch}
+    .bmodes,.modes{display:grid;grid-template-columns:repeat(var(--n,4),1fr)}
     .bmodes .seg,.modes .seg{padding:10px 4px 9px;font-size:12px;line-height:1.25}
-    .bmodes .seg:nth-child(4n+1),.modes .seg:nth-child(4n+1){border-left:none}
-    .bmodes .seg:nth-child(n+5),.modes .seg:nth-child(n+5){border-top:1px solid var(--border2)}
   }
   .progbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
   .progbar select{min-width:150px;flex:1}
@@ -733,10 +744,11 @@
     <div class="tabgrp" role="presentation">
       <span class="tabgrp-lab" aria-hidden="true">Record</span>
       <div class="tabgrp-tabs" role="presentation">
-        <button class="tab active" role="tab" aria-selected="true" aria-label="Record: Weights" data-panel="p-log">Weights</button>
         <button class="tab" role="tab" aria-selected="false" aria-label="Record: Erg" data-panel="p-erg">Erg</button>
         <button class="tab" role="tab" aria-selected="false" aria-label="Record: Water" data-panel="p-water">Water</button>
-        <button class="tab" role="tab" aria-selected="false" aria-label="Record: Other cardio" data-panel="p-cardio">Cardio</button>
+        <button class="tab" role="tab" aria-selected="false" aria-label="Record: Other cardio" data-panel="p-cardio">Other</button>
+        <span class="tabsep" aria-hidden="true"></span>
+        <button class="tab active" role="tab" aria-selected="true" aria-label="Record: Weights" data-panel="p-log">Weights</button>
         <button class="tab" role="tab" aria-selected="false" aria-label="Record: Core" data-panel="p-core">Core</button>
       </div>
     </div>

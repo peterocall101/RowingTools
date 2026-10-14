@@ -25,7 +25,7 @@ totals through a `SECURITY DEFINER` function rather than by widening those polic
 
 | Path | What |
 |---|---|
-| `index.html` | The app - tabs grouped as Record (Weights / Erg / Water / Cardio / Core), Review (Progress / History / Races), Squad (Board), Set up (Templates) |
+| `index.html` | The app - tabs grouped as Record (Erg / Water / Other, then Weights / Core), Review (Progress / History / Races), Squad (Board), Set up (Templates) |
 | `login.html` | The public front door: what the tracker is, sign in / sign up / forgot / recovery, and **Try it without an account** |
 | `terms.html` | Terms of use and privacy notice. The version date at the top is the one stamped on the profile at signup |
 | `js/config.js` | Supabase URL + anon key + Edge Function endpoint. `sb` is a `let` so sample mode can swap it |
@@ -239,7 +239,7 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
     exercises, longest hold and total time held for timed ones. The set that produced the number
     is on the tile, the tooltip and the table, so a measure can never quietly gloss over the reps
     behind it.
-  - **Erg / Water / Cardio / Core** - weekly load: distance or time a week on the erg and on the
+  - **Erg / Water / Other / Core** - weekly load: distance or time a week on the erg and on the
     water, time or sessions a week for other cardio, time working or sessions a week for core. Weeks with nothing in them are drawn as gaps, not
     skipped, because a fortnight off is the most important thing a load chart can show.
   - **Session tonnage was removed on purpose.** It moves whenever the rep scheme moves and says
@@ -251,9 +251,10 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
 - **Every choice on Progress is a button, and the range is one toggle.** The controls were four
   dropdowns; each held two or three options, and a dropdown that hides two alternatives behind a
   click is a worse control than the two buttons themselves. What is left is: the discipline
-  (Erg / Water / Cardio / Erg + Water / All cardio / Weights / Core, opening on Erg; Erg + Water
+  (Erg / Water / Other / Erg + Water / All cardio / Weights / Core, opening on Erg; Erg + Water
   is the two weekly series added together on the client, All cardio adds other cardio to those and
-  offers Time | Sessions only, since a run's distance does not add up with a row's), the measure (Distance | Time, Time | Sessions, Sessions | Sets),
+  offers Time only, since a run's distance does not add up with a row's; rowing and cardio on the
+  first line, Weights and Core on a second), the measure (Distance | Time, Time | Sessions, Sessions | Sets),
   and one **Show all time / Last 12 weeks** toggle in place of the four-way range list. Twelve
   weeks is the block a rower thinks in and everything else is "zoom out", so the range is two
   states rather than a menu. The exercise list stays a `<select>` - it is the one control with
@@ -299,7 +300,8 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
 - **History is a ruled sheet, not a card stack.** One line per session in aligned columns (day,
   discipline, what it was), expanding in place, under the week strip. Results-board language
   throughout: hairlines, tabular figures, square corners.
-- **History filters by discipline, client-side.** All / Weights / Erg / Water / Cardio / Core, each
+- **History filters by discipline, client-side.** All / Erg / Water / Other, then Weights / Core on a
+  second line, each
   with its count, over the sessions already loaded - so it is instant and works offline. Three
   deliberate details: **all six are always shown**, the empty ones greyed and disabled rather than hidden -
   hiding a discipline at zero shrinks the row to "All / Weights" and makes the filter itself look
@@ -624,8 +626,8 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   raise and take the board down for *everyone* in the squad.
 - **Non-sharers are shown, greyed, as "not sharing".** The board says "2 of 3 sharing" rather than
   quietly pretending the squad is smaller than it is.
-- **The board ranks on one of eight things, chosen with buttons.** Erg, Water, Cardio, Erg + Water,
-  All cardio, Weights, Core, Racing - then a second row for the measure of whichever one is picked, on exactly the same
+- **The board ranks on one of eight things, chosen with buttons.** Erg, Water, Other, Erg + Water,
+  All cardio (first line), Weights, Core (second), Racing (third) - then a second row for the measure of whichever one is picked, on exactly the same
   pattern as Progress (distance | time, sessions | sets, time | sessions), and a third for the
   period. It replaced two dropdowns. **Erg + Water and All cardio are computed client-side**
   (`combined_metres`, `combined_seconds`, `all_seconds`, `all_sessions` in `boardVal`) rather than added to the SQL: it is the sum of two columns the
