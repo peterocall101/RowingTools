@@ -352,6 +352,11 @@
   .tt:hover{color:var(--text);background:none;border-color:transparent}
   .tt.active,.tt.active:hover{color:var(--text);border-bottom-color:var(--red-ink)}
   .sq-gear{font-size:11.5px}
+  /* the hard erg line under the modes: blue-edged, like the boxes beside it */
+  .hemodes{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;margin:-6px 0 10px}
+  .he-row{margin-bottom:0;flex-wrap:wrap;border-left:3px solid var(--c-wbt)}
+  .he-mode{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bquietrow{margin:0 0 6px}
   .sq-gear.on{color:var(--text)}
   /* Board plus the hard erg column beside it; on a phone the column comes
      first, so a hard erg is not buried under a long board. */

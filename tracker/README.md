@@ -658,7 +658,9 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
 - **Non-sharers are shown, greyed, as "not sharing".** The board says "2 of 3 sharing" rather than
   quietly pretending the squad is smaller than it is.
 - **The board ranks on one of eight things, chosen with buttons.** Erg, Water, Other, Erg + Water,
-  All cardio (first line), Weights, Core (second), Racing (third) - then the measure of whichever one is
+  All cardio (first line), Weights, Core (second), then a line of the squad's current hard ergs
+  (the same ones as the side column, one button each), and Racing last as a small text toggle -
+  it changes once a season, the hard ergs every week - then the measure of whichever one is
   picked, on exactly the same pattern as Progress (distance | time, sessions | sets, time | sessions),
   and the period. **Only the modes are boxed buttons** (2026-10-14): the measure and period are
   light text toggles (`.ttogs` / `.tt`) and the settings drawer opens from a text link, because five

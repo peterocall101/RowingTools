@@ -4025,7 +4025,7 @@ const BOARD_MODES = [
   // One measure on purpose. A race count rewards entering everything, which is
   // a function of what your club enters rather than of how you went, and it
   // sat next to the one number that does say something.
-  { k: 'races',   label: 'Racing', row: 2, periods: seasonPeriods, metrics: [
+  { k: 'races',   label: 'Racing', quiet: true, periods: seasonPeriods, metrics: [
       { k: 'races_top3',       btn: 'Top 3 GMT', unit: 'pct' } ] },
 ];
 const boardMode = () => BOARD_MODES.find(m => m.k === SQ.bmode) || BOARD_MODES[0];
@@ -4246,13 +4246,29 @@ async function syncHardTags(sid, want, queued) {
   return errs;
 }
 
+// The same hard ergs as the side column, as a row of buttons with the modes,
+// so ranking on one is as direct as ranking on erg metres.
+const hardShown = () => {
+  const cutoff = addDays(todayISO(), -42);
+  return HE.list.filter(h => h.group_id === SQ.groupId && h.ends_on >= cutoff);
+};
+function hardModesHTML() {
+  const list = hardShown();
+  if (!list.length) return '';
+  return '<div class="hemodes"><span class="ttog-lab">Hard ergs</span>' +
+    '<div class="segmented bmodes he-row" role="group" aria-label="Rank by a hard erg" style="--n:' +
+      Math.min(list.length, 3) + '">' +
+    list.map(h => '<button class="seg he-mode' + (SQ.hard === h.id ? ' active' : '') + '" data-he-rank="' + h.id +
+      '" title="' + esc(h.title) + ' · ' + heWindow(h) + '">' + esc(h.title) + '</button>').join('') +
+    '</div></div>';
+}
+
 /* ---- the side column on the Board ---- */
 function hardErgsHTML(isAdmin) {
   const me = S.session.user.id;
   // Recent ones stay up for a few weeks after they close, so the result can
   // still be looked at; older ones drop off.
-  const cutoff = addDays(todayISO(), -42);
-  const list = HE.list.filter(h => h.group_id === SQ.groupId && h.ends_on >= cutoff);
+  const list = hardShown();
   return '<aside class="hecol" aria-label="Hard ergs">' +
     '<div class="hecol-head"><h4>Hard ergs</h4>' +
       '<button class="blink" id="he-new">' + (HE.adding ? 'cancel' : '+ add one') + '</button></div>' +
@@ -4598,11 +4614,20 @@ function squadMainHTML() {
     // What you are looking at is the one row of real buttons. The measure and
     // the period below it are plain text toggles, so the page has one clear
     // control and two lighter ones rather than five rows that look alike.
-    segRows(BOARD_MODES, m => {
+    // Training on two lines of buttons, then the squad's hard ergs as a line
+    // of their own - the test pieces are what a squad most wants ranked - and
+    // racing last, as a quieter text toggle: it moves once a season.
+    segRows(BOARD_MODES.filter(m => !m.quiet), m => {
         const on = m.k === SQ.bmode && !hard;
         return '<button class="seg' + (on ? ' active' : '') + (m.combo ? ' combo' : '') + ' m-' + m.k +
           '" data-bmode="' + m.k + '" role="tab" aria-selected="' + on + '">' + m.label + '</button>';
       }, 'bmodes', 'role="tablist" aria-label="What to rank by"') +
+    hardModesHTML() +
+    '<div class="ttogs bquietrow">' + BOARD_MODES.filter(m => m.quiet).map(m => {
+        const on = m.k === SQ.bmode && !hard;
+        return '<button class="tt' + (on ? ' active' : '') + '" data-bmode="' + m.k + '" aria-pressed="' + on + '">' +
+          m.label + '</button>';
+      }).join('') + '</div>' +
     (hard
       ? '<div class="boardctl"><div class="hehead"><span class="ttog-lab">Hard erg</span>' +
           '<b>' + esc(hard.title) + '</b><span class="he-when">' + heWindow(hard) + '</span></div></div>'
