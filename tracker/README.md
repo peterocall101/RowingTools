@@ -624,6 +624,17 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   exercise-id cast on an exact uuid regex. These columns have no CHECK constraint, so without the
   guards a single member with an odd row - a hand-written API call, a future format change - would
   raise and take the board down for *everyone* in the squad.
+- **Past weeks are snapshots** (2026-10-14, `tracker_board_weeks`). Every squad's board for each
+  finished Monday-to-Sunday week is saved once by `tracker_snapshot_week()`, run by pg_cron at 00:05
+  UTC every Tuesday (a day's grace for Sunday sessions logged on Monday), and never recomputed:
+  names and totals as they stood, so leaving, removal or a later edit does not rewrite history.
+  The Board's period toggle gains **Earlier**, with a week picker; **Last week** reads the snapshot
+  once it exists and is live until then. Members read the table directly under RLS - totals only,
+  same as the live board, and whole fixed weeks leave nothing to difference. The board query moved
+  into `tracker_board_rows(group, since, until)`, which no app role can execute (a raw window is the
+  differencing hole); the live board and the snapshot are the only callers. Running the schema
+  backfills up to a year of weeks using today's members. Needs **pg_cron** enabled (Database >
+  Extensions); the report says if it is not. Account deletion cascades the rows away.
 - **Hard ergs - the erg session of the week** (2026-10-14, `tracker_hard_ergs` +
   `tracker_hard_erg_entries`). Any member sets one from the column beside the board: a free-text
   title for the piece, optional notes, and the dates it runs over (this Monday to Sunday by default,

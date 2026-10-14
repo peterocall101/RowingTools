@@ -948,7 +948,13 @@ drop function if exists public.tracker_squad_board(uuid, date);
 -- idempotent against a database that has the older version.
 drop function if exists public.tracker_squad_board(uuid, text);
 
-create or replace function public.tracker_squad_board(p_group uuid, p_period text)
+-- The board's query itself, for any window. NOT callable by any app role:
+-- an arbitrary date range is exactly the differencing hole described above,
+-- so only the two definer functions that fix the window - the live board and
+-- the weekly snapshot - call it. Security invoker, so even if it were exposed
+-- it would run under the caller's RLS and see only their own rows.
+drop function if exists public.tracker_board_rows(uuid, date, date);
+create or replace function public.tracker_board_rows(p_group uuid, p_since date, p_until date)
 returns table (
   profile_id       uuid,
   display_name     text,
@@ -972,36 +978,8 @@ returns table (
   weights_sets     int,
   weights_volume   numeric
 )
-language plpgsql stable security definer set search_path = public, pg_temp as $$
-declare
-  p_since date;
-  p_until date;
+language plpgsql stable set search_path = public, pg_temp as $$
 begin
-  -- Not a member: no rows. Not an error, which would confirm the squad
-  -- exists to someone guessing ids.
-  if not public.is_group_member(p_group) then
-    return;
-  end if;
-
-  if p_period ~ '^[0-9]{4}$' and p_period::int between 2000 and 2100 then
-    -- A whole calendar year. Calendar rather than "season" on purpose: the
-    -- Races tab groups by calendar year too, and every regatta in the results
-    -- file runs May to July, so for racing the two are the same thing.
-    p_since := (p_period || '-01-01')::date;
-    p_until := (p_period || '-12-31')::date;
-  else
-    p_since := case p_period
-      when 'month' then date_trunc('month', now())::date
-      when 'lastweek' then date_trunc('week', now())::date - 7
-      else date_trunc('week', now())::date          -- 'week', and anything unrecognised
-    end;
-    -- Last week is the one keyword with an end: the Sunday before this Monday.
-    p_until := case p_period
-      when 'lastweek' then date_trunc('week', now())::date - 1
-      else date '9999-12-31'
-    end;
-  end if;
-
   return query
   with roster as (
     select gm.profile_id as pid,
@@ -1165,6 +1143,173 @@ begin
 end;
 $$;
 
+create or replace function public.tracker_squad_board(p_group uuid, p_period text)
+returns table (
+  profile_id       uuid,
+  display_name     text,
+  sharing          boolean,
+  days_trained     int,
+  sessions_total   int,
+  sessions_weights int,
+  sessions_erg     int,
+  sessions_water   int,
+  sessions_cardio  int,
+  sessions_core    int,
+  erg_metres       numeric,
+  erg_seconds      numeric,
+  water_metres     numeric,
+  water_seconds    numeric,
+  cardio_seconds   numeric,
+  races            int,
+  races_top3       numeric,
+  core_work_s      numeric,
+  core_rounds      int,
+  weights_sets     int,
+  weights_volume   numeric
+)
+language plpgsql stable security definer set search_path = public, pg_temp as $$
+declare
+  p_since date;
+  p_until date;
+begin
+  -- Not a member: no rows. Not an error, which would confirm the squad
+  -- exists to someone guessing ids.
+  if not public.is_group_member(p_group) then
+    return;
+  end if;
+
+  if p_period ~ '^[0-9]{4}$' and p_period::int between 2000 and 2100 then
+    -- A whole calendar year. Calendar rather than "season" on purpose: the
+    -- Races tab groups by calendar year too, and every regatta in the results
+    -- file runs May to July, so for racing the two are the same thing.
+    p_since := (p_period || '-01-01')::date;
+    p_until := (p_period || '-12-31')::date;
+  else
+    p_since := case p_period
+      when 'month' then date_trunc('month', now())::date
+      when 'lastweek' then date_trunc('week', now())::date - 7
+      else date_trunc('week', now())::date          -- 'week', and anything unrecognised
+    end;
+    -- Last week is the one keyword with an end: the Sunday before this Monday.
+    p_until := case p_period
+      when 'lastweek' then date_trunc('week', now())::date - 1
+      else date '9999-12-31'
+    end;
+  end if;
+
+  return query select * from public.tracker_board_rows(p_group, p_since, p_until);
+end;
+$$;
+
+-- ---- weekly snapshots ------------------------------------------------
+-- Every squad's board for each finished Monday-to-Sunday week, saved once and
+-- never recomputed: names and totals as they stood. Someone leaving or being
+-- removed, or a session edited months later, does not rewrite a past week.
+-- That is the point - "what did the squad do in the week of 6 October" has
+-- one answer.
+--
+-- Safe for the same reason 'lastweek' is: whole weeks with fixed
+-- boundaries, the same numbers the live board showed for that week. Nothing
+-- finer than a week can be differenced out of it.
+--
+-- A week is taken on the Tuesday after it ends (00:05 UTC), so a session
+-- logged late on Monday morning still counts. Until then "Last week" on the
+-- board is live. Deleting an account cascades its rows away; leaving a squad
+-- does not.
+create table if not exists public.tracker_board_weeks (
+  group_id         uuid        not null references public.groups   on delete cascade,
+  week_start       date        not null check (extract(isodow from week_start) = 1),
+  profile_id       uuid        not null references public.profiles on delete cascade,
+  taken_at         timestamptz not null default now(),
+  display_name     text,
+  sharing          boolean,
+  days_trained     int,
+  sessions_total   int,
+  sessions_weights int,
+  sessions_erg     int,
+  sessions_water   int,
+  sessions_cardio  int,
+  sessions_core    int,
+  erg_metres       numeric,
+  erg_seconds      numeric,
+  water_metres     numeric,
+  water_seconds    numeric,
+  cardio_seconds   numeric,
+  races            int,
+  races_top3       numeric,
+  core_work_s      numeric,
+  core_rounds      int,
+  weights_sets     int,
+  weights_volume   numeric,
+  primary key (group_id, week_start, profile_id)
+);
+create index if not exists tracker_board_weeks_week_idx
+  on public.tracker_board_weeks (group_id, week_start desc);
+
+-- Totals only, the same as the live board, so members read them directly.
+-- No write policy: only tracker_snapshot_week() writes here.
+alter table public.tracker_board_weeks enable row level security;
+drop policy if exists "squad reads past weeks" on public.tracker_board_weeks;
+create policy "squad reads past weeks" on public.tracker_board_weeks
+  for select using (public.is_group_member(group_id));
+
+create or replace function public.tracker_snapshot_week(p_monday date)
+returns int
+language plpgsql volatile security definer set search_path = public, pg_temp as $$
+declare
+  g record;
+  k int;
+  n int := 0;
+begin
+  if extract(isodow from p_monday) <> 1 then
+    raise exception 'Not a Monday: %', p_monday;
+  end if;
+  if current_date < p_monday + 8 then
+    raise exception 'The week of % is not finished and settled yet', p_monday;
+  end if;
+  for g in select id from public.groups loop
+    insert into public.tracker_board_weeks (group_id, week_start, profile_id, display_name, sharing, days_trained, sessions_total, sessions_weights, sessions_erg, sessions_water, sessions_cardio, sessions_core, erg_metres, erg_seconds, water_metres, water_seconds, cardio_seconds, races, races_top3, core_work_s, core_rounds, weights_sets, weights_volume)
+    select g.id, p_monday, b.profile_id, b.display_name, b.sharing, b.days_trained, b.sessions_total, b.sessions_weights, b.sessions_erg, b.sessions_water, b.sessions_cardio, b.sessions_core, b.erg_metres, b.erg_seconds, b.water_metres, b.water_seconds, b.cardio_seconds, b.races, b.races_top3, b.core_work_s, b.core_rounds, b.weights_sets, b.weights_volume
+    from public.tracker_board_rows(g.id, p_monday, p_monday + 6) b
+    on conflict do nothing;
+    get diagnostics k = row_count;
+    n := n + k;
+  end loop;
+  return n;
+end;
+$$;
+
+-- Backfill: every finished week since the oldest squad, a year at most. It
+-- uses today's members, the best that can be known now; from here on each
+-- week is taken as it ends. ON CONFLICT DO NOTHING keeps re-runs harmless and
+-- never overwrites a week already saved.
+do $$
+declare
+  m date;
+begin
+  select greatest(date_trunc('week', min(created_at))::date,
+                  date_trunc('week', now())::date - 7 * 52)
+    into m from public.groups;
+  while m is not null and current_date >= m + 8 loop
+    perform public.tracker_snapshot_week(m);
+    m := m + 7;
+  end loop;
+end;
+$$;
+
+-- The weekly job. Needs the pg_cron extension: Supabase dashboard >
+-- Database > Extensions > pg_cron, then re-run this file. Without it nothing
+-- breaks - "Last week" stays live and no new weeks are added to history -
+-- and the report says so.
+do $$
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.schedule('tracker-board-weeks', '5 0 * * 2',
+      $job$select public.tracker_snapshot_week(date_trunc('week', now())::date - 7)$job$);
+  end if;
+end;
+$$;
+
 -- ---- a hard erg's ranking ------------------------------------------
 -- One row per current member who has tagged at least one session as this
 -- hard erg: their fastest average split, and the time and distance of the
@@ -1321,6 +1466,9 @@ revoke execute on function public.tracker_rotate_code(uuid)       from public, a
 revoke execute on function public.tracker_new_join_code()         from public, anon;
 revoke execute on function public.tracker_squad_board(uuid, text)  from public, anon;
 revoke execute on function public.tracker_hard_erg_board(uuid)     from public, anon;
+-- Not even authenticated: these take a raw window (see their comments).
+revoke execute on function public.tracker_board_rows(uuid, date, date) from public, anon, authenticated;
+revoke execute on function public.tracker_snapshot_week(date)      from public, anon, authenticated;
 
 grant execute on function public.tracker_create_group(text)        to authenticated, service_role;
 grant execute on function public.tracker_join_group(text)          to authenticated, service_role;
@@ -1332,6 +1480,8 @@ grant execute on function public.tracker_rotate_code(uuid)         to authentica
 grant execute on function public.tracker_new_join_code()           to service_role;
 grant execute on function public.tracker_squad_board(uuid, text)   to authenticated, service_role;
 grant execute on function public.tracker_hard_erg_board(uuid)      to authenticated, service_role;
+grant execute on function public.tracker_board_rows(uuid, date, date) to service_role;
+grant execute on function public.tracker_snapshot_week(date)       to service_role;
 -- tracker_num / tracker_is_uuid are pure helpers with no data access, so
 -- the PUBLIC default is fine for them.
 
@@ -1425,7 +1575,7 @@ select section, item, result from (
                ('tracker_races'), ('tracker_erg_parses'),
                ('groups'), ('group_members'), ('tracker_sharing'),
                ('tracker_shared_templates'), ('tracker_hard_ergs'),
-               ('tracker_hard_erg_entries')) as t(tbl)
+               ('tracker_hard_erg_entries'), ('tracker_board_weeks')) as t(tbl)
 
   -- 3. Every column the app writes.
   union all
@@ -1452,6 +1602,8 @@ select section, item, result from (
     union all select 'tracker_new_join_code()',    to_regprocedure('public.tracker_new_join_code()') is not null
     union all select 'tracker_squad_board(uuid,text)', to_regprocedure('public.tracker_squad_board(uuid,text)') is not null
     union all select 'tracker_hard_erg_board(uuid)', to_regprocedure('public.tracker_hard_erg_board(uuid)') is not null
+    union all select 'tracker_board_rows(uuid,date,date)', to_regprocedure('public.tracker_board_rows(uuid,date,date)') is not null
+    union all select 'tracker_snapshot_week(date)', to_regprocedure('public.tracker_snapshot_week(date)') is not null
     union all select 'tracker_can_see_screen(text)', to_regprocedure('public.tracker_can_see_screen(text)') is not null
     union all select 'erg-screens bucket (private)',
       exists (select 1 from storage.buckets b where b.id = 'erg-screens' and not b.public)
@@ -1475,9 +1627,21 @@ select section, item, result from (
   where n.nspname='public'
     and p.proname in ('tracker_create_group','tracker_join_group',
                       'tracker_leave_group','tracker_squad_board','tracker_hard_erg_board',
-                      'tracker_can_see_screen',
+                      'tracker_can_see_screen','tracker_board_rows','tracker_snapshot_week',
                       'tracker_admin_remove_member','tracker_rotate_code',
                       'tracker_new_join_code')
+
+  -- 4b. Past weeks: how many are saved, and whether the weekly job exists.
+  union all
+  select 4, '4 past weeks', 'weeks saved',
+    (select count(distinct (group_id, week_start)) from public.tracker_board_weeks)::text ||
+    ' squad-weeks, latest ' ||
+    coalesce((select max(week_start)::text from public.tracker_board_weeks), 'none')
+  union all
+  select 4, '4 past weeks', 'weekly snapshot job',
+    case when not exists (select 1 from pg_extension where extname = 'pg_cron')
+         then '** pg_cron not enabled - Database > Extensions > pg_cron, then re-run **'
+         else 'ok - pg_cron on' end
 
   -- 6. The join model depends on group_members having SELECT only.
   union all

@@ -61,7 +61,7 @@
     <thead><tr><th>What</th><th>How it works</th></tr></thead>
     <tbody>
       <tr><td>Your log</td><td>Private to your account. Nobody else, including other RowingTools users, can read your sessions, lifts, notes or dates.</td></tr>
-      <tr><td>Squads</td><td>Joining a squad puts your <strong>totals</strong> on that squad's board: days trained, session counts, erg and water distance and time, other cardio time, core time, weights sets and volume. Never a session, a lift, a date or a note - unless you tag an erg as a squad hard erg (below). Leaving the squad takes them straight back off.</td></tr>
+      <tr><td>Squads</td><td>Joining a squad puts your <strong>totals</strong> on that squad's board: days trained, session counts, erg and water distance and time, other cardio time, core time, weights sets and volume. Never a session, a lift, a date or a note - unless you tag an erg as a squad hard erg (below). Each finished week's board is saved as it stood, so the squad keeps its history. Leaving takes you off the live board; weeks already saved stay in the squad's history.</td></tr>
       <tr><td>Hard ergs</td><td>If you tag an erg session as an attempt at a squad's hard erg, that squad sees its split, time and distance. If you also tick "show my erg screen" while logging it, they can open the photo of the monitor. Untag it and both come off.</td></tr>
       <tr><td>Erg photos</td><td>A photo of an erg monitor is sent to Anthropic's Claude API to be read. It is not kept afterwards, unless you choose to share it with a squad as a hard erg attempt. The numbers it reads are saved to your log.</td></tr>
       <tr><td>Sample mode</td><td>Using the tracker without an account stores everything in your browser on that device. Nothing is sent to us until you create an account.</td></tr>
@@ -132,8 +132,12 @@
     and the photo is then deleted.</p>
   <p>Anyone with a squad's six-character code, or an invite link containing it, can join that squad
     and will then see the totals of everyone in it. Treat the code like a door key. The person who
-    created a squad can remove anyone from it. Leaving a squad removes your totals from its board
-    immediately, and removes anything you posted to it, including your hard erg attempts.</p>
+    created a squad can remove anyone from it. Leaving a squad removes your totals from its live
+    board immediately, and removes anything you posted to it, including your hard erg attempts.</p>
+  <p><strong>Past weeks are kept.</strong> Each Monday-to-Sunday week, the squad's board is saved
+    the Tuesday after it ends - names and weekly totals, nothing finer - so the squad can look back
+    at any earlier week and see it as it was. Leaving or being removed does not change a week that
+    has already been saved. Deleting your account removes you from every saved week.</p>
 
   <h2>5. Erg photos</h2>
   <p>If you photograph an erg monitor, the image is sent to Anthropic's Claude API, which reads the

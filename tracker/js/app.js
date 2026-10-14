@@ -3947,6 +3947,9 @@ const SQ = {
   period: 'week', bmode: 'erg', metric: 'erg_metres', busy: false, adding: false, posting: false,
   settings: false,   // the admin drawer is closed until asked for
   hard: null,        // id of the hard erg the board is ranking on, if any
+  week: null,        // Monday of the past week shown when period is 'past'
+  weeks: null,       // Mondays with a saved snapshot, newest first (null = not read yet)
+  snapAt: null,      // when the week on screen was saved, if it is a snapshot
   preview: null,     // id of the shared template being read before importing
   picked: null,      // Set of exercise names ticked in that preview
 };
@@ -3961,6 +3964,8 @@ const boardPeriods = () => [
   { k: 'lastweek', short: 'Last week',  label: 'Last week' },
   { k: 'month',    short: 'This month', label: 'This month' },
   { k: String(new Date().getFullYear()), short: 'This year', label: 'This year' },
+  // Any finished week, from the saved snapshots; picked from a list.
+  { k: 'past',     short: 'Earlier',    label: 'An earlier week' },
 ];
 
 // Racing is ranked by season, not by a rolling window: nobody races in
@@ -4437,10 +4442,38 @@ async function loadSquads() {
   SQ.sharing = new Set((sh.data || []).map(r => r.group_id));
 }
 
+// A finished week is read from its snapshot, so it shows the squad as it was
+// that week. "Last week" falls back to the live board until its snapshot is
+// taken on the Tuesday.
+async function loadSnapWeeks() {
+  const { data, error } = await sb.from('tracker_board_weeks').select('week_start')
+    .eq('group_id', SQ.groupId).order('week_start', { ascending: false }).limit(5000);
+  SQ.weeks = error ? [] : [...new Set((data || []).map(r => r.week_start))];
+}
+async function loadBoardRows() {
+  const snapWeek = SQ.period === 'lastweek' ? addDays(thisMonday(), -7)
+    : SQ.period === 'past' ? SQ.week : null;
+  if (snapWeek) {
+    const { data, error } = await sb.from('tracker_board_weeks').select('*')
+      .eq('group_id', SQ.groupId).eq('week_start', snapWeek);
+    if (!error && data && data.length) {
+      SQ.snapAt = data[0].taken_at;
+      return { data, error: null };
+    }
+    if (SQ.period === 'past') { SQ.snapAt = null; return { data: [], error }; }
+  }
+  SQ.snapAt = null;
+  return sb.rpc('tracker_squad_board', { p_group: SQ.groupId, p_period: SQ.period });
+}
+
 async function loadBoard() {
   if (!SQ.groupId) { SQ.board = []; SQ.templates = []; return; }
+  if (SQ.period === 'past') {
+    if (SQ.weeks === null) await loadSnapWeeks();
+    if (!SQ.weeks.includes(SQ.week)) SQ.week = SQ.weeks[0] || null;
+  }
   const [board, tmpl, mem] = await Promise.all([
-    sb.rpc('tracker_squad_board', { p_group: SQ.groupId, p_period: SQ.period }),
+    loadBoardRows(),
     sb.from('tracker_shared_templates').select('*').eq('group_id', SQ.groupId)
       .order('created_at', { ascending: false }),
     // Role and join date, for the member list in settings. Names come from
@@ -4533,7 +4566,7 @@ function squadJoinHTML(alone) {
       '<p class="setup-intro">A squad is a group of people who can see how much training each other ' +
       'is getting through - days trained, sessions, metres, time - and swap exercise templates. ' +
       'Joining puts your <b>totals</b> on that squad’s board; never a session, a lift, a date or a ' +
-      'note. Leaving takes them straight back off.</p>' : '<h3 class="setup-head" style="margin-top:8px">Join another squad</h3>') +
+      'note. Leaving takes you off the live board; past weeks stay in its history.</p>' : '<h3 class="setup-head" style="margin-top:8px">Join another squad</h3>') +
     // An invite is a link. Opening it lands here with the squad already
     // chosen, so there is nothing to type; the box is only for someone who
     // was sent the link and opened the app some other way.
@@ -4589,6 +4622,8 @@ function squadMainHTML() {
   const board = hard ? hardBoardHTML(hard)
     : SQ.boardError
     ? '<div class="toast err">Could not load the board: ' + esc(SQ.boardError) + '</div>'
+    : SQ.period === 'past' && !(SQ.weeks && SQ.weeks.length)
+    ? '<p class="empty">No past weeks saved for this squad yet. Each week is saved the Tuesday after it ends.</p>'
     : !SQ.board.length
     ? '<p class="empty">Nobody in this squad yet.</p>'
     : '<div class="bhead"><span>#</span><span>Athlete</span><span class="r">' +
@@ -4661,12 +4696,18 @@ function squadMainHTML() {
         '<div class="ttogs" role="group" aria-label="Period"><span class="ttog-lab">Period</span>' +
           periodsFor(mode).map(p => '<button class="tt' + (p.k === SQ.period ? ' active' : '') +
             '" data-bperiod="' + p.k + '" aria-pressed="' + (p.k === SQ.period) + '">' +
-            p.short + '</button>').join('') + '</div>' +
+            p.short + '</button>').join('') +
+          (SQ.period === 'past' && SQ.weeks && SQ.weeks.length
+            ? '<select id="sq-week" class="sq-week" aria-label="Which week">' + SQ.weeks.map(w =>
+                '<option value="' + w + '"' + (w === SQ.week ? ' selected' : '') + '>Week of ' +
+                shortDate(w) + ' ' + w.slice(0, 4) + '</option>').join('') + '</select>' : '') +
+        '</div>' +
       '</div>') +
     board +
     '<p class="squad-note">' + (hard
       ? 'Tagged attempts only. Fastest split first.'
-      : rows.length + ' of ' + SQ.board.length + ' sharing. Totals only, never individual sessions.') +
+      : rows.length + ' of ' + SQ.board.length + ' sharing. Totals only, never individual sessions.' +
+        (SQ.snapAt ? ' Saved ' + shortDate(String(SQ.snapAt).slice(0, 10)) + ', as the squad stood then.' : '')) +
     '</p>' +
     '</div>' + hardErgsHTML(isAdmin) + '</div>' +
     '<div id="squad-msg"></div>' +
@@ -5589,7 +5630,8 @@ document.addEventListener('click', async e => {
   // The squad panel is rebuilt wholesale on every change, so its selects are
   // wired by delegation rather than by id.
   document.addEventListener('change', ev => {
-    if (ev.target.id === 'squad-pick')   { SQ.groupId = ev.target.value; SQ.hard = null; refreshSquad(); }
+    if (ev.target.id === 'squad-pick')   { SQ.groupId = ev.target.value; SQ.hard = null; SQ.weeks = null; refreshSquad(); }
+    if (ev.target.id === 'sq-week')      { SQ.week = ev.target.value; refreshSquad(); }
     // Tagging a session already logged, from a hard erg's box.
     if (ev.target.dataset && ev.target.dataset.hePick !== undefined && ev.target.value) {
       const hid = ev.target.dataset.hePick;
