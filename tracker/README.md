@@ -756,6 +756,10 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   (leaving is `tracker_leave_group`; an admin removing themselves through here could strand a squad
   with no admin), and it takes the person's sharing row and anything they posted to the squad with
   them, because that is what "removed" means.
+- **Members are listed under ⚙ settings** (2026-10-14), admins first: name, admin and "you" tags,
+  and join date. The admin's **Remove** button lives there rather than on the board rows. Names
+  come from the board RPC (which returns every member, sharing or not), roles and join dates from
+  `group_members`, which members may already read - no SQL change.
 - **`group_members` has no INSERT policy at all.** Creating and joining go through
   `SECURITY DEFINER` RPCs where the row written is fixed by the code, which is what stops anyone
   adding themselves to a squad they were not invited to.

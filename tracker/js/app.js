@@ -4403,11 +4403,16 @@ async function loadSquads() {
 
 async function loadBoard() {
   if (!SQ.groupId) { SQ.board = []; SQ.templates = []; return; }
-  const [board, tmpl] = await Promise.all([
+  const [board, tmpl, mem] = await Promise.all([
     sb.rpc('tracker_squad_board', { p_group: SQ.groupId, p_period: SQ.period }),
     sb.from('tracker_shared_templates').select('*').eq('group_id', SQ.groupId)
       .order('created_at', { ascending: false }),
+    // Role and join date, for the member list in settings. Names come from
+    // the board, which returns every member, sharing or not: profiles are not
+    // readable across accounts, and the board already has them.
+    sb.from('group_members').select('profile_id, role, joined_at').eq('group_id', SQ.groupId),
   ]);
+  SQ.members = mem.error ? [] : (mem.data || []);
   SQ.board = board.error ? [] : (board.data || []);
   SQ.boardError = board.error ? board.error.message : null;
   // A failed read here used to be dropped on the floor, which rendered as
@@ -4542,10 +4547,6 @@ function squadMainHTML() {
   rows.sort((a, b) => sortVal(b) - sortVal(a));
   const top = Math.max(...rows.map(r => boardVal(r, metric.k) || 0), 0);
 
-  const rmBtn = r => (isAdmin && r.profile_id !== me)
-    ? '<button class="brm" data-sq-rm="' + r.profile_id + '" data-sq-rmname="' + esc(r.display_name) +
-      '">remove</button>' : '';
-
   const hard = SQ.hard ? HE.list.find(h => h.id === SQ.hard && h.group_id === SQ.groupId) : null;
   if (!hard) SQ.hard = null;
 
@@ -4558,11 +4559,8 @@ function squadMainHTML() {
         esc(mode.label) + ' \u00b7 ' + esc(metric.btn) + '</span></div>' +
       rows.map((r, i) => {
           const v = boardVal(r, metric.k);
-          const rm = rmBtn(r);
-          // `adm` tells the CSS to stop the breakdown line short of the remove
-          // link; without it the two share the same grid cell and overlap.
           return '<div class="brow' + (i ? '' : ' lead') + (r.profile_id === me ? ' me' : '') +
-            (v ? '' : ' zero') + (rm ? ' adm' : '') + '">' +
+            (v ? '' : ' zero') + '">' +
             '<span class="brank">' + (i + 1) + '</span>' +
             '<span class="bname">' + esc(r.display_name) + '</span>' +
             '<span class="bval">' + boardValHTML(v, metric.unit) + '</span>' +
@@ -4570,7 +4568,6 @@ function squadMainHTML() {
               r.sessions_weights + ' weights \u00b7 ' + r.sessions_erg + ' erg \u00b7 ' +
               (r.sessions_water || 0) + ' water \u00b7 ' + (r.sessions_cardio || 0) + ' other \u00b7 ' +
               r.sessions_core + ' core</span>' +
-            rm +
             '<span class="bbar"><i style="width:' + barPct(v, top, metric) + '%"></i></span>' +
           '</div>';
         }).join('') +
@@ -4582,8 +4579,7 @@ function squadMainHTML() {
             '<span class="bsub">not on the board' +
               (r.profile_id === me
                 ? ' <button class="blink" id="sq-share-me" data-group="' + SQ.groupId + '">show my totals</button>'
-                : '') + '</span>' +
-            rmBtn(r) + '</div>').join('') : '');
+                : '') + '</span></div>').join('') : '');
 
   return '<div class="setup-sec">' +
     '<div class="squad-bar">' +
@@ -4668,12 +4664,37 @@ function squadSettingsHTML(sq, isAdmin) {
             : '<p class="inv-note">This squad has no invite link. Whoever started it can create ' +
                 'one from here.</p>') +
         '</div>') +
+    squadMembersHTML(isAdmin) +
     squadTemplatesHTML() +
     '<p class="squad-note" style="margin-bottom:0">' +
       '<button class="blink" id="sq-leave">Leave ' + esc((sq && sq.name) || 'this squad') + '</button>' +
-      (isAdmin ? ' \u00b7 you started this squad, so you can remove people from the board above' : '') +
       ' \u00b7 <button class="blink" id="sq-add">join another squad</button>' +
     '</p>' +
+  '</div>';
+}
+
+// Everyone in the squad, admins first, then by name. The squad admin can
+// remove anyone but themselves - leaving is how an admin goes, so a squad
+// is never left with nobody able to run it by accident.
+function squadMembersHTML(isAdmin) {
+  const me = S.session.user.id;
+  const names = {};
+  SQ.board.forEach(r => { names[r.profile_id] = r.display_name; });
+  const list = (SQ.members || []).map(m => Object.assign({ name: names[m.profile_id] || 'Athlete' }, m))
+    .sort((a, b) => (a.role === 'admin' ? 0 : 1) - (b.role === 'admin' ? 0 : 1) || a.name.localeCompare(b.name));
+  return '<div class="tsec"><h4>Members \u00b7 ' + list.length + '</h4>' +
+    (list.length ? list.map(m =>
+      '<div class="lib-item"><div><div class="nm">' + esc(m.name) +
+        (m.profile_id === me ? ' <span class="mtag">you</span>' : '') +
+        (m.role === 'admin' ? ' <span class="mtag adm">admin</span>' : '') + '</div>' +
+        '<div class="meta">' + (m.joined_at ? 'joined ' + shortDate(String(m.joined_at).slice(0, 10)) : '') + '</div></div>' +
+        (isAdmin && m.profile_id !== me
+          ? '<div class="ops"><button class="ghost mrm" data-sq-rm="' + m.profile_id + '" data-sq-rmname="' +
+            esc(m.name) + '">Remove</button></div>' : '') +
+      '</div>').join('')
+      : '<p class="placeholder">Could not read the member list.</p>') +
+    (isAdmin ? '<p class="inv-note" style="margin:8px 0 0">Removing someone takes them off the board ' +
+      'and deletes the templates and hard erg attempts they shared here. Their own log is untouched.</p>' : '') +
   '</div>';
 }
 
@@ -4832,7 +4853,7 @@ async function squadToggleSharing(gid) {
 async function squadRemoveMember(pid, name) {
   if (!confirm('Remove ' + name + ' from this squad?\n\nTheir totals come off the board and they ' +
     'lose access to anything shared with it. Their own training log is untouched, and they can ' +
-    'join again with the code.')) return;
+    'join again with the invite link.')) return;
   const { error } = await sb.rpc('tracker_admin_remove_member', { p_group: SQ.groupId, p_profile: pid });
   if (error) { toast('squad-msg', 'Could not remove them: ' + esc(error.message), 'err'); return; }
   track('squad_member_removed', {});
