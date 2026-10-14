@@ -617,6 +617,9 @@ create table if not exists public.tracker_hard_ergs (
 );
 create index if not exists tracker_hard_ergs_group_idx
   on public.tracker_hard_ergs (group_id, ends_on desc);
+-- Set when the final ranking is saved (see tracker_freeze_hard_ergs). Only
+-- that definer function writes it: there is no UPDATE policy on this table.
+alter table public.tracker_hard_ergs add column if not exists frozen_at timestamptz;
 
 create table if not exists public.tracker_hard_erg_entries (
   hard_erg_id    uuid        not null references public.tracker_hard_ergs    on delete cascade,
@@ -639,12 +642,11 @@ drop policy if exists "members set hard ergs" on public.tracker_hard_ergs;
 create policy "members set hard ergs" on public.tracker_hard_ergs
   for insert with check (created_by = auth.uid() and public.is_group_member(group_id));
 
--- Whoever set it, or the squad admin.
+-- No UPDATE policy: nothing in the app edits a hard erg once set, and one
+-- would let a setter clear frozen_at and reopen a final ranking.
 drop policy if exists "setter edits hard ergs" on public.tracker_hard_ergs;
-create policy "setter edits hard ergs" on public.tracker_hard_ergs
-  for update using (created_by = auth.uid() or public.is_group_admin(group_id))
-  with check (created_by = auth.uid() or public.is_group_admin(group_id));
 
+-- Whoever set it, or the squad admin.
 drop policy if exists "setter removes hard ergs" on public.tracker_hard_ergs;
 create policy "setter removes hard ergs" on public.tracker_hard_ergs
   for delete using (created_by = auth.uid() or public.is_group_admin(group_id));
@@ -1320,6 +1322,111 @@ $$;
 -- The split is the stored average where there is one, else time over
 -- distance, so a session typed in as just a time and a distance still
 -- ranks.
+--
+-- While a hard erg is open, and for a week after it closes (late entries),
+-- the ranking is live. Then it is FROZEN: the final ranking is saved to
+-- tracker_hard_erg_results and read from there for good, so someone leaving
+-- the squad or untagging later does not rewrite the result. The screen link
+-- on a frozen row only shows while that session is still tagged with its
+-- photo - a photo is never kept past its owner's say-so.
+
+-- The live query. Not callable by any app role; the board and the freeze are
+-- its only callers. Security invoker.
+drop function if exists public.tracker_hard_erg_rows(uuid);
+create or replace function public.tracker_hard_erg_rows(p_hard_erg uuid)
+returns table (
+  athlete_id      uuid,
+  athlete_name    text,
+  best_split_s    numeric,
+  best_time_s     numeric,
+  best_distance_m int,
+  attempts        int,
+  best_screen     text,
+  best_session_id uuid
+)
+language plpgsql stable set search_path = public, pg_temp as $$
+#variable_conflict use_column
+declare
+  v_group uuid;
+  v_from  date;
+  v_to    date;
+begin
+  select h.group_id, h.starts_on, h.ends_on into v_group, v_from, v_to
+  from public.tracker_hard_ergs h where h.id = p_hard_erg;
+  if v_group is null then return; end if;
+
+  return query
+  with tagged as (
+    select e.profile_id as pid,
+           s.id as sid,
+           s.total_time_s as t_s,
+           s.distance_m as d_m,
+           s.screen_path as shot,
+           coalesce(s.avg_split_s,
+             case when s.distance_m > 0 and s.total_time_s > 0
+                  then s.total_time_s / (s.distance_m / 500.0) end) as split
+    from public.tracker_hard_erg_entries e
+    join public.tracker_erg_sessions s
+      on s.id = e.erg_session_id and s.profile_id = e.profile_id
+    join public.group_members gm
+      on gm.group_id = v_group and gm.profile_id = e.profile_id
+    where e.hard_erg_id = p_hard_erg
+      and s.date between v_from and v_to
+  ),
+  best as (
+    select distinct on (pid) pid, sid, split, t_s, d_m, shot,
+           count(*) over (partition by pid) as n
+    from tagged
+    where split is not null
+    order by pid, split asc
+  )
+  select b.pid, coalesce(p.display_name, 'Athlete'), round(b.split, 1),
+         b.t_s, b.d_m, b.n::int, b.shot, b.sid
+  from best b
+  left join public.profiles p on p.id = b.pid;
+end;
+$$;
+
+create table if not exists public.tracker_hard_erg_results (
+  hard_erg_id     uuid        not null references public.tracker_hard_ergs on delete cascade,
+  athlete_id      uuid        not null references public.profiles          on delete cascade,
+  athlete_name    text,
+  best_split_s    numeric,
+  best_time_s     numeric,
+  best_distance_m int,
+  attempts        int,
+  best_session_id uuid,
+  taken_at        timestamptz not null default now(),
+  primary key (hard_erg_id, athlete_id)
+);
+-- Read only through tracker_hard_erg_board(); no policies, so no direct access.
+alter table public.tracker_hard_erg_results enable row level security;
+
+-- Freezes every hard erg that closed more than a week ago and has not been
+-- frozen yet. Run daily by pg_cron, and once when this file runs.
+create or replace function public.tracker_freeze_hard_ergs()
+returns int
+language plpgsql volatile security definer set search_path = public, pg_temp as $$
+declare
+  h record;
+  n int := 0;
+begin
+  for h in select x.id from public.tracker_hard_ergs x
+            where x.frozen_at is null and x.ends_on + 7 < current_date loop
+    insert into public.tracker_hard_erg_results
+      (hard_erg_id, athlete_id, athlete_name, best_split_s, best_time_s, best_distance_m, attempts, best_session_id)
+    select h.id, r.athlete_id, r.athlete_name, r.best_split_s, r.best_time_s, r.best_distance_m,
+           r.attempts, r.best_session_id
+    from public.tracker_hard_erg_rows(h.id) r
+    on conflict do nothing;
+    update public.tracker_hard_ergs set frozen_at = now() where id = h.id;
+    n := n + 1;
+  end loop;
+  return n;
+end;
+$$;
+
+-- The ranking as the app reads it: frozen if it has been, live otherwise.
 -- best_screen was added after the first version, and CREATE OR REPLACE cannot
 -- change a function's OUT columns.
 drop function if exists public.tracker_hard_erg_board(uuid);
@@ -1336,45 +1443,44 @@ returns table (
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 #variable_conflict use_column
 declare
-  v_group uuid;
-  v_from  date;
-  v_to    date;
+  v_group  uuid;
+  v_frozen timestamptz;
 begin
-  select h.group_id, h.starts_on, h.ends_on into v_group, v_from, v_to
+  select h.group_id, h.frozen_at into v_group, v_frozen
   from public.tracker_hard_ergs h where h.id = p_hard_erg;
   -- Unknown, or not your squad: no rows, the same answer either way.
   if v_group is null or not public.is_group_member(v_group) then
     return;
   end if;
 
-  return query
-  with tagged as (
-    select e.profile_id as pid,
-           s.total_time_s as t_s,
-           s.distance_m as d_m,
-           s.screen_path as shot,
-           coalesce(s.avg_split_s,
-             case when s.distance_m > 0 and s.total_time_s > 0
-                  then s.total_time_s / (s.distance_m / 500.0) end) as split
-    from public.tracker_hard_erg_entries e
-    join public.tracker_erg_sessions s
-      on s.id = e.erg_session_id and s.profile_id = e.profile_id
-    join public.group_members gm
-      on gm.group_id = v_group and gm.profile_id = e.profile_id
-    where e.hard_erg_id = p_hard_erg
-      and s.date between v_from and v_to
-  ),
-  best as (
-    select distinct on (pid) pid, split, t_s, d_m, shot,
-           count(*) over (partition by pid) as n
-    from tagged
-    where split is not null
-    order by pid, split asc
-  )
-  select b.pid, coalesce(p.display_name, 'Athlete'), round(b.split, 1),
-         b.t_s, b.d_m, b.n::int, b.shot
-  from best b
-  left join public.profiles p on p.id = b.pid;
+  if v_frozen is null then
+    return query
+    select r.athlete_id, r.athlete_name, r.best_split_s, r.best_time_s,
+           r.best_distance_m, r.attempts, r.best_screen
+    from public.tracker_hard_erg_rows(p_hard_erg) r;
+  else
+    return query
+    select r.athlete_id, r.athlete_name, r.best_split_s, r.best_time_s,
+           r.best_distance_m, r.attempts,
+           -- the photo only while its owner still has it tagged here
+           (select s.screen_path from public.tracker_erg_sessions s
+              join public.tracker_hard_erg_entries e
+                on e.erg_session_id = s.id and e.hard_erg_id = p_hard_erg
+             where s.id = r.best_session_id)
+    from public.tracker_hard_erg_results r
+    where r.hard_erg_id = p_hard_erg;
+  end if;
+end;
+$$;
+
+-- Freeze anything already due, then schedule the daily run.
+select public.tracker_freeze_hard_ergs();
+do $$
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.schedule('tracker-freeze-hard-ergs', '10 0 * * *',
+      $job$select public.tracker_freeze_hard_ergs()$job$);
+  end if;
 end;
 $$;
 
@@ -1469,6 +1575,8 @@ revoke execute on function public.tracker_hard_erg_board(uuid)     from public, 
 -- Not even authenticated: these take a raw window (see their comments).
 revoke execute on function public.tracker_board_rows(uuid, date, date) from public, anon, authenticated;
 revoke execute on function public.tracker_snapshot_week(date)      from public, anon, authenticated;
+revoke execute on function public.tracker_hard_erg_rows(uuid)      from public, anon, authenticated;
+revoke execute on function public.tracker_freeze_hard_ergs()       from public, anon, authenticated;
 
 grant execute on function public.tracker_create_group(text)        to authenticated, service_role;
 grant execute on function public.tracker_join_group(text)          to authenticated, service_role;
@@ -1482,6 +1590,8 @@ grant execute on function public.tracker_squad_board(uuid, text)   to authentica
 grant execute on function public.tracker_hard_erg_board(uuid)      to authenticated, service_role;
 grant execute on function public.tracker_board_rows(uuid, date, date) to service_role;
 grant execute on function public.tracker_snapshot_week(date)       to service_role;
+grant execute on function public.tracker_hard_erg_rows(uuid)       to service_role;
+grant execute on function public.tracker_freeze_hard_ergs()        to service_role;
 -- tracker_num / tracker_is_uuid are pure helpers with no data access, so
 -- the PUBLIC default is fine for them.
 
@@ -1575,7 +1685,8 @@ select section, item, result from (
                ('tracker_races'), ('tracker_erg_parses'),
                ('groups'), ('group_members'), ('tracker_sharing'),
                ('tracker_shared_templates'), ('tracker_hard_ergs'),
-               ('tracker_hard_erg_entries'), ('tracker_board_weeks')) as t(tbl)
+               ('tracker_hard_erg_entries'), ('tracker_board_weeks'),
+               ('tracker_hard_erg_results')) as t(tbl)
 
   -- 3. Every column the app writes.
   union all
@@ -1603,6 +1714,8 @@ select section, item, result from (
     union all select 'tracker_squad_board(uuid,text)', to_regprocedure('public.tracker_squad_board(uuid,text)') is not null
     union all select 'tracker_hard_erg_board(uuid)', to_regprocedure('public.tracker_hard_erg_board(uuid)') is not null
     union all select 'tracker_board_rows(uuid,date,date)', to_regprocedure('public.tracker_board_rows(uuid,date,date)') is not null
+    union all select 'tracker_hard_erg_rows(uuid)', to_regprocedure('public.tracker_hard_erg_rows(uuid)') is not null
+    union all select 'tracker_freeze_hard_ergs()', to_regprocedure('public.tracker_freeze_hard_ergs()') is not null
     union all select 'tracker_snapshot_week(date)', to_regprocedure('public.tracker_snapshot_week(date)') is not null
     union all select 'tracker_can_see_screen(text)', to_regprocedure('public.tracker_can_see_screen(text)') is not null
     union all select 'erg-screens bucket (private)',
@@ -1628,6 +1741,7 @@ select section, item, result from (
     and p.proname in ('tracker_create_group','tracker_join_group',
                       'tracker_leave_group','tracker_squad_board','tracker_hard_erg_board',
                       'tracker_can_see_screen','tracker_board_rows','tracker_snapshot_week',
+                      'tracker_hard_erg_rows','tracker_freeze_hard_ergs',
                       'tracker_admin_remove_member','tracker_rotate_code',
                       'tracker_new_join_code')
 
@@ -1638,10 +1752,14 @@ select section, item, result from (
     ' squad-weeks, latest ' ||
     coalesce((select max(week_start)::text from public.tracker_board_weeks), 'none')
   union all
+  select 4, '4 past weeks', 'hard ergs with a final ranking',
+    (select count(*) from public.tracker_hard_ergs where frozen_at is not null)::text || ' of ' ||
+    (select count(*) from public.tracker_hard_ergs)::text
+  union all
   select 4, '4 past weeks', 'weekly snapshot job',
     case when not exists (select 1 from pg_extension where extname = 'pg_cron')
          then '** pg_cron not enabled - Database > Extensions > pg_cron, then re-run **'
-         else 'ok - pg_cron on' end
+         else 'ok - pg_cron on (weekly boards Tue 00:05, hard erg results daily 00:10 UTC)' end
 
   -- 6. The join model depends on group_members having SELECT only.
   union all

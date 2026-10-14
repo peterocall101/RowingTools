@@ -4705,7 +4705,8 @@ function squadMainHTML() {
       '</div>') +
     board +
     '<p class="squad-note">' + (hard
-      ? 'Tagged attempts only. Fastest split first.'
+      ? (hard.frozen_at ? 'Final ranking, saved ' + shortDate(String(hard.frozen_at).slice(0, 10)) + '.'
+          : 'Tagged attempts only. Fastest split first.')
       : rows.length + ' of ' + SQ.board.length + ' sharing. Totals only, never individual sessions.' +
         (SQ.snapAt ? ' Saved ' + shortDate(String(SQ.snapAt).slice(0, 10)) + ', as the squad stood then.' : '')) +
     '</p>' +

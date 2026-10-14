@@ -652,7 +652,12 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   failing that, time over distance; best attempt counts. Leaving or being removed from a squad
   deletes your tags on its hard ergs. A hard erg keeps its box for a week after it closes; after that it moves to **Past hard ergs**
   (collapsed, newest first) in the same column, where any ranking can still be opened. Nothing is
-  ever deleted by time - only by its setter or the admin. On a
+  ever deleted by time - only by its setter or the admin. **At the same point the ranking is
+  frozen** (`tracker_freeze_hard_ergs()`, daily via pg_cron at 00:10 UTC): the final results go to
+  `tracker_hard_erg_results` and `tracker_hard_erg_board()` reads them from then on, so leaving or
+  untagging later does not rewrite a result. The screen link on a frozen row still needs the session
+  to be tagged with its photo, so a photo is never kept past its owner's say-so. There is no UPDATE
+  policy on `tracker_hard_ergs`, so `frozen_at` cannot be cleared from the app. On a
   phone the column sits above the board rather than under it.
 
   **Erg screens** (2026-10-14): when an erg is logged *from a photo* and ticked as a hard erg
