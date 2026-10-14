@@ -837,10 +837,10 @@ function ergFormHTML(d, source) {
         '<option value="concept2"' + (d.erg_type === 'concept2' || !d.erg_type ? ' selected' : '') + '>Concept2</option>' +
         '<option value="rowperfect"' + (d.erg_type === 'rowperfect' ? ' selected' : '') + '>RowPerfect</option></select></div>' +
       '<div><label>Session</label><input type="text" id="eg-session" value="' + esc(d.session_type || '') + '" placeholder="e.g. 2k test, 8x500m"></div>' +
-      '<div><label>Total time</label><input type="text" id="eg-time" value="' + esc(d.total_time_s != null ? fmtTime(d.total_time_s) : '') + '" placeholder="mm:ss.t" inputmode="decimal"></div>' +
+      '<div><label>Total time</label><input type="text" id="eg-time" value="' + esc(d.total_time_s != null ? fmtTime(d.total_time_s) : '') + '" placeholder="mm:ss.t"></div>' +
       '<div><label>Distance m</label><input type="number" id="eg-dist" step="1000" min="0" value="' +
         esc(d.distance_m != null ? d.distance_m : '') + '" inputmode="numeric"></div>' +
-      '<div><label>Avg /500m</label><input type="text" id="eg-split" value="' + esc(d.avg_split_s != null ? fmtTime(d.avg_split_s) : '') + '" placeholder="m:ss.t" inputmode="decimal"></div>' +
+      '<div><label>Avg /500m</label><input type="text" id="eg-split" value="' + esc(d.avg_split_s != null ? fmtTime(d.avg_split_s) : '') + '" placeholder="m:ss.t"></div>' +
       '<div><label>Avg rate</label><input type="number" id="eg-rate" value="' + esc(d.avg_rate != null ? d.avg_rate : '') + '" inputmode="numeric"></div>' +
       '<div><label>Avg HR</label><input type="number" id="eg-hr" value="' + esc(d.avg_hr != null ? d.avg_hr : '') + '" inputmode="numeric"></div>' +
     '</div>' +
@@ -856,9 +856,9 @@ function ergFormHTML(d, source) {
 function ergIvRowHTML(i, r) {
   r = r || {};
   return '<tr><td class="setno">' + (i + 1) + '</td>' +
-    '<td><input type="text" class="iv-time" value="' + esc(r.time_s != null ? fmtTime(r.time_s) : '') + '" inputmode="decimal"></td>' +
+    '<td><input type="text" class="iv-time" value="' + esc(r.time_s != null ? fmtTime(r.time_s) : '') + '"></td>' +
     '<td><input type="number" class="iv-dist" value="' + esc(r.distance_m != null ? r.distance_m : '') + '" inputmode="numeric"></td>' +
-    '<td><input type="text" class="iv-split" value="' + esc(r.split_s != null ? fmtTime(r.split_s) : '') + '" inputmode="decimal"></td>' +
+    '<td><input type="text" class="iv-split" value="' + esc(r.split_s != null ? fmtTime(r.split_s) : '') + '"></td>' +
     '<td><input type="number" class="iv-rate" value="' + esc(r.rate != null ? r.rate : '') + '" inputmode="numeric"></td>' +
     '<td><input type="number" class="iv-hr" value="' + esc(r.hr != null ? r.hr : '') + '" inputmode="numeric"></td>' +
     '<td><button class="ghostx iv-rm" title="Remove">×</button></td></tr>';
@@ -1182,7 +1182,7 @@ function renderWaterTab() {
           '<input type="number" id="wt-dist" step="1000" min="0" inputmode="numeric" ' +
           'placeholder="e.g. 16000"></div>' +
         '<div><label for="wt-time">Time</label>' +
-          '<input type="text" id="wt-time" inputmode="numeric" placeholder="e.g. 1:12:30"></div>' +
+          '<input type="text" id="wt-time" placeholder="e.g. 1:12:30"></div>' +
         '<div><label for="wt-boat">Boat (optional)</label>' +
           '<input type="text" id="wt-boat" list="wt-boats" placeholder="e.g. 4x-" autocomplete="off">' +
           '<datalist id="wt-boats">' +
