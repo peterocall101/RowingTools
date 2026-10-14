@@ -8,7 +8,8 @@ so treat "tracker" as the code name and "Training & Race Log" as what it is call
 Athlete-facing log at **rowingtools.co.uk/tracker/** - your race history claimed off the RowingTools
 regatta leaderboards, plus the training behind it: weights sessions against a user-defined exercise
 library, erg sessions logged manually or by photographing the monitor (Concept2 PM5 / RowPerfect)
-and letting Claude vision read it, water outings, and core circuits against a timer.
+and letting Claude vision read it, water outings, other cardio (run, bike, swim - time only), and
+core circuits against a timer.
 
 It is a public part of the site: the homepage leads with it, `login.html` is the indexable front
 door, and **the whole app runs without an account** in sample mode (below). Only the app itself
@@ -24,7 +25,7 @@ totals through a `SECURITY DEFINER` function rather than by widening those polic
 
 | Path | What |
 |---|---|
-| `index.html` | The app - tabs grouped as Record (Weights / Erg / Water / Core), Review (Progress / History / Races), Squad (Board), Set up (Templates) |
+| `index.html` | The app - tabs grouped as Record (Weights / Erg / Water / Cardio / Core), Review (Progress / History / Races), Squad (Board), Set up (Templates) |
 | `login.html` | The public front door: what the tracker is, sign in / sign up / forgot / recovery, and **Try it without an account** |
 | `terms.html` | Terms of use and privacy notice. The version date at the top is the one stamped on the profile at signup |
 | `js/config.js` | Supabase URL + anon key + Edge Function endpoint. `sb` is a `let` so sample mode can swap it |
@@ -238,8 +239,8 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
     exercises, longest hold and total time held for timed ones. The set that produced the number
     is on the tile, the tooltip and the table, so a measure can never quietly gloss over the reps
     behind it.
-  - **Erg / Water / Core** - weekly load: distance or time a week on the erg and on the water,
-    time working or sessions a week for core. Weeks with nothing in them are drawn as gaps, not
+  - **Erg / Water / Cardio / Core** - weekly load: distance or time a week on the erg and on the
+    water, time or sessions a week for other cardio, time working or sessions a week for core. Weeks with nothing in them are drawn as gaps, not
     skipped, because a fortnight off is the most important thing a load chart can show.
   - **Session tonnage was removed on purpose.** It moves whenever the rep scheme moves and says
     nothing about whether you got stronger, so it is not offered as a measure of anything - not
@@ -250,8 +251,9 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
 - **Every choice on Progress is a button, and the range is one toggle.** The controls were four
   dropdowns; each held two or three options, and a dropdown that hides two alternatives behind a
   click is a worse control than the two buttons themselves. What is left is: the discipline
-  (Erg / Water / Erg + Water / Weights / Core, opening on Erg; Erg + Water is the two weekly
-  series added together on the client), the measure (Distance | Time, Time | Sessions, Sessions | Sets),
+  (Erg / Water / Cardio / Erg + Water / All cardio / Weights / Core, opening on Erg; Erg + Water
+  is the two weekly series added together on the client, All cardio adds other cardio to those and
+  offers Time | Sessions only, since a run's distance does not add up with a row's), the measure (Distance | Time, Time | Sessions, Sessions | Sets),
   and one **Show all time / Last 12 weeks** toggle in place of the four-way range list. Twelve
   weeks is the block a rower thinks in and everything else is "zoom out", so the range is two
   states rather than a menu. The exercise list stays a `<select>` - it is the one control with
@@ -297,9 +299,9 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
 - **History is a ruled sheet, not a card stack.** One line per session in aligned columns (day,
   discipline, what it was), expanding in place, under the week strip. Results-board language
   throughout: hairlines, tabular figures, square corners.
-- **History filters by discipline, client-side.** All / Weights / Erg / Water / Core, each with its
-  count, over the sessions already loaded - so it is instant and works offline. Three deliberate
-  details: **all five are always shown**, the empty ones greyed and disabled rather than hidden -
+- **History filters by discipline, client-side.** All / Weights / Erg / Water / Cardio / Core, each
+  with its count, over the sessions already loaded - so it is instant and works offline. Three
+  deliberate details: **all six are always shown**, the empty ones greyed and disabled rather than hidden -
   hiding a discipline at zero shrinks the row to "All / Weights" and makes the filter itself look
   like it is not there, which is exactly how it was first read; the **week strip keeps showing the
   whole week** even with a filter on, because it is the context for what you are reading and a
@@ -337,6 +339,16 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   for the athlete to argue. It uses the same strings as `boat` on `tracker_races`, so "what do I go
   quickest in" stays answerable later. **It is the one field not cleared after a save**: date,
   distance and time all change between outings; the boat rarely does.
+- **Other cardio is its own table too** (`tracker_cardio_sessions`, 2026-10-14): a run, a bike, a
+  swim. **Time is the only number taken** - it is the one measure every kind of cardio shares, and a
+  10k run summed with a 10k row is meaningless - plus a free-text type (`activity`, a datalist like
+  the boat, prefilled with the last one used) and notes. Type and time are both required by the app.
+  The board counts it in days trained and sessions, and returns `sessions_cardio` and
+  `cardio_seconds`.
+- **Combined modes are marked.** On Progress and the Board every rowing/cardio mode button carries a
+  3px top bar in its History colour (erg blue, water purple, cardio amber). Erg + Water and All
+  cardio (`.seg.combo`) carry the colours of everything in them, side by side, on a tinted ground in
+  italics - so a sum never reads as a discipline of its own.
 - **Races are claimed, never matched.** The Races tab reads `data/all_results.json` - the same
   file behind the regatta leaderboards and club pages, 4,900-odd results across every regatta with
   a GMT percentage. A result there is a *crew*, and no results file published anywhere names who
@@ -467,9 +479,9 @@ The Edge Function works from localhost too (CORS is open); it just needs step 2 
   rather than today - which is what makes logging last week's pieces from old photos bearable. A
   screen with no date, a date in the future, or one before 2010 (a monitor whose clock was never
   set) falls back to today. It trusts the monitor's clock, so a wrongly set one gives a wrong date.
-- **Every kind of session can be edited from History**, not just weights (erg, water and core
+- **Every kind of session can be edited from History**, not just weights (erg, water, cardio and core
   since 2026-10-13). "Edit this session" reopens it on its own tab and saving updates the row in
-  place. Erg and water reuse their entry forms; core gets a plain table of round times in the
+  place. Erg, water and cardio reuse their entry forms; core gets a plain table of round times in the
   runner's place, because the runner is a stopwatch and cannot be rewound onto old numbers. The
   rounds of a core session are fixed, only times, date and notes change. An edit is an `update`
   and is **not** queued offline, same as weights. An erg edit left open survives a reload as an
@@ -612,11 +624,11 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   raise and take the board down for *everyone* in the squad.
 - **Non-sharers are shown, greyed, as "not sharing".** The board says "2 of 3 sharing" rather than
   quietly pretending the squad is smaller than it is.
-- **The board ranks on one of six things, chosen with buttons.** Erg, Water, Erg + Water,
-  Weights, Core, Racing - then a second row for the measure of whichever one is picked, on exactly the same
+- **The board ranks on one of eight things, chosen with buttons.** Erg, Water, Cardio, Erg + Water,
+  All cardio, Weights, Core, Racing - then a second row for the measure of whichever one is picked, on exactly the same
   pattern as Progress (distance | time, sessions | sets, time | sessions), and a third for the
-  period. It replaced two dropdowns. **Erg + Water is computed client-side** (`combined_metres`,
-  `combined_seconds` in `boardVal`) rather than added to the SQL: it is the sum of two columns the
+  period. It replaced two dropdowns. **Erg + Water and All cardio are computed client-side**
+  (`combined_metres`, `combined_seconds`, `all_seconds`, `all_sessions` in `boardVal`) rather than added to the SQL: it is the sum of two columns the
   function already returns, and a derived total that lives in the client cannot disagree with its
   own parts.
 
@@ -675,8 +687,8 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   names the discipline, the measure and the window in words, and says in as many words that the
   numbers are self-reported and are not race results. Volume is a weak thing to rank on - it rewards
   junk metres and punishes the athlete on a taper - so the breakdown under each name (days, weights,
-  erg, water, core) is always there to put a big number in context, and days trained counts water
-  outings as well as erg and gym.
+  erg, water, cardio, core) is always there to put a big number in context, and days trained counts
+  water outings and other cardio as well as erg and gym.
 - **Join by link. The six-character code still exists but is no longer shown to anyone**
   (2026-10-13): typing a code was a step nobody needed when the link carries it. The invite panel
   leads with **Copy invite link** for a group chat, then Share and email; a new squad opens

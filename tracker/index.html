@@ -501,7 +501,7 @@
     border-top:2px solid var(--text);padding-top:8px;margin-bottom:0}
   .sum-head h4{font-size:16px;font-weight:800;letter-spacing:-0.01em;text-transform:uppercase}
   .sum-count{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)}
-  .sum-strip{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border2);
+  .sum-strip{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid var(--border2);
     margin-top:8px;margin-bottom:6px}
   .sm{padding:9px 0 12px}
   .sm+.sm{border-left:1px solid var(--border);padding-left:14px}
@@ -514,14 +514,14 @@
   .sm.dim .sm-val{color:var(--text3);font-size:20px}
   .sm.dim .sm-note{color:var(--border2)}
   @media(max-width:559px){
-    /* four across is unreadable on a phone, so the week folds to two by two
+    /* five across is unreadable on a phone, so the week folds to three and two
        and the vertical rule moves to whichever cells are now side by side */
-    .sum-strip{grid-template-columns:repeat(2,1fr)}
-    .sm-val{font-size:22px}
+    .sum-strip{grid-template-columns:repeat(3,1fr)}
+    .sm-val{font-size:20px}
     .sm-note{font-size:9.5px}
-    .sm+.sm{border-left:none;padding-left:0}
-    .sm:nth-child(2n){border-left:1px solid var(--border);padding-left:14px}
-    .sm:nth-child(n+3){border-top:1px solid var(--border)}
+    .sm+.sm{border-left:1px solid var(--border);padding-left:12px}
+    .sm:nth-child(3n+1){border-left:none;padding-left:0}
+    .sm:nth-child(n+4){border-top:1px solid var(--border)}
   }
   .sumtbl{width:100%;border-collapse:collapse;margin-top:14px;font-size:13.5px}
   .sumtbl th{text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
@@ -562,17 +562,30 @@
      list, but plainly not a thing to press */
   .histfilter .seg.none{color:var(--text3);opacity:.5;cursor:default}
   .histfilter .seg.none:hover{background:transparent;color:var(--text3)}
-  /* Six modes will not sit on one phone-width line, and a scroller would hide
-     half of them. Two rows of three, with the wrap seam drawn as a top rule
-     instead of a doubled left one. */
-  .bmodes{display:flex}
-  @media(max-width:479px){
+  /* The Progress and Board modes will not sit on one phone-width line, and a
+     scroller would hide half of them. Rows of four, with the wrap seam drawn
+     as a top rule instead of a doubled left one. */
+  .bmodes,.modes{display:flex;flex-wrap:wrap}
+  /* A bar along the top of each rowing/cardio mode in its History colour, so
+     a combined mode shows what is in it: Erg + Water is blue then purple, All
+     cardio adds the amber of other cardio. Combined modes also sit on a
+     tinted ground so they read as sums, not as a discipline of their own. */
+  .modes .seg,.bmodes .seg{position:relative}
+  .seg.m-erg::after,.seg.m-water::after,.seg.m-cardio::after,.seg.combo::after{
+    content:"";position:absolute;left:0;right:0;top:0;height:3px;pointer-events:none}
+  .seg.m-erg::after{background:var(--c-wbt)}
+  .seg.m-water::after{background:var(--c-met)}
+  .seg.m-cardio::after{background:var(--c-hwr)}
+  .seg.m-both::after{background:linear-gradient(90deg,var(--c-wbt) 0 50%,var(--c-met) 50% 100%)}
+  .seg.m-all::after{background:linear-gradient(90deg,var(--c-wbt) 0 33.33%,var(--c-met) 33.33% 66.67%,var(--c-hwr) 66.67% 100%)}
+  .seg.combo:not(.active){background:var(--bg2);font-style:italic}
+  @media(max-width:519px){
     .histfilter .seg{padding:7px 9px;font-size:12px}
     .histfilter .seg small{display:none}
-    .bmodes{display:grid;grid-template-columns:repeat(3,1fr)}
-    .bmodes .seg{padding:9px 4px;font-size:12px}
-    .bmodes .seg:nth-child(4){border-left:none}
-    .bmodes .seg:nth-child(n+4){border-top:1px solid var(--border2)}
+    .bmodes,.modes{display:grid;grid-template-columns:repeat(4,1fr)}
+    .bmodes .seg,.modes .seg{padding:10px 4px 9px;font-size:12px;line-height:1.25}
+    .bmodes .seg:nth-child(4n+1),.modes .seg:nth-child(4n+1){border-left:none}
+    .bmodes .seg:nth-child(n+5),.modes .seg:nth-child(n+5){border-top:1px solid var(--border2)}
   }
   .progbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
   .progbar select{min-width:150px;flex:1}
@@ -644,6 +657,7 @@
   .entry.erg .entry-kind{color:var(--c-wbt)}
   .entry.core .entry-kind{color:var(--c-hrr)}
   .entry.water .entry-kind{color:var(--c-met)}
+  .entry.cardio .entry-kind{color:var(--c-hwr)}
   .entry-main{min-width:0;display:flex;flex-direction:column;gap:2px}
   .entry-sum{font-family:var(--mono);font-size:12px;color:var(--text2);overflow-wrap:anywhere}
   .entry-time{font-family:var(--mono);font-size:10.5px;color:var(--text3)}
@@ -722,6 +736,7 @@
         <button class="tab active" role="tab" aria-selected="true" aria-label="Record: Weights" data-panel="p-log">Weights</button>
         <button class="tab" role="tab" aria-selected="false" aria-label="Record: Erg" data-panel="p-erg">Erg</button>
         <button class="tab" role="tab" aria-selected="false" aria-label="Record: Water" data-panel="p-water">Water</button>
+        <button class="tab" role="tab" aria-selected="false" aria-label="Record: Other cardio" data-panel="p-cardio">Cardio</button>
         <button class="tab" role="tab" aria-selected="false" aria-label="Record: Core" data-panel="p-core">Core</button>
       </div>
     </div>
@@ -779,6 +794,8 @@
   </section>
 
   <section class="panel" id="p-water"><div id="water-body"></div></section>
+
+  <section class="panel" id="p-cardio"><div id="cardio-body"></div></section>
 
   <section class="panel" id="p-core">
     <div class="toolbar">

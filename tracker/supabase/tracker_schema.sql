@@ -147,6 +147,23 @@ create table if not exists public.tracker_water_sessions (
   created_at   timestamptz not null default now()
 );
 
+-- Other cardio: a run, a bike, a swim - anything aerobic that is not rowing.
+-- Its own table for the same reason water is: the erg and water figures are
+-- distances that add up, and a 10k run does not add up with a 10k row. Time
+-- is the one measure every kind of cardio shares, so it is the only number.
+-- activity is free text with a datalist in the app (like boat), and both it
+-- and the time are required by the app.
+create table if not exists public.tracker_cardio_sessions (
+  id           uuid        primary key default gen_random_uuid(),
+  profile_id   uuid        not null references public.profiles on delete cascade,
+  date         date        not null,
+  at           text,
+  activity     text,
+  total_time_s numeric,
+  notes        text,
+  created_at   timestamptz not null default now()
+);
+
 -- Races claimed from the RowingTools regatta leaderboards.
 --
 -- A SNAPSHOT, not a foreign key. The leaderboard data lives in a static
@@ -247,6 +264,12 @@ alter table public.tracker_water_sessions
   add column if not exists boat         text,
   add column if not exists notes        text;
 
+alter table public.tracker_cardio_sessions
+  add column if not exists at           text,
+  add column if not exists activity     text,
+  add column if not exists total_time_s numeric,
+  add column if not exists notes        text;
+
 alter table public.tracker_races
   add column if not exists comp_title text,
   add column if not exists comp_url   text,
@@ -324,6 +347,8 @@ create index if not exists tracker_core_sessions_profile_date_idx
   on public.tracker_core_sessions (profile_id, date desc);
 create index if not exists tracker_water_profile_date_idx
   on public.tracker_water_sessions (profile_id, date desc);
+create index if not exists tracker_cardio_profile_date_idx
+  on public.tracker_cardio_sessions (profile_id, date desc);
 create index if not exists tracker_races_profile_date_idx
   on public.tracker_races (profile_id, date desc);
 create index if not exists tracker_erg_parses_profile_time_idx
@@ -341,6 +366,7 @@ alter table public.tracker_erg_sessions  enable row level security;
 alter table public.tracker_core_routines enable row level security;
 alter table public.tracker_core_sessions enable row level security;
 alter table public.tracker_water_sessions enable row level security;
+alter table public.tracker_cardio_sessions enable row level security;
 alter table public.tracker_races         enable row level security;
 alter table public.tracker_erg_parses    enable row level security;
 
@@ -366,6 +392,10 @@ create policy "own core sessions" on public.tracker_core_sessions
 
 drop policy if exists "own water sessions" on public.tracker_water_sessions;
 create policy "own water sessions" on public.tracker_water_sessions
+  for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
+
+drop policy if exists "own cardio sessions" on public.tracker_cardio_sessions;
+create policy "own cardio sessions" on public.tracker_cardio_sessions
   for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
 
 -- A claimed race is a public result - it is already on the leaderboard
@@ -784,7 +814,11 @@ $$;
 -- every athlete's row - would otherwise have under-counted anyone who mostly
 -- rows on the water, which in a rowing club is most people.
 --
--- Racing was added the same day. A claimed race is ALREADY public - it is on
+-- Other cardio is counted as of 2026-10-14, for the same reason: a run is a
+-- day trained. It is time and a session count only - it has no distance that
+-- means anything next to the erg's or the water's.
+--
+-- Racing was added the same day as water. A claimed race is ALREADY public - it is on
 -- the regatta leaderboard under the crew's name - so what crosses here is not
 -- the result but the association between an athlete and it, which is exactly
 -- what putting yourself on a squad board says. Still counts and totals: a race
@@ -813,7 +847,7 @@ $$;
 -- ^[0-9]{4}$ and range-checked, so nothing that is not a plain year can
 -- get through and become a date.
 drop function if exists public.tracker_squad_board(uuid, date);
--- The return signature changed when water was added, and CREATE OR REPLACE
+-- The return signature changed when water was added (and again for cardio), and CREATE OR REPLACE
 -- cannot change a function's OUT columns - it fails with "cannot change return
 -- type of existing function". Dropping first is what makes this file still
 -- idempotent against a database that has the older version.
@@ -829,11 +863,13 @@ returns table (
   sessions_weights int,
   sessions_erg     int,
   sessions_water   int,
+  sessions_cardio  int,
   sessions_core    int,
   erg_metres       numeric,
   erg_seconds      numeric,
   water_metres     numeric,
   water_seconds    numeric,
+  cardio_seconds   numeric,
   races            int,
   races_top3       numeric,
   core_work_s      numeric,
@@ -940,6 +976,16 @@ begin
     where tws.date >= p_since and tws.date <= p_until
     group by tws.profile_id
   ),
+  oc as (
+    select toc.profile_id as pid,
+           count(*)::int as sessions,
+           coalesce(sum(toc.total_time_s), 0)::numeric as secs,
+           array_agg(distinct toc.date) as dates
+    from public.tracker_cardio_sessions toc
+    join shared on shared.pid = toc.profile_id
+    where toc.date >= p_since and toc.date <= p_until
+    group by toc.profile_id
+  ),
   ra as (
     -- Racing. Deliberately NOT folded into days_trained or sessions_total:
     -- those count training that was logged as it happened, and a claimed race
@@ -987,19 +1033,23 @@ begin
         coalesce(w.dates,  '{}'::date[]) ||
         coalesce(e.dates,  '{}'::date[]) ||
         coalesce(wa.dates, '{}'::date[]) ||
+        coalesce(oc.dates, '{}'::date[]) ||
         coalesce(c.dates,  '{}'::date[])
       ) as d
     ) end,
     case when r.opted_in then coalesce(w.sessions, 0) + coalesce(e.sessions, 0)
-                            + coalesce(wa.sessions, 0) + coalesce(c.sessions, 0) end,
+                            + coalesce(wa.sessions, 0) + coalesce(oc.sessions, 0)
+                            + coalesce(c.sessions, 0) end,
     case when r.opted_in then coalesce(w.sessions, 0) end,
     case when r.opted_in then coalesce(e.sessions, 0) end,
     case when r.opted_in then coalesce(wa.sessions, 0) end,
+    case when r.opted_in then coalesce(oc.sessions, 0) end,
     case when r.opted_in then coalesce(c.sessions, 0) end,
     case when r.opted_in then coalesce(e.metres, 0) end,
     case when r.opted_in then coalesce(e.secs, 0) end,
     case when r.opted_in then coalesce(wa.metres, 0) end,
     case when r.opted_in then coalesce(wa.secs, 0) end,
+    case when r.opted_in then coalesce(oc.secs, 0) end,
     case when r.opted_in then coalesce(ra.races, 0) end,
     -- null rather than 0 when there are no races: nought would sort as the
     -- worst GMT anyone ever rowed, when it means "has not raced".
@@ -1014,6 +1064,7 @@ begin
   left join wsets on wsets.pid = r.pid
   left join e     on e.pid     = r.pid
   left join wa    on wa.pid    = r.pid
+  left join oc    on oc.pid    = r.pid
   left join ra    on ra.pid    = r.pid
   left join c     on c.pid     = r.pid;
 end;
@@ -1101,6 +1152,8 @@ with expected(tbl, col) as (values
   ('tracker_core_sessions','steps'), ('tracker_core_sessions','notes'),
   ('tracker_water_sessions','distance_m'), ('tracker_water_sessions','total_time_s'),
   ('tracker_water_sessions','boat'), ('tracker_water_sessions','notes'),
+  ('tracker_cardio_sessions','activity'), ('tracker_cardio_sessions','total_time_s'),
+  ('tracker_cardio_sessions','notes'),
   ('tracker_races','race_key'), ('tracker_races','comp'), ('tracker_races','comp_title'),
   ('tracker_races','date'), ('tracker_races','club'), ('tracker_races','crew'),
   ('tracker_races','event'), ('tracker_races','round'), ('tracker_races','boat'),
@@ -1130,7 +1183,8 @@ select section, item, result from (
          then ' - ok' else ' - ** CHECK THIS **' end as result
   from (values ('tracker_exercises'), ('tracker_workouts'), ('tracker_erg_sessions'),
                ('tracker_core_routines'), ('tracker_core_sessions'),
-               ('tracker_water_sessions'), ('tracker_races')) as t(tbl)
+               ('tracker_water_sessions'), ('tracker_cardio_sessions'),
+               ('tracker_races')) as t(tbl)
 
   -- 2. Tables present, and RLS actually on.
   union all
@@ -1143,7 +1197,8 @@ select section, item, result from (
                    then 'on' else '** OFF **' end end
   from (values ('tracker_exercises'), ('tracker_workouts'), ('tracker_erg_sessions'),
                ('tracker_core_routines'), ('tracker_core_sessions'),
-               ('tracker_water_sessions'), ('tracker_races'), ('tracker_erg_parses'),
+               ('tracker_water_sessions'), ('tracker_cardio_sessions'),
+               ('tracker_races'), ('tracker_erg_parses'),
                ('groups'), ('group_members'), ('tracker_sharing'),
                ('tracker_shared_templates')) as t(tbl)
 

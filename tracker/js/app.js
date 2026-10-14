@@ -13,6 +13,7 @@ const S = {
   workouts: [],    // weights sessions, sorted date+at desc
   ergs: [],        // erg sessions, sorted date+at desc
   water: [],       // water outings, sorted date+at desc
+  cardio: [],      // other cardio (run, bike, swim...), sorted date+at desc
   routines: [],    // core routine templates
   coreSessions: [],// logged runs through a core routine
   races: [],       // regatta results claimed from the leaderboards, newest first
@@ -217,7 +218,7 @@ function paintTrialBar() {
   if (!el) return;
   if (!S.trial) { el.innerHTML = ''; return; }
   const c = trialCounts(trialRead());
-  const logged = c.weights + c.erg + c.water + c.core;
+  const logged = c.weights + c.erg + c.water + c.cardio + c.core;
   el.innerHTML =
     '<div class="trialbar">' +
       '<div class="tb-main"><b>Sample - nothing is saved to an account yet.</b>' +
@@ -237,12 +238,14 @@ async function migrateTrial() {
   const store = trialRead();
   const counts = trialCounts(store);
   const uid = S.session.user.id;
-  const anything = counts.exercises + counts.routines + counts.weights + counts.erg + counts.core;
+  const anything = counts.exercises + counts.routines + counts.weights + counts.erg +
+    counts.water + counts.cardio + counts.core;
   if (!anything) { trialEnd(); return null; }
   // Exercises and routines first: a workout's `sets` is keyed by exercise id
   // and a core session points at a routine id.
   for (const t of ['tracker_exercises', 'tracker_core_routines', 'tracker_workouts',
-                   'tracker_erg_sessions', 'tracker_water_sessions', 'tracker_core_sessions']) {
+                   'tracker_erg_sessions', 'tracker_water_sessions', 'tracker_cardio_sessions',
+                   'tracker_core_sessions']) {
     const rows = (store[t] || []).map(r => Object.assign({}, r, { profile_id: uid }));
     if (!rows.length) continue;
     const { error } = await sb.from(t).upsert(rows, { onConflict: 'id', ignoreDuplicates: true });
@@ -272,12 +275,13 @@ async function stampTerms() {
 /* ================= data access ================= */
 async function loadAll() {
   const uid = S.session.user.id;
-  const [prof, ex, wk, erg, water, rt, core, races] = await Promise.all([
+  const [prof, ex, wk, erg, water, cardio, rt, core, races] = await Promise.all([
     sb.from('profiles').select('*').eq('id', uid).single(),   // carries tracker_plan
     sb.from('tracker_exercises').select('*').order('position').order('created_at'),
     sb.from('tracker_workouts').select('*').order('date', { ascending: false }).limit(1000),
     sb.from('tracker_erg_sessions').select('*').order('date', { ascending: false }).limit(1000),
     sb.from('tracker_water_sessions').select('*').order('date', { ascending: false }).limit(1000),
+    sb.from('tracker_cardio_sessions').select('*').order('date', { ascending: false }).limit(1000),
     sb.from('tracker_core_routines').select('*').order('position').order('created_at'),
     sb.from('tracker_core_sessions').select('*').order('date', { ascending: false }).limit(1000),
     sb.from('tracker_races').select('*').order('date', { ascending: false }).limit(500),
@@ -287,10 +291,11 @@ async function loadAll() {
   S.workouts = sortDesc(wk.data || []);
   S.ergs = sortDesc(erg.data || []);
   S.water = sortDesc(water.data || []);
+  S.cardio = sortDesc(cardio.data || []);
   S.routines = (rt.data || []).filter(r => !r.retired).concat((rt.data || []).filter(r => r.retired));
   S.coreSessions = sortDesc(core.data || []);
   S.races = sortDesc(races.data || []);
-  const errs = [prof.error, ex.error, wk.error, erg.error, water.error, rt.error, core.error,
+  const errs = [prof.error, ex.error, wk.error, erg.error, water.error, cardio.error, rt.error, core.error,
                 races.error].filter(Boolean);
   return errs.length ? errs[0].message : null;
 }
@@ -311,6 +316,7 @@ function cacheData() {
     workouts: S.workouts.slice(0, CACHE_WORKOUTS),
     ergs: S.ergs.slice(0, CACHE_SESSIONS),
     water: S.water.slice(0, CACHE_SESSIONS),
+    cardio: S.cardio.slice(0, CACHE_SESSIONS),
     coreSessions: S.coreSessions.slice(0, CACHE_SESSIONS),
     races: S.races,
     at: Date.now(),
@@ -329,6 +335,7 @@ function loadCached() {
   S.workouts = sortDesc(c.workouts || []);
   S.ergs = sortDesc(c.ergs || []);
   S.water = sortDesc(c.water || []);
+  S.cardio = sortDesc(c.cardio || []);
   S.coreSessions = sortDesc(c.coreSessions || []);
   S.races = sortDesc(c.races || []);
   return true;
@@ -746,10 +753,12 @@ function refreshWeekCount() {
   const weights = S.workouts.filter(s => mondayOf(s.date) === wk).length;
   const ergs = S.ergs.filter(s => mondayOf(s.date) === wk).length;
   const waters = S.water.filter(s => mondayOf(s.date) === wk).length;
+  const cardios = S.cardio.filter(s => mondayOf(s.date) === wk).length;
   const cores = S.coreSessions.filter(s => mondayOf(s.date) === wk).length;
   const today = S.workouts.filter(s => s.date === date).length;
   $('weekcount').innerHTML = 'Week of ' + prettyDate(wk) + ' - <b>' + weights + '</b> weights · <b>' +
     ergs + '</b> erg' + (waters ? ' · <b>' + waters + '</b> water' : '') +
+    (cardios ? ' · <b>' + cardios + '</b> cardio' : '') +
     (cores ? ' · <b>' + cores + '</b> core' : '') +
     (today ? ' · ' + today + ' already logged today' : '');
 }
@@ -1277,6 +1286,131 @@ async function saveWater() {
   toast('water-msg',
     (queued ? 'Saved on this device - no connection, so it will sync when you are back online. ' : 'Saved - ') +
     prettyDate(row.date) + ' · ' + waterSummaryLine(row).replace(/<[^>]+>/g, '') + '.',
+    queued ? 'warn' : '');
+}
+
+/* ================= other cardio =================
+   Anything aerobic that is not rowing: a run, a bike, a swim. Time is the one
+   measure every kind of cardio shares, so it is the only number taken - a
+   distance means nothing summed across a run and a swim. What it was is free
+   text with a datalist, for the same reason the boat is. */
+const CARDIO_KINDS = ['Run', 'Bike', 'Swim', 'Cross-trainer', 'SkiErg', 'Walk'];
+
+function cardioSummaryLine(s) {
+  const bits = [];
+  if (s.activity) bits.push('<b>' + esc(s.activity) + '</b>');
+  if (s.total_time_s != null) bits.push(fmtDur(s.total_time_s));
+  return bits.join(' · ') || 'Cardio session';
+}
+
+// Set while the form holds a session that is already in History.
+let editingCardioId = null;
+
+function renderCardioTab() {
+  const el = $('cardio-body');
+  if (!el) return;
+  const ed = editingCardioId ? S.cardio.find(x => x.id === editingCardioId) : null;
+  if (!ed) editingCardioId = null;
+  el.innerHTML =
+    '<div class="erg-form">' +
+      '<h3>' + (ed ? 'Edit cardio session' : 'Log other cardio') + '</h3>' +
+      '<div class="hint">' + (ed
+        ? 'Saving replaces the saved session rather than adding another.'
+        : 'Anything that is not rowing - a run, a bike, a swim. Say what it was and how long it took.') +
+      '</div>' +
+      '<div class="fgrid">' +
+        '<div><label for="oc-date">Date</label><input type="date" id="oc-date"></div>' +
+        '<div><label for="oc-kind">Type of cardio</label>' +
+          '<input type="text" id="oc-kind" list="oc-kinds" placeholder="e.g. Run" maxlength="60" autocomplete="off">' +
+          '<datalist id="oc-kinds">' +
+          CARDIO_KINDS.map(k => '<option value="' + k + '"></option>').join('') +
+          '</datalist></div>' +
+        '<div><label for="oc-time">Time</label>' +
+          '<input type="text" id="oc-time" placeholder="e.g. 45:00"></div>' +
+      '</div>' +
+      '<div class="fwide"><label for="oc-notes">Notes</label>' +
+        '<input type="text" id="oc-notes" placeholder="Distance, effort, how it went"></div>' +
+      '<button class="primary" id="oc-save" style="height:42px">' + (ed ? 'Update' : 'Save') + ' cardio session</button>' +
+      (ed ? '<button id="oc-cancel" style="width:100%;margin-top:8px">Cancel edit</button>' : '') +
+      '<div id="cardio-msg"></div>' +
+    '</div>' +
+    '<div id="cardio-recent"></div>';
+  $('oc-date').value = ed ? ed.date : todayISO();
+  if (ed) {
+    $('oc-kind').value = ed.activity || '';
+    $('oc-time').value = ed.total_time_s != null ? fmtDur(ed.total_time_s) : '';
+    $('oc-notes').value = ed.notes || '';
+  } else if (S.cardio.length) {
+    // Most people do the same other thing every time, so start from it.
+    $('oc-kind').value = S.cardio[0].activity || '';
+  }
+  renderCardioRecent();
+}
+
+function renderCardioRecent() {
+  const el = $('cardio-recent');
+  if (!el) return;
+  const recent = S.cardio.slice(0, 6);
+  el.innerHTML = recent.length
+    ? '<div class="dsub" style="margin-top:24px">Recent cardio sessions</div>' +
+      recent.map(histCardioHTML).join('')
+    : '';
+}
+
+function startEditCardio(id) {
+  if (!S.cardio.some(x => x.id === id)) return;
+  editingCardioId = id;
+  renderCardioTab();
+  selectTab('p-cardio');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function saveCardio() {
+  const activity = $('oc-kind').value.trim();
+  const time = parseTimeStr($('oc-time').value);
+  if (!activity || !time) {
+    const missing = !activity && !time ? 'the type of cardio and a time'
+      : !time ? 'a time' : 'the type of cardio';
+    toast('cardio-msg', 'Enter ' + missing + '.', 'warn');
+    return;
+  }
+  const fields = {
+    date: $('oc-date').value || todayISO(),
+    activity: activity.slice(0, 60),
+    total_time_s: time,
+    notes: $('oc-notes').value.trim() || null,
+  };
+
+  if (editingCardioId) {
+    const id = editingCardioId;
+    const { error } = await updateRow('tracker_cardio_sessions', fields, id);
+    if (error) { toast('cardio-msg', 'Update failed: ' + esc(error.message), 'err'); return; }
+    const saved = Object.assign(S.cardio.find(x => x.id === id), fields);
+    sortDesc(S.cardio);
+    track('cardio_edited', {});
+    editingCardioId = null;
+    cacheData();
+    renderCardioTab(); renderProgress(); renderHistory(); refreshWeekCount();
+    toast('cardio-msg', 'Session updated - ' + prettyDate(saved.date) + ' · ' +
+      cardioSummaryLine(saved).replace(/<[^>]+>/g, '') + '.');
+    return;
+  }
+
+  const row = { id: newId(), profile_id: S.session.user.id, at: nowHM(), ...fields };
+  const { error } = await insertRow('tracker_cardio_sessions', row);
+  const queued = error && looksOffline(error);
+  if (error && !queued) { toast('cardio-msg', 'Save failed: ' + esc(error.message), 'err'); return; }
+  if (queued) queueWrite('tracker_cardio_sessions', row);
+
+  S.cardio.push(row); sortDesc(S.cardio);
+  track('cardio_saved', { queued: !!queued });
+  cacheData();
+  // The type is kept, like the boat on the Water tab.
+  $('oc-time').value = ''; $('oc-notes').value = '';
+  renderCardioRecent(); renderProgress(); renderHistory(); refreshWeekCount();
+  toast('cardio-msg',
+    (queued ? 'Saved on this device - no connection, so it will sync when you are back online. ' : 'Saved - ') +
+    prettyDate(row.date) + ' · ' + cardioSummaryLine(row).replace(/<[^>]+>/g, '') + '.',
     queued ? 'warn' : '');
 }
 
@@ -1946,16 +2080,28 @@ function waterWeekly() {
   });
   return out;
 }
-// Erg and water added together, week by week. Summed here from the two
-// series rather than from the sessions, so it cannot disagree with either tab.
-function bothWeekly() {
+// Other cardio has no distance, so its km stays nought.
+function cardioWeekly() {
   const out = {};
-  [ergWeekly(), waterWeekly()].forEach(agg => Object.keys(agg).forEach(w => {
+  S.cardio.forEach(s => {
+    const w = mondayOf(s.date);
+    const e = out[w] = out[w] || { n: 0, km: 0, min: 0 };
+    e.n++; e.min += (s.total_time_s || 0) / 60;
+  });
+  return out;
+}
+// Disciplines added together, week by week. Summed here from the single
+// series rather than from the sessions, so it cannot disagree with any tab.
+function sumWeekly(aggs) {
+  const out = {};
+  aggs.forEach(agg => Object.keys(agg).forEach(w => {
     const e = out[w] = out[w] || { n: 0, km: 0, min: 0 };
     e.n += agg[w].n; e.km += agg[w].km; e.min += agg[w].min;
   }));
   return out;
 }
+const bothWeekly = () => sumWeekly([ergWeekly(), waterWeekly()]);
+const allCardioWeekly = () => sumWeekly([ergWeekly(), waterWeekly(), cardioWeekly()]);
 function coreWeekly() {
   const out = {};
   S.coreSessions.forEach(s => {
@@ -1977,13 +2123,15 @@ const statCell = (lab, val, unit, note, dim) =>
 // The week across all three disciplines at once - the one view neither
 // Progress (one discipline, one measure) nor a session list gives you. It
 // heads each week in History.
-function weekStripHTML(wk, eg, wa, cw) {
+function weekStripHTML(wk, eg, wa, oc, cw) {
   const dist = (a, lab) => statCell(lab, a ? round1(a.km) : '–', a ? 'km' : '',
     a ? plural(a.n, 'session') + (a.min ? ' · ' + fmtHM(a.min) : '') : 'none logged', !a);
   return '<div class="sum-strip">' +
     statCell('Weights', wk ? wk.n : '–', '', wk ? wk.sets + ' sets' : 'none logged', !wk) +
     dist(eg, 'Erg') +
     dist(wa, 'Water') +
+    statCell('Cardio', oc ? fmtHM(oc.min) : '–', '',
+      oc ? plural(oc.n, 'session') : 'none logged', !oc) +
     statCell('Core', cw ? fmtHM(cw.min) : '–', '',
       cw ? plural(cw.n, 'session') : 'none logged', !cw) +
     '</div>';
@@ -2037,10 +2185,14 @@ const ALL_LIFTS = 'all-lifts';
 // going", and the second question is one dropdown away.
 const PROG = { mode: 'erg', ex: ALL_LIFTS, metric: '', weeks: RANGE_DEFAULT };
 // In tab order. The page opens on the first.
+// `combo` marks a mode that adds disciplines together; the button gets a
+// striped bar in the colours of what is in it (see .seg.combo in index.html).
 const PROG_MODES = [
   { k: 'erg',     label: 'Erg' },
   { k: 'water',   label: 'Water' },
-  { k: 'both',    label: 'Erg + Water' },
+  { k: 'cardio',  label: 'Cardio' },
+  { k: 'both',    label: 'Erg + Water', combo: true },
+  { k: 'all',     label: 'All cardio', combo: true },
   { k: 'weights', label: 'Weights' },
   { k: 'core',    label: 'Core' },
 ];
@@ -2084,16 +2236,26 @@ const CORE_METRICS = [
 // Water takes the same measures as the erg - distance, time, sessions - so it
 // shares the list rather than duplicating it.
 const WATER_METRICS = ERG_METRICS;
+// Other cardio has no distance, and so neither does anything it is summed into.
+const CARDIO_METRICS = [
+  { k: 'min', btn: 'Time',     label: 'Time a week',     col: 'Time',     dp: 0,
+    fmt: v => fmtHM(v), short: v => fmtHM(v), bar: v => fmtHM(v) },
+  { k: 'n',   btn: 'Sessions', label: 'Sessions a week', col: 'Sessions', dp: 0,
+    fmt: v => plural(Math.round(v), 'session'), short: v => String(Math.round(v)), bar: v => Math.round(v) },
+];
 const weeklyMetrics = mode =>
   mode === 'core' ? CORE_METRICS
   : mode === 'weights' ? WEIGHT_WEEK_METRICS
+  : mode === 'cardio' || mode === 'all' ? CARDIO_METRICS
   : mode === 'water' ? WATER_METRICS : ERG_METRICS;
 // The weekly shape of each, in the form weeklySeries() wants.
 const weeklyAgg = mode =>
   mode === 'core' ? coreWeekly()
   : mode === 'erg' ? ergWeekly()
   : mode === 'water' ? waterWeekly()
-  : mode === 'both' ? bothWeekly() : weightsWeekly();
+  : mode === 'cardio' ? cardioWeekly()
+  : mode === 'both' ? bothWeekly()
+  : mode === 'all' ? allCardioWeekly() : weightsWeekly();
 function weightsWeekly() {
   const out = {};
   const w = weeklyStats();
@@ -2342,7 +2504,8 @@ const rangeToggle = () =>
 
 function progControlsHTML() {
   const seg = PROG_MODES.map(m =>
-    '<button class="seg' + (PROG.mode === m.k ? ' active' : '') + '" data-pmode="' + m.k + '" ' +
+    '<button class="seg' + (PROG.mode === m.k ? ' active' : '') + (m.combo ? ' combo' : '') +
+    ' m-' + m.k + '" data-pmode="' + m.k + '" ' +
     'role="tab" aria-selected="' + (PROG.mode === m.k) + '">' + m.label + '</button>').join('');
   let rest = '';
   if (PROG.mode === 'weights') {
@@ -2372,7 +2535,7 @@ function progControlsHTML() {
     if (!metrics.some(x => x.k === PROG.metric)) PROG.metric = metrics[0].k;
     rest = metricToggle(metrics, PROG.metric) + rangeToggle();
   }
-  return '<div class="segmented" role="tablist" aria-label="What to chart">' + seg + '</div>' +
+  return '<div class="segmented modes" role="tablist" aria-label="What to chart">' + seg + '</div>' +
     (rest ? '<div class="progbar">' + rest + '</div>' : '');
 }
 
@@ -2507,15 +2670,18 @@ function renderProgWeights(body) {
 
 function renderProgWeekly(body) {
   const label = PROG_MODES.find(m => m.k === PROG.mode).label;
-  const both = PROG.mode === 'both';
+  // What the empty state names, in sentence case and as tab names.
+  const empty = { both: ['erg or water', 'Erg or Water'],
+                  all: ['erg, water or cardio', 'Erg, Water or Cardio'] }[PROG.mode] ||
+                [label.toLowerCase(), label];
   const metric = pickMetric(weeklyMetrics(PROG.mode), PROG.metric);
   const pts = weeklySeries(weeklyAgg(PROG.mode), metric.k, PROG.weeks);
   const head = '<div class="prog-head"><h3 class="prog-title">' + label + ' load</h3>' +
     '<span class="prog-sub">' + esc(metric.label) + ', Monday to Sunday</span></div>';
 
   if (!pts.length) {
-    body.innerHTML = head + '<p class="empty">No ' + (both ? 'erg or water' : label.toLowerCase()) +
-      ' sessions logged yet. Anything you record on the ' + (both ? 'Erg or Water' : label) +
+    body.innerHTML = head + '<p class="empty">No ' + empty[0] +
+      ' sessions logged yet. Anything you record on the ' + empty[1] +
       ' tab shows up here as weekly load.</p>';
     return;
   }
@@ -2529,6 +2695,8 @@ function renderProgWeekly(body) {
     const detail = a.n
       ? plural(a.n, 'session') + ' \u00b7 ' +
         (PROG.mode === 'core' ? fmtHM(a.min) + ' working'
+          : PROG.mode === 'cardio' ? fmtHM(a.min)
+          : PROG.mode === 'all' ? fmtHM(a.min) + (a.km ? ' · ' + round1(a.km) + ' km rowed' : '')
           : round1(a.km) + ' km' + (a.min ? ' \u00b7 ' + fmtHM(a.min) : ''))
       : 'nothing logged';
     return '<tr' + (p.v ? '' : ' class="offweek"') + '><td>' + shortDate(p.date) + ' - ' + shortDate(addDays(p.date, 6)) + '</td>' +
@@ -2598,6 +2766,7 @@ const HIST_KINDS = [
   { k: 'w',     label: 'Weights' },
   { k: 'e',     label: 'Erg' },
   { k: 'wa',    label: 'Water' },
+  { k: 'oc',    label: 'Cardio' },
   { k: 'c',     label: 'Core' },
 ];
 
@@ -2611,15 +2780,16 @@ function renderHistory() {
     ...S.workouts.map(r => ({ kind: 'w', r })),
     ...S.ergs.map(r => ({ kind: 'e', r })),
     ...S.water.map(r => ({ kind: 'wa', r })),
+    ...S.cardio.map(r => ({ kind: 'oc', r })),
     ...S.coreSessions.map(r => ({ kind: 'c', r })),
   ];
   if (!all.length) {
     el.innerHTML = '<p class="empty">No sessions logged yet. Whatever you record on the ' +
-      'Weights, Erg and Core tabs lands here, newest first.</p>';
+      'Weights, Erg, Water, Cardio and Core tabs lands here, newest first.</p>';
     return;
   }
 
-  const counts = { all: all.length, w: 0, e: 0, wa: 0, c: 0 };
+  const counts = { all: all.length, w: 0, e: 0, wa: 0, oc: 0, c: 0 };
   all.forEach(x => counts[x.kind]++);
   if (!counts[histFilter]) histFilter = 'all';      // filtered everything away
   // All five are always shown, including the ones you have nothing in - hiding
@@ -2638,17 +2808,19 @@ function renderHistory() {
   shown.forEach(x => { const w = mondayOf(x.r.date); (weeks[w] = weeks[w] || []).push(x); });
   // Each week opens with what the week weighed in at across all three
   // disciplines, then the sessions that made it up.
-  const wStats = weeklyStats(), ergW = ergWeekly(), waterW = waterWeekly(), coreW = coreWeekly();
+  const wStats = weeklyStats(), ergW = ergWeekly(), waterW = waterWeekly(),
+        cardioW = cardioWeekly(), coreW = coreWeekly();
 
   el.innerHTML = bar + Object.keys(weeks).sort().reverse().map(w => {
     const items = weeks[w].sort((a, b) => sortKey(b.r).localeCompare(sortKey(a.r)));
     return '<section class="weekgroup"><h4><span class="wg-when">' +
       shortDate(w) + ' - ' + shortDate(addDays(w, 6)) + '</span>' +
       '<span class="wg-count">' + plural(items.length, 'session') + '</span></h4>' +
-      weekStripHTML(wStats[w], ergW[w], waterW[w], coreW[w]) +
+      weekStripHTML(wStats[w], ergW[w], waterW[w], cardioW[w], coreW[w]) +
       items.map(x => x.kind === 'w' ? histWorkoutHTML(x.r)
                    : x.kind === 'c' ? histCoreHTML(x.r)
-                   : x.kind === 'wa' ? histWaterHTML(x.r) : histErgHTML(x.r)).join('') +
+                   : x.kind === 'wa' ? histWaterHTML(x.r)
+                   : x.kind === 'oc' ? histCardioHTML(x.r) : histErgHTML(x.r)).join('') +
       '</section>';
   }).join('');
   // The sample banner counts sessions, and this runs after every save.
@@ -2740,6 +2912,17 @@ function histWaterHTML(s) {
     facts.map(([k, v]) => '<dt>' + k + '</dt><dd>' + v + '</dd>').join('') + '</dl>' +
     (s.notes ? '<div class="dnote">' + esc(s.notes) + '</div>' : '');
   return entryHTML(s, 'water', 'water', waterSummaryLine(s), detail, 'wa', 'edit-wa');
+}
+
+function histCardioHTML(s) {
+  const facts = [
+    s.activity ? ['Type', esc(s.activity)] : null,
+    s.total_time_s != null ? ['Time', fmtDur(s.total_time_s)] : null,
+  ].filter(Boolean);
+  const detail = '<dl class="dfacts">' +
+    facts.map(([k, v]) => '<dt>' + k + '</dt><dd>' + v + '</dd>').join('') + '</dl>' +
+    (s.notes ? '<div class="dnote">' + esc(s.notes) + '</div>' : '');
+  return entryHTML(s, 'cardio', 'cardio', cardioSummaryLine(s), detail, 'oc', 'edit-oc');
 }
 
 function histErgHTML(s) {
@@ -3705,8 +3888,8 @@ const defaultPeriod = mode => periodsFor(mode)[0].k;
 // Overall is the first mode rather than a footnote.
 //
 // Two levels, both buttons: what you are looking at, then which measure of it.
-// Erg + Water is summed on the client - the function returns the two
-// separately, and adding a third pre-summed column would be a column that can
+// Erg + Water and All cardio are summed on the client - the function returns
+// each discipline separately, and adding a third pre-summed column would be a column that can
 // disagree with the two it came from.
 const BOARD_MODES = [
   { k: 'erg',     label: 'Erg', metrics: [
@@ -3715,9 +3898,17 @@ const BOARD_MODES = [
   { k: 'water',   label: 'Water', metrics: [
       { k: 'water_metres',     btn: 'Distance', unit: 'm' },
       { k: 'water_seconds',    btn: 'Time',     unit: 'time' } ] },
-  { k: 'both',    label: 'Erg + Water', metrics: [
+  { k: 'cardio',  label: 'Cardio', metrics: [
+      { k: 'cardio_seconds',   btn: 'Time',     unit: 'time' },
+      { k: 'sessions_cardio',  btn: 'Sessions', unit: '' } ] },
+  // `combo` modes add disciplines together and get the striped button.
+  { k: 'both',    label: 'Erg + Water', combo: true, metrics: [
       { k: 'combined_metres',  btn: 'Distance', unit: 'm' },
       { k: 'combined_seconds', btn: 'Time',     unit: 'time' } ] },
+  // No distance: other cardio does not have one that adds up with rowing.
+  { k: 'all',     label: 'All cardio', combo: true, metrics: [
+      { k: 'all_seconds',      btn: 'Time',     unit: 'time' },
+      { k: 'all_sessions',     btn: 'Sessions', unit: '' } ] },
   { k: 'weights', label: 'Weights', metrics: [
       { k: 'sessions_weights', btn: 'Sessions', unit: '' },
       { k: 'weights_sets',     btn: 'Sets',     unit: '' } ] },
@@ -3749,6 +3940,8 @@ function barPct(v, top, metric) {
 const boardVal = (r, k) =>
   k === 'combined_metres'  ? num(r.erg_metres) + num(r.water_metres)
   : k === 'combined_seconds' ? num(r.erg_seconds) + num(r.water_seconds)
+  : k === 'all_seconds' ? num(r.erg_seconds) + num(r.water_seconds) + num(r.cardio_seconds)
+  : k === 'all_sessions' ? num(r.sessions_erg) + num(r.sessions_water) + num(r.sessions_cardio)
   // Kept null on purpose: nobody rows a 0% GMT, so a nought here would rank a
   // squad-mate who has not raced below one who had a shocker.
   : k === 'races_top3' ? (r.races_top3 == null ? null : Number(r.races_top3))
@@ -3964,7 +4157,8 @@ function squadMainHTML() {
                 ? '<small>' + metric.unit + '</small>' : '') + '</span>' +
             '<span class="bsub">' + r.days_trained + ' day' + (r.days_trained === 1 ? '' : 's') + ' \u00b7 ' +
               r.sessions_weights + ' weights \u00b7 ' + r.sessions_erg + ' erg \u00b7 ' +
-              (r.sessions_water || 0) + ' water \u00b7 ' + r.sessions_core + ' core</span>' +
+              (r.sessions_water || 0) + ' water \u00b7 ' + (r.sessions_cardio || 0) + ' cardio \u00b7 ' +
+              r.sessions_core + ' core</span>' +
             rm +
             '<span class="bbar"><i style="width:' + barPct(v, top, metric) + '%"></i></span>' +
           '</div>';
@@ -3996,6 +4190,7 @@ function squadMainHTML() {
     // what you are looking at, then which measure of it
     '<div class="segmented bmodes" role="tablist" aria-label="What to rank by">' +
       BOARD_MODES.map(m => '<button class="seg' + (m.k === SQ.bmode ? ' active' : '') +
+        (m.combo ? ' combo' : '') + ' m-' + m.k +
         '" data-bmode="' + m.k + '" role="tab" aria-selected="' + (m.k === SQ.bmode) + '">' +
         m.label + '</button>').join('') + '</div>' +
     '<div class="boardctl">' +
@@ -4015,7 +4210,7 @@ function squadMainHTML() {
       esc(mode.label) + ', ' + esc(metric.btn.toLowerCase()) + ', ' +
       esc((periodsFor(mode).find(p => p.k === SQ.period) || {}).label || '').toLowerCase() + '.<br>' +
       'Everyone here sees your <b>totals</b> - days trained, sessions, erg and water distance and ' +
-      'time, core time, weights sets and volume, and how many races you have claimed with the ' +
+      'time, other cardio time, core time, weights sets and volume, and how many races you have claimed with the ' +
       'average of your best three. Never a session, a lift, a date or a note. ' +
       'They are self-reported: they show who is putting the work in, not who is fastest.' +
     '</p>' +
@@ -4424,6 +4619,8 @@ document.addEventListener('click', async e => {
   if (ee) { startEditErg(ee.dataset.editErg); return; }
   const ewa = e.target.closest('[data-edit-wa]');
   if (ewa) { startEditWater(ewa.dataset.editWa); return; }
+  const eoc = e.target.closest('[data-edit-oc]');
+  if (eoc) { startEditCardio(eoc.dataset.editOc); return; }
   const ec = e.target.closest('[data-edit-c]');
   if (ec) { startEditCore(ec.dataset.editC); return; }
   if (e.target.id === 'sync-now') { flushOutbox(true); return; }
@@ -4586,6 +4783,17 @@ document.addEventListener('click', async e => {
     }
     return;
   }
+  const doc = e.target.closest('[data-del-oc]');
+  if (doc) {
+    if (!confirm('Delete this cardio session for good?')) return;
+    const { error } = await sb.from('tracker_cardio_sessions').delete().eq('id', doc.dataset.delOc);
+    if (!error) {
+      S.cardio = S.cardio.filter(s => s.id !== doc.dataset.delOc);
+      if (editingCardioId === doc.dataset.delOc) renderCardioTab();
+      renderHistory(); renderProgress(); renderCardioRecent(); refreshWeekCount();
+    }
+    return;
+  }
   const de = e.target.closest('[data-del-erg]');
   if (de) {
     if (!confirm('Delete this erg session for good?')) return;
@@ -4690,6 +4898,12 @@ document.addEventListener('click', async e => {
     toast('water-msg', 'Edit cancelled - the saved session is untouched.');
     return;
   }
+  if (e.target.id === 'oc-cancel') {
+    editingCardioId = null;
+    renderCardioTab();
+    toast('cardio-msg', 'Edit cancelled - the saved session is untouched.');
+    return;
+  }
   if (e.target.id === 'core-edit-cancel') {
     renderCoreTab();
     toast('core-msg', 'Edit cancelled - the saved session is untouched.');
@@ -4752,7 +4966,7 @@ document.addEventListener('click', async e => {
   if (!S.trial) stampTerms();
   $('log-date').value = todayISO();
   $('core-date').value = todayISO();
-  renderLog(); renderErgGate(); renderErgRecent(); renderWaterTab(); renderCoreTab();
+  renderLog(); renderErgGate(); renderErgRecent(); renderWaterTab(); renderCardioTab(); renderCoreTab();
   renderProgress(); renderHistory(); renderLibrary(); renderRoutines(); renderRaces();
   restoreErgForm();
   paintSyncBadge();
@@ -4764,7 +4978,7 @@ document.addEventListener('click', async e => {
     toast('log-msg', 'Your sample is still on this device but could not be uploaded: ' +
       esc(migrated.error) + ' It will try again next time you open the tracker.', 'err');
   } else if (migrated) {
-    const n = migrated.weights + migrated.erg + migrated.water + migrated.core;
+    const n = migrated.weights + migrated.erg + migrated.water + migrated.cardio + migrated.core;
     toast('log-msg', 'Welcome in. ' + (n
       ? 'The ' + n + ' session' + (n === 1 ? '' : 's') + ' you logged as a sample ' +
         (n === 1 ? 'is' : 'are') + ' now saved to your account, along with your exercises.'
@@ -4830,7 +5044,10 @@ document.addEventListener('click', async e => {
 
   // The water form is rebuilt with its panel, so its button is wired by
   // delegation rather than by id at boot.
-  document.addEventListener('click', ev => { if (ev.target.id === 'wt-save') saveWater(); });
+  document.addEventListener('click', ev => {
+    if (ev.target.id === 'wt-save') saveWater();
+    if (ev.target.id === 'oc-save') saveCardio();
+  });
 
   $('core-pick').onchange = () => loadRun($('core-pick').value);
   $('core-edit-rt').onclick = () => {
