@@ -49,7 +49,7 @@
     </div>
   </header>
 
-  <p class="stamp">Training &amp; Race Log &middot; version 2026-08-29</p>
+  <p class="stamp">Training &amp; Race Log &middot; version 2026-10-14</p>
 
   <p class="lede">RowingTools Tracker is a training log run by one person as a side project. It is
     free, it is not a medical or coaching service, and your training log is yours. This page says
@@ -61,8 +61,9 @@
     <thead><tr><th>What</th><th>How it works</th></tr></thead>
     <tbody>
       <tr><td>Your log</td><td>Private to your account. Nobody else, including other RowingTools users, can read your sessions, lifts, notes or dates.</td></tr>
-      <tr><td>Squads</td><td>Joining a squad puts your <strong>totals</strong> on that squad's board: days trained, session counts, erg metres and time, core time, weights sets and volume. Never a session, a lift, a date or a note. Leaving the squad takes them straight back off.</td></tr>
-      <tr><td>Erg photos</td><td>A photo of an erg monitor is sent to Anthropic's Claude API to be read, and is not kept afterwards. The numbers it reads are saved to your log.</td></tr>
+      <tr><td>Squads</td><td>Joining a squad puts your <strong>totals</strong> on that squad's board: days trained, session counts, erg and water distance and time, other cardio time, core time, weights sets and volume. Never a session, a lift, a date or a note - unless you tag an erg as a squad hard erg (below). Leaving the squad takes them straight back off.</td></tr>
+      <tr><td>Hard ergs</td><td>If you tag an erg session as an attempt at a squad's hard erg, that squad sees its split, time and distance. If you also tick "show my erg screen" while logging it, they can open the photo of the monitor. Untag it and both come off.</td></tr>
+      <tr><td>Erg photos</td><td>A photo of an erg monitor is sent to Anthropic's Claude API to be read. It is not kept afterwards, unless you choose to share it with a squad as a hard erg attempt. The numbers it reads are saved to your log.</td></tr>
       <tr><td>Sample mode</td><td>Using the tracker without an account stores everything in your browser on that device. Nothing is sent to us until you create an account.</td></tr>
       <tr><td>Deleting</td><td>Email us and your account and everything in it is deleted. There is no copy kept.</td></tr>
       <tr><td>Selling data</td><td>No. Not to anyone, ever, in any form.</td></tr>
@@ -94,7 +95,10 @@
     <li>Your exercise library and core routines.</li>
     <li>Every session you log: weights sets, erg pieces and splits, core rounds and times, the dates
       and times, and any notes you write.</li>
-    <li>Which squads you are in.</li>
+    <li>Which squads you are in, and which erg sessions you have tagged to a squad's hard erg.</li>
+    <li>The photo of an erg monitor, only where you chose to share it with a squad as a hard erg
+      attempt. It is stored privately in the same Supabase project, and deleted when the session
+      is no longer tagged to any hard erg.</li>
   </ul>
   <p>The site uses Google Analytics on page views, and a Brevo form if you subscribe to results
     emails. Neither is connected to your training log.</p>
@@ -112,22 +116,32 @@
     month, this year):</p>
   <ul>
     <li>days you trained, and how many sessions of each kind;</li>
-    <li>erg metres and erg time;</li>
+    <li>erg and water distance and time, and other cardio time;</li>
     <li>core time working;</li>
     <li>weights sets and weights volume.</li>
   </ul>
-  <p>They cannot see an individual session, an individual lift, a date you trained, a note, or
-    anything the erg photo reader produced. This is enforced in the database, not just in the app:
-    the board is built by a function that never reads those columns.</p>
+  <p>They cannot see an individual session, an individual lift, a date you trained or a note. This
+    is enforced in the database, not just in the app: the board is built by a function that never
+    reads those columns.</p>
+  <p><strong>Hard ergs are the one exception, and only by your choice.</strong> Anyone in a squad
+    can set a hard erg - a test piece over a set of dates. If you tag one of your erg sessions as
+    your attempt, everyone in that squad can see that session's average split, time and distance
+    on the hard erg ranking, but still not its date or notes. If you logged it from a photo and
+    left "show my erg screen" ticked, they can also open the photo of the monitor. Each tag is
+    yours to add or remove, one session at a time; untagging takes the result and the photo off,
+    and the photo is then deleted.</p>
   <p>Anyone with a squad's six-character code, or an invite link containing it, can join that squad
     and will then see the totals of everyone in it. Treat the code like a door key. The person who
     created a squad can remove anyone from it. Leaving a squad removes your totals from its board
-    immediately, and removes anything you posted to it.</p>
+    immediately, and removes anything you posted to it, including your hard erg attempts.</p>
 
   <h2>5. Erg photos</h2>
   <p>If you photograph an erg monitor, the image is sent to Anthropic's Claude API, which reads the
-    numbers off it and returns them. The image is not stored by us and, under Anthropic's API terms,
-    is not used to train their models. Only the numbers are saved, to your log. Do not photograph
+    numbers off it and returns them. Under Anthropic's API terms it is not used to train their
+    models. Normally only the numbers are saved, to your log, and the image is not stored by us.
+    The exception is a photo you choose to share as a hard erg attempt (section 4): a smaller copy,
+    with location and device details stripped, is kept so your squad can see it, and deleted once
+    the session is no longer tagged. Do not photograph
     anything you would not want processed by a third party in this way: point the camera at the
     monitor, not at people.</p>
   <p>Photo reading is free, up to 2 photos a day. Typing sessions in by hand is free and always
@@ -143,7 +157,8 @@
     or ask for it to be deleted. Email
     <a href="mailto:feedback@rowingtools.co.uk">feedback@rowingtools.co.uk</a> from the address on
     your account and it will be done. Deletion is deletion: the account and every session, exercise
-    and squad membership attached to it are removed, and there is no archive copy.</p>
+    and squad membership attached to it are removed, along with any erg screens you shared, and
+    there is no archive copy.</p>
   <p>The legal basis for holding your training data is the contract of providing you the tracker.
     Data is kept for as long as your account exists.</p>
 

@@ -57,7 +57,11 @@
   .pitch li{font-size:13px;color:var(--text2);line-height:1.5;padding:6px 0;
     border-bottom:1px solid var(--border);display:flex;gap:9px}
   .pitch li:last-child{border-bottom:none}
-  .pitch li b{color:var(--text);font-weight:700;flex-shrink:0;min-width:62px;
+  /* the one feature worth stopping on: same row, blue-edged like the Board's hard erg boxes */
+  .pitch li.hl{background:var(--bg2);border-left:3px solid var(--c-wbt);padding:9px 10px 9px 9px;margin:4px 0}
+  .pitch li.hl b{color:var(--c-wbt)}
+  .pitch li.hl span{color:var(--text)}
+  .pitch li b{color:var(--text);font-weight:700;flex-shrink:0;min-width:76px;
     font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding-top:3px}
   .try{margin-top:1.1rem;border:1px solid var(--border2);padding:14px}
   .try b{display:block;font-size:14px;margin-bottom:3px}
@@ -85,11 +89,11 @@
   <div class="pitch">
     <h2>Training &amp; Race Log</h2>
     <ul>
-      <li><b>Weights</b><span>Your own exercise library, last time's numbers on the card, set by set as you do it.</span></li>
-      <li><b>Erg</b><span>Type it in, or photograph the monitor and have the splits read off it.</span></li>
-      <li><b>Core</b><span>Build a circuit, run it against a timer that counts up and waits for you.</span></li>
-      <li><b>Races</b><span>Claim your results off the RowingTools leaderboards. GMT by season, where you came, and the conditions on the day.</span></li>
-      <li><b>Squad</b><span>See how much your crewmates are getting through. Totals only, never sessions.</span></li>
+      <li class="hl"><b>Hard ergs</b><span>Set the week's test piece and rank the squad by split, with erg screens attached as proof.</span></li>
+      <li><b>Erg</b><span>Photograph the monitor and the numbers fill themselves in.</span></li>
+      <li><b>Races</b><span>Claim your results and track GMT% season to season.</span></li>
+      <li><b>Squad</b><span>Rank on erg metres or cardio time. Totals only.</span></li>
+      <li><b>Training</b><span>Weights, water, core circuits and other cardio.</span></li>
     </ul>
   </div>
 
@@ -152,7 +156,7 @@
         errEl = $('error'), okEl = $('success');
   const loginUrl = window.location.origin + window.location.pathname;
   // Kept in step with TERMS_VERSION in js/app.js and the date on terms.html.
-  const TERMS_VERSION = '2026-08-29';
+  const TERMS_VERSION = '2026-10-14';
 
   const showErr = m => { errEl.textContent = m; errEl.style.display = 'block'; okEl.style.display = 'none'; };
   const showOk  = m => { okEl.textContent = m; okEl.style.display = 'block'; errEl.style.display = 'none'; };

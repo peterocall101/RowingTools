@@ -22,7 +22,7 @@ const S = {
 const PATTERN_ORDER = ['squat', 'pull', 'hinge', 'push', 'legs', 'shoulders', 'arms', 'core', 'other'];
 // Date the wording in tracker/terms.html last changed. Stamped on the profile
 // at signup so a later change has something to compare against.
-const TERMS_VERSION = '2026-08-29';
+const TERMS_VERSION = '2026-10-14';
 
 /* ================= helpers ================= */
 const $ = id => document.getElementById(id);
