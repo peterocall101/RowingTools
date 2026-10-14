@@ -4023,10 +4023,25 @@ const metricBy = k => {
 // squad-mate's exact per-day training. Four fixed windows leave nothing to
 // difference.
 
+// The value with its unit, small, the way metres are shown: every number on
+// the board says what it is counting.
+function boardValHTML(v, unit) {
+  const u = t => '<small>' + t + '</small>';
+  if (v == null) return '–';
+  // Hours and minutes, as on Progress: a month of training runs to hours, and
+  // "612:30" is no way to read that.
+  if (unit === 'time') {
+    const t = Math.round(v / 60), h = Math.floor(t / 60), m = t % 60;
+    return h ? h + u('h') + ' ' + pad(m) + u('m') : m + u('m');
+  }
+  // Always km, as on Progress, rather than switching between m and "12.3k".
+  if (unit === 'm') return round1(v / 1000) + u('km');
+  if (unit === 'pct' || !unit) return fmtMetric(v, unit);
+  return fmtMetric(v, unit) + u(unit);
+}
+
 function fmtMetric(v, unit) {
   if (v == null) return '–';
-  if (unit === 'time') return fmtClock(v);
-  if (unit === 'm') return v >= 10000 ? round1(v / 1000) + 'k' : String(Math.round(v));
   if (unit === 'kg') return Math.round(v).toLocaleString('en-GB');
   if (unit === 'pct') return round1(v) + '%';
   return String(round1(v));
@@ -4107,13 +4122,11 @@ function renderSquad() {
   // A squad is other people. There is nothing honest to show a sample here.
   if (S.trial) {
     el.innerHTML = '<div class="setup-sec"><h3 class="setup-head">Squads</h3>' +
-      '<p class="setup-intro">A squad is a group of people who can see how much training each ' +
-      'other is getting through - days trained, sessions, metres, time - and swap exercise ' +
-      'templates. Totals only: never a session, a lift or a note.</p>' +
+      '<p class="setup-intro">Share training totals with your squad and swap exercise templates. ' +
+      'Totals only, never individual sessions or notes.</p>' +
       '<div class="gate"><b>Squads need an account.</b><span>' +
-      (S.joinCode ? 'You arrived on a squad invite, and it is being held for you: create an account and you can accept it straight away. ' : '') +
-      'Your squad-mates have to be able to find you, which a sample on one device cannot be. ' +
-      'Everything you have logged so far comes with you when you sign up.</span></div>' +
+      (S.joinCode ? 'Your invite is saved - sign up to accept it. ' : '') +
+      'Anything you have logged comes with you.</span></div>' +
       '<a class="primary" id="sq-signup" href="login.html?signup=1" style="display:block;text-align:center;' +
       'text-decoration:none;line-height:42px;height:42px;margin-top:14px">Create a free account</a></div>';
     return;
@@ -4217,9 +4230,7 @@ function squadMainHTML() {
             (v ? '' : ' zero') + (rm ? ' adm' : '') + '">' +
             '<span class="brank">' + (i + 1) + '</span>' +
             '<span class="bname">' + esc(r.display_name) + '</span>' +
-            '<span class="bval">' + fmtMetric(v, metric.unit) +
-              (metric.unit && metric.unit !== 'time' && metric.unit !== 'pct'
-                ? '<small>' + metric.unit + '</small>' : '') + '</span>' +
+            '<span class="bval">' + boardValHTML(v, metric.unit) + '</span>' +
             '<span class="bsub">' + r.days_trained + ' day' + (r.days_trained === 1 ? '' : 's') + ' \u00b7 ' +
               r.sessions_weights + ' weights \u00b7 ' + r.sessions_erg + ' erg \u00b7 ' +
               (r.sessions_water || 0) + ' water \u00b7 ' + (r.sessions_cardio || 0) + ' other \u00b7 ' +
