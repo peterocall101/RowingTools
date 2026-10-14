@@ -342,7 +342,55 @@
   .consent ul{margin:9px 0 0;padding-left:17px;font-size:12.5px;color:var(--text2);line-height:1.65}
   .consent li::marker{color:var(--text3)}
   .consent .never{color:var(--text3)}
-  .boardctl{display:flex;gap:10px 14px;flex-wrap:wrap;margin-bottom:18px}
+  .boardctl{display:flex;gap:8px 28px;flex-wrap:wrap;margin:4px 0 18px}
+  /* The measure and the period: text toggles, a step down from the mode
+     buttons above them, so the board has one obvious control. */
+  .ttogs{display:flex;align-items:baseline;gap:2px 14px;flex-wrap:wrap}
+  .ttog-lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text3)}
+  .tt{background:none;border:none;border-bottom:2px solid transparent;border-radius:0;padding:3px 0;height:auto;
+    font-size:12.5px;font-weight:600;color:var(--text3)}
+  .tt:hover{color:var(--text);background:none;border-color:transparent}
+  .tt.active,.tt.active:hover{color:var(--text);border-bottom-color:var(--red-ink)}
+  .sq-gear{font-size:11.5px}
+  .sq-gear.on{color:var(--text)}
+  /* Board plus the hard erg column beside it; on a phone the column comes
+     first, so a hard erg is not buried under a long board. */
+  .sq-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:22px}
+  @media(min-width:900px){.sq-layout{grid-template-columns:minmax(0,1fr) 270px;gap:32px}}
+  @media(max-width:899px){.hecol{order:-1}}
+  .hecol-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+    border-bottom:1px solid var(--text);padding-bottom:6px;margin-bottom:10px}
+  .hecol-head h4{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+  .he-empty{font-size:12.5px;color:var(--text3);line-height:1.5}
+  .hebox{border:1px solid var(--border);border-left:3px solid var(--c-wbt);background:var(--bg2);
+    padding:10px 12px 12px;margin-bottom:10px}
+  .hebox.sel{border-color:var(--c-wbt)}
+  .he-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .he-title{font-size:14.5px;font-weight:700;overflow-wrap:anywhere}
+  .he-del{font-size:16px;padding:0 4px;line-height:1}
+  .he-when{font-family:var(--mono);font-size:10.5px;color:var(--text3);margin-top:2px}
+  .he-notes{font-size:12.5px;color:var(--text2);margin-top:6px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5}
+  .he-mine{display:flex;flex-direction:column;gap:3px;margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--text2)}
+  .he-pick{width:100%;margin-top:8px;font-size:12.5px}
+  .he-rank{width:100%;margin-top:9px;font-size:12.5px;height:34px}
+  .he-rank.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+  .hehead{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
+  .hehead b{font-size:15px}
+  .heform{border:1px solid var(--border2);padding:4px 12px 12px;margin-bottom:12px}
+  .heform label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--text3);margin:9px 0 4px}
+  .heform input,.heform textarea{width:100%}
+  .heform textarea{background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:0;
+    font-family:inherit;font-size:14px;padding:7px 10px;resize:vertical;outline:none}
+  .heform textarea:focus{border-color:var(--red-ink)}
+  .he-dates{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .heform .primary{width:100%;height:38px;margin-top:12px}
+  /* the tick box on the erg form */
+  .hepick{border:1px solid var(--border);border-left:3px solid var(--c-wbt);padding:9px 12px 10px;margin:12px 0 2px}
+  .hepick-lab{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:4px}
+  .hepick-row{display:flex;gap:10px;align-items:flex-start;padding:5px 0;cursor:pointer}
+  .hepick-row input{accent-color:var(--red);width:16px;height:16px;margin-top:3px;flex-shrink:0}
+  .hepick-row small{display:block;font-family:var(--mono);font-size:10.5px;color:var(--text3);margin-top:1px}
   /* the admin drawer: everything you do to a squad rather than read from it */
   .bsettings{border:1px solid var(--border2);padding:14px 15px;margin-bottom:22px}
   .bsettings .invite{border-top:none;padding-top:0}

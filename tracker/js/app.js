@@ -912,6 +912,7 @@ function ergFormHTML(d, source) {
       '<th>/500m' + fmtLab('m:ss.t') + '</th><th>Rate</th><th>HR</th><th></th></tr></thead>' +
     '<tbody id="eg-ivs">' + iv.map((r, i) => ergIvRowHTML(i, r)).join('') + '</tbody></table>' +
     '<button class="addset" id="eg-addiv">+ add interval</button>' +
+    '<div id="eg-hard"></div>' +
     '<div class="fwide" style="margin-top:10px"><label>Notes</label><input type="text" id="eg-notes" value="' + esc(d.notes || '') + '"></div>' +
     '<button class="primary" id="eg-save" style="height:44px">' + (editing ? 'Update' : 'Save') + ' erg session</button>' +
     '<button id="eg-cancel" style="width:100%;margin-top:8px">' + (editing ? 'Cancel edit' : 'Discard') + '</button>' +
@@ -930,6 +931,7 @@ function ergIvRowHTML(i, r) {
 function openErgForm(data, source, quiet) {
   $('erg-form-holder').innerHTML = ergFormHTML(data, source);
   paintTimes($('erg-form-holder'));
+  paintHardPicker(true);
   if (!quiet) $('erg-form-holder').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -992,6 +994,7 @@ function restoreErgForm() {
     if (r) IV_FIELDS.forEach(c => { tr.querySelector('.' + c).value = r[c]; });
   });
   paintTimes($('erg-form-holder'));
+  paintHardPicker(true);
   toast('erg-parse-status', 'Picked up the session you had open' +
     (snap.source === 'photo' ? ' from your photo' : '') + '. Check it over and save, or discard it.', 'warn');
   return true;
@@ -999,6 +1002,8 @@ function restoreErgForm() {
 
 async function saveErg() {
   const form = $('erg-form');
+  // Read before the form is torn down below.
+  const wantTags = [...document.querySelectorAll('#eg-hard .he-tag')].map(x => ({ id: x.value, on: x.checked }));
   const num = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
   const intervals = [...document.querySelectorAll('#eg-ivs tr')].map(tr => ({
     time_s: parseTimeStr(tr.querySelector('.iv-time').value),
@@ -1049,7 +1054,9 @@ async function saveErg() {
     track('erg_edited', { intervals: intervals.length });
     closeErgForm();
     cacheData();
-    toast('erg-parse-status', 'Session updated - ' + prettyDate(fields.date) + ' · ' + distance_m + 'm.');
+    const tagErr = await syncHardTags(id, wantTags, false);
+    toast('erg-parse-status', 'Session updated - ' + prettyDate(fields.date) + ' · ' + distance_m + 'm.' +
+      (tagErr.length ? ' The hard erg tag could not be saved: ' + esc(tagErr[0]) : ''), tagErr.length ? 'warn' : '');
     renderErgRecent(); renderHistory(); renderProgress(); refreshWeekCount();
     return;
   }
@@ -1065,11 +1072,14 @@ async function saveErg() {
   $('erg-form-holder').innerHTML = '';
   cacheData();
   clearErgDraft();
+  const tagErr = await syncHardTags(row.id, wantTags, queued);
   toast('erg-parse-status',
     (queued ? 'Saved on this device - it will sync when you are back online. ' : 'Saved - ') +
     prettyDate(row.date) +
     (row.session_type ? ' · ' + esc(row.session_type) : '') +
-    (row.distance_m ? ' · ' + row.distance_m + 'm' : '') + '.', queued ? 'warn' : '');
+    (row.distance_m ? ' · ' + row.distance_m + 'm' : '') + '.' +
+    (tagErr.length ? ' The hard erg tag could not be saved: ' + esc(tagErr[0]) : ''),
+    queued || tagErr.length ? 'warn' : '');
   renderErgRecent(); renderHistory(); refreshWeekCount();
 }
 
@@ -3908,6 +3918,7 @@ const SQ = {
   board: [], templates: [], tmplError: null,
   period: 'week', bmode: 'erg', metric: 'erg_metres', busy: false, adding: false, posting: false,
   settings: false,   // the admin drawer is closed until asked for
+  hard: null,        // id of the hard erg the board is ranking on, if any
   preview: null,     // id of the shared template being read before importing
   picked: null,      // Set of exercise names ticked in that preview
 };
@@ -4047,6 +4058,221 @@ function fmtMetric(v, unit) {
   return String(round1(v));
 }
 
+/* ================= hard ergs =================
+   "Erg session of the week". Anyone in a squad sets one - a free-text title,
+   notes, and the dates it runs over - and members tag their own erg sessions
+   as attempts at it, either while logging or afterwards. The board can then
+   rank on it, fastest average split first. A tag is the athlete choosing to
+   show that one session's split, time and distance; nothing untagged is read,
+   and never its date or notes (see tracker_hard_erg_board in the schema). */
+const HE = { list: [], tags: [], loaded: false, error: null, board: [], boardError: null, adding: false };
+
+const heOn = (h, date) => date >= h.starts_on && date <= h.ends_on;
+const heWindow = h => shortDate(h.starts_on) + ' - ' + shortDate(h.ends_on);
+const heTagged = (hid, sid) => HE.tags.some(t => t.hard_erg_id === hid && t.erg_session_id === sid);
+const ergSplit = s => s.avg_split_s != null ? s.avg_split_s
+  : (s.total_time_s && s.distance_m) ? round1(s.total_time_s / (s.distance_m / 500)) : null;
+// Plain text, for an <option>: what the session was, briefly.
+const ergOptionText = s => [shortDate(s.date), s.session_type, s.distance_m ? s.distance_m + 'm' : null,
+  s.total_time_s ? fmtTime(s.total_time_s) : null].filter(Boolean).join(' · ');
+
+// Never fatal: the feature is optional, and a squad that has not run the SQL
+// yet must still be able to log an erg.
+async function loadHardErgs() {
+  if (S.trial) return;
+  const [h, t] = await Promise.all([
+    sb.from('tracker_hard_ergs').select('*, groups(name)').order('starts_on', { ascending: false }).limit(200),
+    sb.from('tracker_hard_erg_entries').select('hard_erg_id, erg_session_id, profile_id')
+      .eq('profile_id', S.session.user.id),
+  ]);
+  HE.error = (h.error || t.error) ? (h.error || t.error).message : null;
+  HE.loaded = !HE.error;
+  HE.list = h.error ? [] : (h.data || []);
+  HE.tags = t.error ? [] : (t.data || []);
+}
+
+async function loadHardBoard() {
+  if (!SQ.hard) { HE.board = []; return; }
+  const { data, error } = await sb.rpc('tracker_hard_erg_board', { p_hard_erg: SQ.hard });
+  HE.board = error ? [] : (data || []);
+  HE.boardError = error ? error.message : null;
+}
+
+/* ---- tagging from the erg form ---- */
+function hardPickerHTML(date, sid, first) {
+  const open = HE.list.filter(h => heOn(h, date));
+  if (!open.length) return '';
+  return '<div class="hepick"><div class="hepick-lab">Squad hard erg</div>' + open.map(h =>
+    '<label class="hepick-row"><input type="checkbox" class="he-tag" value="' + h.id + '"' +
+      (first && sid && heTagged(h.id, sid) ? ' checked' : '') + '>' +
+      '<span><b>' + esc(h.title) + '</b><small>' + esc((h.groups && h.groups.name) || 'Squad') +
+      ' · ' + heWindow(h) + '</small></span></label>').join('') +
+    '<div class="fhint">Tick to put this session\'s split, time and distance on that squad\'s ' +
+      'hard erg board. Nothing else about it is shared.</div></div>';
+}
+// `first` paints from the saved tags; otherwise (the date changed) whatever is
+// ticked stays ticked.
+function paintHardPicker(first) {
+  const el = $('eg-hard');
+  if (!el || !$('eg-date')) return;
+  const keep = new Set([...el.querySelectorAll('.he-tag:checked')].map(x => x.value));
+  el.innerHTML = hardPickerHTML($('eg-date').value || todayISO(), editingErgId, first);
+  if (!first) el.querySelectorAll('.he-tag').forEach(x => { if (keep.has(x.value)) x.checked = true; });
+}
+
+async function addHardTag(hid, sid, queued) {
+  const row = { hard_erg_id: hid, erg_session_id: sid, profile_id: S.session.user.id };
+  // An offline session is still in the outbox, and the tag has to go out
+  // after it - the outbox sends in order.
+  if (queued) { queueWrite('tracker_hard_erg_entries', row); HE.tags.push(row); return null; }
+  const { error } = await insertRow('tracker_hard_erg_entries', row);
+  if (error && error.code !== '23505') return error.message;
+  HE.tags.push(row);
+  return null;
+}
+async function dropHardTag(hid, sid) {
+  const { error } = await sb.from('tracker_hard_erg_entries').delete()
+    .eq('hard_erg_id', hid).eq('erg_session_id', sid);
+  if (error) return error.message;
+  HE.tags = HE.tags.filter(t => !(t.hard_erg_id === hid && t.erg_session_id === sid));
+  return null;
+}
+async function syncHardTags(sid, want, queued) {
+  const errs = [];
+  for (const w of want) {
+    const has = heTagged(w.id, sid);
+    const err = w.on && !has ? await addHardTag(w.id, sid, queued)
+      : !w.on && has ? await dropHardTag(w.id, sid) : null;
+    if (err) errs.push(err);
+  }
+  return errs;
+}
+
+/* ---- the side column on the Board ---- */
+function hardErgsHTML(isAdmin) {
+  const me = S.session.user.id;
+  // Recent ones stay up for a few weeks after they close, so the result can
+  // still be looked at; older ones drop off.
+  const cutoff = addDays(todayISO(), -42);
+  const list = HE.list.filter(h => h.group_id === SQ.groupId && h.ends_on >= cutoff);
+  return '<aside class="hecol" aria-label="Hard ergs">' +
+    '<div class="hecol-head"><h4>Hard ergs</h4>' +
+      '<button class="blink" id="he-new">' + (HE.adding ? 'cancel' : '+ add one') + '</button></div>' +
+    (HE.adding ? hardFormHTML() : '') +
+    (HE.error ? '<div class="toast err">Could not read hard ergs: ' + esc(HE.error) +
+      '<br>If that mentions a missing table, run <b>tracker/supabase/tracker_schema.sql</b>.</div>' : '') +
+    (!list.length && !HE.adding && !HE.error
+      ? '<p class="he-empty">No hard erg set. Add the piece of the week and the squad can rank on it.</p>' : '') +
+    list.map(h => hardBoxHTML(h, me, isAdmin)).join('') +
+  '</aside>';
+}
+
+function hardBoxHTML(h, me, isAdmin) {
+  const sel = SQ.hard === h.id;
+  const today = todayISO();
+  const state = today < h.starts_on ? 'starts ' + shortDate(h.starts_on) : today > h.ends_on ? 'closed' : 'open';
+  const mine = S.ergs.filter(x => heOn(h, x.date));
+  const tagged = mine.filter(x => heTagged(h.id, x.id));
+  const untagged = mine.filter(x => !heTagged(h.id, x.id));
+  return '<div class="hebox' + (sel ? ' sel' : '') + '">' +
+    '<div class="he-top"><b class="he-title">' + esc(h.title) + '</b>' +
+      (h.created_by === me || isAdmin
+        ? '<button class="ghost he-del" data-he-del="' + h.id + '" title="Remove this hard erg">\u00d7</button>' : '') +
+    '</div>' +
+    '<div class="he-when">' + heWindow(h) + ' \u00b7 ' + state + '</div>' +
+    (h.notes ? '<div class="he-notes">' + esc(h.notes) + '</div>' : '') +
+    (tagged.length ? '<div class="he-mine">' + tagged.map(x => {
+        const sp = ergSplit(x);
+        return '<span>Yours: ' + shortDate(x.date) + (sp != null ? ' \u00b7 ' + fmtSplit(sp) : '') +
+          ' <button class="blink" data-he-untag="' + h.id + '" data-sid="' + x.id + '">untag</button></span>';
+      }).join('') + '</div>' : '') +
+    (untagged.length
+      ? '<select class="he-pick" data-he-pick="' + h.id + '" aria-label="Tag one of my erg sessions">' +
+        '<option value="">Tag one of my ergs\u2026</option>' +
+        untagged.map(x => '<option value="' + x.id + '">' + esc(ergOptionText(x)) + '</option>').join('') +
+        '</select>' : '') +
+    '<button class="he-rank' + (sel ? ' active' : '') + '" data-he-rank="' + h.id + '">' +
+      (sel ? 'Ranking by this' : 'Rank by this') + '</button>' +
+  '</div>';
+}
+
+function hardFormHTML() {
+  const mon = thisMonday();
+  return '<div class="heform">' +
+    '<label for="he-title">The piece</label>' +
+    '<input type="text" id="he-title" maxlength="120" placeholder="e.g. 3 x 2k, 5 min rest">' +
+    '<label for="he-notes">Notes (optional)</label>' +
+    '<textarea id="he-notes" rows="2" maxlength="1000" placeholder="Rate cap, which split counts..."></textarea>' +
+    '<div class="he-dates">' +
+      '<div><label for="he-from">From</label><input type="date" id="he-from" value="' + mon + '"></div>' +
+      '<div><label for="he-to">To</label><input type="date" id="he-to" value="' + addDays(mon, 6) + '"></div>' +
+    '</div>' +
+    '<button class="primary" id="he-save">Set hard erg</button>' +
+    '<div id="he-msg"></div></div>';
+}
+
+async function saveHardErg() {
+  const title = $('he-title').value.trim();
+  const notes = $('he-notes').value.trim() || null;
+  const from = $('he-from').value, to = $('he-to').value;
+  if (!title) { toast('he-msg', 'Say what the piece is.', 'warn'); return; }
+  if (!from || !to || to < from) { toast('he-msg', 'Pick a start date, and an end date on or after it.', 'warn'); return; }
+  if ((new Date(to + 'T12:00:00') - new Date(from + 'T12:00:00')) / 864e5 > 92) {
+    toast('he-msg', 'A hard erg can run for three months at most.', 'warn'); return;
+  }
+  const row = { id: newId(), group_id: SQ.groupId, created_by: S.session.user.id,
+                title: title.slice(0, 120), notes: notes && notes.slice(0, 1000), starts_on: from, ends_on: to };
+  const { error } = await insertRow('tracker_hard_ergs', row);
+  if (error) { toast('he-msg', 'Could not save it: ' + esc(error.message), 'err'); return; }
+  const sq = SQ.squads.find(x => x.id === SQ.groupId);
+  HE.list.unshift(Object.assign({ groups: { name: sq ? sq.name : 'Squad' } }, row));
+  HE.adding = false;
+  SQ.hard = row.id;
+  track('hard_erg_set', {});
+  await loadHardBoard();
+  renderSquad(); paintHardPicker();
+}
+
+async function deleteHardErg(id) {
+  const h = HE.list.find(x => x.id === id);
+  if (!h || !confirm('Remove "' + h.title + '" for everyone in the squad? Everyone\'s tags on it go too.')) return;
+  const { error } = await sb.from('tracker_hard_ergs').delete().eq('id', id);
+  if (error) { toast('squad-msg', 'Could not remove it: ' + esc(error.message), 'err'); return; }
+  HE.list = HE.list.filter(x => x.id !== id);
+  HE.tags = HE.tags.filter(t => t.hard_erg_id !== id);
+  if (SQ.hard === id) SQ.hard = null;
+  renderSquad(); paintHardPicker();
+}
+
+// The ranking itself, in the main column. Fastest first; the bar is drawn
+// from the slowest split rather than from nought, because every split on a
+// board sits within a few seconds of the others.
+function hardBoardHTML(h) {
+  const me = S.session.user.id;
+  if (HE.boardError) return '<div class="toast err">Could not load this hard erg: ' + esc(HE.boardError) + '</div>';
+  const rows = HE.board.filter(r => r.best_split_s != null)
+    .sort((a, b) => Number(a.best_split_s) - Number(b.best_split_s));
+  if (!rows.length) {
+    return '<p class="empty">Nobody has tagged a session as this hard erg yet. Log the piece on the Erg ' +
+      'tab and tick it there, or tag one you have already logged from its box.</p>';
+  }
+  const best = Number(rows[0].best_split_s), worst = Number(rows[rows.length - 1].best_split_s);
+  return '<div class="bhead"><span>#</span><span>Athlete</span><span class="r">Best split</span></div>' +
+    rows.map((r, i) => {
+      const v = Number(r.best_split_s);
+      const pct = worst === best ? 100 : Math.round(30 + 70 * (worst - v) / (worst - best));
+      return '<div class="brow' + (i ? '' : ' lead') + (r.athlete_id === me ? ' me' : '') + '">' +
+        '<span class="brank">' + (i + 1) + '</span>' +
+        '<span class="bname">' + esc(r.athlete_name) + '</span>' +
+        '<span class="bval">' + fmtTime(v) + '<small>/500m</small></span>' +
+        '<span class="bsub">' + [r.best_distance_m ? Number(r.best_distance_m).toLocaleString('en-GB') + 'm' : null,
+          r.best_time_s ? fmtTime(Number(r.best_time_s)) : null,
+          r.attempts > 1 ? 'best of ' + r.attempts : null].filter(Boolean).join(' \u00b7 ') + '</span>' +
+        '<span class="bbar"><i style="width:' + pct + '%"></i></span>' +
+      '</div>';
+    }).join('');
+}
+
 /* ---- loading ---- */
 // A missing table here means the SQL has not been run yet. That is a state to
 // explain, not an exception to throw.
@@ -4101,7 +4327,11 @@ async function refreshSquad(loud) {
   SQ.busy = true;
   try {
     if (!SQ.loaded) await loadSquads();
-    if (SQ.ready) await loadBoard();
+    if (SQ.ready) {
+      await loadBoard();
+      if (!HE.loaded) await loadHardErgs();
+      if (SQ.hard) await loadHardBoard();
+    }
   } finally {
     SQ.busy = false;      // or one thrown request disables the tab for good
   }
@@ -4215,7 +4445,11 @@ function squadMainHTML() {
     ? '<button class="brm" data-sq-rm="' + r.profile_id + '" data-sq-rmname="' + esc(r.display_name) +
       '">remove</button>' : '';
 
-  const board = SQ.boardError
+  const hard = SQ.hard ? HE.list.find(h => h.id === SQ.hard && h.group_id === SQ.groupId) : null;
+  if (!hard) SQ.hard = null;
+
+  const board = hard ? hardBoardHTML(hard)
+    : SQ.boardError
     ? '<div class="toast err">Could not load the board: ' + esc(SQ.boardError) + '</div>'
     : !SQ.board.length
     ? '<p class="empty">Nobody in this squad yet.</p>'
@@ -4257,38 +4491,49 @@ function squadMainHTML() {
             '<option value="' + x.id + '">' + esc(x.name) + '</option>').join('') + '</select>'
         : '<h3 class="setup-head" style="flex:1;margin:0;border:none;padding:0">' +
           esc((sq && sq.name) || 'Squad') + '</h3>') +
-      '<button class="seg solo' + (SQ.settings ? ' active' : '') + '" id="sq-settings">' +
-        (SQ.settings ? '\u2715 Close settings' : '\u2699 Board settings') + '</button>' +
+      '<button class="blink sq-gear' + (SQ.settings ? ' on' : '') + '" id="sq-settings">' +
+        (SQ.settings ? '\u2715 close settings' : '\u2699 settings') + '</button>' +
     '</div>' +
 
     (SQ.settings ? squadSettingsHTML(sq, isAdmin) : '') +
 
-    // what you are looking at, then which measure of it
-    segRows(BOARD_MODES, m => '<button class="seg' + (m.k === SQ.bmode ? ' active' : '') +
-        (m.combo ? ' combo' : '') + ' m-' + m.k +
-        '" data-bmode="' + m.k + '" role="tab" aria-selected="' + (m.k === SQ.bmode) + '">' +
-        m.label + '</button>', 'bmodes', 'role="tablist" aria-label="What to rank by"') +
-    '<div class="boardctl">' +
-      // With one measure there is nothing to choose, so the row is not drawn.
-      (mode.metrics.length < 2 ? '' :
-        '<div class="segmented sm" role="group" aria-label="Measure">' +
-        mode.metrics.map(m => '<button class="seg' + (m.k === SQ.metric ? ' active' : '') +
-          '" data-bmetric="' + m.k + '" aria-pressed="' + (m.k === SQ.metric) + '">' +
-          m.btn + '</button>').join('') + '</div>') +
-      '<div class="segmented sm" role="group" aria-label="Period">' +
-        periodsFor(mode).map(p => '<button class="seg' + (p.k === SQ.period ? ' active' : '') +
-          '" data-bperiod="' + p.k + '" aria-pressed="' + (p.k === SQ.period) + '">' +
-          p.short + '</button>').join('') + '</div>' +
-    '</div>' +
+    '<div class="sq-layout"><div class="sq-main">' +
+    // What you are looking at is the one row of real buttons. The measure and
+    // the period below it are plain text toggles, so the page has one clear
+    // control and two lighter ones rather than five rows that look alike.
+    segRows(BOARD_MODES, m => {
+        const on = m.k === SQ.bmode && !hard;
+        return '<button class="seg' + (on ? ' active' : '') + (m.combo ? ' combo' : '') + ' m-' + m.k +
+          '" data-bmode="' + m.k + '" role="tab" aria-selected="' + on + '">' + m.label + '</button>';
+      }, 'bmodes', 'role="tablist" aria-label="What to rank by"') +
+    (hard
+      ? '<div class="boardctl"><div class="hehead"><span class="ttog-lab">Hard erg</span>' +
+          '<b>' + esc(hard.title) + '</b><span class="he-when">' + heWindow(hard) + '</span></div></div>'
+      : '<div class="boardctl">' +
+        // With one measure there is nothing to choose, so the row is not drawn.
+        (mode.metrics.length < 2 ? '' :
+          '<div class="ttogs" role="group" aria-label="Measure"><span class="ttog-lab">Measure</span>' +
+          mode.metrics.map(m => '<button class="tt' + (m.k === SQ.metric ? ' active' : '') +
+            '" data-bmetric="' + m.k + '" aria-pressed="' + (m.k === SQ.metric) + '">' +
+            m.btn + '</button>').join('') + '</div>') +
+        '<div class="ttogs" role="group" aria-label="Period"><span class="ttog-lab">Period</span>' +
+          periodsFor(mode).map(p => '<button class="tt' + (p.k === SQ.period ? ' active' : '') +
+            '" data-bperiod="' + p.k + '" aria-pressed="' + (p.k === SQ.period) + '">' +
+            p.short + '</button>').join('') + '</div>' +
+      '</div>') +
     board +
-    '<p class="squad-note">' + rows.length + ' of ' + SQ.board.length + ' on the board \u00b7 ' +
-      esc(mode.label) + ', ' + esc(metric.btn.toLowerCase()) + ', ' +
-      esc((periodsFor(mode).find(p => p.k === SQ.period) || {}).label || '').toLowerCase() + '.<br>' +
-      'Everyone here sees your <b>totals</b> - days trained, sessions, erg and water distance and ' +
-      'time, other cardio time, core time, weights sets and volume, and how many races you have claimed with the ' +
-      'average of your best three. Never a session, a lift, a date or a note. ' +
-      'They are self-reported: they show who is putting the work in, not who is fastest.' +
+    '<p class="squad-note">' + (hard
+      ? esc(hard.title) + ', fastest average split first.<br>Only sessions people have tagged as this ' +
+        'piece are on it - their split, time and distance, never the date or notes.'
+      : rows.length + ' of ' + SQ.board.length + ' on the board \u00b7 ' +
+        esc(mode.label) + ', ' + esc(metric.btn.toLowerCase()) + ', ' +
+        esc((periodsFor(mode).find(p => p.k === SQ.period) || {}).label || '').toLowerCase() + '.<br>' +
+        'Everyone here sees your <b>totals</b> - days trained, sessions, erg and water distance and ' +
+        'time, other cardio time, core time, weights sets and volume, and how many races you have claimed with the ' +
+        'average of your best three. Never a session, a lift, a date or a note, unless you tag an erg ' +
+        'as a hard erg. They are self-reported: they show who is putting the work in, not who is fastest.') +
     '</p>' +
+    '</div>' + hardErgsHTML(isAdmin) + '</div>' +
     '<div id="squad-msg"></div>' +
   '</div>';
 }
@@ -4622,7 +4867,11 @@ document.addEventListener('input', e => {
 });
 // selects don't fire input in every browser
 document.addEventListener('change', e => {
-  if (e.target.closest && e.target.closest('#erg-form')) { queueErgDraft(); return; }
+  if (e.target.closest && e.target.closest('#erg-form')) {
+    if (e.target.id === 'eg-date') paintHardPicker();
+    queueErgDraft();
+    return;
+  }
   if (e.target.id === 'tm-count') {
     localStorage.setItem(COUNTDOWN_KEY, e.target.value);
     if (RUN.counting) { cancelCountdown(); startTimer(); }   // apply to the round you are waiting on
@@ -4875,7 +5124,11 @@ document.addEventListener('click', async e => {
     if (!confirm('Delete this erg session for good?')) return;
     const { error } = await sb.from('tracker_erg_sessions').delete().eq('id', de.dataset.delErg);
     if (!error && editingErgId === de.dataset.delErg) closeErgForm();
-    if (!error) { S.ergs = S.ergs.filter(s => s.id !== de.dataset.delErg); renderHistory(); renderProgress(); renderErgRecent(); refreshWeekCount(); }
+    if (!error) {
+      S.ergs = S.ergs.filter(s => s.id !== de.dataset.delErg);
+      HE.tags = HE.tags.filter(t => t.erg_session_id !== de.dataset.delErg);
+      renderHistory(); renderProgress(); renderErgRecent(); refreshWeekCount();
+    }
     return;
   }
   const ed = e.target.closest('[data-edit]');
@@ -4885,6 +5138,8 @@ document.addEventListener('click', async e => {
   // ---- squad ----
   const bm = e.target.closest('[data-bmode]');
   if (bm) {
+    if (SQ.hard && SQ.bmode === bm.dataset.bmode) { SQ.hard = null; renderSquad(); return; }
+    SQ.hard = null;
     if (SQ.bmode !== bm.dataset.bmode) {
       SQ.bmode = bm.dataset.bmode;
       SQ.metric = '';
@@ -4912,6 +5167,25 @@ document.addEventListener('click', async e => {
     return;
   }
   if (e.target.id === 'sq-settings') { SQ.settings = !SQ.settings; renderSquad(); return; }
+  if (e.target.id === 'he-new') { HE.adding = !HE.adding; renderSquad(); if (HE.adding) $('he-title').focus(); return; }
+  if (e.target.id === 'he-save') { saveHardErg(); return; }
+  const heDel = e.target.closest('[data-he-del]');
+  if (heDel) { deleteHardErg(heDel.dataset.heDel); return; }
+  const heRank = e.target.closest('[data-he-rank]');
+  if (heRank) {
+    SQ.hard = SQ.hard === heRank.dataset.heRank ? null : heRank.dataset.heRank;
+    if (SQ.hard) await loadHardBoard();
+    renderSquad();
+    return;
+  }
+  const heUn = e.target.closest('[data-he-untag]');
+  if (heUn) {
+    const err = await dropHardTag(heUn.dataset.heUntag, heUn.dataset.sid);
+    if (err) { toast('squad-msg', 'Could not untag it: ' + esc(err), 'err'); return; }
+    if (SQ.hard === heUn.dataset.heUntag) await loadHardBoard();
+    renderSquad();
+    return;
+  }
   const tOpen = e.target.closest('[data-tmpl-open]');
   if (tOpen) {
     const id = tOpen.dataset.tmplOpen;
@@ -5081,6 +5355,9 @@ document.addEventListener('click', async e => {
   // Arrived on an invite link: open the tab that can act on it rather than
   // leaving the code sitting in storage with nothing to show for it.
   if (S.joinCode && !S.trial) { selectTab('p-squad'); SQ.adding = true; refreshSquad(); }
+  // In the background: only the erg form's hard erg tick box needs these
+  // before the Board is opened, and it repaints when they arrive.
+  if (!S.trial) loadHardErgs().then(() => paintHardPicker(true));
 
   // tabs
   document.querySelectorAll('.tabs .tab').forEach(tab => {
@@ -5145,7 +5422,16 @@ document.addEventListener('click', async e => {
   // The squad panel is rebuilt wholesale on every change, so its selects are
   // wired by delegation rather than by id.
   document.addEventListener('change', ev => {
-    if (ev.target.id === 'squad-pick')   { SQ.groupId = ev.target.value; refreshSquad(); }
+    if (ev.target.id === 'squad-pick')   { SQ.groupId = ev.target.value; SQ.hard = null; refreshSquad(); }
+    // Tagging a session already logged, from a hard erg's box.
+    if (ev.target.dataset && ev.target.dataset.hePick !== undefined && ev.target.value) {
+      const hid = ev.target.dataset.hePick;
+      addHardTag(hid, ev.target.value, false).then(async err => {
+        if (err) { toast('squad-msg', 'Could not tag it: ' + esc(err), 'err'); renderSquad(); return; }
+        if (SQ.hard === hid) await loadHardBoard();
+        renderSquad();
+      });
+    }
     if (ev.target.id === 'race-comp') { RC.comp = ev.target.value; RC.limit = 30; renderRaces(); }
     // Ticking an exercise in a shared template. Held in memory only - it is a
     // selection, not a setting, and it dies with the preview.

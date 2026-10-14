@@ -624,12 +624,31 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   exercise-id cast on an exact uuid regex. These columns have no CHECK constraint, so without the
   guards a single member with an odd row - a hand-written API call, a future format change - would
   raise and take the board down for *everyone* in the squad.
+- **Hard ergs - the erg session of the week** (2026-10-14, `tracker_hard_ergs` +
+  `tracker_hard_erg_entries`). Any member sets one from the column beside the board: a free-text
+  title for the piece, optional notes, and the dates it runs over (this Monday to Sunday by default,
+  three months at most). Several can run at once; each gets a box with its notes, your own tagged
+  attempts, a select to tag an erg you have already logged, and **Rank by this**, which swaps the
+  board for a ranking on fastest average split. Logging or editing an erg whose date falls in a
+  hard erg's window shows a tick box for it, so tagging happens as you log; unticking on edit
+  untags. Whoever set it, or the squad admin, can remove it.
+
+  **This is the one place a single session's numbers reach the squad, and only by consent, one
+  session at a time.** The tag rows are owner-only, and the RLS check refuses a tag on someone
+  else's session, on one dated outside the window, or in a squad you are not in. The ranking comes
+  from `tracker_hard_erg_board()`, which reads only tagged sessions and returns only split, time and
+  distance - never the date, the notes or the splits table. The split is the stored average or,
+  failing that, time over distance; best attempt counts. Leaving or being removed from a squad
+  deletes your tags on its hard ergs. Boxes stay up for six weeks after a hard erg closes. On a
+  phone the column sits above the board rather than under it.
 - **Non-sharers are shown, greyed, as "not sharing".** The board says "2 of 3 sharing" rather than
   quietly pretending the squad is smaller than it is.
 - **The board ranks on one of eight things, chosen with buttons.** Erg, Water, Other, Erg + Water,
-  All cardio (first line), Weights, Core (second), Racing (third) - then a second row for the measure of whichever one is picked, on exactly the same
-  pattern as Progress (distance | time, sessions | sets, time | sessions), and a third for the
-  period. It replaced two dropdowns. **Erg + Water and All cardio are computed client-side**
+  All cardio (first line), Weights, Core (second), Racing (third) - then the measure of whichever one is
+  picked, on exactly the same pattern as Progress (distance | time, sessions | sets, time | sessions),
+  and the period. **Only the modes are boxed buttons** (2026-10-14): the measure and period are
+  light text toggles (`.ttogs` / `.tt`) and the settings drawer opens from a text link, because five
+  rows of identical boxes gave the page no obvious control. It replaced two dropdowns. **Erg + Water and All cardio are computed client-side**
   (`combined_metres`, `combined_seconds`, `all_seconds`, `all_sessions` in `boardVal`) rather than added to the SQL: it is the sum of two columns the
   function already returns, and a derived total that lives in the client cannot disagree with its
   own parts.

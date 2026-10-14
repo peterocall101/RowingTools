@@ -18,6 +18,11 @@
 -- Row-level security cannot hide a column; a function that never reads
 -- the column can.
 --
+-- The one deliberate exception is a HARD ERG (part 2, section 4): a
+-- session the athlete has tagged, one at a time, as an attempt at the
+-- squad's erg of the week. tracker_hard_erg_board() returns that
+-- session's split, time and distance - still never its date or notes.
+--
 -- The report at the bottom checks that, and much else. Read it.
 -- ================================================================
 
@@ -580,6 +585,84 @@ drop policy if exists "remove own templates" on public.tracker_shared_templates;
 create policy "remove own templates" on public.tracker_shared_templates
   for delete using (profile_id = auth.uid() or public.is_group_admin(group_id));
 
+-- ----------------------------------------------------------------
+-- 4. Hard ergs - "erg session of the week". Any member sets one: a
+--    free-text title (what the piece is), optional notes, and the dates
+--    it runs over. Members tag their own erg sessions as attempts at it,
+--    and the board can rank on it, fastest average split first.
+--
+--    This is the ONE place a single session's numbers cross to the
+--    squad, and only because the athlete put them there: a tag is an
+--    explicit, per-session, revocable "show this one". Nothing untagged
+--    is ever read, the session's date and notes never leave, and the
+--    tag rows themselves are owner-only - the squad sees the result
+--    through tracker_hard_erg_board(), never the tags.
+-- ----------------------------------------------------------------
+create table if not exists public.tracker_hard_ergs (
+  id         uuid        primary key default gen_random_uuid(),
+  group_id   uuid        not null references public.groups   on delete cascade,
+  created_by uuid        not null references public.profiles on delete cascade,
+  title      text        not null check (length(trim(title)) between 1 and 120),
+  notes      text        check (notes is null or length(notes) <= 1000),
+  starts_on  date        not null,
+  ends_on    date        not null,
+  created_at timestamptz not null default now(),
+  -- A quarter at most: a "hard erg" open all year is just a leaderboard.
+  check (ends_on >= starts_on and ends_on - starts_on <= 92)
+);
+create index if not exists tracker_hard_ergs_group_idx
+  on public.tracker_hard_ergs (group_id, ends_on desc);
+
+create table if not exists public.tracker_hard_erg_entries (
+  hard_erg_id    uuid        not null references public.tracker_hard_ergs    on delete cascade,
+  erg_session_id uuid        not null references public.tracker_erg_sessions on delete cascade,
+  profile_id     uuid        not null references public.profiles             on delete cascade,
+  created_at     timestamptz not null default now(),
+  primary key (hard_erg_id, erg_session_id)
+);
+create index if not exists tracker_hard_erg_entries_profile_idx
+  on public.tracker_hard_erg_entries (profile_id);
+
+alter table public.tracker_hard_ergs        enable row level security;
+alter table public.tracker_hard_erg_entries enable row level security;
+
+drop policy if exists "squad reads hard ergs" on public.tracker_hard_ergs;
+create policy "squad reads hard ergs" on public.tracker_hard_ergs
+  for select using (public.is_group_member(group_id));
+
+drop policy if exists "members set hard ergs" on public.tracker_hard_ergs;
+create policy "members set hard ergs" on public.tracker_hard_ergs
+  for insert with check (created_by = auth.uid() and public.is_group_member(group_id));
+
+-- Whoever set it, or the squad admin.
+drop policy if exists "setter edits hard ergs" on public.tracker_hard_ergs;
+create policy "setter edits hard ergs" on public.tracker_hard_ergs
+  for update using (created_by = auth.uid() or public.is_group_admin(group_id))
+  with check (created_by = auth.uid() or public.is_group_admin(group_id));
+
+drop policy if exists "setter removes hard ergs" on public.tracker_hard_ergs;
+create policy "setter removes hard ergs" on public.tracker_hard_ergs
+  for delete using (created_by = auth.uid() or public.is_group_admin(group_id));
+
+-- Owner-only, and a tag can only point at your OWN session, dated inside
+-- the hard erg's window, in a squad you are in. Checked here rather than
+-- trusted from the app.
+drop policy if exists "own hard erg tags" on public.tracker_hard_erg_entries;
+create policy "own hard erg tags" on public.tracker_hard_erg_entries
+  for all using (profile_id = auth.uid())
+  with check (
+    profile_id = auth.uid()
+    and exists (
+      select 1
+      from public.tracker_erg_sessions s
+      join public.tracker_hard_ergs h on h.id = tracker_hard_erg_entries.hard_erg_id
+      where s.id = tracker_hard_erg_entries.erg_session_id
+        and s.profile_id = auth.uid()
+        and s.date between h.starts_on and h.ends_on
+        and public.is_group_member(h.group_id)
+    )
+  );
+
 commit;
 
 -- ================================================================
@@ -762,6 +845,10 @@ begin
   end if;
   delete from public.tracker_sharing
    where profile_id = auth.uid() and group_id = p_group;
+  -- Tags on this squad's hard ergs mean nothing once you have left it.
+  delete from public.tracker_hard_erg_entries e
+   using public.tracker_hard_ergs h
+   where h.id = e.hard_erg_id and h.group_id = p_group and e.profile_id = auth.uid();
   delete from public.group_members
    where profile_id = auth.uid() and group_id = p_group;
 end;
@@ -799,6 +886,9 @@ begin
   -- been removed is not what "removed" means.
   delete from public.tracker_shared_templates
    where profile_id = p_profile and group_id = p_group;
+  delete from public.tracker_hard_erg_entries e
+   using public.tracker_hard_ergs h
+   where h.id = e.hard_erg_id and h.group_id = p_group and e.profile_id = p_profile;
   delete from public.group_members
    where profile_id = p_profile and group_id = p_group;
 end;
@@ -1070,6 +1160,69 @@ begin
 end;
 $$;
 
+-- ---- a hard erg's ranking ------------------------------------------
+-- One row per current member who has tagged at least one session as this
+-- hard erg: their fastest average split, and the time and distance of the
+-- session it came from. Only tagged sessions are read, and only the three
+-- numbers that make the result - never the date, the notes or the splits
+-- table. A session edited out of the window drops off by itself.
+--
+-- The split is the stored average where there is one, else time over
+-- distance, so a session typed in as just a time and a distance still
+-- ranks.
+create or replace function public.tracker_hard_erg_board(p_hard_erg uuid)
+returns table (
+  athlete_id      uuid,
+  athlete_name    text,
+  best_split_s    numeric,
+  best_time_s     numeric,
+  best_distance_m int,
+  attempts        int
+)
+language plpgsql stable security definer set search_path = public, pg_temp as $$
+#variable_conflict use_column
+declare
+  v_group uuid;
+  v_from  date;
+  v_to    date;
+begin
+  select h.group_id, h.starts_on, h.ends_on into v_group, v_from, v_to
+  from public.tracker_hard_ergs h where h.id = p_hard_erg;
+  -- Unknown, or not your squad: no rows, the same answer either way.
+  if v_group is null or not public.is_group_member(v_group) then
+    return;
+  end if;
+
+  return query
+  with tagged as (
+    select e.profile_id as pid,
+           s.total_time_s as t_s,
+           s.distance_m as d_m,
+           coalesce(s.avg_split_s,
+             case when s.distance_m > 0 and s.total_time_s > 0
+                  then s.total_time_s / (s.distance_m / 500.0) end) as split
+    from public.tracker_hard_erg_entries e
+    join public.tracker_erg_sessions s
+      on s.id = e.erg_session_id and s.profile_id = e.profile_id
+    join public.group_members gm
+      on gm.group_id = v_group and gm.profile_id = e.profile_id
+    where e.hard_erg_id = p_hard_erg
+      and s.date between v_from and v_to
+  ),
+  best as (
+    select distinct on (pid) pid, split, t_s, d_m,
+           count(*) over (partition by pid) as n
+    from tagged
+    where split is not null
+    order by pid, split asc
+  )
+  select b.pid, coalesce(p.display_name, 'Athlete'), round(b.split, 1),
+         b.t_s, b.d_m, b.n::int
+  from best b
+  left join public.profiles p on p.id = b.pid;
+end;
+$$;
+
 -- EXECUTE: revoke from PUBLIC first, then grant.
 --
 -- PostgreSQL grants EXECUTE on a new function to PUBLIC by default, so a
@@ -1099,6 +1252,7 @@ revoke execute on function public.tracker_admin_remove_member(uuid, uuid) from p
 revoke execute on function public.tracker_rotate_code(uuid)       from public, anon;
 revoke execute on function public.tracker_new_join_code()         from public, anon;
 revoke execute on function public.tracker_squad_board(uuid, text)  from public, anon;
+revoke execute on function public.tracker_hard_erg_board(uuid)     from public, anon;
 
 grant execute on function public.tracker_create_group(text)        to authenticated, service_role;
 grant execute on function public.tracker_join_group(text)          to authenticated, service_role;
@@ -1109,6 +1263,7 @@ grant execute on function public.tracker_rotate_code(uuid)         to authentica
 -- detail of the two functions above, and nothing in the app calls it.
 grant execute on function public.tracker_new_join_code()           to service_role;
 grant execute on function public.tracker_squad_board(uuid, text)   to authenticated, service_role;
+grant execute on function public.tracker_hard_erg_board(uuid)      to authenticated, service_role;
 -- tracker_num / tracker_is_uuid are pure helpers with no data access, so
 -- the PUBLIC default is fine for them.
 
@@ -1200,7 +1355,8 @@ select section, item, result from (
                ('tracker_water_sessions'), ('tracker_cardio_sessions'),
                ('tracker_races'), ('tracker_erg_parses'),
                ('groups'), ('group_members'), ('tracker_sharing'),
-               ('tracker_shared_templates')) as t(tbl)
+               ('tracker_shared_templates'), ('tracker_hard_ergs'),
+               ('tracker_hard_erg_entries')) as t(tbl)
 
   -- 3. Every column the app writes.
   union all
@@ -1226,6 +1382,7 @@ select section, item, result from (
     union all select 'tracker_rotate_code(uuid)',  to_regprocedure('public.tracker_rotate_code(uuid)') is not null
     union all select 'tracker_new_join_code()',    to_regprocedure('public.tracker_new_join_code()') is not null
     union all select 'tracker_squad_board(uuid,text)', to_regprocedure('public.tracker_squad_board(uuid,text)') is not null
+    union all select 'tracker_hard_erg_board(uuid)', to_regprocedure('public.tracker_hard_erg_board(uuid)') is not null
   ) f
   -- The date-taking board is the differencing hole. It must NOT exist.
   union all
@@ -1245,7 +1402,7 @@ select section, item, result from (
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname='public'
     and p.proname in ('tracker_create_group','tracker_join_group',
-                      'tracker_leave_group','tracker_squad_board',
+                      'tracker_leave_group','tracker_squad_board','tracker_hard_erg_board',
                       'tracker_admin_remove_member','tracker_rotate_code',
                       'tracker_new_join_code')
 
