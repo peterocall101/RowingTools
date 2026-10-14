@@ -4645,15 +4645,8 @@ function squadMainHTML() {
       '</div>') +
     board +
     '<p class="squad-note">' + (hard
-      ? esc(hard.title) + ', fastest average split first.<br>Only sessions people have tagged as this ' +
-        'piece are on it - their split, time and distance, never the date or notes.'
-      : rows.length + ' of ' + SQ.board.length + ' on the board \u00b7 ' +
-        esc(mode.label) + ', ' + esc(metric.btn.toLowerCase()) + ', ' +
-        esc((periodsFor(mode).find(p => p.k === SQ.period) || {}).label || '').toLowerCase() + '.<br>' +
-        'Everyone here sees your <b>totals</b> - days trained, sessions, erg and water distance and ' +
-        'time, other cardio time, core time, weights sets and volume, and how many races you have claimed with the ' +
-        'average of your best three. Never a session, a lift, a date or a note, unless you tag an erg ' +
-        'as a hard erg. They are self-reported: they show who is putting the work in, not who is fastest.') +
+      ? 'Tagged attempts only. Fastest split first.'
+      : rows.length + ' of ' + SQ.board.length + ' sharing. Totals only, never individual sessions.') +
     '</p>' +
     '</div>' + hardErgsHTML(isAdmin) + '</div>' +
     '<div id="squad-msg"></div>' +
