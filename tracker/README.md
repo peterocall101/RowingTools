@@ -663,13 +663,14 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   **Hard ergs on Progress** (2026-10-15, `tracker_hard_erg_groups`): a **Hard ergs** button on the
   third row of Progress gives one card per piece, with every attempt you tagged at it (best,
   latest and change, then a table by date). A squad that sets "2k test" every term creates a new
-  hard erg each time, so cards combine hard ergs whose titles match, ignoring case and spacing, or
-  that the setter linked. **Setting a hard erg** opens a full-screen form (the **+ Set a hard erg**
-  button above the column) with an optional **Same piece as**, which stores `same_as` on the new
-  hard erg, pointing at the earliest of that piece, so the link combines cards for the whole squad.
-  The insert policy only accepts a link to a hard erg in a squad you are in. On a card,
-  **Same piece as...** combines it into another and **separate** splits one hard erg back out.
-  Those choices are per athlete and owner-only, and beat both titles and links. Hard
+  hard erg each time, so by default cards combine hard ergs whose titles match, ignoring case and
+  spacing. **Arrange** (beside **Attempts**) shows every hard erg as a bubble inside its group: drag
+  one onto another group to combine them, or onto **On its own** to split it out, or tap a bubble
+  then tap where it goes. Dragging uses pointer events, so it works on a phone. **Reset** deletes
+  your rows and goes back to grouping by title. Grouping is purely personal and owner-only, never
+  set for a squad: a squad-wide "same piece as" link on the create form was tried and dropped the
+  same day. **Setting a hard erg** opens a full-screen form from the **+ Set a hard erg** button
+  above the Board column. Hard
   ergs come from squads you are in now, so a squad you have left takes its cards with it (your tags
   went when you left anyway).
 

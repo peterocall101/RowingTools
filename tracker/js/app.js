@@ -4228,33 +4228,24 @@ async function loadHardBoard() {
 
 /* ---- hard ergs on Progress ----
    One card per piece, with every attempt you tagged at it. A squad that sets
-   "2k test" each term creates a new hard erg each time, so cards combine hard
-   ergs that match by title, or that the setter marked "same piece as" an
-   earlier one (same_as). That can still be wrong ("Erg of the week" meaning
-   a different piece every week), so each athlete can combine or separate
-   cards; the choice is theirs alone and lives in tracker_hard_erg_groups. */
+   "2k test" each term creates a new hard erg each time, so by default hard
+   ergs with matching titles share a card. That guess is wrong sometimes
+   ("Erg of the week" meaning a different piece every week, or "2k test"
+   against "2K TT"), so Arrange lets each athlete drag hard ergs between
+   groups. The choice is theirs alone and lives in tracker_hard_erg_groups:
+   no row means "group by title", a row names the group it was put in. */
 const heTitleKey = h => h.title.trim().toLowerCase().replace(/\s+/g, ' ');
 
-// The automatic grouping: title matches and setters' links, joined up, each
-// group keyed on its earliest hard erg so a newer one joining keeps the key.
+// The default grouping, by title, each group keyed on its earliest hard erg
+// so a newer one with the same title joins without changing the key.
 function heAutoKeys() {
-  const up = {};
-  const find = id => up[id] === id ? id : (up[id] = find(up[id]));
-  const join = (a, b) => { a = find(a); b = find(b); if (a !== b) up[b] = a; };
-  HE.list.forEach(h => { up[h.id] = h.id; });
-  const byTitle = {};
-  HE.list.forEach(h => {
-    const t = heTitleKey(h);
-    if (byTitle[t]) join(byTitle[t], h.id); else byTitle[t] = h.id;
-    if (h.same_as && up[h.same_as]) join(h.same_as, h.id);
-  });
   const first = {};
   HE.list.forEach(h => {
-    const r = find(h.id), f = first[r];
-    if (!f || h.starts_on < f.starts_on || (h.starts_on === f.starts_on && h.id < f.id)) first[r] = h;
+    const t = heTitleKey(h), f = first[t];
+    if (!f || h.starts_on < f.starts_on || (h.starts_on === f.starts_on && h.id < f.id)) first[t] = h;
   });
   const keys = {};
-  HE.list.forEach(h => { keys[h.id] = 'g:' + first[find(h.id)].id; });
+  HE.list.forEach(h => { keys[h.id] = 'g:' + first[heTitleKey(h)].id; });
   return keys;
 }
 
@@ -4285,10 +4276,11 @@ const heState = h => {
   const today = todayISO();
   return today < h.starts_on ? 'starts ' + shortDate(h.starts_on) : today > h.ends_on ? 'closed' : 'open';
 };
+const heSquad = h => (h.groups && h.groups.name) || 'Squad';
 
-function hardCardHTML(c, cards) {
+function hardCardHTML(c) {
   const h0 = c.hs[0];
-  const squads = [...new Set(c.hs.map(h => (h.groups && h.groups.name) || 'Squad'))];
+  const squads = [...new Set(c.hs.map(heSquad))];
   const timed = c.attempts.filter(a => a.split != null);
   const best = timed.reduce((b, a) => (b && b.split <= a.split) ? b : a, null);
   const latest = timed[0], prev = timed[1];
@@ -4322,28 +4314,40 @@ function hardCardHTML(c, cards) {
     : '<p class="he-empty">No attempts tagged. Tag an erg session to it from the Board tab, ' +
       'or while logging it on the Erg tab.</p>';
 
-  // Every time it was set, each with its own way out of this card.
-  const sets = c.hs.length > 1 ? '<div class="he-sets">' + c.hs.map(h =>
-    '<div><span>' + esc(h.title) + ' · ' + esc((h.groups && h.groups.name) || 'Squad') + ' · ' +
-      heWindow(h) + '</span> <button class="blink" data-he-sep="' + h.id + '">separate</button></div>').join('') +
-    '</div>' : '';
-
-  const others = cards.filter(o => o !== c);
-  const combine = others.length
-    ? '<select class="he-combine" data-he-combine="' + esc(c.key) + '" aria-label="Combine with another hard erg">' +
-      '<option value="">Same piece as…</option>' +
-      others.map(o => '<option value="' + esc(o.key) + '">' + esc(o.hs[0].title) + ' · ' +
-        shortDate(o.hs[0].starts_on) +
-        (o.hs.length > 1 ? ' (+' + (o.hs.length - 1) + ')' : '') + '</option>').join('') +
-      '</select>' : '';
-
   return '<section class="hecard">' +
     '<div class="prog-head"><h3 class="prog-title">' + esc(h0.title) + '</h3>' +
     '<span class="prog-sub">' + esc(squads.join(', ')) + ' · ' +
       (c.hs.length > 1 ? 'set ' + c.hs.length + ' times, latest ' : '') +
       heWindow(h0) + ' · ' + heState(h0) + '</span></div>' +
-    tiles + table + sets + combine +
+    tiles + table +
   '</section>';
+}
+
+/* ---- arranging: which hard ergs count as the same piece ----
+   Each hard erg is a bubble inside its group. Drag a bubble onto another
+   group to combine, or onto "On its own" to split it out. Dragging is
+   pointer events rather than HTML5 drag and drop, which phones do not do;
+   and tapping a bubble then tapping a group does the same, for anyone who
+   would rather not drag. */
+const HEA = { open: false, picked: null, drag: null, suppressClick: false };
+
+function hardArrangeHTML(cards) {
+  const chip = h => '<button class="hechip' + (HEA.picked === h.id ? ' picked' : '') + '" data-chip="' + h.id + '">' +
+    '<b>' + esc(h.title) + '</b><span>' + esc(heSquad(h)) + ' · ' + shortDate(h.starts_on) + ' ' +
+    h.starts_on.slice(0, 4) + '</span></button>';
+  return '<div class="hearr">' +
+    '<p class="chart-note">Drag a hard erg onto another group to count them as the same piece, or onto ' +
+      '<b>On its own</b> to split it out. Or tap one, then tap where it goes. Only you see this.</p>' +
+    '<div class="hegrps">' +
+    cards.map(c => '<div class="hegrp" data-drop="' + esc(c.key) + '">' +
+      '<div class="hegrp-h">' + (c.hs.length > 1 ? plural(c.hs.length, 'hard erg') : 'On its own') + '</div>' +
+      c.hs.map(chip).join('') + '</div>').join('') +
+    '<div class="hegrp hegrp-new" data-drop="new"><div class="hegrp-h">On its own</div>' +
+      '<span class="hegrp-hint">Drop here to split one out</span></div>' +
+    '</div>' +
+    (Object.keys(HE.groups).length
+      ? '<button class="blink" id="hea-reset">Reset: group by matching titles again</button>' : '') +
+  '</div>';
 }
 
 function renderProgHard(body) {
@@ -4364,10 +4368,13 @@ function renderProgHard(body) {
       'it shows here with every attempt you tag at it.</p>';
     return;
   }
-  body.innerHTML = head + '<p class="chart-note">Hard ergs with the same title, or set as the same piece, ' +
-    'share a card. ' +
-    'Use “Same piece as” to combine others, or separate to split one out. Only you see this.</p>' +
-    cards.map(c => hardCardHTML(c, cards)).join('');
+  const bar = '<div class="progbar"><div class="segmented sm" role="group" aria-label="Hard erg view">' +
+    '<button class="seg' + (HEA.open ? '' : ' active') + '" data-hea="0" aria-pressed="' + !HEA.open + '">Attempts</button>' +
+    '<button class="seg' + (HEA.open ? ' active' : '') + '" data-hea="1" aria-pressed="' + HEA.open + '">Arrange</button>' +
+    '</div></div>';
+  body.innerHTML = bar + head + (HEA.open ? hardArrangeHTML(cards)
+    : '<p class="chart-note">Hard ergs with the same title share a card. Use <b>Arrange</b> to ' +
+      'combine others or split one out.</p>' + cards.map(hardCardHTML).join(''));
 }
 
 async function saveHardGroups(rows) {
@@ -4382,25 +4389,79 @@ async function saveHardGroups(rows) {
   renderProgress();
 }
 
-// Everything on the card moves to the other card's key, so combining a card
-// that was itself combined takes all of it across.
-function combineHard(fromKey, toKey) {
-  const from = hardCards().find(c => c.key === fromKey);
-  if (!from || !toKey || toKey === fromKey) return;
-  saveHardGroups(from.hs.map(h => ({ profile_id: S.session.user.id, hard_erg_id: h.id, combine_key: toKey })));
+// "new" gets a fresh key nothing else has, so the hard erg is alone even if
+// others were once combined under its id.
+function moveHard(id, drop) {
+  HEA.picked = null;
+  const h = HE.list.find(x => x.id === id);
+  if (!h || !drop) { renderProgress(); return; }
+  const now = HE.groups[id] || heAutoKeys()[id];
+  if (drop === now) { renderProgress(); return; }
+  if (drop === 'new' && hardCards().find(c => c.key === now).hs.length === 1) { renderProgress(); return; }
+  saveHardGroups([{ profile_id: S.session.user.id, hard_erg_id: id,
+                    combine_key: drop === 'new' ? 'u:' + newId() : drop }]);
 }
 
-// Its own id is a key no title can produce, so it stays on a card of its own.
-// Unless the card is already keyed on that id (others were combined into
-// it): then it is the rest that move, onto a key of their own.
-function separateHard(id) {
-  const c = hardCards().find(x => x.hs.some(h => h.id === id));
-  if (!c) return;
-  const me = S.session.user.id;
-  if (c.key !== id) { saveHardGroups([{ profile_id: me, hard_erg_id: id, combine_key: id }]); return; }
-  const rest = c.hs.filter(h => h.id !== id);
-  saveHardGroups(rest.map(h => ({ profile_id: me, hard_erg_id: h.id, combine_key: rest[0].id })));
+async function resetHardGroups() {
+  let res;
+  try { res = await sb.from('tracker_hard_erg_groups').delete().eq('profile_id', S.session.user.id); }
+  catch (e) {
+    if (!(e instanceof TypeError)) throw e;
+    res = { error: { message: e.message || 'Failed to fetch' } };
+  }
+  if (res.error) { toast('he-prog-msg', 'Could not reset: ' + esc(res.error.message), 'err'); return; }
+  HE.groups = {};
+  HEA.picked = null;
+  renderProgress();
 }
+
+// Dragging. A press only becomes a drag once it has moved a few pixels, so a
+// tap is still a tap; the click that follows a real drag is swallowed.
+function heDropAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  return el && el.closest ? el.closest('.hearr [data-drop]') : null;
+}
+document.addEventListener('pointerdown', e => {
+  const chip = e.target.closest && e.target.closest('.hearr .hechip');
+  if (!chip || e.button > 0) return;
+  HEA.drag = { id: chip.dataset.chip, chip, x: e.clientX, y: e.clientY, ghost: null, over: null };
+});
+document.addEventListener('pointermove', e => {
+  const d = HEA.drag;
+  if (!d) return;
+  if (!d.ghost) {
+    if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) return;
+    d.ghost = d.chip.cloneNode(true);
+    d.ghost.classList.add('hechip-ghost');
+    d.ghost.style.width = d.chip.offsetWidth + 'px';
+    document.body.appendChild(d.ghost);
+    d.chip.classList.add('dragging');
+  }
+  e.preventDefault();
+  d.ghost.style.left = (e.clientX - d.chip.offsetWidth / 2) + 'px';
+  d.ghost.style.top = (e.clientY - 18) + 'px';
+  const over = heDropAt(e.clientX, e.clientY);
+  if (over !== d.over) {
+    if (d.over) d.over.classList.remove('over');
+    if (over) over.classList.add('over');
+    d.over = over;
+  }
+});
+function heEndDrag(e, cancelled) {
+  const d = HEA.drag;
+  HEA.drag = null;
+  if (!d || !d.ghost) return;
+  d.ghost.remove();
+  d.chip.classList.remove('dragging');
+  if (d.over) d.over.classList.remove('over');
+  HEA.suppressClick = true;
+  setTimeout(() => { HEA.suppressClick = false; }, 0);
+  if (cancelled) return;
+  const target = heDropAt(e.clientX, e.clientY);
+  if (target) moveHard(d.id, target.dataset.drop);
+}
+document.addEventListener('pointerup', e => heEndDrag(e, false));
+document.addEventListener('pointercancel', e => heEndDrag(e, true));
 
 /* ---- tagging from the erg form ---- */
 function hardPickerHTML(date, sid, first) {
@@ -4555,30 +4616,9 @@ function hardBoxHTML(h, me, isAdmin) {
 // on <body>, so the squad panel can rebuild underneath it.
 const openHardForm = () => openModal('Set a hard erg', hardFormHTML(), 'he-title');
 
-// One option per piece already set, named by its latest title. The value is
-// the earliest hard erg of the group, which is what same_as points at.
-function hardLinkOptions() {
-  const auto = heAutoKeys(), seen = new Map();
-  HE.list.forEach(h => {          // newest first, so the first seen names the group
-    const k = auto[h.id];
-    if (!seen.has(k)) seen.set(k, { root: k.slice(2), title: h.title, n: 0, latest: h,
-                                    squad: (h.groups && h.groups.name) || 'Squad' });
-    seen.get(k).n++;
-  });
-  return [...seen.values()];
-}
-
 function hardFormHTML() {
   const mon = thisMonday();
-  const prev = hardLinkOptions();
   return '<div class="heform">' +
-    (prev.length ? '<label for="he-link">Same piece as (optional)</label>' +
-      '<select id="he-link"><option value="">A new piece</option>' +
-      prev.map(o => '<option value="' + o.root + '">' + esc(o.title) + ' · ' + esc(o.squad) + ' · ' +
-        (o.n > 1 ? o.n + ' times, last ' : '') + shortDate(o.latest.starts_on) + ' ' +
-        o.latest.starts_on.slice(0, 4) + '</option>').join('') + '</select>' +
-      '<div class="fhint">Links it to an earlier hard erg, so everyone’s Progress shows the attempts ' +
-      'side by side.</div>' : '') +
     '<label for="he-title">The piece</label>' +
     '<input type="text" id="he-title" maxlength="120" placeholder="e.g. 3 x 2k, 5 min rest">' +
     '<label for="he-notes">Notes (optional)</label>' +
@@ -4600,10 +4640,8 @@ async function saveHardErg() {
   if ((new Date(to + 'T12:00:00') - new Date(from + 'T12:00:00')) / 864e5 > 92) {
     toast('he-msg', 'A hard erg can run for three months at most.', 'warn'); return;
   }
-  const link = $('he-link') ? $('he-link').value || null : null;
   const row = { id: newId(), group_id: SQ.groupId, created_by: S.session.user.id,
-                title: title.slice(0, 120), notes: notes && notes.slice(0, 1000), starts_on: from, ends_on: to,
-                same_as: link };
+                title: title.slice(0, 120), notes: notes && notes.slice(0, 1000), starts_on: from, ends_on: to };
   const { error } = await insertRow('tracker_hard_ergs', row);
   if (error) { toast('he-msg', 'Could not save it: ' + esc(error.message), 'err'); return; }
   const sq = SQ.squads.find(x => x.id === SQ.groupId);
@@ -5385,16 +5423,6 @@ document.addEventListener('change', e => {
   // The progress controls are rebuilt with the panel, so they are wired by
   // delegation rather than by id at boot.
   if (e.target.id === 'prog-pick')   { PROG.ex = e.target.value; PROG.metric = ''; renderProgress(); return; }
-  // Picking an earlier piece fills the title in, if it is still empty.
-  if (e.target.id === 'he-link' && e.target.value && !$('he-title').value.trim()) {
-    const o = hardLinkOptions().find(x => x.root === e.target.value);
-    if (o) $('he-title').value = o.title;
-    return;
-  }
-  if (e.target.dataset && e.target.dataset.heCombine !== undefined && e.target.value) {
-    combineHard(e.target.dataset.heCombine, e.target.value);
-    return;
-  }
   // prog-metric and prog-weeks are buttons now; see the click handler.
 });
 
@@ -5557,8 +5585,18 @@ document.addEventListener('click', async e => {
   }
   const prng = e.target.closest('[data-prange]');
   if (prng) { PROG.weeks = prng.dataset.prange; renderProgress(); return; }
-  const hsep = e.target.closest('[data-he-sep]');
-  if (hsep) { separateHard(hsep.dataset.heSep); return; }
+  // ---- arranging hard ergs ----
+  const hea = e.target.closest('[data-hea]');
+  if (hea) { HEA.open = hea.dataset.hea === '1'; HEA.picked = null; renderProgress(); return; }
+  if (e.target.closest('.hearr')) {
+    if (HEA.suppressClick) return;           // the tail of a drag, already handled
+    if (e.target.id === 'hea-reset') { resetHardGroups(); return; }
+    const chip = e.target.closest('[data-chip]');
+    if (chip) { HEA.picked = HEA.picked === chip.dataset.chip ? null : chip.dataset.chip; renderProgress(); return; }
+    const drop = e.target.closest('[data-drop]');
+    if (drop && HEA.picked) { moveHard(HEA.picked, drop.dataset.drop); return; }
+    return;
+  }
   const ry = e.target.closest('[data-ryear]');
   if (ry) {
     if (RC.year !== ry.dataset.ryear) { RC.year = ry.dataset.ryear; RC.limit = 30; renderRaces(); }

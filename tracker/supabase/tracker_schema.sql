@@ -620,12 +620,12 @@ create index if not exists tracker_hard_ergs_group_idx
 -- Set when the final ranking is saved (see tracker_freeze_hard_ergs). Only
 -- that definer function writes it: there is no UPDATE policy on this table.
 alter table public.tracker_hard_ergs add column if not exists frozen_at timestamptz;
--- "Same piece as" an earlier hard erg, chosen by whoever sets it, so the
--- squad's Progress cards combine them without each athlete doing it. Points
--- at the earliest of the set (the app resolves that), so there is no chain
--- to walk and deleting one link breaks only that link.
-alter table public.tracker_hard_ergs
-  add column if not exists same_as uuid references public.tracker_hard_ergs on delete set null;
+-- A squad-wide "same piece as" link lived here briefly (2026-10-15) and was
+-- dropped the same day: which hard ergs count as one piece is each
+-- athlete's call, in tracker_hard_erg_groups. Dropped before the policy
+-- below is recreated without it.
+drop policy if exists "members set hard ergs" on public.tracker_hard_ergs;
+alter table public.tracker_hard_ergs drop column if exists same_as;
 
 create table if not exists public.tracker_hard_erg_entries (
   hard_erg_id    uuid        not null references public.tracker_hard_ergs    on delete cascade,
@@ -646,13 +646,7 @@ create policy "squad reads hard ergs" on public.tracker_hard_ergs
 
 drop policy if exists "members set hard ergs" on public.tracker_hard_ergs;
 create policy "members set hard ergs" on public.tracker_hard_ergs
-  for insert with check (
-    created_by = auth.uid() and public.is_group_member(group_id)
-    -- a link only to a hard erg you can see, never a guessed id
-    and (same_as is null or exists (
-      select 1 from public.tracker_hard_ergs p
-      where p.id = same_as and public.is_group_member(p.group_id)))
-  );
+  for insert with check (created_by = auth.uid() and public.is_group_member(group_id));
 
 -- No UPDATE policy: nothing in the app edits a hard erg once set, and one
 -- would let a setter clear frozen_at and reopen a final ranking.
@@ -683,10 +677,9 @@ create policy "own hard erg tags" on public.tracker_hard_erg_entries
   );
 
 -- Which hard ergs an athlete counts as the same piece on Progress. With no
--- row, hard ergs combine by matching title or a setter's same_as link; a
--- row overrides that for this
--- athlete only - combine_key is another card's key to merge into, or the
--- hard erg's own id to keep it apart. Personal and owner-only: one athlete
+-- row, hard ergs combine by matching title; a row overrides that for this
+-- athlete only - combine_key is the key of the group it was dragged into,
+-- or a fresh one of its own to keep it apart. Personal and owner-only: one athlete
 -- combining "2k test" with "2K TT" changes nothing for anyone else.
 create table if not exists public.tracker_hard_erg_groups (
   profile_id  uuid not null default auth.uid() references public.profiles          on delete cascade,
