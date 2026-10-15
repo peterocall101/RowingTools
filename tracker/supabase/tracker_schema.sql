@@ -1675,6 +1675,11 @@ select
 from activity a
 left join public.profiles p on p.id = a.profile_id
 left join auth.users     u on u.id = a.profile_id
+-- Peter's own and test accounts, so the numbers are real users only.
+where lower(coalesce(u.email, '')) not in (
+  'ocallaghanpeter10@gmail.com', 'ocallaghanpeter11@gmail.com',
+  'peter@condit.co.uk', 'hello@condit.co.uk'
+)
 group by 1, 2, 3, 4;
 
 revoke all on admin.tracker_daily_usage from public, anon, authenticated;
