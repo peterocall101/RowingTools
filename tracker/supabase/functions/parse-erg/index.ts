@@ -129,7 +129,8 @@ const ERG_TOOL: Anthropic.Tool = {
       },
       total_time_s: {
         type: "number",
-        description: "Total elapsed time in seconds, e.g. 7:12.3 -> 432.3.",
+        description:
+          "Total WORK time in seconds from the headline row, e.g. 7:12.3 -> 432.3. Never the running clock in the top corner, which includes rest.",
       },
       distance_m: { type: "integer", description: "Total distance in metres." },
       avg_split_s: {
@@ -189,6 +190,13 @@ answer. Identify both before you transcribe anything:
 2. THE BREAKDOWN - the table underneath, one row per interval or split, usually numbered or
    time-stamped down the left.
    -> The breakdown populates ONLY the \`intervals\` array.
+
+THE TOTAL TIME ALWAYS COMES FROM THE HEADLINE ROW. On interval pieces the PM5 also shows a
+running clock in the top corner of the screen, and that clock includes the rest periods, so it
+is larger than the headline time. It is never the session's total_time_s - ignore it, even when
+it is the largest or clearest time on the screen. If the two differ, that is expected rather
+than a problem: do not try to reconcile them, and add exactly this one warning, worded exactly
+so: "Total time is the work time from the headline row; the clock in the corner includes rest."
 
 Never let the two cross over. The headline is NOT an interval - putting it in \`intervals\` is
 the most damaging mistake you can make here, because it double counts the entire piece. Equally,
