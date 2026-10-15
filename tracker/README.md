@@ -804,11 +804,14 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
 
 Real, and deliberately not built yet - none of them risks data, but they will bite operationally:
 
-- **Partial member management.** Removing someone (`tracker_admin_remove_member`) and re-issuing a
-  join code (`tracker_rotate_code`) are done. Still missing: **promoting** a member. So a squad
-  whose only admin leaves can never have another, and `tracker_leave_group` does not check whether
-  you are the last admin. The fix is `tracker_set_role`, `SECURITY DEFINER` and gated on
-  `is_group_admin()`, plus a last-admin guard on leaving.
+- **Partial member management.** Removing someone (`tracker_admin_remove_member`), re-issuing a
+  join code (`tracker_rotate_code`) and the last-admin guard (2026-10-15) are done. The only admin
+  of a squad with other people in it cannot leave without naming a new admin:
+  `tracker_leave_group(p_group, p_new_admin)` promotes them and leaves in one call, and refuses
+  without one. The last member is offered `tracker_delete_group` instead, or can leave and keep
+  the squad, in which case `tracker_join_group` makes the next person to join its admin. The
+  schema also promoted the longest-standing member of any squad already left without an admin.
+  Still missing: **promoting** a member while you stay (`tracker_set_role`).
 - **Join codes are a brute-forceable online oracle, and now they let you straight onto a board.**
   31 characters over 6 positions is about 29.5 bits, and `tracker_join_group` has no rate limit,
   lockout or expiry, and joins silently with no approval step. Sharing-follows-membership raises the
@@ -865,4 +868,4 @@ edits go straight to `update` and are not queued.
   would be an Edge Function against the Brevo account already used for the results newsletter,
   which needs an API key as a Supabase secret, a verified sender, and a rate limit so the endpoint
   cannot be turned into a spam relay.
-- Promoting a squad member, and a last-admin guard on leaving.
+- Promoting a squad member without leaving.

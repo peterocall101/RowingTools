@@ -855,8 +855,15 @@ begin
   -- The bare form catches any unique violation, and the only unique
   -- constraint on either table is its primary key, so it means exactly
   -- the same thing without naming a column plpgsql can capture.
+  -- A squad whose last member left without deleting it has no admin. The
+  -- first person back in takes it on, so it can be run again.
+  perform 1 from public.groups g where g.id = v_id for update;
   insert into public.group_members (group_id, profile_id, role, accepted_at)
-  values (v_id, auth.uid(), 'member', now())
+  values (v_id, auth.uid(),
+          case when exists (select 1 from public.group_members gm
+                             where gm.group_id = v_id and gm.role = 'admin')
+               then 'member' else 'admin' end,
+          now())
   on conflict do nothing;
 
   insert into public.tracker_sharing (profile_id, group_id)
@@ -872,13 +879,47 @@ $$;
 -- membership, so the next call to tracker_squad_board() cannot see you
 -- at all. Nothing of yours was ever copied into the squad, so there is
 -- nothing left behind to clean up.
-create or replace function public.tracker_leave_group(p_group uuid)
+--
+-- The last admin cannot leave a squad that still has people in it
+-- without handing admin on (p_new_admin), or nobody could ever run it
+-- again. The hand-over and the leave are one call, so there is no moment
+-- with two admins or none. The last member of all can just go; the app
+-- offers tracker_delete_group instead.
+drop function if exists public.tracker_leave_group(uuid);
+create or replace function public.tracker_leave_group(p_group uuid, p_new_admin uuid default null)
 returns void language plpgsql volatile security definer set search_path = public, pg_temp as $$
+declare
+  v_role   text;
+  v_others int;
+  v_admins int;
 begin
   -- With a null auth.uid() both deletes match nothing anyway, but a
   -- SECURITY DEFINER function should never rely on that for its safety.
   if auth.uid() is null then
     raise exception 'Not signed in';
+  end if;
+  -- One leave at a time per squad, or two admins leaving together could
+  -- each count the other and both go.
+  perform 1 from public.groups where id = p_group for update;
+  select gm.role into v_role from public.group_members gm
+   where gm.group_id = p_group and gm.profile_id = auth.uid();
+  if v_role is null then
+    raise exception 'You are not in this squad';
+  end if;
+  if v_role = 'admin' then
+    select count(*), count(*) filter (where gm.role = 'admin') into v_others, v_admins
+      from public.group_members gm
+     where gm.group_id = p_group and gm.profile_id <> auth.uid();
+    if v_others > 0 and v_admins = 0 then
+      if p_new_admin is null then
+        raise exception 'You are the only admin. Make someone else admin before you leave';
+      end if;
+      update public.group_members set role = 'admin'
+       where group_id = p_group and profile_id = p_new_admin and profile_id <> auth.uid();
+      if not found then
+        raise exception 'That person is not in this squad';
+      end if;
+    end if;
   end if;
   delete from public.tracker_sharing
    where profile_id = auth.uid() and group_id = p_group;
@@ -890,6 +931,39 @@ begin
    where profile_id = auth.uid() and group_id = p_group;
 end;
 $$;
+
+-- ---- delete a squad (its last member, who is admin) ---------------
+-- Only offered when you are the only one left, so it never takes a
+-- board, templates or hard ergs away from anyone else. Everything that
+-- belongs to the squad cascades off groups. Erg screens tagged only here
+-- lose their last tag and the app's sweepScreens deletes them.
+create or replace function public.tracker_delete_group(p_group uuid)
+returns void language plpgsql volatile security definer set search_path = public, pg_temp as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+  perform 1 from public.groups where id = p_group for update;
+  if not public.is_group_admin(p_group) then
+    raise exception 'Only a squad admin can delete it';
+  end if;
+  if exists (select 1 from public.group_members
+              where group_id = p_group and profile_id <> auth.uid()) then
+    raise exception 'Other people are still in this squad';
+  end if;
+  delete from public.groups where id = p_group;
+end;
+$$;
+
+-- Squads stranded with members but no admin, from before the guard on
+-- leaving: the longest-standing member takes it on. A no-op once none are left.
+update public.group_members gm set role = 'admin'
+ where (gm.group_id, gm.profile_id) in (
+   select distinct on (m.group_id) m.group_id, m.profile_id
+     from public.group_members m
+    where not exists (select 1 from public.group_members a
+                       where a.group_id = m.group_id and a.role = 'admin')
+    order by m.group_id, m.joined_at, m.profile_id);
 
 -- ---- remove someone from a squad (admin only) --------------------
 -- The admin is whoever created the squad. group_members has no DELETE
@@ -1596,7 +1670,8 @@ create policy "erg screens: delete own" on storage.objects
 -- all four.
 revoke execute on function public.tracker_create_group(text)       from public, anon;
 revoke execute on function public.tracker_join_group(text)         from public, anon;
-revoke execute on function public.tracker_leave_group(uuid)        from public, anon;
+revoke execute on function public.tracker_leave_group(uuid, uuid)  from public, anon;
+revoke execute on function public.tracker_delete_group(uuid)       from public, anon;
 revoke execute on function public.tracker_admin_remove_member(uuid, uuid) from public, anon;
 revoke execute on function public.tracker_rotate_code(uuid)       from public, anon;
 revoke execute on function public.tracker_new_join_code()         from public, anon;
@@ -1610,7 +1685,8 @@ revoke execute on function public.tracker_freeze_hard_ergs()       from public, 
 
 grant execute on function public.tracker_create_group(text)        to authenticated, service_role;
 grant execute on function public.tracker_join_group(text)          to authenticated, service_role;
-grant execute on function public.tracker_leave_group(uuid)         to authenticated, service_role;
+grant execute on function public.tracker_leave_group(uuid, uuid)   to authenticated, service_role;
+grant execute on function public.tracker_delete_group(uuid)        to authenticated, service_role;
 grant execute on function public.tracker_admin_remove_member(uuid, uuid) to authenticated, service_role;
 grant execute on function public.tracker_rotate_code(uuid)         to authenticated, service_role;
 -- tracker_new_join_code stays service_role only: it is an implementation
@@ -1856,7 +1932,8 @@ select section, item, result from (
     select 'is_group_member(uuid)' as item, to_regprocedure('public.is_group_member(uuid)') is not null as present
     union all select 'tracker_create_group(text)', to_regprocedure('public.tracker_create_group(text)') is not null
     union all select 'tracker_join_group(text)',   to_regprocedure('public.tracker_join_group(text)') is not null
-    union all select 'tracker_leave_group(uuid)',  to_regprocedure('public.tracker_leave_group(uuid)') is not null
+    union all select 'tracker_leave_group(uuid,uuid)', to_regprocedure('public.tracker_leave_group(uuid,uuid)') is not null
+    union all select 'tracker_delete_group(uuid)', to_regprocedure('public.tracker_delete_group(uuid)') is not null
     union all select 'tracker_admin_remove_member(uuid,uuid)', to_regprocedure('public.tracker_admin_remove_member(uuid,uuid)') is not null
     union all select 'tracker_rotate_code(uuid)',  to_regprocedure('public.tracker_rotate_code(uuid)') is not null
     union all select 'tracker_new_join_code()',    to_regprocedure('public.tracker_new_join_code()') is not null
@@ -1891,7 +1968,7 @@ select section, item, result from (
                       'tracker_leave_group','tracker_squad_board','tracker_hard_erg_board',
                       'tracker_can_see_screen','tracker_board_rows','tracker_snapshot_week',
                       'tracker_hard_erg_rows','tracker_freeze_hard_ergs',
-                      'tracker_admin_remove_member','tracker_rotate_code',
+                      'tracker_admin_remove_member','tracker_rotate_code','tracker_delete_group',
                       'tracker_new_join_code')
 
   -- 4b. Past weeks: how many are saved, and whether the weekly job exists.

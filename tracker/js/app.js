@@ -150,6 +150,32 @@ function toast(holderId, msg, cls) {
   if (el) el.innerHTML = '<div class="toast ' + (cls || '') + '">' + msg + '</div>';
 }
 
+// A full-screen popup over the page, for a form too big for the panel it
+// belongs to. Lives on <body>, so the panel can rebuild underneath it. One
+// at a time; its buttons are wired by the document click handler.
+function openModal(title, html, focusId) {
+  closeModal();
+  const box = document.createElement('div');
+  box.className = 'modal';
+  box.id = 'modal';
+  box.innerHTML = '<div class="modal-in" role="dialog" aria-modal="true" aria-labelledby="modal-h">' +
+    '<div class="modal-head"><h3 id="modal-h">' + esc(title) + '</h3>' +
+    '<button class="ghost modal-x" aria-label="Close">✕</button></div>' + html + '</div>';
+  // a click on the backdrop, not a drag that started in the form and ended outside
+  box.addEventListener('mousedown', e => { box.dataset.down = e.target === box ? '1' : ''; });
+  box.addEventListener('click', e => { if (e.target === box && box.dataset.down) closeModal(); });
+  box.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+  document.body.appendChild(box);
+  document.body.classList.add('modal-open');
+  const f = focusId ? $(focusId) : box.querySelector('.modal-x');
+  if (f) f.focus();
+}
+function closeModal() {
+  const m = $('modal');
+  if (m) m.remove();
+  document.body.classList.remove('modal-open');
+}
+
 function track(event, params) { if (typeof gtag === 'function') gtag('event', event, params || {}); }
 
 // Usage log (tracker_app_events): app opens and tab views, nothing else.
@@ -4527,28 +4553,7 @@ function hardBoxHTML(h, me, isAdmin) {
 
 // Full screen, over the page, rather than squeezed into the column. Lives
 // on <body>, so the squad panel can rebuild underneath it.
-function openHardForm() {
-  closeHardForm();
-  const box = document.createElement('div');
-  box.className = 'hemodal';
-  box.id = 'he-modal';
-  box.innerHTML = '<div class="hemodal-in" role="dialog" aria-modal="true" aria-labelledby="he-modal-h">' +
-    '<div class="hemodal-head"><h3 id="he-modal-h">Set a hard erg</h3>' +
-    '<button class="ghost" id="he-cancel" aria-label="Close">✕</button></div>' +
-    hardFormHTML() + '</div>';
-  // a click on the backdrop, not a drag that started in the form and ended outside
-  box.addEventListener('mousedown', e => { box.dataset.down = e.target === box ? '1' : ''; });
-  box.addEventListener('click', e => { if (e.target === box && box.dataset.down) closeHardForm(); });
-  box.addEventListener('keydown', e => { if (e.key === 'Escape') closeHardForm(); });
-  document.body.appendChild(box);
-  document.body.classList.add('modal-open');
-  $('he-title').focus();
-}
-function closeHardForm() {
-  const m = $('he-modal');
-  if (m) m.remove();
-  document.body.classList.remove('modal-open');
-}
+const openHardForm = () => openModal('Set a hard erg', hardFormHTML(), 'he-title');
 
 // One option per piece already set, named by its latest title. The value is
 // the earliest hard erg of the group, which is what same_as points at.
@@ -4603,7 +4608,7 @@ async function saveHardErg() {
   if (error) { toast('he-msg', 'Could not save it: ' + esc(error.message), 'err'); return; }
   const sq = SQ.squads.find(x => x.id === SQ.groupId);
   HE.list.unshift(Object.assign({ groups: { name: sq ? sq.name : 'Squad' } }, row));
-  closeHardForm();
+  closeModal();
   SQ.hard = row.id;
   track('hard_erg_set', {});
   await loadHardBoard();
@@ -5129,15 +5134,74 @@ async function squadJoin() {
     '. Your totals are on their board from now on - leave the squad to take them off again.');
 }
 
+// The last admin cannot just walk out: with others still in the squad they
+// hand admin to one of them first, and alone they are offered deleting it.
+// tracker_leave_group enforces the first, so this is the friendly route to
+// what the server would insist on anyway.
 async function squadLeave() {
   const sq = SQ.squads.find(s => s.id === SQ.groupId);
   if (!sq) return;
+  const me = S.session.user.id;
+  const mine = (SQ.members || []).find(m => m.profile_id === me);
+  const others = (SQ.members || []).filter(m => m.profile_id !== me);
+  if (mine && mine.role === 'admin' && !others.length) { openModal('Leave ' + sq.name, leaveAloneHTML(sq)); return; }
+  if (mine && mine.role === 'admin' && !others.some(m => m.role === 'admin')) {
+    openModal('Leave ' + sq.name, leaveHandOverHTML(sq, others), 'lv-admin');
+    return;
+  }
   if (!confirm('Leave ' + sq.name + '?\n\nYour totals come off their board straight away and nobody in ' +
       'the squad can see anything of yours after that. Your own training log is untouched.')) return;
-  const { error } = await sb.rpc('tracker_leave_group', { p_group: SQ.groupId });
-  if (error) { toast('squad-msg', 'Could not leave: ' + esc(error.message), 'err'); return; }
+  await doLeave(sq, null);
+}
+
+function leaveHandOverHTML(sq, others) {
+  const names = {};
+  SQ.board.forEach(r => { names[r.profile_id] = r.display_name; });
+  const opts = others.map(m => ({ id: m.profile_id, name: names[m.profile_id] || 'Athlete' }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return '<div class="heform">' +
+    '<p class="inv-note">You are the only admin of ' + esc(sq.name) + '. Pick who runs it after you ' +
+      'leave: they can invite people, remove members and reset the invite link.</p>' +
+    '<label for="lv-admin">New admin</label>' +
+    '<select id="lv-admin"><option value="">Choose someone…</option>' +
+      opts.map(o => '<option value="' + o.id + '">' + esc(o.name) + '</option>').join('') + '</select>' +
+    '<p class="inv-note">Your totals come off the board straight away. Your own training log is untouched.</p>' +
+    '<button class="primary" id="lv-go">Make them admin and leave</button>' +
+    '<div id="lv-msg"></div></div>';
+}
+
+function leaveAloneHTML(sq) {
+  return '<div class="heform">' +
+    '<p class="inv-note">You are the only person left in ' + esc(sq.name) + '. Do you want to delete it?</p>' +
+    '<p class="inv-note">Deleting removes the squad with its board history, templates and hard ergs. ' +
+      'Your own training log is untouched either way.</p>' +
+    '<button class="primary" id="lv-del">Delete the squad</button>' +
+    '<button id="lv-keep" style="width:100%;height:38px;margin-top:8px">Leave, but keep the squad</button>' +
+    '<p class="inv-note">If you keep it, the invite link still works and whoever joins next becomes its admin.</p>' +
+    '<div id="lv-msg"></div></div>';
+}
+
+async function doLeave(sq, newAdmin) {
+  const { error } = await sb.rpc('tracker_leave_group', { p_group: sq.id, p_new_admin: newAdmin });
+  if (error) {
+    if ($('modal')) toast('lv-msg', 'Could not leave: ' + esc(error.message), 'err');
+    else toast('squad-msg', 'Could not leave: ' + esc(error.message), 'err');
+    return;
+  }
+  closeModal();
   SQ.loaded = false; SQ.groupId = null;
+  HE.loaded = false;        // its hard ergs go from Progress too
   await refreshSquad('Left ' + esc(sq.name) + '.');
+}
+
+async function squadDelete(sq) {
+  const { error } = await sb.rpc('tracker_delete_group', { p_group: sq.id });
+  if (error) { toast('lv-msg', 'Could not delete it: ' + esc(error.message), 'err'); return; }
+  closeModal();
+  track('squad_deleted', {});
+  SQ.loaded = false; SQ.groupId = null;
+  HE.loaded = false;
+  await refreshSquad('Deleted ' + esc(sq.name) + '.');
 }
 
 // Being in a squad is being on its board, so nothing calls this to opt out
@@ -5623,7 +5687,7 @@ document.addEventListener('click', async e => {
   }
   if (e.target.id === 'sq-settings') { SQ.settings = !SQ.settings; renderSquad(); return; }
   if (e.target.id === 'he-new') { openHardForm(); return; }
-  if (e.target.closest('#he-cancel')) { closeHardForm(); return; }
+  if (e.target.closest('.modal-x')) { closeModal(); return; }
   if (e.target.id === 'he-save') { saveHardErg(); return; }
   if (e.target.closest('#he-past')) { HE.pastOpen = !HE.pastOpen; renderSquad(); return; }
   const heDel = e.target.closest('[data-he-del]');
@@ -5669,6 +5733,18 @@ document.addEventListener('click', async e => {
   if (e.target.id === 'sq-create') { squadCreate(); return; }
   if (e.target.id === 'sq-join')   { squadJoin(); return; }
   if (e.target.id === 'sq-leave')  { squadLeave(); return; }
+  // The leave popup. The squad is read when the popup acts, not when it
+  // opened, and the popup only ever opens on the squad on screen.
+  if (e.target.id === 'lv-go' || e.target.id === 'lv-keep' || e.target.id === 'lv-del') {
+    const sq = SQ.squads.find(s => s.id === SQ.groupId);
+    if (!sq) { closeModal(); return; }
+    if (e.target.id === 'lv-del') { squadDelete(sq); return; }
+    if (e.target.id === 'lv-keep') { doLeave(sq, null); return; }
+    const pick = $('lv-admin').value;
+    if (!pick) { toast('lv-msg', 'Choose who takes over as admin.', 'warn'); return; }
+    doLeave(sq, pick);
+    return;
+  }
   if (e.target.id === 'sq-share-me') { squadToggleSharing(e.target.dataset.group); return; }
   if (e.target.id === 'sq-post')   { squadPostTemplate(); return; }
   if (e.target.id === 'sq-retry')  { SQ.loaded = false; refreshSquad(); return; }

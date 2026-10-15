@@ -210,7 +210,6 @@ Real, none of them urgent at ten users, all worth closing before a hundred. Writ
 `tracker/README.md` under **Known gaps in the squad model**:
 
 - Join codes have no rate limit, and joining now puts you straight onto a board.
-- A squad whose only admin leaves can never have another. No last-admin guard on leaving.
 - No way to promote a member to admin (`tracker_set_role`).
 - Server-sent invite emails. Invites currently open the sender's own mail app.
 - Concept2 Logbook OAuth sync. The `source` column on `tracker_erg_sessions` is ready for it.
