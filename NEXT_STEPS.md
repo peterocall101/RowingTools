@@ -204,6 +204,30 @@ recreating it and **`tracker_schema.sql` has to be re-run** for the board to wor
 
 ---
 
+## Future ideas (Peter, 2026-10-15)
+
+Not specced or scheduled. Noted with what each would need, so a session can start from here.
+
+- **Export your log as CSV.** One file per session type (weights as one row per set, erg, water,
+  other, core, races), built in the browser from the data the app has already loaded. No server
+  work and no running cost. Also answers "what if this site goes away", which matters when asking
+  a club to adopt it. The smallest of the three.
+- **Your name on the race leaderboards.** When someone claims a race, their display name (or a
+  chosen username) shows on that result on the public regatta leaderboard. This is the first
+  thing that makes tracker data **public**, so it has to be opt-in per athlete, off by default,
+  and revocable, with a terms line. The leaderboards are static pages built from
+  `data/all_results.json`, so names cannot be baked in at scrape time. The page would fetch them at
+  load from a definer function returning only (race_key, name) for opted-in claims. Also needs a
+  username column with its own uniqueness and length rules, since display names are not unique and
+  may be a full name someone does not want public.
+- **Following.** Deferred once already (`tracker/README.md`: a follow graph is a second set of
+  visibility rules on top of squads). Cheapest shape if it comes back: follow is one-way, shows only
+  what is already public (claimed races under the opt-in above, maybe hard erg results), and needs
+  no new RLS on any `tracker_*` table. Build it after the leaderboard names, because that is what
+  gives a follower something to see.
+
+---
+
 ## Below the line
 
 Real, none of them urgent at ten users, all worth closing before a hundred. Written up properly in

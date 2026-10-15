@@ -4179,9 +4179,9 @@ async function sweepScreens() {
 
 // The screen, full size, over the page. A signed URL rather than a public
 // one: the bucket is private and the link dies in an hour.
-async function openScreen(path) {
+async function openScreen(path, msgId) {
   const { data, error } = await sb.storage.from(SCREEN_BUCKET).createSignedUrl(path, 3600);
-  if (error || !data) { toast('squad-msg', 'Could not open that erg screen.', 'err'); return; }
+  if (error || !data) { toast(msgId || 'squad-msg', 'Could not open that erg screen.', 'err'); return; }
   const box = document.createElement('div');
   box.className = 'shotbox';
   box.innerHTML = '<button class="shot-x" aria-label="Close">\u2715</button>' +
@@ -4298,9 +4298,12 @@ function hardCardHTML(c) {
       tileHTML('Attempts', String(c.attempts.length), 'set ' + plural(c.hs.length, 'time')) +
     '</div>' : '';
 
+  // The monitor photo, where you chose to keep one when logging the attempt.
+  const shots = c.attempts.some(a => a.s.screen_path);
   const table = c.attempts.length ? '<div class="dtbl-wrap"><table class="dtbl prog-tbl">' +
     '<thead><tr><th>Date</th><th class="n">Split</th><th class="n">Change</th>' +
-    '<th class="n">Time</th><th class="n">Distance</th></tr></thead><tbody>' +
+    '<th class="n">Time</th><th class="n">Distance</th>' + (shots ? '<th>Screen</th>' : '') +
+    '</tr></thead><tbody>' +
     c.attempts.map((a, i) => {
       const before = c.attempts.slice(i + 1).find(x => x.split != null);
       const d = a.split != null && before ? round1(before.split - a.split) : null;
@@ -4309,7 +4312,10 @@ function hardCardHTML(c) {
         '<td class="n">' + (d === null || d === 0 ? '<span class="na">–</span>'
           : '<span class="delta ' + (d > 0 ? 'up' : 'down') + '">' + (d > 0 ? '-' : '+') + Math.abs(d) + 's</span>') + '</td>' +
         '<td class="n">' + (a.s.total_time_s ? fmtTime(a.s.total_time_s) : '<span class="na">–</span>') + '</td>' +
-        '<td class="n">' + (a.s.distance_m ? a.s.distance_m + 'm' : '<span class="na">–</span>') + '</td></tr>';
+        '<td class="n">' + (a.s.distance_m ? a.s.distance_m + 'm' : '<span class="na">–</span>') + '</td>' +
+        (shots ? '<td>' + (a.s.screen_path
+          ? '<button class="blink" data-he-screen="' + esc(a.s.screen_path) + '">view</button>'
+          : '<span class="na">–</span>') + '</td>' : '') + '</tr>';
     }).join('') + '</tbody></table></div>'
     : '<p class="he-empty">No attempts tagged. Tag an erg session to it from the Board tab, ' +
       'or while logging it on the Erg tab.</p>';
@@ -5738,7 +5744,8 @@ document.addEventListener('click', async e => {
     return;
   }
   const heScr = e.target.closest('[data-he-screen]');
-  if (heScr) { openScreen(heScr.dataset.heScreen); return; }
+  // From the Board, or from a hard erg card on Progress.
+  if (heScr) { openScreen(heScr.dataset.heScreen, heScr.closest('#p-prog') ? 'he-prog-msg' : 'squad-msg'); return; }
   const heUn = e.target.closest('[data-he-untag]');
   if (heUn) {
     const err = await dropHardTag(heUn.dataset.heUntag, heUn.dataset.sid);
