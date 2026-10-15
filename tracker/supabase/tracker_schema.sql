@@ -1597,6 +1597,90 @@ grant execute on function public.tracker_freeze_hard_ergs()        to service_ro
 
 
 -- ================================================================
+-- USAGE LOG - which features people actually open.
+--
+-- The app writes one row when it is opened (or brought back after 30
+-- minutes in the background) and one per tab tapped. Nothing else: no
+-- page content, no device, no IP. Sample mode writes nothing.
+--
+-- Write-only for users: an insert policy and NO select policy, so the
+-- log is readable only from the SQL editor / service role.
+-- ================================================================
+create table if not exists public.tracker_app_events (
+  id         bigint      generated always as identity primary key,
+  profile_id uuid        not null default auth.uid() references public.profiles on delete cascade,
+  at         timestamptz not null default now(),
+  kind       text        not null check (kind in ('open', 'tab')),
+  detail     text        check (detail is null or length(detail) <= 40)
+);
+create index if not exists tracker_app_events_at_idx
+  on public.tracker_app_events (at desc);
+create index if not exists tracker_app_events_profile_at_idx
+  on public.tracker_app_events (profile_id, at desc);
+
+alter table public.tracker_app_events enable row level security;
+drop policy if exists "log own usage" on public.tracker_app_events;
+create policy "log own usage" on public.tracker_app_events
+  for insert to authenticated with check (profile_id = auth.uid());
+revoke all on public.tracker_app_events from anon;
+revoke all on public.tracker_app_events from authenticated;
+grant insert (profile_id, kind, detail) on public.tracker_app_events to authenticated;
+
+-- One row per athlete per UK day. Lives in its own schema, which the
+-- REST API does not expose, because it reads auth.users (emails) and
+-- the auth audit log. Query it from the SQL editor:
+--   select * from admin.tracker_daily_usage where day >= current_date - 14;
+-- "logins" counts actual sign-ins; most opens reuse a saved session, so
+-- "opens" is the better measure of how often someone uses it.
+create schema if not exists admin;
+revoke all on schema admin from public, anon, authenticated;
+
+create or replace view admin.tracker_daily_usage as
+with activity as (
+  select profile_id, at, case kind when 'open' then 'open' else 'tab:' || coalesce(detail, '?') end as what
+    from public.tracker_app_events
+  union all
+  select (payload->>'actor_id')::uuid, created_at, 'login'
+    from auth.audit_log_entries
+   where payload->>'action' = 'login' and public.tracker_is_uuid(payload->>'actor_id')
+  union all select profile_id, created_at, 'save:weights'      from public.tracker_workouts
+  union all select profile_id, created_at, 'save:erg_' || source from public.tracker_erg_sessions
+  union all select profile_id, created_at, 'save:water'        from public.tracker_water_sessions
+  union all select profile_id, created_at, 'save:cardio'       from public.tracker_cardio_sessions
+  union all select profile_id, created_at, 'save:core'         from public.tracker_core_sessions
+  union all select profile_id, created_at, 'save:race'         from public.tracker_races
+  union all select profile_id, created_at, 'photo_parse'       from public.tracker_erg_parses
+  union all select profile_id, created_at, 'save:hard_erg'     from public.tracker_hard_erg_entries
+)
+select
+  (a.at at time zone 'Europe/London')::date                         as day,
+  a.profile_id,
+  coalesce(p.display_name, u.email)                                 as athlete,
+  u.email,
+  count(*) filter (where a.what = 'login')                          as logins,
+  count(*) filter (where a.what = 'open')                           as opens,
+  count(*) filter (where a.what like 'tab:%')                       as tab_views,
+  string_agg(distinct substr(a.what, 7), ', ' order by substr(a.what, 7))
+    filter (where a.what like 'tab:p-%')                            as tabs_viewed,
+  count(*) filter (where a.what like 'save:%')                      as saves,
+  count(*) filter (where a.what like 'save:erg_%')                  as erg_saves,
+  count(*) filter (where a.what = 'save:erg_photo')                 as erg_from_photo,
+  count(*) filter (where a.what = 'photo_parse')                    as photo_parses,
+  count(*) filter (where a.what = 'save:weights')                   as weights_saves,
+  count(*) filter (where a.what in ('save:water', 'save:cardio', 'save:core')) as other_saves,
+  count(*) filter (where a.what = 'save:race')                      as races_claimed,
+  count(*) filter (where a.what = 'save:hard_erg')                  as hard_erg_entries,
+  min(a.at)                                                         as first_seen,
+  max(a.at)                                                         as last_seen
+from activity a
+left join public.profiles p on p.id = a.profile_id
+left join auth.users     u on u.id = a.profile_id
+group by 1, 2, 3, 4;
+
+revoke all on admin.tracker_daily_usage from public, anon, authenticated;
+
+
+-- ================================================================
 -- PART 4 - profiles column grants. READ BEFORE RUNNING.
 --
 -- RLS cannot express "every column except these two", so the blanket
@@ -1686,7 +1770,7 @@ select section, item, result from (
                ('groups'), ('group_members'), ('tracker_sharing'),
                ('tracker_shared_templates'), ('tracker_hard_ergs'),
                ('tracker_hard_erg_entries'), ('tracker_board_weeks'),
-               ('tracker_hard_erg_results')) as t(tbl)
+               ('tracker_hard_erg_results'), ('tracker_app_events')) as t(tbl)
 
   -- 3. Every column the app writes.
   union all

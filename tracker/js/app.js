@@ -22,7 +22,7 @@ const S = {
 const PATTERN_ORDER = ['squat', 'pull', 'hinge', 'push', 'legs', 'shoulders', 'arms', 'core', 'other'];
 // Date the wording in tracker/terms.html last changed. Stamped on the profile
 // at signup so a later change has something to compare against.
-const TERMS_VERSION = '2026-10-14';
+const TERMS_VERSION = '2026-10-15';
 
 /* ================= helpers ================= */
 const $ = id => document.getElementById(id);
@@ -151,6 +151,14 @@ function toast(holderId, msg, cls) {
 }
 
 function track(event, params) { if (typeof gtag === 'function') gtag('event', event, params || {}); }
+
+// Usage log (tracker_app_events): app opens and tab views, nothing else.
+// Fire and forget - a lost row costs a statistic, never the athlete's work,
+// so it does not go through the outbox and a failure is not reported.
+function logUse(kind, detail) {
+  if (S.trial || !S.session) return;
+  insertRow('tracker_app_events', { profile_id: S.session.user.id, kind, detail: detail || null });
+}
 
 function selectTab(panelId) {
   document.querySelectorAll('.tabs .tab').forEach(t => {
@@ -5560,6 +5568,7 @@ document.addEventListener('click', async e => {
   // Boot got here, so the fast signed-out redirect in index.html is free to
   // fire again next time.
   sessionStorage.removeItem('rt-bounced');
+  logUse('open');
 
   // Arrived on an invite link: open the tab that can act on it rather than
   // leaving the code sitting in storage with nothing to show for it.
@@ -5572,6 +5581,7 @@ document.addEventListener('click', async e => {
   document.querySelectorAll('.tabs .tab').forEach(tab => {
     tab.addEventListener('click', () => {
       selectTab(tab.dataset.panel);
+      logUse('tab', tab.dataset.panel);
       // the chart is sized in real pixels, so it can only be drawn once its
       // panel is on screen and has a width
       if (tab.dataset.panel === 'p-prog') renderProgress();
@@ -5665,6 +5675,13 @@ document.addEventListener('click', async e => {
   const flushDrafts = () => { clearTimeout(draftTimer); clearTimeout(ergDraftTimer); saveDraft(); saveErgDraft(); };
   window.addEventListener('beforeunload', flushDrafts);
   document.addEventListener('visibilitychange', () => { if (document.hidden) flushDrafts(); });
+  // An installed app is rarely reloaded - it sits in the background between
+  // sessions - so coming back after half an hour counts as another open.
+  let hiddenAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) hiddenAt = Date.now();
+    else if (hiddenAt && Date.now() - hiddenAt > 30 * 60 * 1000) logUse('open');
+  });
   window.addEventListener('online', () => flushOutbox(true));
 
   $('lx-save').onclick = saveLibExercise;
