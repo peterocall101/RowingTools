@@ -1684,6 +1684,35 @@ group by 1, 2, 3, 4;
 
 revoke all on admin.tracker_daily_usage from public, anon, authenticated;
 
+-- One row per squad member, every squad, admins first. A squad with no
+-- members left still shows, once, with the member columns null.
+-- Unlike the usage view, Peter's own accounts are kept: they are real
+-- members of real squads. Query it from the SQL editor:
+--   select * from admin.tracker_squad_members;
+create or replace view admin.tracker_squad_members as
+select
+  g.name                                                           as squad,
+  g.join_code,
+  g.created_at                                                     as squad_created,
+  count(gm.profile_id) over (partition by g.id)                    as squad_size,
+  coalesce(p.display_name, u.email)                                as member,
+  u.email,
+  gm.role,
+  gm.joined_at,
+  (ts.profile_id is not null)                                      as sharing,
+  (select max(e.at) from public.tracker_app_events e
+    where e.profile_id = gm.profile_id)                            as last_opened,
+  g.id                                                             as group_id,
+  gm.profile_id
+from public.groups g
+left join public.group_members   gm on gm.group_id = g.id
+left join public.profiles        p  on p.id = gm.profile_id
+left join auth.users             u  on u.id = gm.profile_id
+left join public.tracker_sharing ts on ts.group_id = g.id and ts.profile_id = gm.profile_id
+order by g.name, g.id, gm.role, gm.joined_at;
+
+revoke all on admin.tracker_squad_members from public, anon, authenticated;
+
 
 -- ================================================================
 -- PART 4 - profiles column grants. READ BEFORE RUNNING.
