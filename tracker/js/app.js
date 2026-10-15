@@ -2301,6 +2301,7 @@ const PROG_MODES = [
   { k: 'all',     label: 'All cardio', combo: true },
   { k: 'weights', label: 'Weights', row: 1 },
   { k: 'core',    label: 'Core',    row: 1 },
+  { k: 'hard',    label: 'Hard ergs', row: 2 },
 ];
 
 const REP_METRICS = [
@@ -2641,7 +2642,7 @@ function progControlsHTML() {
         metricToggle(metrics, PROG.metric) +
         (all ? rangeToggle() : '');
     }
-  } else {
+  } else if (PROG.mode !== 'hard') {
     const metrics = weeklyMetrics(PROG.mode);
     if (!metrics.some(x => x.k === PROG.metric)) PROG.metric = metrics[0].k;
     rest = metricToggle(metrics, PROG.metric) + rangeToggle();
@@ -2654,6 +2655,7 @@ function renderProgress() {
   const body = $('prog-body'), ctl = $('prog-controls');
   if (!body || !ctl) return;
   ctl.innerHTML = progControlsHTML();
+  if (PROG.mode === 'hard') { renderProgHard(body); return; }
   if (PROG.mode !== 'weights') { renderProgWeekly(body); return; }
   if (PROG.ex === ALL_LIFTS) renderProgAllLifts(body);
   else renderProgWeights(body);
@@ -4106,7 +4108,7 @@ function fmtMetric(v, unit) {
    rank on it, fastest average split first. A tag is the athlete choosing to
    show that one session's split, time and distance; nothing untagged is read,
    and never its date or notes (see tracker_hard_erg_board in the schema). */
-const HE = { list: [], tags: [], loaded: false, error: null, board: [], boardError: null, adding: false,
+const HE = { list: [], tags: [], groups: {}, loaded: false, error: null, board: [], boardError: null,
              pastOpen: false };
 
 /* ---- erg screens ----
@@ -4184,6 +4186,10 @@ async function loadHardErgs() {
   HE.loaded = !HE.error;
   HE.list = h.error ? [] : (h.data || []);
   HE.tags = t.error ? [] : (t.data || []);
+  // Separate and quieter: without this table Progress just combines by title.
+  const g = await sb.from('tracker_hard_erg_groups').select('hard_erg_id, combine_key');
+  HE.groups = {};
+  (g.error ? [] : (g.data || [])).forEach(r => { HE.groups[r.hard_erg_id] = r.combine_key; });
   if (HE.loaded) await sweepScreens();
 }
 
@@ -4192,6 +4198,182 @@ async function loadHardBoard() {
   const { data, error } = await sb.rpc('tracker_hard_erg_board', { p_hard_erg: SQ.hard });
   HE.board = error ? [] : (data || []);
   HE.boardError = error ? error.message : null;
+}
+
+/* ---- hard ergs on Progress ----
+   One card per piece, with every attempt you tagged at it. A squad that sets
+   "2k test" each term creates a new hard erg each time, so cards combine hard
+   ergs that match by title, or that the setter marked "same piece as" an
+   earlier one (same_as). That can still be wrong ("Erg of the week" meaning
+   a different piece every week), so each athlete can combine or separate
+   cards; the choice is theirs alone and lives in tracker_hard_erg_groups. */
+const heTitleKey = h => h.title.trim().toLowerCase().replace(/\s+/g, ' ');
+
+// The automatic grouping: title matches and setters' links, joined up, each
+// group keyed on its earliest hard erg so a newer one joining keeps the key.
+function heAutoKeys() {
+  const up = {};
+  const find = id => up[id] === id ? id : (up[id] = find(up[id]));
+  const join = (a, b) => { a = find(a); b = find(b); if (a !== b) up[b] = a; };
+  HE.list.forEach(h => { up[h.id] = h.id; });
+  const byTitle = {};
+  HE.list.forEach(h => {
+    const t = heTitleKey(h);
+    if (byTitle[t]) join(byTitle[t], h.id); else byTitle[t] = h.id;
+    if (h.same_as && up[h.same_as]) join(h.same_as, h.id);
+  });
+  const first = {};
+  HE.list.forEach(h => {
+    const r = find(h.id), f = first[r];
+    if (!f || h.starts_on < f.starts_on || (h.starts_on === f.starts_on && h.id < f.id)) first[r] = h;
+  });
+  const keys = {};
+  HE.list.forEach(h => { keys[h.id] = 'g:' + first[find(h.id)].id; });
+  return keys;
+}
+
+function hardCards() {
+  const auto = heAutoKeys();
+  const byKey = new Map();
+  HE.list.forEach(h => {
+    const k = HE.groups[h.id] || auto[h.id];
+    if (!byKey.has(k)) byKey.set(k, []);
+    byKey.get(k).push(h);
+  });
+  return [...byKey].map(([key, hs]) => {
+    hs.sort((a, b) => b.starts_on.localeCompare(a.starts_on));
+    // One session tagged to two of these (the same 2k, two squads) is one attempt.
+    const seen = new Set(), attempts = [];
+    hs.forEach(h => HE.tags.filter(t => t.hard_erg_id === h.id).forEach(t => {
+      const s = S.ergs.find(x => x.id === t.erg_session_id);
+      if (!s || seen.has(s.id)) return;
+      seen.add(s.id);
+      attempts.push({ s, split: ergSplit(s) });
+    }));
+    attempts.sort((a, b) => b.s.date.localeCompare(a.s.date));
+    return { key, hs, attempts };
+  }).sort((a, b) => b.hs[0].ends_on.localeCompare(a.hs[0].ends_on));
+}
+
+const heState = h => {
+  const today = todayISO();
+  return today < h.starts_on ? 'starts ' + shortDate(h.starts_on) : today > h.ends_on ? 'closed' : 'open';
+};
+
+function hardCardHTML(c, cards) {
+  const h0 = c.hs[0];
+  const squads = [...new Set(c.hs.map(h => (h.groups && h.groups.name) || 'Squad'))];
+  const timed = c.attempts.filter(a => a.split != null);
+  const best = timed.reduce((b, a) => (b && b.split <= a.split) ? b : a, null);
+  const latest = timed[0], prev = timed[1];
+  // Seconds faster than the attempt before. Lower split is better, so a
+  // positive number is the good direction.
+  const gain = latest && prev ? round1(prev.split - latest.split) : null;
+
+  const tiles = timed.length ? '<div class="prog-tiles">' +
+      tileHTML('Best', fmtTime(best.split), shortDate(best.s.date) + ' · /500m') +
+      tileHTML('Latest', fmtTime(latest.split),
+        gain == null ? shortDate(latest.s.date)
+          : gain === 0 ? 'level with the one before'
+          : (gain > 0 ? round1(gain) + 's faster' : round1(-gain) + 's slower') + ' than the one before',
+        !gain ? '' : gain > 0 ? 'up' : 'down') +
+      tileHTML('Attempts', String(c.attempts.length), 'set ' + plural(c.hs.length, 'time')) +
+    '</div>' : '';
+
+  const table = c.attempts.length ? '<div class="dtbl-wrap"><table class="dtbl prog-tbl">' +
+    '<thead><tr><th>Date</th><th class="n">Split</th><th class="n">Change</th>' +
+    '<th class="n">Time</th><th class="n">Distance</th></tr></thead><tbody>' +
+    c.attempts.map((a, i) => {
+      const before = c.attempts.slice(i + 1).find(x => x.split != null);
+      const d = a.split != null && before ? round1(before.split - a.split) : null;
+      return '<tr' + (a === best ? ' class="he-best"' : '') + '><td>' + shortDate(a.s.date) + '</td>' +
+        '<td class="n">' + (a.split != null ? fmtTime(a.split) : '<span class="na">–</span>') + '</td>' +
+        '<td class="n">' + (d === null || d === 0 ? '<span class="na">–</span>'
+          : '<span class="delta ' + (d > 0 ? 'up' : 'down') + '">' + (d > 0 ? '-' : '+') + Math.abs(d) + 's</span>') + '</td>' +
+        '<td class="n">' + (a.s.total_time_s ? fmtTime(a.s.total_time_s) : '<span class="na">–</span>') + '</td>' +
+        '<td class="n">' + (a.s.distance_m ? a.s.distance_m + 'm' : '<span class="na">–</span>') + '</td></tr>';
+    }).join('') + '</tbody></table></div>'
+    : '<p class="he-empty">No attempts tagged. Tag an erg session to it from the Board tab, ' +
+      'or while logging it on the Erg tab.</p>';
+
+  // Every time it was set, each with its own way out of this card.
+  const sets = c.hs.length > 1 ? '<div class="he-sets">' + c.hs.map(h =>
+    '<div><span>' + esc(h.title) + ' · ' + esc((h.groups && h.groups.name) || 'Squad') + ' · ' +
+      heWindow(h) + '</span> <button class="blink" data-he-sep="' + h.id + '">separate</button></div>').join('') +
+    '</div>' : '';
+
+  const others = cards.filter(o => o !== c);
+  const combine = others.length
+    ? '<select class="he-combine" data-he-combine="' + esc(c.key) + '" aria-label="Combine with another hard erg">' +
+      '<option value="">Same piece as…</option>' +
+      others.map(o => '<option value="' + esc(o.key) + '">' + esc(o.hs[0].title) + ' · ' +
+        shortDate(o.hs[0].starts_on) +
+        (o.hs.length > 1 ? ' (+' + (o.hs.length - 1) + ')' : '') + '</option>').join('') +
+      '</select>' : '';
+
+  return '<section class="hecard">' +
+    '<div class="prog-head"><h3 class="prog-title">' + esc(h0.title) + '</h3>' +
+    '<span class="prog-sub">' + esc(squads.join(', ')) + ' · ' +
+      (c.hs.length > 1 ? 'set ' + c.hs.length + ' times, latest ' : '') +
+      heWindow(h0) + ' · ' + heState(h0) + '</span></div>' +
+    tiles + table + sets + combine +
+  '</section>';
+}
+
+function renderProgHard(body) {
+  const head = '<div id="he-prog-msg"></div>';
+  if (S.trial) {
+    body.innerHTML = '<p class="empty">Hard ergs are set by a squad, so they need an account. ' +
+      'Once you are in a squad, every one it sets shows here with your attempts at it.</p>';
+    return;
+  }
+  if (HE.error) {
+    body.innerHTML = '<div class="toast err">Could not read hard ergs: ' + esc(HE.error) + '</div>';
+    return;
+  }
+  if (!HE.loaded) { body.innerHTML = '<p class="loading-app">Loading your hard ergs&hellip;</p>'; return; }
+  const cards = hardCards();
+  if (!cards.length) {
+    body.innerHTML = head + '<p class="empty">No hard ergs yet. When a squad you are in sets one, ' +
+      'it shows here with every attempt you tag at it.</p>';
+    return;
+  }
+  body.innerHTML = head + '<p class="chart-note">Hard ergs with the same title, or set as the same piece, ' +
+    'share a card. ' +
+    'Use “Same piece as” to combine others, or separate to split one out. Only you see this.</p>' +
+    cards.map(c => hardCardHTML(c, cards)).join('');
+}
+
+async function saveHardGroups(rows) {
+  let res;
+  try { res = await sb.from('tracker_hard_erg_groups').upsert(rows); }
+  catch (e) {
+    if (!(e instanceof TypeError)) throw e;
+    res = { error: { message: e.message || 'Failed to fetch' } };
+  }
+  if (res.error) { toast('he-prog-msg', 'Could not save that: ' + esc(res.error.message), 'err'); return; }
+  rows.forEach(r => { HE.groups[r.hard_erg_id] = r.combine_key; });
+  renderProgress();
+}
+
+// Everything on the card moves to the other card's key, so combining a card
+// that was itself combined takes all of it across.
+function combineHard(fromKey, toKey) {
+  const from = hardCards().find(c => c.key === fromKey);
+  if (!from || !toKey || toKey === fromKey) return;
+  saveHardGroups(from.hs.map(h => ({ profile_id: S.session.user.id, hard_erg_id: h.id, combine_key: toKey })));
+}
+
+// Its own id is a key no title can produce, so it stays on a card of its own.
+// Unless the card is already keyed on that id (others were combined into
+// it): then it is the rest that move, onto a key of their own.
+function separateHard(id) {
+  const c = hardCards().find(x => x.hs.some(h => h.id === id));
+  if (!c) return;
+  const me = S.session.user.id;
+  if (c.key !== id) { saveHardGroups([{ profile_id: me, hard_erg_id: id, combine_key: id }]); return; }
+  const rest = c.hs.filter(h => h.id !== id);
+  saveHardGroups(rest.map(h => ({ profile_id: me, hard_erg_id: h.id, combine_key: rest[0].id })));
 }
 
 /* ---- tagging from the erg form ---- */
@@ -4296,11 +4478,11 @@ function hardErgsHTML(isAdmin) {
   const past = hardPast();
   return '<aside class="hecol" aria-label="Hard ergs">' +
     '<div class="hecol-head"><h4>Hard ergs</h4>' +
-      '<button class="blink" id="he-new">' + (HE.adding ? 'cancel' : '+ add one') + '</button></div>' +
-    (HE.adding ? hardFormHTML() : '') +
+      '</div>' +
+    '<button class="he-new" id="he-new">+ Set a hard erg</button>' +
     (HE.error ? '<div class="toast err">Could not read hard ergs: ' + esc(HE.error) +
       '<br>If that mentions a missing table, run <b>tracker/supabase/tracker_schema.sql</b>.</div>' : '') +
-    (!list.length && !HE.adding && !HE.error
+    (!list.length && !HE.error
       ? '<p class="he-empty">No hard erg set. Add the piece of the week and the squad can rank on it.</p>' : '') +
     list.map(h => hardBoxHTML(h, me, isAdmin)).join('') +
     (past.length ? '<div class="hepast">' +
@@ -4343,9 +4525,55 @@ function hardBoxHTML(h, me, isAdmin) {
   '</div>';
 }
 
+// Full screen, over the page, rather than squeezed into the column. Lives
+// on <body>, so the squad panel can rebuild underneath it.
+function openHardForm() {
+  closeHardForm();
+  const box = document.createElement('div');
+  box.className = 'hemodal';
+  box.id = 'he-modal';
+  box.innerHTML = '<div class="hemodal-in" role="dialog" aria-modal="true" aria-labelledby="he-modal-h">' +
+    '<div class="hemodal-head"><h3 id="he-modal-h">Set a hard erg</h3>' +
+    '<button class="ghost" id="he-cancel" aria-label="Close">✕</button></div>' +
+    hardFormHTML() + '</div>';
+  // a click on the backdrop, not a drag that started in the form and ended outside
+  box.addEventListener('mousedown', e => { box.dataset.down = e.target === box ? '1' : ''; });
+  box.addEventListener('click', e => { if (e.target === box && box.dataset.down) closeHardForm(); });
+  box.addEventListener('keydown', e => { if (e.key === 'Escape') closeHardForm(); });
+  document.body.appendChild(box);
+  document.body.classList.add('modal-open');
+  $('he-title').focus();
+}
+function closeHardForm() {
+  const m = $('he-modal');
+  if (m) m.remove();
+  document.body.classList.remove('modal-open');
+}
+
+// One option per piece already set, named by its latest title. The value is
+// the earliest hard erg of the group, which is what same_as points at.
+function hardLinkOptions() {
+  const auto = heAutoKeys(), seen = new Map();
+  HE.list.forEach(h => {          // newest first, so the first seen names the group
+    const k = auto[h.id];
+    if (!seen.has(k)) seen.set(k, { root: k.slice(2), title: h.title, n: 0, latest: h,
+                                    squad: (h.groups && h.groups.name) || 'Squad' });
+    seen.get(k).n++;
+  });
+  return [...seen.values()];
+}
+
 function hardFormHTML() {
   const mon = thisMonday();
+  const prev = hardLinkOptions();
   return '<div class="heform">' +
+    (prev.length ? '<label for="he-link">Same piece as (optional)</label>' +
+      '<select id="he-link"><option value="">A new piece</option>' +
+      prev.map(o => '<option value="' + o.root + '">' + esc(o.title) + ' · ' + esc(o.squad) + ' · ' +
+        (o.n > 1 ? o.n + ' times, last ' : '') + shortDate(o.latest.starts_on) + ' ' +
+        o.latest.starts_on.slice(0, 4) + '</option>').join('') + '</select>' +
+      '<div class="fhint">Links it to an earlier hard erg, so everyone’s Progress shows the attempts ' +
+      'side by side.</div>' : '') +
     '<label for="he-title">The piece</label>' +
     '<input type="text" id="he-title" maxlength="120" placeholder="e.g. 3 x 2k, 5 min rest">' +
     '<label for="he-notes">Notes (optional)</label>' +
@@ -4367,13 +4595,15 @@ async function saveHardErg() {
   if ((new Date(to + 'T12:00:00') - new Date(from + 'T12:00:00')) / 864e5 > 92) {
     toast('he-msg', 'A hard erg can run for three months at most.', 'warn'); return;
   }
+  const link = $('he-link') ? $('he-link').value || null : null;
   const row = { id: newId(), group_id: SQ.groupId, created_by: S.session.user.id,
-                title: title.slice(0, 120), notes: notes && notes.slice(0, 1000), starts_on: from, ends_on: to };
+                title: title.slice(0, 120), notes: notes && notes.slice(0, 1000), starts_on: from, ends_on: to,
+                same_as: link };
   const { error } = await insertRow('tracker_hard_ergs', row);
   if (error) { toast('he-msg', 'Could not save it: ' + esc(error.message), 'err'); return; }
   const sq = SQ.squads.find(x => x.id === SQ.groupId);
   HE.list.unshift(Object.assign({ groups: { name: sq ? sq.name : 'Squad' } }, row));
-  HE.adding = false;
+  closeHardForm();
   SQ.hard = row.id;
   track('hard_erg_set', {});
   await loadHardBoard();
@@ -5091,6 +5321,16 @@ document.addEventListener('change', e => {
   // The progress controls are rebuilt with the panel, so they are wired by
   // delegation rather than by id at boot.
   if (e.target.id === 'prog-pick')   { PROG.ex = e.target.value; PROG.metric = ''; renderProgress(); return; }
+  // Picking an earlier piece fills the title in, if it is still empty.
+  if (e.target.id === 'he-link' && e.target.value && !$('he-title').value.trim()) {
+    const o = hardLinkOptions().find(x => x.root === e.target.value);
+    if (o) $('he-title').value = o.title;
+    return;
+  }
+  if (e.target.dataset && e.target.dataset.heCombine !== undefined && e.target.value) {
+    combineHard(e.target.dataset.heCombine, e.target.value);
+    return;
+  }
   // prog-metric and prog-weeks are buttons now; see the click handler.
 });
 
@@ -5253,6 +5493,8 @@ document.addEventListener('click', async e => {
   }
   const prng = e.target.closest('[data-prange]');
   if (prng) { PROG.weeks = prng.dataset.prange; renderProgress(); return; }
+  const hsep = e.target.closest('[data-he-sep]');
+  if (hsep) { separateHard(hsep.dataset.heSep); return; }
   const ry = e.target.closest('[data-ryear]');
   if (ry) {
     if (RC.year !== ry.dataset.ryear) { RC.year = ry.dataset.ryear; RC.limit = 30; renderRaces(); }
@@ -5380,7 +5622,8 @@ document.addEventListener('click', async e => {
     return;
   }
   if (e.target.id === 'sq-settings') { SQ.settings = !SQ.settings; renderSquad(); return; }
-  if (e.target.id === 'he-new') { HE.adding = !HE.adding; renderSquad(); if (HE.adding) $('he-title').focus(); return; }
+  if (e.target.id === 'he-new') { openHardForm(); return; }
+  if (e.target.closest('#he-cancel')) { closeHardForm(); return; }
   if (e.target.id === 'he-save') { saveHardErg(); return; }
   if (e.target.closest('#he-past')) { HE.pastOpen = !HE.pastOpen; renderSquad(); return; }
   const heDel = e.target.closest('[data-he-del]');
@@ -5575,7 +5818,7 @@ document.addEventListener('click', async e => {
   if (S.joinCode && !S.trial) { selectTab('p-squad'); SQ.adding = true; refreshSquad(); }
   // In the background: only the erg form's hard erg tick box needs these
   // before the Board is opened, and it repaints when they arrive.
-  if (!S.trial) loadHardErgs().then(() => paintHardPicker(true));
+  if (!S.trial) loadHardErgs().then(() => { paintHardPicker(true); if (PROG.mode === 'hard') renderProgress(); });
 
   // tabs
   document.querySelectorAll('.tabs .tab').forEach(tab => {

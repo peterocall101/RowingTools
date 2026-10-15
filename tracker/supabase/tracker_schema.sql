@@ -620,6 +620,12 @@ create index if not exists tracker_hard_ergs_group_idx
 -- Set when the final ranking is saved (see tracker_freeze_hard_ergs). Only
 -- that definer function writes it: there is no UPDATE policy on this table.
 alter table public.tracker_hard_ergs add column if not exists frozen_at timestamptz;
+-- "Same piece as" an earlier hard erg, chosen by whoever sets it, so the
+-- squad's Progress cards combine them without each athlete doing it. Points
+-- at the earliest of the set (the app resolves that), so there is no chain
+-- to walk and deleting one link breaks only that link.
+alter table public.tracker_hard_ergs
+  add column if not exists same_as uuid references public.tracker_hard_ergs on delete set null;
 
 create table if not exists public.tracker_hard_erg_entries (
   hard_erg_id    uuid        not null references public.tracker_hard_ergs    on delete cascade,
@@ -640,7 +646,13 @@ create policy "squad reads hard ergs" on public.tracker_hard_ergs
 
 drop policy if exists "members set hard ergs" on public.tracker_hard_ergs;
 create policy "members set hard ergs" on public.tracker_hard_ergs
-  for insert with check (created_by = auth.uid() and public.is_group_member(group_id));
+  for insert with check (
+    created_by = auth.uid() and public.is_group_member(group_id)
+    -- a link only to a hard erg you can see, never a guessed id
+    and (same_as is null or exists (
+      select 1 from public.tracker_hard_ergs p
+      where p.id = same_as and public.is_group_member(p.group_id)))
+  );
 
 -- No UPDATE policy: nothing in the app edits a hard erg once set, and one
 -- would let a setter clear frozen_at and reopen a final ranking.
@@ -669,6 +681,24 @@ create policy "own hard erg tags" on public.tracker_hard_erg_entries
         and public.is_group_member(h.group_id)
     )
   );
+
+-- Which hard ergs an athlete counts as the same piece on Progress. With no
+-- row, hard ergs combine by matching title or a setter's same_as link; a
+-- row overrides that for this
+-- athlete only - combine_key is another card's key to merge into, or the
+-- hard erg's own id to keep it apart. Personal and owner-only: one athlete
+-- combining "2k test" with "2K TT" changes nothing for anyone else.
+create table if not exists public.tracker_hard_erg_groups (
+  profile_id  uuid not null default auth.uid() references public.profiles          on delete cascade,
+  hard_erg_id uuid not null                    references public.tracker_hard_ergs on delete cascade,
+  combine_key text not null check (length(combine_key) between 1 and 160),
+  primary key (profile_id, hard_erg_id)
+);
+alter table public.tracker_hard_erg_groups enable row level security;
+drop policy if exists "own hard erg groups" on public.tracker_hard_erg_groups;
+create policy "own hard erg groups" on public.tracker_hard_erg_groups
+  for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
+revoke all on public.tracker_hard_erg_groups from anon;
 
 commit;
 
@@ -1804,7 +1834,8 @@ select section, item, result from (
                ('groups'), ('group_members'), ('tracker_sharing'),
                ('tracker_shared_templates'), ('tracker_hard_ergs'),
                ('tracker_hard_erg_entries'), ('tracker_board_weeks'),
-               ('tracker_hard_erg_results'), ('tracker_app_events')) as t(tbl)
+               ('tracker_hard_erg_results'), ('tracker_app_events'),
+               ('tracker_hard_erg_groups')) as t(tbl)
 
   -- 3. Every column the app writes.
   union all

@@ -660,6 +660,19 @@ with its `is_group_member()` / `is_group_admin()` helpers. No new group model wa
   policy on `tracker_hard_ergs`, so `frozen_at` cannot be cleared from the app. On a
   phone the column sits above the board rather than under it.
 
+  **Hard ergs on Progress** (2026-10-15, `tracker_hard_erg_groups`): a **Hard ergs** button on the
+  third row of Progress gives one card per piece, with every attempt you tagged at it (best,
+  latest and change, then a table by date). A squad that sets "2k test" every term creates a new
+  hard erg each time, so cards combine hard ergs whose titles match, ignoring case and spacing, or
+  that the setter linked. **Setting a hard erg** opens a full-screen form (the **+ Set a hard erg**
+  button above the column) with an optional **Same piece as**, which stores `same_as` on the new
+  hard erg, pointing at the earliest of that piece, so the link combines cards for the whole squad.
+  The insert policy only accepts a link to a hard erg in a squad you are in. On a card,
+  **Same piece as...** combines it into another and **separate** splits one hard erg back out.
+  Those choices are per athlete and owner-only, and beat both titles and links. Hard
+  ergs come from squads you are in now, so a squad you have left takes its cards with it (your tags
+  went when you left anyway).
+
   **Erg screens** (2026-10-14): when an erg is logged *from a photo* and ticked as a hard erg
   attempt, a second tick box, **Show my erg screen too**, appears and defaults to on. If it stays
   on, a 1280px copy of the photo (redrawn through a canvas, so no EXIF or location) is uploaded to
