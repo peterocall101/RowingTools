@@ -1366,7 +1366,11 @@ begin
   if current_date < p_monday + 8 then
     raise exception 'The week of % is not finished and settled yet', p_monday;
   end if;
-  for g in select id from public.groups loop
+  -- Only squads that existed by the end of that week: a squad has no history
+  -- from before it was made. Without this the backfill below gave every new
+  -- squad empty weeks going back to the oldest squad's creation.
+  for g in select id from public.groups
+           where date_trunc('week', created_at)::date <= p_monday loop
     insert into public.tracker_board_weeks (group_id, week_start, profile_id, display_name, sharing, days_trained, sessions_total, sessions_weights, sessions_erg, sessions_water, sessions_cardio, sessions_core, erg_metres, erg_seconds, water_metres, water_seconds, cardio_seconds, races, races_top3, core_work_s, core_rounds, weights_sets, weights_volume)
     select g.id, p_monday, b.profile_id, b.display_name, b.sharing, b.days_trained, b.sessions_total, b.sessions_weights, b.sessions_erg, b.sessions_water, b.sessions_cardio, b.sessions_core, b.erg_metres, b.erg_seconds, b.water_metres, b.water_seconds, b.cardio_seconds, b.races, b.races_top3, b.core_work_s, b.core_rounds, b.weights_sets, b.weights_volume
     from public.tracker_board_rows(g.id, p_monday, p_monday + 6) b
@@ -1377,6 +1381,13 @@ begin
   return n;
 end;
 $$;
+
+-- One-off cleanup of weeks saved before that guard existed: drop any week
+-- that starts before its squad's own creation week.
+delete from public.tracker_board_weeks w
+using public.groups g
+where g.id = w.group_id
+  and w.week_start < date_trunc('week', g.created_at)::date;
 
 -- Backfill: every finished week since the oldest squad, a year at most. It
 -- uses today's members, the best that can be known now; from here on each
